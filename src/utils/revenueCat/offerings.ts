@@ -37,12 +37,17 @@ const demoPackages: DemoPackage[] = [
     offeringIdentifier: 'default',
     presentedOfferingContext: {},
   }
-] as unknown as PurchasesPackage[];
+];
+
+// Convert demo packages to the format expected by the app
+function convertDemoPackagesToPurchasesPackages(demos: DemoPackage[]): PurchasesPackage[] {
+  return demos as unknown as PurchasesPackage[];
+}
 
 export async function getOfferings(): Promise<PurchasesPackage[]> {
   if (!isCapacitorAvailable) {
     console.log('Web environment detected, returning demo packages');
-    return demoPackages;
+    return convertDemoPackagesToPurchasesPackages(demoPackages);
   }
   
   try {

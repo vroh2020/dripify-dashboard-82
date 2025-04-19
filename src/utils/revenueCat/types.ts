@@ -1,16 +1,25 @@
 
-import { PurchasesPackage, CustomerInfo } from '@revenuecat/purchases-capacitor';
+import { PurchasesPackage, CustomerInfo, PurchasesStoreProduct } from '@revenuecat/purchases-capacitor';
 
-export type { PurchasesPackage, CustomerInfo };
+export type { PurchasesPackage, CustomerInfo, PurchasesStoreProduct };
 
-export interface DemoPackage extends PurchasesPackage {
-  product: {
-    identifier: string;
-    title: string;
-    description: string;
-    price: number;
-    priceString: string;
-    currencyCode: string;
-    subscriptionPeriod: string;
-  };
+// Create a simplified product structure for demo purposes
+export interface DemoProduct {
+  identifier: string;
+  title: string;
+  description: string;
+  price: number;
+  priceString: string;
+  currencyCode: string;
+  subscriptionPeriod: string;
+}
+
+// Create a separate DemoPackage that doesn't extend PurchasesPackage
+export interface DemoPackage {
+  identifier: string;
+  packageType: string;
+  product: DemoProduct;
+  offering: string;
+  offeringIdentifier: string;
+  presentedOfferingContext: Record<string, unknown>;
 }

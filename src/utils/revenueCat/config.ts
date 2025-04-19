@@ -6,6 +6,10 @@ import { toast } from "@/hooks/use-toast";
 let isInitialized = false;
 export const isCapacitorAvailable = typeof Purchases !== 'undefined';
 
+export function isRevenueCatAvailable(): boolean {
+  return isCapacitorAvailable;
+}
+
 export async function getRevenueCatKey(): Promise<string> {
   try {
     console.log("Fetching RevenueCat key from Supabase function...");
