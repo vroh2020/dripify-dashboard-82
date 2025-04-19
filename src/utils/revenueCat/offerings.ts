@@ -51,11 +51,17 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
   }
   
   try {
+    console.log('Fetching RevenueCat offerings on mobile device...');
     const offerings = await Purchases.getOfferings();
+    
+    console.log('Offerings response:', JSON.stringify(offerings));
+    
     if (!offerings?.current?.availablePackages?.length) {
-      throw new Error('No offerings available');
+      console.warn('No offerings available from RevenueCat');
+      return convertDemoPackagesToPurchasesPackages(demoPackages);
     }
-    console.log('RevenueCat offerings retrieved:', offerings.current.availablePackages);
+    
+    console.log('RevenueCat offerings retrieved:', offerings.current.availablePackages.length);
     return offerings.current.availablePackages;
   } catch (error) {
     console.error('Failed to get offerings:', error);
@@ -64,6 +70,7 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
       description: "Failed to load subscription options",
       variant: "destructive",
     });
-    return [];
+    // Fallback to demo packages when there's an error
+    return convertDemoPackagesToPurchasesPackages(demoPackages);
   }
 }
