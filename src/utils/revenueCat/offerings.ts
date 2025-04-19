@@ -57,7 +57,15 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
     console.log('Offerings response:', JSON.stringify(offerings));
     
     if (!offerings?.current?.availablePackages?.length) {
-      console.warn('No offerings available from RevenueCat');
+      console.warn('No offerings available from RevenueCat - showing demo packages instead');
+      
+      // On iOS simulator/device, show a more helpful message specifically mentioning the setup needed
+      toast({
+        title: "Configuration Note",
+        description: "Products not configured in RevenueCat dashboard. Demo products shown instead.",
+        variant: "destructive",
+      });
+      
       return convertDemoPackagesToPurchasesPackages(demoPackages);
     }
     
@@ -65,11 +73,22 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
     return offerings.current.availablePackages;
   } catch (error) {
     console.error('Failed to get offerings:', error);
+    
+    // More informative error for mobile devices
+    let errorMessage = "Failed to load subscription options";
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const errorStr = String(error.message);
+      if (errorStr.includes('no products registered')) {
+        errorMessage = "No products registered in RevenueCat. Please see configuration guide.";
+      }
+    }
+    
     toast({
-      title: "Error",
-      description: "Failed to load subscription options",
+      title: "RevenueCat Setup Required",
+      description: errorMessage,
       variant: "destructive",
     });
+    
     // Fallback to demo packages when there's an error
     return convertDemoPackagesToPurchasesPackages(demoPackages);
   }

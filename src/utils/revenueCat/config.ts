@@ -35,22 +35,36 @@ export async function initializePurchases(userId?: string): Promise<void> {
     
     console.log('Initializing RevenueCat with configuration...');
     
+    // Debug output - this will help troubleshoot key problems
+    console.log(`Using RevenueCat public key: ${data.publicKey.substring(0, 5)}...`);
+    
     // Configure RevenueCat with the API key
     const config: PurchasesConfiguration = {
       apiKey: data.publicKey,
+      observerMode: false, // Force observerMode off to ensure purchases work
       ...(userId && { appUserID: userId })
     };
 
     await Purchases.configure(config);
     console.log('RevenueCat initialized successfully on mobile device');
+    
+    // Try to fetch customer info (important for validating setup)
+    try {
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      console.log('Customer info fetched successfully:', 
+        customerInfo ? 'Valid customer info object' : 'No customer info available');
+    } catch (customerError) {
+      console.warn('Unable to fetch customer info after initialization:', customerError);
+    }
+    
     isInitialized = true;
   } catch (error) {
     console.error('Failed to initialize RevenueCat:', error);
     isInitialized = true; // Prevent repeated initialization attempts
     if (isCapacitorAvailable) {
       toast({
-        title: "Error",
-        description: "Failed to initialize payment system",
+        title: "RevenueCat Setup",
+        description: "Please configure products in the RevenueCat dashboard",
         variant: "destructive",
       });
     }
