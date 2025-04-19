@@ -10,22 +10,6 @@ export function isRevenueCatAvailable(): boolean {
   return isCapacitorAvailable;
 }
 
-export async function getRevenueCatKey(): Promise<string> {
-  try {
-    console.log("Fetching RevenueCat key from Supabase function...");
-    const { data, error } = await supabase.functions.invoke('revenuecat-config');
-    
-    if (error) throw new Error(`Failed to invoke revenuecat-config: ${error.message}`);
-    if (!data?.publicKey) throw new Error('RevenueCat public key not found in response');
-    
-    console.log("Successfully retrieved RevenueCat key");
-    return data.publicKey;
-  } catch (error) {
-    console.error("Error in getRevenueCatKey:", error);
-    throw new Error(`Unable to fetch RevenueCat key: ${error.message}`);
-  }
-}
-
 export async function initializePurchases(userId?: string): Promise<void> {
   if (isInitialized) {
     console.log('RevenueCat already initialized');
@@ -39,9 +23,13 @@ export async function initializePurchases(userId?: string): Promise<void> {
   }
 
   try {
-    const publicKey = await getRevenueCatKey();
+    const { data, error } = await supabase.functions.invoke('revenuecat-config');
+    
+    if (error) throw new Error(`Failed to get RevenueCat config: ${error.message}`);
+    if (!data?.publicKey) throw new Error('RevenueCat public key not found');
+    
     const config: PurchasesConfiguration = {
-      apiKey: publicKey,
+      apiKey: data.publicKey,
       ...(userId && { appUserID: userId })
     };
 
@@ -54,7 +42,7 @@ export async function initializePurchases(userId?: string): Promise<void> {
     if (isCapacitorAvailable) {
       toast({
         title: "Error",
-        description: "Failed to initialize payment system. Please try again later.",
+        description: "Failed to initialize payment system",
         variant: "destructive",
       });
     }

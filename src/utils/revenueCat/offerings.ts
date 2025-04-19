@@ -52,14 +52,16 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
   
   try {
     const offerings = await Purchases.getOfferings();
-    const packages = offerings?.current?.availablePackages || [];
-    console.log('RevenueCat offerings retrieved:', packages.length);
-    return packages;
+    if (!offerings?.current?.availablePackages?.length) {
+      throw new Error('No offerings available');
+    }
+    console.log('RevenueCat offerings retrieved:', offerings.current.availablePackages);
+    return offerings.current.availablePackages;
   } catch (error) {
     console.error('Failed to get offerings:', error);
     toast({
       title: "Error",
-      description: "Failed to load subscription options. Please try again.",
+      description: "Failed to load subscription options",
       variant: "destructive",
     });
     return [];

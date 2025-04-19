@@ -9,7 +9,7 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<CustomerIn
     console.log('RevenueCat not available - web environment');
     toast({
       title: "Feature Not Available",
-      description: "Purchases are only available in the mobile app.",
+      description: "Purchases are only available in the mobile app",
       variant: "destructive",
     });
     return null;
@@ -18,11 +18,11 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<CustomerIn
   try {
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
     return customerInfo;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to purchase package:', error);
     toast({
       title: "Purchase Failed",
-      description: error.message || "Failed to complete purchase. Please try again.",
+      description: error.message || "Failed to complete purchase",
       variant: "destructive",
     });
     return null;

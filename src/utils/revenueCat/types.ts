@@ -14,7 +14,7 @@ export interface DemoProduct {
   subscriptionPeriod: string;
 }
 
-// Create a separate DemoPackage that doesn't extend PurchasesPackage
+// Create a separate DemoPackage that matches PurchasesPackage structure
 export interface DemoPackage {
   identifier: string;
   packageType: string;
