@@ -4,6 +4,9 @@ import { toast } from "@/hooks/use-toast";
 import { PurchasesPackage, CustomerInfo } from './types';
 import { isCapacitorAvailable } from './config';
 
+// Entitlement ID from your RevenueCat dashboard
+const PREMIUM_ENTITLEMENT_ID = 'entl31da330fef';
+
 export async function purchasePackage(pkg: PurchasesPackage): Promise<CustomerInfo | null> {
   if (!isCapacitorAvailable) {
     console.log('RevenueCat not available - web environment');
@@ -60,11 +63,14 @@ export async function hasActiveSubscription(): Promise<boolean> {
   if (!isCapacitorAvailable) return false;
   
   try {
-    console.log('Checking subscription status');
+    console.log('Checking subscription status using entitlement ID:', PREMIUM_ENTITLEMENT_ID);
     const { customerInfo } = await Purchases.getCustomerInfo();
-    const hasActive = Object.keys(customerInfo.entitlements.active).length > 0;
-    console.log('Active subscription:', hasActive);
-    return hasActive;
+    
+    // Check if the specific entitlement is active
+    const hasEntitlement = customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID] !== undefined;
+    console.log('Premium entitlement active:', hasEntitlement);
+    
+    return hasEntitlement;
   } catch (error) {
     console.error('Failed to check subscription status:', error);
     return false;
