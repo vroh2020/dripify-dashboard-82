@@ -1,4 +1,3 @@
-
 import { Purchases } from '@revenuecat/purchases-capacitor';
 import { toast } from "@/hooks/use-toast";
 import { PurchasesPackage, DemoPackage } from './types';
@@ -6,32 +5,16 @@ import { isCapacitorAvailable } from './config';
 
 const demoPackages: DemoPackage[] = [
   {
-    identifier: 'monthly',
+    identifier: 'gs_1299_1m',
     packageType: 'MONTHLY',
     product: {
-      identifier: 'premium_monthly',
-      title: 'Monthly Premium',
-      description: 'Unlimited style scans and personalized tips',
-      price: 4.99,
-      priceString: '$4.99/month',
+      identifier: 'gs_1299_1m',
+      title: 'Monthly $12.99',
+      description: 'Monthly subscription for Gen Style',
+      price: 12.99,
+      priceString: '$12.99/month',
       currencyCode: 'USD',
       subscriptionPeriod: 'P1M'
-    },
-    offering: 'default',
-    offeringIdentifier: 'default',
-    presentedOfferingContext: {},
-  },
-  {
-    identifier: 'yearly',
-    packageType: 'ANNUAL',
-    product: {
-      identifier: 'premium_yearly',
-      title: 'Annual Premium',
-      description: 'Our best value plan with additional perks',
-      price: 39.99,
-      priceString: '$39.99/year',
-      currencyCode: 'USD',
-      subscriptionPeriod: 'P1Y'
     },
     offering: 'default',
     offeringIdentifier: 'default',
@@ -39,7 +22,6 @@ const demoPackages: DemoPackage[] = [
   }
 ];
 
-// Convert demo packages to the format expected by the app
 function convertDemoPackagesToPurchasesPackages(demos: DemoPackage[]): PurchasesPackage[] {
   return demos as unknown as PurchasesPackage[];
 }
