@@ -1,3 +1,4 @@
+
 import { Purchases, PurchasesConfiguration } from '@revenuecat/purchases-capacitor';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -36,6 +37,8 @@ export async function initializePurchases(userId?: string): Promise<void> {
     
     const config: PurchasesConfiguration = {
       apiKey: data.publicKey,
+      // Debug mode to get more logs during development
+      debugLogsEnabled: true,
       ...(userId && { appUserID: userId })
     };
 
@@ -56,8 +59,8 @@ export async function initializePurchases(userId?: string): Promise<void> {
     isInitialized = true; // Prevent repeated initialization attempts
     if (isCapacitorAvailable) {
       toast({
-        title: "RevenueCat Setup",
-        description: "Please configure products in the RevenueCat dashboard",
+        title: "RevenueCat Configuration",
+        description: "Please add product 'gs_1299_1m' in the RevenueCat dashboard",
         variant: "destructive",
       });
     }

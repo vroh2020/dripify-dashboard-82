@@ -1,3 +1,4 @@
+
 import { Purchases } from '@revenuecat/purchases-capacitor';
 import { toast } from "@/hooks/use-toast";
 import { PurchasesPackage, DemoPackage } from './types';
@@ -41,10 +42,10 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
     if (!offerings?.current?.availablePackages?.length) {
       console.warn('No offerings available from RevenueCat - showing demo packages instead');
       
-      // On iOS simulator/device, show a more helpful message specifically mentioning the setup needed
+      // Show more specific error for missing product configuration
       toast({
-        title: "Configuration Note",
-        description: "Products not configured in RevenueCat dashboard. Demo products shown instead.",
+        title: "RevenueCat Configuration Required",
+        description: "You need to set up product 'gs_1299_1m' in the RevenueCat dashboard. Using demo products for now.",
         variant: "destructive",
       });
       
@@ -56,12 +57,12 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
   } catch (error) {
     console.error('Failed to get offerings:', error);
     
-    // More informative error for mobile devices
+    // More specific error message for missing products
     let errorMessage = "Failed to load subscription options";
     if (typeof error === 'object' && error !== null && 'message' in error) {
       const errorStr = String(error.message);
-      if (errorStr.includes('no products registered')) {
-        errorMessage = "No products registered in RevenueCat. Please see configuration guide.";
+      if (errorStr.includes('no products registered') || errorStr.includes('No products')) {
+        errorMessage = "Product 'gs_1299_1m' not found in RevenueCat. Please add it in the dashboard.";
       }
     }
     
