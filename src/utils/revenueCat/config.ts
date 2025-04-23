@@ -27,29 +27,44 @@ export async function initializePurchases(userId?: string): Promise<void> {
   }
 
   try {
+    console.log('Fetching RevenueCat config from Supabase function...');
     const { data, error } = await supabase.functions.invoke('revenuecat-config');
     
-    if (error) throw new Error(`Failed to get RevenueCat config: ${error.message}`);
-    if (!data?.publicKey) throw new Error('RevenueCat public key not found');
+    if (error) {
+      console.error('Supabase function error:', error);
+      throw new Error(`Failed to get RevenueCat config: ${error.message}`);
+    }
+    
+    if (!data?.publicKey) {
+      console.error('Invalid config data:', data);
+      throw new Error('RevenueCat public key not found');
+    }
     
     console.log('Initializing RevenueCat with configuration...');
     console.log(`Using RevenueCat public key: ${data.publicKey.substring(0, 5)}...`);
     
     const config: PurchasesConfiguration = {
       apiKey: data.publicKey,
-      // Using proper configuration options supported by PurchasesConfiguration
+      // Enable debug logs for development
+      debugLogsEnabled: true,
       ...(userId && { appUserID: userId })
     };
 
+    console.log('RevenueCat configuration:', JSON.stringify(config, (k, v) => k === 'apiKey' ? '[REDACTED]' : v));
+    
     await Purchases.configure(config);
     console.log('RevenueCat initialized successfully on mobile device');
     
     try {
       const { customerInfo } = await Purchases.getCustomerInfo();
       console.log('Customer info fetched successfully:', 
-        customerInfo ? 'Valid customer info object' : 'No customer info available');
+        customerInfo ? JSON.stringify({
+          originalAppUserId: customerInfo.originalAppUserId,
+          activeEntitlements: Object.keys(customerInfo.entitlements?.active || {}),
+          allExpirationDates: customerInfo.allExpirationDates ? 'Present' : 'Not present'
+        }) : 'No customer info available');
     } catch (customerError) {
-      console.warn('Unable to fetch customer info after initialization:', customerError);
+      console.error('Unable to fetch customer info after initialization:', customerError);
     }
     
     isInitialized = true;
@@ -59,7 +74,7 @@ export async function initializePurchases(userId?: string): Promise<void> {
     if (isCapacitorAvailable) {
       toast({
         title: "RevenueCat Configuration",
-        description: "Please add product 'gs_1299_1m' in the RevenueCat dashboard",
+        description: "Please check RevenueCat setup in Supabase and device configuration",
         variant: "destructive",
       });
     }

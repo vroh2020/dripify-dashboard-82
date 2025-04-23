@@ -14,16 +14,31 @@ serve(async (req) => {
 
   try {
     const publicKey = Deno.env.get('REVENUECAT_PUBLIC_KEY');
+    const appPlatform = req.headers.get('x-app-platform') || 'unknown';
     
     // For debugging
-    console.log("RevenueCat public key retrieved:", publicKey ? "Found key" : "Key not found");
+    console.log("RevenueCat config request from platform:", appPlatform);
+    console.log("RevenueCat public key retrieved:", publicKey ? `${publicKey.substring(0, 5)}...` : "Key not found");
     
-    if (!publicKey) {
+    // Check platform-specific keys if needed
+    let platformKey = publicKey;
+    if (appPlatform === 'ios') {
+      platformKey = Deno.env.get('REVENUECAT_IOS_KEY') || publicKey;
+    } else if (appPlatform === 'android') {
+      platformKey = Deno.env.get('REVENUECAT_ANDROID_KEY') || publicKey;
+    }
+    
+    if (!platformKey) {
       throw new Error('RevenueCat public key not configured');
     }
 
+    // Return key and debug info
     return new Response(
-      JSON.stringify({ publicKey }),
+      JSON.stringify({ 
+        publicKey: platformKey,
+        platform: appPlatform,
+        timestamp: new Date().toISOString()
+      }),
       { 
         headers: {
           ...corsHeaders,
@@ -35,7 +50,13 @@ serve(async (req) => {
     console.error("Error in revenuecat-config function:", error.message);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        env: {
+          hasKey: Boolean(Deno.env.get('REVENUECAT_PUBLIC_KEY'))
+        }
+      }),
       { 
         status: 500,
         headers: {
