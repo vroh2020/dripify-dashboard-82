@@ -4,6 +4,9 @@ import { toast } from "@/hooks/use-toast";
 import { PurchasesPackage, DemoPackage } from './types';
 import { isCapacitorAvailable } from './config';
 
+// Specific offering ID provided by user
+const SPECIFIC_OFFERING_ID = 'ofrng4657c81eae';
+
 const demoPackages: DemoPackage[] = [
   {
     identifier: 'gs_1299_1m',
@@ -17,8 +20,8 @@ const demoPackages: DemoPackage[] = [
       currencyCode: 'USD',
       subscriptionPeriod: 'P1M'
     },
-    offering: 'default',
-    offeringIdentifier: 'default',
+    offering: SPECIFIC_OFFERING_ID,
+    offeringIdentifier: SPECIFIC_OFFERING_ID,
     presentedOfferingContext: {},
   }
 ];
@@ -34,87 +37,58 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
   }
   
   try {
-    console.log('Fetching RevenueCat offerings on mobile device...');
-    
-    // Add additional debug info
-    console.log('Environment check: isCapacitorAvailable =', isCapacitorAvailable);
-    console.log('Purchases API available =', typeof Purchases !== 'undefined');
+    console.log(`Fetching RevenueCat offerings for specific offering: ${SPECIFIC_OFFERING_ID}`);
     
     if (typeof Purchases === 'undefined') {
       console.error('Purchases SDK is undefined');
       throw new Error('RevenueCat SDK not available');
     }
     
-    // Log available methods for debugging
-    console.log('Available RevenueCat methods:', 
-      Object.getOwnPropertyNames(Purchases).filter(m => typeof Purchases[m] === 'function'));
-    
     const offerings = await Purchases.getOfferings();
     
-    console.log('Offerings response:', JSON.stringify(offerings, null, 2));
+    console.log('Full offerings response:', JSON.stringify(offerings, null, 2));
     
-    if (!offerings) {
-      console.warn('No offerings object returned from RevenueCat');
-      return convertDemoPackagesToPurchasesPackages(demoPackages);
-    }
+    // Look for the specific offering by ID
+    const specificOffering = offerings.all[SPECIFIC_OFFERING_ID];
     
-    if (!offerings.current) {
-      console.warn('No current offering found in RevenueCat response');
+    if (!specificOffering) {
+      console.warn(`Specific offering ${SPECIFIC_OFFERING_ID} not found`);
       toast({
-        title: "RevenueCat Setup",
-        description: "No default offering found. Check your RevenueCat dashboard configuration.",
+        title: "Offering Not Found",
+        description: `Offering ${SPECIFIC_OFFERING_ID} is not configured in RevenueCat`,
         variant: "destructive",
       });
       return convertDemoPackagesToPurchasesPackages(demoPackages);
     }
     
-    if (!offerings.current.availablePackages?.length) {
-      console.warn('No packages available in current offering');
+    if (!specificOffering.availablePackages?.length) {
+      console.warn('No packages available in the specified offering');
       
-      // Show more specific error for missing product configuration
       toast({
-        title: "RevenueCat Products Missing",
-        description: "No products found in your RevenueCat offering. Check product configuration in RevenueCat dashboard.",
+        title: "No Products Available",
+        description: "No products found in the specified RevenueCat offering",
         variant: "destructive",
       });
       
       return convertDemoPackagesToPurchasesPackages(demoPackages);
     }
     
-    console.log('RevenueCat offerings retrieved:', offerings.current.availablePackages.length);
-    console.log('Package details:', offerings.current.availablePackages.map(pkg => ({
-      identifier: pkg.identifier,
-      productIdentifier: pkg.product.identifier,
-      title: pkg.product.title,
-      price: pkg.product.price
-    })));
+    console.log('Packages in specific offering:', 
+      specificOffering.availablePackages.map(pkg => ({
+        identifier: pkg.identifier,
+        productIdentifier: pkg.product.identifier,
+        title: pkg.product.title,
+        price: pkg.product.price
+      }))
+    );
     
-    return offerings.current.availablePackages;
+    return specificOffering.availablePackages;
   } catch (error) {
     console.error('Failed to get offerings:', error);
     
-    // More specific error message based on error type
-    let errorMessage = "Failed to load subscription options";
-    if (typeof error === 'object' && error !== null) {
-      console.error('Error details:', JSON.stringify(error));
-      
-      // Try to extract more detailed error info
-      if ('message' in error) {
-        const errorStr = String(error.message);
-        
-        if (errorStr.includes('no products registered') || errorStr.includes('No products')) {
-          errorMessage = "No products found in RevenueCat. Check product configuration in App Store Connect/Google Play.";
-        } else if (errorStr.includes('initialization') || errorStr.includes('configure')) {
-          errorMessage = "RevenueCat not properly initialized. Check API key configuration.";
-        } else if (errorStr.includes('network') || errorStr.includes('connection')) {
-          errorMessage = "Network error connecting to RevenueCat. Check internet connection.";
-        }
-      }
-    }
-    
     toast({
       title: "RevenueCat Error",
-      description: errorMessage,
+      description: "Failed to load subscription options",
       variant: "destructive",
     });
     
