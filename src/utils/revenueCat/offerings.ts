@@ -36,7 +36,10 @@ export async function getOfferings(): Promise<PurchasesPackage[]> {
   try {
     console.log('Fetching RevenueCat offerings on mobile device...');
     
-    // Check Purchases instance state
+    // Add additional debug info
+    console.log('Environment check: isCapacitorAvailable =', isCapacitorAvailable);
+    console.log('Purchases API available =', typeof Purchases !== 'undefined');
+    
     if (typeof Purchases === 'undefined') {
       console.error('Purchases SDK is undefined');
       throw new Error('RevenueCat SDK not available');

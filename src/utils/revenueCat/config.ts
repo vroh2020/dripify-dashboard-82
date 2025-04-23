@@ -45,8 +45,7 @@ export async function initializePurchases(userId?: string): Promise<void> {
     
     const config: PurchasesConfiguration = {
       apiKey: data.publicKey,
-      // Enable debug logs for development
-      debugLogsEnabled: true,
+      // Remove debugLogsEnabled as it's not in the type definition
       ...(userId && { appUserID: userId })
     };
 
