@@ -9,37 +9,28 @@ interface StyleLoadingOverlayProps {
   timeoutDuration?: number;
 }
 
+// More concise loading messages for faster display
 const loadingMessages = [
-  { text: "Scanning for cuffed jeans violations… 👖", emoji: "👖" },
-  { text: "Checking for excessive H&M energy… 🕵🏽‍♂️", emoji: "🕵️" },
-  { text: "Consulting with the fashion gods 👼🏾", emoji: "✨" },
-  { text: "Measuring drip levels… Might need goggles 😎", emoji: "💧" },
-  { text: "If this outfit talks back, we're running 😳", emoji: "🏃" },
-  { text: "Assembling roast or praise… 🔥", emoji: "📝" },
-  { text: "Calculating fashion-forward coefficient… 📊", emoji: "📈" },
-  { text: "Analyzing color coordination… 🎨", emoji: "🌈" },
-  { text: "Checking if those shoes still in season… 👞", emoji: "👠" },
-  { text: "Comparing to last season's lookbook… 📚", emoji: "📖" },
-  { text: "Ranking outfit on the drip scale… 💦", emoji: "🌊" },
+  { text: "Scanning your style... 👖", emoji: "👕" },
+  { text: "Analyzing color coordination... 🎨", emoji: "🌈" },
+  { text: "Checking fit and proportion... 📏", emoji: "✂️" },
+  { text: "Evaluating style coherence... 💫", emoji: "✨" },
+  { text: "Assessing accessories... ✨", emoji: "👜" },
+  { text: "Calculating overall score... 📊", emoji: "🔢" },
 ];
 
+// Simplified drip facts
 const dripFacts = [
   "The term 'drip' originated in Atlanta's hip-hop scene in the early 2010s",
-  "The average person will spend over $275,000 on clothes in their lifetime",
   "Blue jeans were invented in 1871 by Jacob Davis and Levi Strauss",
-  "The concept of 'fashion seasons' dates back to Charles Frederick Worth in the 1860s",
   "The Nike swoosh logo was designed for just $35 in 1971",
-  "The fashion industry is responsible for 10% of global carbon emissions",
-  "Coco Chanel introduced the 'little black dress' in the 1920s",
-  "The first fashion magazine was published in Germany in 1586",
-  "High heels were originally worn by men in the 17th century",
-  "The world's most expensive pair of shoes cost $17 million",
+  "Coco Chanel introduced the 'little black dress' in the 1920s"
 ];
 
 export const StyleLoadingOverlay = ({ 
   isAnalyzing, 
   onTimeout, 
-  timeoutDuration = 90000 
+  timeoutDuration = 45000 // Default reduced to 45 seconds
 }: StyleLoadingOverlayProps) => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -47,35 +38,35 @@ export const StyleLoadingOverlay = ({
   const [dripFactIndex, setDripFactIndex] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
 
-  // Message rotation
+  // Faster message rotation
   useEffect(() => {
     if (!isAnalyzing) return;
     
     const messageInterval = setInterval(() => {
       setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-    }, 5000);
+    }, 3000); // 3 seconds instead of 5
     
     return () => clearInterval(messageInterval);
   }, [isAnalyzing]);
 
-  // Progress bar simulation
+  // Progress bar simulation - faster progress
   useEffect(() => {
     if (!isAnalyzing) return;
     
-    // Show drip fact around halfway
+    // Show drip fact around 10 seconds in
     const dripFactTimer = setTimeout(() => {
       setDripFactIndex(Math.floor(Math.random() * dripFacts.length));
       setShowDripFact(true);
-      setTimeout(() => setShowDripFact(false), 8000);
-    }, 30000);
+      setTimeout(() => setShowDripFact(false), 6000); // Show for 6 seconds
+    }, 10000); // Show earlier at 10 seconds
     
-    // Progress bar update
+    // Progress bar update - faster progress
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         // Cap at 95% to show it's still "thinking"
         if (prev < 95) {
-          // Make progress faster at first, then slower 
-          const increment = prev < 60 ? 0.8 : 0.3;
+          // Make progress faster overall
+          const increment = prev < 60 ? 1.2 : 0.8; // Faster increments
           return prev + increment;
         }
         return prev;
@@ -131,7 +122,7 @@ export const StyleLoadingOverlay = ({
                 "radial-gradient(circle, rgba(155,135,245,0.4) 0%, rgba(155,135,245,0) 50%)"
               ]
             }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 6, repeat: Infinity, ease: "linear" }} // Faster animation
           />
         </div>
         
@@ -143,7 +134,7 @@ export const StyleLoadingOverlay = ({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.3 }} // Faster transitions
               className="flex flex-col items-center"
             >
               <span className="text-2xl mb-2">{loadingMessages[currentMessageIndex].emoji}</span>
@@ -152,7 +143,7 @@ export const StyleLoadingOverlay = ({
           </AnimatePresence>
         </div>
         
-        {/* Heat meter */}
+        {/* Heat meter - Slightly faster progress */}
         <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
           <motion.div 
             className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
@@ -175,14 +166,14 @@ export const StyleLoadingOverlay = ({
               exit={{ opacity: 0, scale: 0.9 }}
               className="mt-6 p-4 rounded-lg bg-[#1A1F2C]/80 border border-[#403E43]"
             >
-              <h4 className="text-sm font-bold text-[#9b87f5] mb-2">✨ DRIP FACT ✨</h4>
+              <h4 className="text-sm font-bold text-[#9b87f5] mb-2">✨ STYLE FACT ✨</h4>
               <p className="text-sm text-white/80">{dripFacts[dripFactIndex]}</p>
             </motion.div>
           )}
         </AnimatePresence>
         
-        {/* Timeout warning */}
-        {timeElapsed > 80000 && (
+        {/* Timeout warning - earlier warning */}
+        {timeElapsed > 35000 && (
           <motion.p 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

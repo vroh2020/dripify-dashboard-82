@@ -6,10 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const analyzeOutfit = async (imageBase64: string, style: string) => {
   try {
-    console.log('Sending image for analysis...');
+    console.log('Sending image for analysis using optimized function...');
+    const startTime = performance.now();
+    
     const { data, error } = await supabase.functions.invoke('analyze-style', {
       body: { image: imageBase64, style }
     });
+
+    const endTime = performance.now();
+    console.log(`Analysis completed in ${Math.round(endTime - startTime)}ms`);
 
     if (error) {
       console.error('Supabase function error:', error);
@@ -21,7 +26,7 @@ export const analyzeOutfit = async (imageBase64: string, style: string) => {
       throw new Error('Invalid response format from AI service');
     }
 
-    console.log('Analysis completed successfully:', data);
+    console.log('Analysis completed successfully');
     return data;
   } catch (error) {
     console.error('Analysis error:', error);

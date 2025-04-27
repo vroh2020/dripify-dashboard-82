@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleSelector } from "@/components/StyleSelector";
@@ -31,6 +32,7 @@ export const ScanView = () => {
     summary?: string;
   } | null>(null);
 
+  // Reduced timeout to 45 seconds since we're using a faster model
   const handleAnalyzeTimeout = () => {
     setAnalyzing(false);
     toast({
@@ -54,7 +56,7 @@ export const ScanView = () => {
     setAnalysisPhase("Starting analysis...");
     
     try {
-      console.log('Starting analysis...');
+      console.log('Starting analysis with file:', selectedImage.name, 'size:', Math.round(selectedImage.size / 1024), 'KB');
       
       const analysisResult = await analyzeStyle(selectedImage);
       
@@ -113,11 +115,11 @@ export const ScanView = () => {
       transition={{ duration: 0.5 }}
       className="px-4 relative"
     >
-      {/* Style Loading Overlay */}
+      {/* Style Loading Overlay - reduced timeout to 45 seconds */}
       <StyleLoadingOverlay 
         isAnalyzing={analyzing} 
         onTimeout={handleAnalyzeTimeout}
-        timeoutDuration={90000} // 90 seconds timeout
+        timeoutDuration={45000} // 45 seconds timeout (reduced from 90)
       />
 
       {!showResults ? (
