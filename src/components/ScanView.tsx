@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleSelector } from "@/components/StyleSelector";
@@ -7,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { useScanStore } from "@/store/scanStore";
-import { Sparkles, Camera } from "lucide-react";
+import { Sparkles, Camera, Save, Share2 } from "lucide-react";
 import { ScanLimitStatus } from "./ScanLimitStatus";
 import { useScanLimits } from "@/hooks/useScanLimits";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
