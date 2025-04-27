@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,7 @@ export const Auth = () => {
             toast({
               title: "Partial Success",
               description: "Account created, but some profile details could not be saved.",
-              variant: "warning"
+              variant: "default" // Changed from "warning" to "default" as warning is not an allowed variant
             });
           }
         }

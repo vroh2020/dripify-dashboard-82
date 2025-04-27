@@ -14,12 +14,14 @@ import { CheckCircle, AlertTriangle, XCircle } from "lucide-react"
 export function Toaster() {
   const { toasts } = useToast()
 
-  const getToastIcon = (variant?: "default" | "destructive" | "success") => {
+  const getToastIcon = (variant?: "default" | "destructive" | "success" | "warning") => {
     switch (variant) {
       case "destructive":
         return <XCircle className="h-5 w-5 text-destructive" />;
       case "success": 
         return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case "warning":
+        return <AlertTriangle className="h-5 w-5 text-orange-500" />; // Added icon for warning
       default:
         return <AlertTriangle className="h-5 w-5 text-orange-400" />;
     }
@@ -39,7 +41,7 @@ export function Toaster() {
             <Toast {...props} className="border border-white/10 backdrop-blur-lg">
               <div className="flex items-start gap-3">
                 <div className="mt-1">
-                  {getToastIcon(variant as "default" | "destructive" | "success")}
+                  {getToastIcon(variant as "default" | "destructive" | "success" | "warning")}
                 </div>
                 <div className="grid gap-1 flex-1">
                   {title && <ToastTitle>{title}</ToastTitle>}
