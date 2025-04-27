@@ -1,6 +1,6 @@
 
 import { motion } from "framer-motion";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, ChevronRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { StyleTip } from "@/types/styleTypes";
 import { useState } from "react";
