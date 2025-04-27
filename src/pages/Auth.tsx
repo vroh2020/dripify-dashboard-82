@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ChevronRight, Check, AlertCircle } from "lucide-react";
 import { getOfferings, purchasePackage, initializePurchases, PurchasesPackage, isRevenueCatAvailable } from "@/utils/revenueCat";
 
-type OnboardingStep = "welcome" | "gender" | "referral" | "pricing" | "auth" | "paywall";
+type OnboardingStep = "welcome" | "gender" | "referral" | "body" | "style" | "brands" | "pricing" | "auth" | "paywall";
 
 export const Auth = () => {
   const [email, setEmail] = useState("");
@@ -22,6 +23,10 @@ export const Auth = () => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [gender, setGender] = useState<string>("");
   const [referralSource, setReferralSource] = useState<string>("");
+  const [bodyType, setBodyType] = useState<string>("");
+  const [stylePreference, setStylePreference] = useState<string>("");
+  const [favoriteBrands, setFavoriteBrands] = useState<string[]>([]);
+  const [brandInput, setBrandInput] = useState<string>("");
   const [selectedPlan, setSelectedPlan] = useState<string>("free");
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [offerings, setOfferings] = useState<PurchasesPackage[]>([]);
@@ -97,6 +102,9 @@ export const Auth = () => {
               username: username,
               gender: gender,
               referral_source: referralSource,
+              body_type: bodyType,
+              style_preference: stylePreference,
+              favorite_brands: favoriteBrands,
               plan: selectedPlan
             }
           }
@@ -144,35 +152,6 @@ export const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        }
-      });
-      
-      if (error) {
-        console.error("Google sign-in error:", error);
-        throw error;
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An error occurred";
-      toast({
-        title: "Error with Google Sign In",
-        description: errorMessage,
-        variant: "destructive",
-      });
-      setLoading(false);
-    }
-  };
-
   const handlePurchase = async (pkg: PurchasesPackage) => {
     setIsSubscribing(true);
     try {
@@ -209,10 +188,24 @@ export const Auth = () => {
     }
   };
 
+  const addBrand = () => {
+    if (brandInput.trim() && !favoriteBrands.includes(brandInput.trim())) {
+      setFavoriteBrands([...favoriteBrands, brandInput.trim()]);
+      setBrandInput("");
+    }
+  };
+
+  const removeBrand = (brand: string) => {
+    setFavoriteBrands(favoriteBrands.filter(b => b !== brand));
+  };
+
   const nextStep = () => {
     if (currentStep === "welcome") setCurrentStep("gender");
     else if (currentStep === "gender" && gender) setCurrentStep("referral");
-    else if (currentStep === "referral" && referralSource) setCurrentStep("pricing");
+    else if (currentStep === "referral" && referralSource) setCurrentStep("body");
+    else if (currentStep === "body" && bodyType) setCurrentStep("style");
+    else if (currentStep === "style" && stylePreference) setCurrentStep("brands");
+    else if (currentStep === "brands") setCurrentStep("pricing");
     else if (currentStep === "pricing") {
       if (selectedPlan === "premium") {
         setCurrentStep("paywall");
@@ -226,7 +219,10 @@ export const Auth = () => {
   const prevStep = () => {
     if (currentStep === "gender") setCurrentStep("welcome");
     else if (currentStep === "referral") setCurrentStep("gender");
-    else if (currentStep === "pricing") setCurrentStep("referral");
+    else if (currentStep === "body") setCurrentStep("referral");
+    else if (currentStep === "style") setCurrentStep("body");
+    else if (currentStep === "brands") setCurrentStep("style");
+    else if (currentStep === "pricing") setCurrentStep("brands");
     else if (currentStep === "paywall") setCurrentStep("pricing");
     else if (currentStep === "auth") {
       if (selectedPlan === "premium") {
@@ -360,6 +356,167 @@ export const Auth = () => {
         <Button 
           onClick={nextStep} 
           disabled={!referralSource}
+          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+        >
+          Next <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </motion.div>
+  );
+
+  const renderBodyTypeSelection = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+    >
+      <h2 className="text-xl font-semibold text-white mb-6 text-center">What's your body type?</h2>
+      
+      <RadioGroup value={bodyType} onValueChange={setBodyType} className="gap-3">
+        <div className={`relative flex items-center rounded-md border ${bodyType === 'athletic' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setBodyType('athletic')}>
+          <RadioGroupItem value="athletic" id="athletic" className="absolute right-4" />
+          <Label htmlFor="athletic" className="flex-1 cursor-pointer text-white">Athletic</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${bodyType === 'slim' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setBodyType('slim')}>
+          <RadioGroupItem value="slim" id="slim" className="absolute right-4" />
+          <Label htmlFor="slim" className="flex-1 cursor-pointer text-white">Slim</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${bodyType === 'average' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setBodyType('average')}>
+          <RadioGroupItem value="average" id="average" className="absolute right-4" />
+          <Label htmlFor="average" className="flex-1 cursor-pointer text-white">Average</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${bodyType === 'curvy' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setBodyType('curvy')}>
+          <RadioGroupItem value="curvy" id="curvy" className="absolute right-4" />
+          <Label htmlFor="curvy" className="flex-1 cursor-pointer text-white">Curvy</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${bodyType === 'plus-size' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setBodyType('plus-size')}>
+          <RadioGroupItem value="plus-size" id="plus-size" className="absolute right-4" />
+          <Label htmlFor="plus-size" className="flex-1 cursor-pointer text-white">Plus Size</Label>
+        </div>
+      </RadioGroup>
+      
+      <div className="flex mt-8 gap-3">
+        <Button variant="outline" onClick={prevStep} className="flex-1">
+          Back
+        </Button>
+        <Button 
+          onClick={nextStep} 
+          disabled={!bodyType}
+          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+        >
+          Next <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </motion.div>
+  );
+
+  const renderStylePreference = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+    >
+      <h2 className="text-xl font-semibold text-white mb-6 text-center">What style do you prefer?</h2>
+      
+      <RadioGroup value={stylePreference} onValueChange={setStylePreference} className="gap-3">
+        <div className={`relative flex items-center rounded-md border ${stylePreference === 'casual' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setStylePreference('casual')}>
+          <RadioGroupItem value="casual" id="casual" className="absolute right-4" />
+          <Label htmlFor="casual" className="flex-1 cursor-pointer text-white">Casual</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${stylePreference === 'business' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setStylePreference('business')}>
+          <RadioGroupItem value="business" id="business" className="absolute right-4" />
+          <Label htmlFor="business" className="flex-1 cursor-pointer text-white">Business</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${stylePreference === 'streetwear' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setStylePreference('streetwear')}>
+          <RadioGroupItem value="streetwear" id="streetwear" className="absolute right-4" />
+          <Label htmlFor="streetwear" className="flex-1 cursor-pointer text-white">Streetwear</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${stylePreference === 'vintage' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setStylePreference('vintage')}>
+          <RadioGroupItem value="vintage" id="vintage" className="absolute right-4" />
+          <Label htmlFor="vintage" className="flex-1 cursor-pointer text-white">Vintage</Label>
+        </div>
+        
+        <div className={`relative flex items-center rounded-md border ${stylePreference === 'minimalist' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'} p-4 cursor-pointer`} onClick={() => setStylePreference('minimalist')}>
+          <RadioGroupItem value="minimalist" id="minimalist" className="absolute right-4" />
+          <Label htmlFor="minimalist" className="flex-1 cursor-pointer text-white">Minimalist</Label>
+        </div>
+      </RadioGroup>
+      
+      <div className="flex mt-8 gap-3">
+        <Button variant="outline" onClick={prevStep} className="flex-1">
+          Back
+        </Button>
+        <Button 
+          onClick={nextStep} 
+          disabled={!stylePreference}
+          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+        >
+          Next <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </motion.div>
+  );
+
+  const renderFavoriteBrands = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+    >
+      <h2 className="text-xl font-semibold text-white mb-6 text-center">What are your favorite clothing brands?</h2>
+      
+      <div className="space-y-4">
+        <div className="flex gap-2">
+          <Input
+            value={brandInput}
+            onChange={(e) => setBrandInput(e.target.value)}
+            placeholder="Add a brand"
+            className="bg-white/5 border-white/10 text-white"
+          />
+          <Button 
+            onClick={addBrand}
+            className="bg-purple-500 hover:bg-purple-600"
+            type="button"
+          >
+            Add
+          </Button>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 mt-4">
+          {favoriteBrands.map((brand, index) => (
+            <div 
+              key={index} 
+              className="bg-purple-500/20 text-white px-3 py-1 rounded-full flex items-center gap-1"
+            >
+              {brand}
+              <button 
+                onClick={() => removeBrand(brand)}
+                className="ml-1 text-white/70 hover:text-white"
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {favoriteBrands.length === 0 && (
+            <p className="text-sm text-white/50">No brands added yet. Add your favorite brands above.</p>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex mt-8 gap-3">
+        <Button variant="outline" onClick={prevStep} className="flex-1">
+          Back
+        </Button>
+        <Button 
+          onClick={nextStep} 
           className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
         >
           Next <ChevronRight className="ml-2 h-4 w-4" />
@@ -525,29 +682,6 @@ export const Auth = () => {
         {isSignUp ? "Create your account" : "Sign in to your account"}
       </h2>
       
-      <Button
-        onClick={handleGoogleSignIn}
-        disabled={loading}
-        className="w-full mb-4 bg-white text-gray-800 hover:bg-gray-200 flex items-center justify-center gap-2"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24px" height="24px">
-          <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-          <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-          <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-          <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
-        </svg>
-        {isSignUp ? "Sign up with Google" : "Sign in with Google"}
-      </Button>
-      
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-white/20"></div>
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="px-2 bg-black/30 text-white/60">OR</span>
-        </div>
-      </div>
-      
       <form onSubmit={handleAuth} className="space-y-4">
         {isSignUp && (
           <div className="space-y-2">
@@ -638,6 +772,9 @@ export const Auth = () => {
               {currentStep === "welcome" && renderWelcomeScreen()}
               {currentStep === "gender" && renderGenderSelection()}
               {currentStep === "referral" && renderReferralSource()}
+              {currentStep === "body" && renderBodyTypeSelection()}
+              {currentStep === "style" && renderStylePreference()}
+              {currentStep === "brands" && renderFavoriteBrands()}
               {currentStep === "pricing" && renderPricingPlans()}
               {currentStep === "paywall" && renderPaywallScreen()}
               {currentStep === "auth" && renderAuthScreen()}
