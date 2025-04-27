@@ -94,11 +94,11 @@ IMPORTANT:
 - Focus on positives first, then gentle suggestions
 - Be warm and encouraging in all feedback
 - Use upbeat, positive language
-- Start directly with "**Overall Score:**"`;
+- Start directly with "**Overall Score:**`;
 
-    console.log('Calling Nebius API with Gemma for style analysis...');
+    console.log('Calling Nebius API with Qwen for style analysis...');
     
-    // Call the Nebius API with Gemma model instead of Qwen
+    // Only changing the model, keeping everything else exactly the same
     const response = await fetch('https://api.studio.nebius.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -107,7 +107,7 @@ IMPORTANT:
         'Accept': '*/*'
       },
       body: JSON.stringify({
-        model: "google/gemma-3-27b-it",
+        model: "Qwen/Qwen2-VL-7B-Instruct",
         temperature: 0.7,
         top_p: 0.9,
         top_k: 50,
