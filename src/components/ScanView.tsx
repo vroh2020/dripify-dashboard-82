@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleSelector } from "@/components/StyleSelector";
@@ -16,6 +15,7 @@ import { CategoryBreakdown } from "./analysis/CategoryBreakdown";
 import { StyleTips } from "./analysis/StyleTips";
 import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
 import type { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
+import { useSession } from "@/hooks/useSession";
 
 export const ScanView = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -35,6 +35,7 @@ export const ScanView = () => {
   } | null>(null);
 
   const { dailyScansRemaining, refreshScanCount } = useScanLimits();
+  const { user } = useSession();
 
   const handleAnalyzeTimeout = () => {
     setAnalyzing(false);
@@ -55,7 +56,7 @@ export const ScanView = () => {
       return;
     }
 
-    if (dailyScansRemaining !== null && dailyScansRemaining <= 0) {
+    if (user && dailyScansRemaining !== null && dailyScansRemaining <= 0) {
       toast({
         title: "Daily Limit Reached",
         description: "You've reached your daily limit of 3 style scans. Please try again tomorrow!",
@@ -76,7 +77,9 @@ export const ScanView = () => {
       setResult(analysisResult);
       setLatestScan(analysisResult);
       
-      await refreshScanCount();
+      if (user) {
+        await refreshScanCount();
+      }
       
       toast({
         title: "Analysis Complete",
@@ -94,7 +97,9 @@ export const ScanView = () => {
       const errorMessage = error instanceof Error ? error.message : "There was an error analyzing your image";
       
       if (errorMessage.includes('Daily scan limit')) {
-        await refreshScanCount();
+        if (user) {
+          await refreshScanCount();
+        }
         toast({
           title: "Daily Limit Exceeded",
           description: "You've reached your daily limit of 3 style scans. Please try again tomorrow!",
@@ -150,7 +155,7 @@ export const ScanView = () => {
       {!showResults ? (
         <Card className="backdrop-blur-xl bg-black/30 border-white/10">
           <CardContent className="space-y-8 p-8">
-            <ScanLimitStatus />
+            {user && <ScanLimitStatus />}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
