@@ -1,26 +1,14 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 import { parseAnalysis } from '@/utils/analysisParser';
 
-// Maximum size for image uploads (in bytes) - 3MB
-const MAX_IMAGE_SIZE = 3 * 1024 * 1024;
-// Maximum image dimension for processing
-const MAX_IMAGE_DIMENSION = 1800;
-
 export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult> => {
   try {
-    console.log('Starting style analysis with file size:', Math.round(imageFile.size / 1024), 'KB');
-    
-    // Optimize image before uploading if needed
-    const optimizedImage = await optimizeImage(imageFile);
-    console.log('Image optimized. New size:', Math.round(optimizedImage.size / 1024), 'KB');
-    
     // Convert image to base64
-    const base64Image = await fileToBase64(optimizedImage);
+    const base64Image = await fileToBase64(imageFile);
     
-    console.log('Starting style analysis API call...');
+    console.log('Starting style analysis...');
     const startTime = performance.now();
     
     // Call the analyze-style Supabase function
@@ -52,7 +40,7 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
     }
     
     // Upload image to Supabase Storage
-    const imageUrl = await uploadImageToSupabase(optimizedImage);
+    const imageUrl = await uploadImageToSupabase(imageFile);
     console.log('Image uploaded to Supabase:', imageUrl);
     
     // Get user info for database save
@@ -108,70 +96,6 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
   }
 };
 
-// Optimize image before uploading - resize and compress if needed
-const optimizeImage = async (imageFile: File): Promise<File> => {
-  // If image is already small enough, return as is
-  if (imageFile.size <= MAX_IMAGE_SIZE) {
-    return imageFile;
-  }
-  
-  try {
-    console.log('Image needs optimization');
-    const image = await createImageBitmap(imageFile);
-    
-    // Calculate new dimensions while maintaining aspect ratio
-    let width = image.width;
-    let height = image.height;
-    
-    if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
-      if (width > height) {
-        height = Math.round((height * MAX_IMAGE_DIMENSION) / width);
-        width = MAX_IMAGE_DIMENSION;
-      } else {
-        width = Math.round((width * MAX_IMAGE_DIMENSION) / height);
-        height = MAX_IMAGE_DIMENSION;
-      }
-    }
-    
-    // Create a canvas to draw the resized image
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) {
-      console.error('Could not get canvas context');
-      return imageFile;
-    }
-    
-    // Draw the image on the canvas with the new dimensions
-    ctx.drawImage(image, 0, 0, width, height);
-    
-    // Convert the canvas to a blob with compression
-    const blob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob(
-        (blob) => resolve(blob || new Blob()),
-        'image/jpeg',
-        0.85 // compression quality
-      );
-    });
-    
-    // Create a new file from the blob
-    const optimizedFile = new File([blob], imageFile.name, {
-      type: 'image/jpeg',
-      lastModified: Date.now(),
-    });
-    
-    console.log('Original size:', Math.round(imageFile.size / 1024), 'KB');
-    console.log('Optimized size:', Math.round(optimizedFile.size / 1024), 'KB');
-    
-    return optimizedFile;
-  } catch (error) {
-    console.error('Error optimizing image:', error);
-    return imageFile; // Return original on error
-  }
-};
-
 // Upload image to Supabase Storage
 const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
   try {
@@ -199,7 +123,7 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
   }
 };
 
-// Optimized fileToBase64 function
+// Convert file to base64 - optimized for speed
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
