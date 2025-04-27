@@ -43,7 +43,20 @@ export const useStatsStore = create<StatsState>((set) => ({
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (!analyses || analyses.length === 0) return;
+      if (!analyses || analyses.length === 0) {
+        set({
+          stats: {
+            averageScore: 0,
+            streak: 0,
+            totalScans: 0,
+            bestScore: 0,
+            bestCategory: 'N/A',
+            lastScan: 'No scans yet',
+            improvedCategories: 0
+          }
+        });
+        return;
+      }
 
       // Calculate average score
       const totalScore = analyses.reduce((sum, analysis) => sum + analysis.total_score, 0);
@@ -52,18 +65,24 @@ export const useStatsStore = create<StatsState>((set) => ({
       // Get best score
       const bestScore = Math.max(...analyses.map(a => a.total_score));
 
-      // Get current streak
+      // Get current streak from the most recent analysis
       const currentStreak = analyses[0]?.streak_count || 0;
 
       // Calculate best category
       const categoryScores: Record<string, { total: number; count: number }> = {};
+      
       analyses.forEach(analysis => {
-        if (analysis.breakdown && typeof analysis.breakdown === 'object') {
-          const breakdown = Array.isArray(analysis.breakdown) 
-            ? analysis.breakdown 
-            : JSON.parse(analysis.breakdown as string);
-          
-          breakdown.forEach((item: { category: string; score: number }) => {
+        if (analysis.breakdown) {
+          const breakdownArray = typeof analysis.breakdown === 'string' 
+            ? JSON.parse(analysis.breakdown)
+            : Array.isArray(analysis.breakdown)
+              ? analysis.breakdown
+              : Object.entries(analysis.breakdown).map(([category, score]) => ({
+                  category,
+                  score: typeof score === 'number' ? score : 0
+                }));
+
+          breakdownArray.forEach((item: { category: string; score: number }) => {
             if (!categoryScores[item.category]) {
               categoryScores[item.category] = { total: 0, count: 0 };
             }
@@ -75,6 +94,7 @@ export const useStatsStore = create<StatsState>((set) => ({
 
       let bestCategory = 'N/A';
       let highestAverage = 0;
+      
       Object.entries(categoryScores).forEach(([category, data]) => {
         const average = data.total / data.count;
         if (average > highestAverage) {
@@ -83,20 +103,20 @@ export const useStatsStore = create<StatsState>((set) => ({
         }
       });
 
-      // Calculate improved categories
+      // Calculate improved categories by comparing first and last scan
       let improvedCategories = 0;
       if (analyses.length >= 2) {
         const oldestAnalysis = analyses[analyses.length - 1];
         const newestAnalysis = analyses[0];
         
         if (oldestAnalysis.breakdown && newestAnalysis.breakdown) {
-          const oldBreakdown = Array.isArray(oldestAnalysis.breakdown) 
-            ? oldestAnalysis.breakdown 
-            : JSON.parse(oldestAnalysis.breakdown as string);
-          
-          const newBreakdown = Array.isArray(newestAnalysis.breakdown) 
-            ? newestAnalysis.breakdown 
-            : JSON.parse(newestAnalysis.breakdown as string);
+          const oldBreakdown = typeof oldestAnalysis.breakdown === 'string'
+            ? JSON.parse(oldestAnalysis.breakdown)
+            : oldestAnalysis.breakdown;
+            
+          const newBreakdown = typeof newestAnalysis.breakdown === 'string'
+            ? JSON.parse(newestAnalysis.breakdown)
+            : newestAnalysis.breakdown;
           
           const oldScores: Record<string, number> = {};
           oldBreakdown.forEach((item: { category: string; score: number }) => {
@@ -104,7 +124,7 @@ export const useStatsStore = create<StatsState>((set) => ({
           });
           
           newBreakdown.forEach((item: { category: string; score: number }) => {
-            if (oldScores[item.category] && item.score > oldScores[item.category]) {
+            if (oldScores[item.category] !== undefined && item.score > oldScores[item.category]) {
               improvedCategories++;
             }
           });
@@ -130,6 +150,17 @@ export const useStatsStore = create<StatsState>((set) => ({
       });
     } catch (error) {
       console.error('Error fetching user stats:', error);
+      set({
+        stats: {
+          averageScore: 0,
+          streak: 0,
+          totalScans: 0,
+          bestScore: 0,
+          bestCategory: 'N/A',
+          lastScan: 'Error loading stats',
+          improvedCategories: 0
+        }
+      });
     }
   }
 }));

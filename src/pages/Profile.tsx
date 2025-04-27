@@ -4,10 +4,11 @@ import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useStatsStore } from "@/store/statsStore";
 
 interface Breakdown {
   category: string;
@@ -18,14 +19,7 @@ interface Breakdown {
 
 const Profile = () => {
   const [profile, setProfile] = useState<{ username: string; avatar_url: string | null, id: string } | null>(null);
-  const [styleStats, setStyleStats] = useState({
-    totalScans: 0,
-    averageScore: 0,
-    bestCategory: '',
-    lastScan: '',
-    improvedCategories: 0,
-    styleStreak: 0,
-  });
+  const { stats, fetchUserStats } = useStatsStore();
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -33,8 +27,7 @@ const Profile = () => {
 
   useEffect(() => {
     fetchProfile();
-    fetchStyleStats();
-
+    
     // Set up real-time subscription for profile updates
     const profileChannel = supabase
       .channel('profile_changes')
@@ -59,8 +52,11 @@ const Profile = () => {
           schema: 'public', 
           table: 'style_analyses' 
         }, 
-        () => {
-          fetchStyleStats();
+        async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            fetchUserStats(user.id);
+          }
         }
       )
       .subscribe();
@@ -69,7 +65,18 @@ const Profile = () => {
       supabase.removeChannel(profileChannel);
       supabase.removeChannel(analysisChannel);
     };
-  }, []);
+  }, [fetchUserStats]);
+
+  useEffect(() => {
+    const initializeStats = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        fetchUserStats(user.id);
+      }
+    };
+    
+    initializeStats();
+  }, [fetchUserStats]);
 
   const fetchProfile = async () => {
     try {
@@ -137,37 +144,6 @@ const Profile = () => {
     }
   };
 
-  const fetchStyleStats = async () => {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { stats } = useStatsStore.getState();
-      setStyleStats({
-        totalScans: stats.totalScans,
-        averageScore: stats.averageScore,
-        bestCategory: stats.bestCategory,
-        lastScan: stats.lastScan,
-        improvedCategories: stats.improvedCategories,
-        styleStreak: stats.streak,
-      });
-
-    } catch (error) {
-      console.error('Error in fetchStyleStats:', error);
-      toast({
-        title: "Error loading stats",
-        description: "Could not load your style statistics",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAvatarUpdate = (url: string) => {
     if (profile) {
       setProfile({
@@ -225,15 +201,15 @@ const Profile = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Total Scans:</p>
-                  <p className="text-white font-medium">{styleStats.totalScans}</p>
+                  <p className="text-white font-medium">{stats.totalScans}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Average Score:</p>
-                  <p className="text-white font-medium">{styleStats.averageScore}</p>
+                  <p className="text-white font-medium">{stats.averageScore}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Best Category:</p>
-                  <p className="text-white font-medium">{styleStats.bestCategory}</p>
+                  <p className="text-white font-medium">{stats.bestCategory}</p>
                 </div>
               </div>
             </CardContent>
@@ -245,15 +221,15 @@ const Profile = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Last Scan:</p>
-                  <p className="text-white font-medium">{styleStats.lastScan || "No scans yet"}</p>
+                  <p className="text-white font-medium">{stats.lastScan}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Improved Categories:</p>
-                  <p className="text-white font-medium">{styleStats.improvedCategories}</p>
+                  <p className="text-white font-medium">{stats.improvedCategories}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Style Streak:</p>
-                  <p className="text-white font-medium">{styleStats.styleStreak} days</p>
+                  <p className="text-white font-medium">{stats.streak} days</p>
                 </div>
               </div>
             </CardContent>
