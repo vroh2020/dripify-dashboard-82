@@ -20,11 +20,16 @@ export const useScanLimits = () => {
         return;
       }
 
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date().toISOString().split('T')[0] + 'T00:00:00Z';
+      
+      console.log('Checking scans for today:', today);
+      
       const { count, error } = await supabase
         .from('style_analyses')
         .select('id', { count: 'exact' })
         .eq('user_id', user.id)
-        .gte('scan_date', new Date().toISOString().split('T')[0]);
+        .gte('scan_date', today);
 
       if (error) {
         console.error('Error fetching scan count:', error);
@@ -32,7 +37,9 @@ export const useScanLimits = () => {
         setDailyScansRemaining(3);
       } else {
         // Calculate remaining scans (max 3)
-        setDailyScansRemaining(3 - (count || 0));
+        const remaining = 3 - (count || 0);
+        console.log(`Scans today: ${count}, Remaining: ${remaining}`);
+        setDailyScansRemaining(remaining);
       }
     } catch (error) {
       console.error('Error in fetchScanCount:', error);
