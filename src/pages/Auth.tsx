@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,7 +55,7 @@ export const Auth = () => {
           options: {
             data: {
               username: username,
-              gender: gender,
+              gender,
               referral_source: referralSource,
               body_type: bodyType,
               style_preference: stylePreference,
@@ -73,6 +73,32 @@ export const Auth = () => {
             throw new Error(errorBody.message || "Please wait before trying again.");
           }
           throw signUpError;
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              gender,
+              referral_source: referralSource,
+              body_type: bodyType,
+              style_preferences: [stylePreference],
+              favorite_brands: favoriteBrands,
+              onboarding_completed: true,
+              onboarding_date: new Date().toISOString()
+            })
+            .eq('id', user.id);
+
+          if (profileError) {
+            console.error('Error updating profile:', profileError);
+            toast({
+              title: "Partial Success",
+              description: "Account created, but some profile details could not be saved.",
+              variant: "warning"
+            });
+          }
         }
 
         toast({
