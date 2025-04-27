@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,14 @@ export const Auth = () => {
     if (fromSignOut) {
       setCurrentStep("auth");
       setIsSignUp(false);
+      // Clear the URL parameter to prevent state persistence
+      window.history.replaceState({}, '', '/auth');
+    } else if (location.pathname === '/auth') {
+      // If user directly visits /auth, show login form
+      setCurrentStep("auth");
+      setIsSignUp(false);
     } else {
+      // Only show welcome/onboarding for new users
       setCurrentStep("welcome");
       setIsSignUp(true);
     }
@@ -735,3 +743,5 @@ export const Auth = () => {
     </AnimatePresence>
   );
 };
+
+export default Auth;
