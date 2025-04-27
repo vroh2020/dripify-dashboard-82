@@ -15,6 +15,8 @@ interface UserStats {
 
 type StatsState = {
   stats: UserStats;
+  isLoading: boolean;
+  error: string | null;
   fetchUserStats: (userId?: string) => Promise<void>;
 };
 
@@ -28,20 +30,36 @@ export const useStatsStore = create<StatsState>((set) => ({
     lastScan: 'No scans yet',
     improvedCategories: 0
   },
+  isLoading: false,
+  error: null,
   fetchUserStats: async (userId?: string) => {
     try {
+      set({ isLoading: true, error: null });
+      
       if (!userId) {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          set({ isLoading: false });
+          return;
+        }
         userId = user.id;
       }
 
       // Get all analyses for the user
-      const { data: analyses } = await supabase
+      const { data: analyses, error } = await supabase
         .from('style_analyses')
         .select('total_score, breakdown, created_at, streak_count, scan_date')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching analyses:', error);
+        set({ 
+          isLoading: false, 
+          error: 'Failed to fetch analyses' 
+        });
+        return;
+      }
 
       if (!analyses || analyses.length === 0) {
         set({
@@ -53,7 +71,8 @@ export const useStatsStore = create<StatsState>((set) => ({
             bestCategory: 'N/A',
             lastScan: 'No scans yet',
             improvedCategories: 0
-          }
+          },
+          isLoading: false
         });
         return;
       }
@@ -73,22 +92,26 @@ export const useStatsStore = create<StatsState>((set) => ({
       
       analyses.forEach(analysis => {
         if (analysis.breakdown) {
-          const breakdownArray = typeof analysis.breakdown === 'string' 
-            ? JSON.parse(analysis.breakdown)
-            : Array.isArray(analysis.breakdown)
-              ? analysis.breakdown
-              : Object.entries(analysis.breakdown).map(([category, score]) => ({
-                  category,
-                  score: typeof score === 'number' ? score : 0
-                }));
+          try {
+            const breakdownArray = typeof analysis.breakdown === 'string' 
+              ? JSON.parse(analysis.breakdown)
+              : Array.isArray(analysis.breakdown)
+                ? analysis.breakdown
+                : Object.entries(analysis.breakdown).map(([category, score]) => ({
+                    category,
+                    score: typeof score === 'number' ? score : 0
+                  }));
 
-          breakdownArray.forEach((item: { category: string; score: number }) => {
-            if (!categoryScores[item.category]) {
-              categoryScores[item.category] = { total: 0, count: 0 };
-            }
-            categoryScores[item.category].total += item.score;
-            categoryScores[item.category].count += 1;
-          });
+            breakdownArray.forEach((item: { category: string; score: number }) => {
+              if (!categoryScores[item.category]) {
+                categoryScores[item.category] = { total: 0, count: 0 };
+              }
+              categoryScores[item.category].total += item.score;
+              categoryScores[item.category].count += 1;
+            });
+          } catch (e) {
+            console.error('Error parsing breakdown:', e);
+          }
         }
       });
 
@@ -106,28 +129,36 @@ export const useStatsStore = create<StatsState>((set) => ({
       // Calculate improved categories by comparing first and last scan
       let improvedCategories = 0;
       if (analyses.length >= 2) {
-        const oldestAnalysis = analyses[analyses.length - 1];
-        const newestAnalysis = analyses[0];
-        
-        if (oldestAnalysis.breakdown && newestAnalysis.breakdown) {
-          const oldBreakdown = typeof oldestAnalysis.breakdown === 'string'
-            ? JSON.parse(oldestAnalysis.breakdown)
-            : oldestAnalysis.breakdown;
+        try {
+          const oldestAnalysis = analyses[analyses.length - 1];
+          const newestAnalysis = analyses[0];
+          
+          if (oldestAnalysis.breakdown && newestAnalysis.breakdown) {
+            const oldBreakdown = typeof oldestAnalysis.breakdown === 'string'
+              ? JSON.parse(oldestAnalysis.breakdown)
+              : oldestAnalysis.breakdown;
+              
+            const newBreakdown = typeof newestAnalysis.breakdown === 'string'
+              ? JSON.parse(newestAnalysis.breakdown)
+              : newestAnalysis.breakdown;
             
-          const newBreakdown = typeof newestAnalysis.breakdown === 'string'
-            ? JSON.parse(newestAnalysis.breakdown)
-            : newestAnalysis.breakdown;
-          
-          const oldScores: Record<string, number> = {};
-          oldBreakdown.forEach((item: { category: string; score: number }) => {
-            oldScores[item.category] = item.score;
-          });
-          
-          newBreakdown.forEach((item: { category: string; score: number }) => {
-            if (oldScores[item.category] !== undefined && item.score > oldScores[item.category]) {
-              improvedCategories++;
+            const oldScores: Record<string, number> = {};
+            if (Array.isArray(oldBreakdown)) {
+              oldBreakdown.forEach((item: { category: string; score: number }) => {
+                oldScores[item.category] = item.score;
+              });
             }
-          });
+            
+            if (Array.isArray(newBreakdown)) {
+              newBreakdown.forEach((item: { category: string; score: number }) => {
+                if (oldScores[item.category] !== undefined && item.score > oldScores[item.category]) {
+                  improvedCategories++;
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error calculating improved categories:', e);
         }
       }
 
@@ -146,11 +177,14 @@ export const useStatsStore = create<StatsState>((set) => ({
           bestCategory,
           lastScan,
           improvedCategories
-        }
+        },
+        isLoading: false
       });
     } catch (error) {
       console.error('Error fetching user stats:', error);
       set({
+        isLoading: false,
+        error: 'Error loading stats',
         stats: {
           averageScore: 0,
           streak: 0,

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
@@ -19,7 +20,7 @@ interface Breakdown {
 
 const Profile = () => {
   const [profile, setProfile] = useState<{ username: string; avatar_url: string | null, id: string } | null>(null);
-  const { stats, fetchUserStats } = useStatsStore();
+  const { stats, isLoading, error, fetchUserStats } = useStatsStore();
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -153,7 +154,7 @@ const Profile = () => {
     }
   };
 
-  if (loading) {
+  if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1F3D] py-8 px-4 flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-[#9b87f5] border-t-transparent animate-spin" />
@@ -201,15 +202,15 @@ const Profile = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Total Scans:</p>
-                  <p className="text-white font-medium">{stats.totalScans}</p>
+                  <p className="text-white font-medium">{stats.totalScans || 0}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Average Score:</p>
-                  <p className="text-white font-medium">{stats.averageScore}</p>
+                  <p className="text-white font-medium">{stats.averageScore || 0}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Best Category:</p>
-                  <p className="text-white font-medium">{stats.bestCategory}</p>
+                  <p className="text-white font-medium">{stats.bestCategory || 'N/A'}</p>
                 </div>
               </div>
             </CardContent>
@@ -221,20 +222,28 @@ const Profile = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Last Scan:</p>
-                  <p className="text-white font-medium">{stats.lastScan}</p>
+                  <p className="text-white font-medium">{stats.lastScan || 'No scans yet'}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Improved Categories:</p>
-                  <p className="text-white font-medium">{stats.improvedCategories}</p>
+                  <p className="text-white font-medium">{stats.improvedCategories || 0}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Style Streak:</p>
-                  <p className="text-white font-medium">{stats.streak} days</p>
+                  <p className="text-white font-medium">{stats.streak || 0} days</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {error && (
+          <Card className="bg-red-500/10 backdrop-blur-lg border-red-500/30">
+            <CardContent className="p-4">
+              <p className="text-red-400 text-center">{error}</p>
+            </CardContent>
+          </Card>
+        )}
       </motion.div>
     </div>
   );
