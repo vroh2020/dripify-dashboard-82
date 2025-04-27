@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
