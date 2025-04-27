@@ -1,7 +1,13 @@
 
 import { motion } from "framer-motion";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface DashboardHeaderProps {
   hasScans: boolean;
@@ -26,14 +32,22 @@ export const DashboardHeader = ({ hasScans, totalScans, onSignOut }: DashboardHe
             : "Let's discover your unique style"}
         </p>
       </div>
-      <Button 
-        variant="ghost" 
-        size="icon"
-        onClick={onSignOut}
-        className="hover:bg-white/10"
-      >
-        <LogOut className="h-5 w-5 text-white/60" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="hover:bg-white/10">
+            <Settings className="h-5 w-5 text-white/60" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 bg-black/90 border-white/10">
+          <DropdownMenuItem 
+            className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+            onClick={onSignOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </motion.div>
   );
 };
