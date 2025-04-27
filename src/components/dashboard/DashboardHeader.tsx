@@ -1,15 +1,13 @@
 
 import { motion } from "framer-motion";
-import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface DashboardHeaderProps {
   hasScans: boolean;
   totalScans: number;
-  onSignOut: () => void;
 }
 
-export const DashboardHeader = ({ hasScans, totalScans, onSignOut }: DashboardHeaderProps) => {
+export const DashboardHeader = ({ hasScans, totalScans }: DashboardHeaderProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -26,14 +24,6 @@ export const DashboardHeader = ({ hasScans, totalScans, onSignOut }: DashboardHe
             : "Let's discover your unique style"}
         </p>
       </div>
-      <Button 
-        variant="ghost" 
-        size="icon"
-        onClick={onSignOut}
-        className="hover:bg-white/10"
-      >
-        <LogOut className="h-5 w-5 text-white/60" />
-      </Button>
     </motion.div>
   );
 };
