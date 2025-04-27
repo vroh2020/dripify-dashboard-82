@@ -78,7 +78,9 @@ export const ScanView = () => {
       setLatestScan(analysisResult);
       
       if (user) {
-        await refreshScanCount();
+        setTimeout(() => {
+          refreshScanCount();
+        }, 500);
       }
       
       toast({
@@ -98,7 +100,7 @@ export const ScanView = () => {
       
       if (errorMessage.includes('Daily scan limit')) {
         if (user) {
-          await refreshScanCount();
+          refreshScanCount();
         }
         toast({
           title: "Daily Limit Exceeded",

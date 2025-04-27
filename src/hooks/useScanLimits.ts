@@ -20,16 +20,27 @@ export const useScanLimits = () => {
         return;
       }
 
-      // Get today's date in YYYY-MM-DD format
-      const today = new Date().toISOString().split('T')[0] + 'T00:00:00Z';
+      // Get current date in user's timezone
+      const now = new Date();
       
-      console.log('Checking scans for today:', today);
+      // Create start of day in ISO format (midnight)
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      const startOfDayISO = startOfDay.toISOString();
+      
+      // Create end of day in ISO format (23:59:59.999)
+      const endOfDay = new Date(now);
+      endOfDay.setHours(23, 59, 59, 999);
+      const endOfDayISO = endOfDay.toISOString();
+      
+      console.log(`Checking scans between: ${startOfDayISO} and ${endOfDayISO}`);
       
       const { count, error } = await supabase
         .from('style_analyses')
         .select('id', { count: 'exact' })
         .eq('user_id', user.id)
-        .gte('scan_date', today);
+        .gte('scan_date', startOfDayISO)
+        .lte('scan_date', endOfDayISO);
 
       if (error) {
         console.error('Error fetching scan count:', error);
@@ -37,7 +48,7 @@ export const useScanLimits = () => {
         setDailyScansRemaining(3);
       } else {
         // Calculate remaining scans (max 3)
-        const remaining = 3 - (count || 0);
+        const remaining = Math.max(0, 3 - (count || 0));
         console.log(`Scans today: ${count}, Remaining: ${remaining}`);
         setDailyScansRemaining(remaining);
       }
@@ -52,6 +63,28 @@ export const useScanLimits = () => {
 
   useEffect(() => {
     fetchScanCount();
+    
+    // Set up a realtime subscription to update the count when new scans are added
+    const channel = supabase
+      .channel('style_analyses_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'style_analyses',
+          filter: user ? `user_id=eq.${user.id}` : undefined
+        },
+        () => {
+          console.log('Style analysis changed, refreshing scan count');
+          fetchScanCount();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   return {
