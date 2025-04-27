@@ -20,7 +20,7 @@ export const Auth = () => {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>("auth");
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [gender, setGender] = useState<string>("");
   const [referralSource, setReferralSource] = useState<string>("");
   const [bodyType, setBodyType] = useState<string>("");
@@ -41,25 +41,45 @@ export const Auth = () => {
         navigate("/");
       }
     });
-
-    const params = new URLSearchParams(window.location.search);
-    const fromSignOut = params.get('from') === 'signout';
-    
-    if (fromSignOut) {
-      setCurrentStep("auth");
-      setIsSignUp(false);
-      // Clear the URL parameter to prevent state persistence
-      window.history.replaceState({}, '', '/auth');
-    } else if (location.pathname === '/auth') {
-      // If user directly visits /auth, show login form
-      setCurrentStep("auth");
-      setIsSignUp(false);
-    } else {
-      // Only show welcome/onboarding for new users
-      setCurrentStep("welcome");
-      setIsSignUp(true);
-    }
   }, [navigate]);
+
+  useEffect(() => {
+    const loadOfferings = async () => {
+      if (currentStep !== "paywall") return;
+      
+      setIsLoadingOfferings(true);
+      try {
+        await initializePurchases('anonymous');
+        
+        setIsWebEnvironment(!isRevenueCatAvailable());
+        
+        const packages = await getOfferings();
+        
+        if (packages.length > 0) {
+          setOfferings(packages);
+          console.log("Loaded packages:", packages);
+        } else {
+          console.warn("No packages returned from getOfferings");
+          toast({
+            title: "No Packages Available",
+            description: "No subscription packages were found. Please try again later.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load offerings:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load subscription options. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingOfferings(false);
+      }
+    };
+
+    loadOfferings();
+  }, [currentStep, toast]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -659,88 +679,110 @@ export const Auth = () => {
       exit={{ opacity: 0, y: -20 }}
     >
       <h2 className="text-xl font-semibold text-white mb-6 text-center">
-        {isSignUp ? "Create your account" : "Welcome back"}
+        {isSignUp ? "Create your account" : "Sign in to your account"}
       </h2>
       
       <form onSubmit={handleAuth} className="space-y-4">
         {isSignUp && (
           <div className="space-y-2">
             <Label htmlFor="username" className="text-white">Username</Label>
-            <Input 
+            <Input
               id="username"
-              type="text" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              required
               className="bg-white/5 border-white/10 text-white"
               placeholder="Choose a username"
             />
           </div>
         )}
-        
         <div className="space-y-2">
           <Label htmlFor="email" className="text-white">Email</Label>
-          <Input 
+          <Input
             id="email"
-            type="email" 
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
             className="bg-white/5 border-white/10 text-white"
             placeholder="Enter your email"
-            required
           />
         </div>
-        
         <div className="space-y-2">
           <Label htmlFor="password" className="text-white">Password</Label>
-          <Input 
+          <Input
             id="password"
-            type="password" 
+            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="bg-white/5 border-white/10 text-white"
-            placeholder="Enter your password"
             required
+            className="bg-white/5 border-white/10 text-white"
+            placeholder="Choose a password"
           />
         </div>
-        
-        <Button 
-          type="submit" 
-          disabled={loading}
-          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-        >
-          {loading ? "Processing..." : (isSignUp ? "Sign Up" : "Sign In")}
-        </Button>
-        
-        <div className="text-center mt-4">
-          <p className="text-white/70 text-sm">
-            {isSignUp 
-              ? "Already have an account? " 
-              : "Don't have an account? "}
-            <button 
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-purple-400 hover:underline"
-            >
-              {isSignUp ? "Sign In" : "Sign Up"}
-            </button>
-          </p>
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            onClick={prevStep}
+            variant="outline"
+            className="flex-1"
+          >
+            Back
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+          >
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                {isSignUp ? "Signing up..." : "Signing in..."}
+              </div>
+            ) : (
+              <>{isSignUp ? "Sign up" : "Sign in"}</>
+            )}
+          </Button>
+        </div>
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-sm text-white/60 hover:text-white"
+          >
+            {isSignUp
+              ? "Already have an account? Sign in"
+              : "Don't have an account? Sign up"}
+          </button>
         </div>
       </form>
     </motion.div>
   );
 
   return (
-    <AnimatePresence>
-      {currentStep === "welcome" && renderWelcomeScreen()}
-      {currentStep === "gender" && renderGenderSelection()}
-      {currentStep === "referral" && renderReferralSource()}
-      {currentStep === "body" && renderBodyTypeSelection()}
-      {currentStep === "style" && renderStylePreference()}
-      {currentStep === "brands" && renderFavoriteBrands()}
-      {currentStep === "pricing" && renderPricingPlans()}
-      {currentStep === "paywall" && renderPaywallScreen()}
-      {currentStep === "auth" && renderAuthScreen()}
-    </AnimatePresence>
+    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1F3D] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md"
+      >
+        <Card className="backdrop-blur-xl bg-black/30 border-white/10">
+          <CardContent className="pt-6">
+            <AnimatePresence mode="wait">
+              {currentStep === "welcome" && renderWelcomeScreen()}
+              {currentStep === "gender" && renderGenderSelection()}
+              {currentStep === "referral" && renderReferralSource()}
+              {currentStep === "body" && renderBodyTypeSelection()}
+              {currentStep === "style" && renderStylePreference()}
+              {currentStep === "brands" && renderFavoriteBrands()}
+              {currentStep === "pricing" && renderPricingPlans()}
+              {currentStep === "paywall" && renderPaywallScreen()}
+              {currentStep === "auth" && renderAuthScreen()}
+            </AnimatePresence>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
   );
 };
 
