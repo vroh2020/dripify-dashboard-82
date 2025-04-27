@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -43,17 +42,13 @@ export const DashboardView = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Transform the data to ensure it matches the StyleAnalysis type
         const processedData: StyleAnalysis[] = data.map(analysis => {
-          // Transform breakdown from Json to ScoreBreakdown[] if needed
           let typedBreakdown: ScoreBreakdown[] = [];
           
           if (analysis.breakdown && typeof analysis.breakdown === 'object') {
-            // If it's already an array, cast it
             if (Array.isArray(analysis.breakdown)) {
               typedBreakdown = analysis.breakdown as unknown as ScoreBreakdown[];
             } 
-            // If it's a JSON string that needs parsing
             else if (typeof analysis.breakdown === 'string') {
               try {
                 typedBreakdown = JSON.parse(analysis.breakdown) as ScoreBreakdown[];
@@ -156,7 +151,6 @@ export const DashboardView = () => {
       <DashboardHeader 
         hasScans={hasScans} 
         totalScans={stats.totalScans} 
-        onSignOut={handleSignOut}
       />
 
       {!hasScans ? (
