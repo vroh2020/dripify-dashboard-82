@@ -8,10 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ChevronRight, Check, AlertCircle } from "lucide-react";
-import { getOfferings, purchasePackage, initializePurchases, PurchasesPackage, isRevenueCatAvailable } from "@/utils/revenueCat";
+import { ChevronRight, Check } from "lucide-react";
 
-type OnboardingStep = "welcome" | "gender" | "referral" | "body" | "style" | "brands" | "pricing" | "auth" | "paywall";
+type OnboardingStep = "welcome" | "gender" | "referral" | "body" | "style" | "brands" | "auth";
 
 export const Auth = () => {
   const [email, setEmail] = useState("");
@@ -26,11 +25,6 @@ export const Auth = () => {
   const [stylePreference, setStylePreference] = useState<string>("");
   const [favoriteBrands, setFavoriteBrands] = useState<string[]>([]);
   const [brandInput, setBrandInput] = useState<string>("");
-  const [selectedPlan, setSelectedPlan] = useState<string>("free");
-  const [isSubscribing, setIsSubscribing] = useState(false);
-  const [offerings, setOfferings] = useState<PurchasesPackage[]>([]);
-  const [isLoadingOfferings, setIsLoadingOfferings] = useState(false);
-  const [isWebEnvironment, setIsWebEnvironment] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,44 +35,6 @@ export const Auth = () => {
       }
     });
   }, [navigate]);
-
-  useEffect(() => {
-    const loadOfferings = async () => {
-      if (currentStep !== "paywall") return;
-      
-      setIsLoadingOfferings(true);
-      try {
-        await initializePurchases('anonymous');
-        
-        setIsWebEnvironment(!isRevenueCatAvailable());
-        
-        const packages = await getOfferings();
-        
-        if (packages.length > 0) {
-          setOfferings(packages);
-          console.log("Loaded packages:", packages);
-        } else {
-          console.warn("No packages returned from getOfferings");
-          toast({
-            title: "No Packages Available",
-            description: "No subscription packages were found. Please try again later.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load offerings:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load subscription options. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoadingOfferings(false);
-      }
-    };
-
-    loadOfferings();
-  }, [currentStep, toast]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,8 +59,7 @@ export const Auth = () => {
               referral_source: referralSource,
               body_type: bodyType,
               style_preference: stylePreference,
-              favorite_brands: favoriteBrands,
-              plan: selectedPlan
+              favorite_brands: favoriteBrands
             }
           }
         });
@@ -151,42 +106,6 @@ export const Auth = () => {
     }
   };
 
-  const handlePurchase = async (pkg: PurchasesPackage) => {
-    setIsSubscribing(true);
-    try {
-      if (isWebEnvironment) {
-        setTimeout(() => {
-          toast({
-            title: "Success",
-            description: "Demo subscription activated. In the real app, this would process through the App Store or Google Play.",
-            variant: "success",
-          });
-          setCurrentStep("auth");
-        }, 1500);
-        return;
-      }
-      
-      const customerInfo = await purchasePackage(pkg);
-      if (customerInfo) {
-        toast({
-          title: "Success",
-          description: "Subscription purchased successfully!",
-          variant: "success",
-        });
-        setCurrentStep("auth");
-      }
-    } catch (error) {
-      console.error('Failed to purchase:', error);
-      toast({
-        title: "Error",
-        description: "Failed to complete purchase. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubscribing(false);
-    }
-  };
-
   const addBrand = () => {
     if (brandInput.trim() && !favoriteBrands.includes(brandInput.trim())) {
       setFavoriteBrands([...favoriteBrands, brandInput.trim()]);
@@ -204,15 +123,7 @@ export const Auth = () => {
     else if (currentStep === "referral" && referralSource) setCurrentStep("body");
     else if (currentStep === "body" && bodyType) setCurrentStep("style");
     else if (currentStep === "style" && stylePreference) setCurrentStep("brands");
-    else if (currentStep === "brands") setCurrentStep("pricing");
-    else if (currentStep === "pricing") {
-      if (selectedPlan === "premium") {
-        setCurrentStep("paywall");
-      } else {
-        setCurrentStep("auth");
-      }
-    }
-    else if (currentStep === "paywall") setCurrentStep("auth");
+    else if (currentStep === "brands") setCurrentStep("auth");
   };
 
   const prevStep = () => {
@@ -221,15 +132,7 @@ export const Auth = () => {
     else if (currentStep === "body") setCurrentStep("referral");
     else if (currentStep === "style") setCurrentStep("body");
     else if (currentStep === "brands") setCurrentStep("style");
-    else if (currentStep === "pricing") setCurrentStep("brands");
-    else if (currentStep === "paywall") setCurrentStep("pricing");
-    else if (currentStep === "auth") {
-      if (selectedPlan === "premium") {
-        setCurrentStep("paywall");
-      } else {
-        setCurrentStep("pricing");
-      }
-    }
+    else if (currentStep === "auth") setCurrentStep("brands");
   };
 
   const renderWelcomeScreen = () => (
@@ -524,153 +427,6 @@ export const Auth = () => {
     </motion.div>
   );
 
-  const renderPricingPlans = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-    >
-      <h2 className="text-xl font-semibold text-white mb-6 text-center">Choose your plan</h2>
-      
-      <div className="space-y-4">
-        <div 
-          className={`relative rounded-lg border p-4 ${selectedPlan === 'free' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'}`}
-          onClick={() => setSelectedPlan('free')}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-white">Free</h3>
-              <p className="text-sm text-gray-400">Basic style analysis</p>
-            </div>
-            <p className="font-semibold text-white">$0</p>
-          </div>
-          <ul className="mt-4 space-y-2 text-sm">
-            <li className="flex items-center text-white">
-              <Check className="mr-2 h-4 w-4 text-green-500" /> 3 style scans per month
-            </li>
-            <li className="flex items-center text-white">
-              <Check className="mr-2 h-4 w-4 text-green-500" /> Basic style tips
-            </li>
-          </ul>
-          {selectedPlan === 'free' && (
-            <div className="absolute -top-2 -right-2 bg-purple-500 rounded-full p-1">
-              <Check className="h-4 w-4 text-white" />
-            </div>
-          )}
-        </div>
-        
-        <div 
-          className={`relative rounded-lg border p-4 ${selectedPlan === 'premium' ? 'border-purple-500 bg-purple-500/10' : 'border-white/10'}`}
-          onClick={() => setSelectedPlan('premium')}
-        >
-          <div className="absolute -top-3 right-3 bg-gradient-to-r from-yellow-400 to-yellow-600 text-black text-xs px-2 py-1 rounded-full">
-            POPULAR
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-white">Premium</h3>
-              <p className="text-sm text-gray-400">Advanced fashion analysis</p>
-            </div>
-            <div>
-              <p className="font-semibold text-white">$12.99<span className="text-xs text-gray-400">/month</span></p>
-            </div>
-          </div>
-          <ul className="mt-4 space-y-2 text-sm">
-            <li className="flex items-center text-white">
-              <Check className="mr-2 h-4 w-4 text-green-500" /> Unlimited style scans
-            </li>
-            <li className="flex items-center text-white">
-              <Check className="mr-2 h-4 w-4 text-green-500" /> Detailed analysis reports
-            </li>
-            <li className="flex items-center text-white">
-              <Check className="mr-2 h-4 w-4 text-green-500" /> Personalized shopping tips
-            </li>
-          </ul>
-          {selectedPlan === 'premium' && (
-            <div className="absolute -top-2 -right-2 bg-purple-500 rounded-full p-1">
-              <Check className="h-4 w-4 text-white" />
-            </div>
-          )}
-        </div>
-      </div>
-      
-      <div className="flex mt-8 gap-3">
-        <Button variant="outline" onClick={prevStep} className="flex-1">
-          Back
-        </Button>
-        <Button 
-          onClick={nextStep} 
-          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-        >
-          {selectedPlan === 'free' ? 'Continue with Free' : 'Continue with Premium'}
-        </Button>
-      </div>
-    </motion.div>
-  );
-
-  const renderPaywallScreen = () => (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-col space-y-6"
-    >
-      <h2 className="text-2xl font-bold text-white text-center mb-4">Choose Your Subscription</h2>
-      
-      {isWebEnvironment && (
-        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-md p-3 mb-4">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
-            <p className="text-sm text-white/80">
-              This is a demo of the subscription flow. In the actual mobile app, you would be redirected to the App Store or Google Play for payment processing.
-            </p>
-          </div>
-        </div>
-      )}
-      
-      {isLoadingOfferings ? (
-        <div className="flex justify-center py-10">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      ) : offerings.length > 0 ? (
-        <div className="space-y-4">
-          {offerings.map((pkg) => (
-            <div 
-              key={pkg.identifier}
-              className="border border-purple-400/30 rounded-lg p-5 bg-purple-500/5 hover:bg-purple-500/10 transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-white font-medium">{pkg.product.title}</h3>
-                  <p className="text-gray-400 text-sm">{pkg.product.description}</p>
-                  <p className="text-purple-300 font-bold mt-2">{pkg.product.priceString}</p>
-                </div>
-                <Button
-                  onClick={() => handlePurchase(pkg)}
-                  disabled={isSubscribing}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                >
-                  {isSubscribing ? "Processing..." : "Subscribe"}
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8 text-white">
-          <p>No subscription packages available at this time.</p>
-          <p className="text-sm text-gray-400 mt-2">Please try again later or contact support.</p>
-        </div>
-      )}
-      
-      <div className="flex justify-center mt-4">
-        <Button variant="outline" onClick={prevStep}>
-          Back to Plans
-        </Button>
-      </div>
-    </motion.div>
-  );
-
   const renderAuthScreen = () => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -774,8 +530,6 @@ export const Auth = () => {
               {currentStep === "body" && renderBodyTypeSelection()}
               {currentStep === "style" && renderStylePreference()}
               {currentStep === "brands" && renderFavoriteBrands()}
-              {currentStep === "pricing" && renderPricingPlans()}
-              {currentStep === "paywall" && renderPaywallScreen()}
               {currentStep === "auth" && renderAuthScreen()}
             </AnimatePresence>
           </CardContent>
