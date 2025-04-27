@@ -13,6 +13,7 @@ import {
 import { useScanStore } from "@/store/scanStore";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
+import { StyleTips } from "./analysis/StyleTips";
 import { StyleTip } from "@/types/styleTypes";
 
 export const TipsView = () => {
@@ -83,8 +84,13 @@ export const TipsView = () => {
             </p>
           </div>
           
+          {/* Show the new StyleTips component for a cleaner, more organized view */}
+          <div className="mb-8">
+            <StyleTips tips={filteredTips} />
+          </div>
+          
           {categories.length > 0 && (
-            <div className="flex gap-2 flex-wrap mb-4">
+            <div className="flex gap-2 flex-wrap mt-8">
               <button
                 onClick={() => setSelectedCategory(null)}
                 className={`text-xs rounded-full px-3 py-1 ${
@@ -111,79 +117,14 @@ export const TipsView = () => {
             </div>
           )}
           
-          <ScrollArea className="h-[70vh] pr-4">
-            <div className="space-y-5">
-              {filteredTips.length > 0 ? (
-                filteredTips.map((tip, index) => (
-                  <motion.div
-                    key={`${tip.category}-${index}`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <Card className={`
-                      backdrop-blur-lg border-white/10 transition-all duration-300 
-                      hover:shadow-lg hover:border-purple-500/20
-                      ${tip.level === 'advanced' 
-                        ? 'bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-purple-500/20' 
-                        : 'bg-gradient-to-br from-[#1A1F2C]/90 to-[#2C1F3D]/90 border-white/10'}
-                    `}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-full flex-shrink-0 ${
-                            tip.level === 'advanced' 
-                              ? 'bg-pink-500/20' 
-                              : tip.level === 'beginner'
-                                ? 'bg-blue-500/20'
-                                : 'bg-purple-500/20'
-                          }`}>
-                            {tip.level === 'advanced' ? (
-                              <Sparkles className="w-4 h-4 text-pink-400" />
-                            ) : (
-                              <Lightbulb className="w-4 h-4 text-purple-400" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm text-white/90 leading-relaxed">{tip.tip}</p>
-                            <div className="flex items-center mt-2">
-                              <span className="text-xs text-white/50">{tip.category}</span>
-                              <div className="ml-auto">
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                  tip.level === 'advanced'
-                                    ? 'bg-pink-500/20 text-pink-300'
-                                    : tip.level === 'beginner'
-                                      ? 'bg-blue-500/20 text-blue-300'
-                                      : 'bg-purple-500/20 text-purple-300'
-                                }`}>
-                                  {tip.level}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-white/50">
-                  {selectedCategory 
-                    ? `No tips available for ${selectedCategory}`
-                    : 'No style tips available'
-                  }
-                </div>
-              )}
-              
-              <div className="flex justify-center mt-6">
-                <Button 
-                  onClick={() => navigate('/scan')}
-                  className="bg-purple-500 hover:bg-purple-600"
-                >
-                  Analyze Another Outfit
-                </Button>
-              </div>
-            </div>
-          </ScrollArea>
+          <div className="flex justify-center mt-6">
+            <Button 
+              onClick={() => navigate('/scan')}
+              className="bg-purple-500 hover:bg-purple-600"
+            >
+              Analyze Another Outfit
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
