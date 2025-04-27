@@ -41,7 +41,6 @@ export const Auth = () => {
       }
     });
 
-    // Check if this is a sign-out return
     const params = new URLSearchParams(window.location.search);
     const fromSignOut = params.get('from') === 'signout';
     
@@ -49,7 +48,6 @@ export const Auth = () => {
       setCurrentStep("auth");
       setIsSignUp(false);
     } else {
-      // Only show welcome for new users
       setCurrentStep("welcome");
       setIsSignUp(true);
     }
@@ -660,3 +658,80 @@ export const Auth = () => {
         {isSignUp && (
           <div className="space-y-2">
             <Label htmlFor="username" className="text-white">Username</Label>
+            <Input 
+              id="username"
+              type="text" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="bg-white/5 border-white/10 text-white"
+              placeholder="Choose a username"
+            />
+          </div>
+        )}
+        
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-white">Email</Label>
+          <Input 
+            id="email"
+            type="email" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="bg-white/5 border-white/10 text-white"
+            placeholder="Enter your email"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="password" className="text-white">Password</Label>
+          <Input 
+            id="password"
+            type="password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="bg-white/5 border-white/10 text-white"
+            placeholder="Enter your password"
+            required
+          />
+        </div>
+        
+        <Button 
+          type="submit" 
+          disabled={loading}
+          className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+        >
+          {loading ? "Processing..." : (isSignUp ? "Sign Up" : "Sign In")}
+        </Button>
+        
+        <div className="text-center mt-4">
+          <p className="text-white/70 text-sm">
+            {isSignUp 
+              ? "Already have an account? " 
+              : "Don't have an account? "}
+            <button 
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-purple-400 hover:underline"
+            >
+              {isSignUp ? "Sign In" : "Sign Up"}
+            </button>
+          </p>
+        </div>
+      </form>
+    </motion.div>
+  );
+
+  return (
+    <AnimatePresence>
+      {currentStep === "welcome" && renderWelcomeScreen()}
+      {currentStep === "gender" && renderGenderSelection()}
+      {currentStep === "referral" && renderReferralSource()}
+      {currentStep === "body" && renderBodyTypeSelection()}
+      {currentStep === "style" && renderStylePreference()}
+      {currentStep === "brands" && renderFavoriteBrands()}
+      {currentStep === "pricing" && renderPricingPlans()}
+      {currentStep === "paywall" && renderPaywallScreen()}
+      {currentStep === "auth" && renderAuthScreen()}
+    </AnimatePresence>
+  );
+};
