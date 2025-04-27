@@ -1,123 +1,81 @@
 
 import { motion } from "framer-motion";
 import { Lightbulb } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { StyleTip } from "@/types/styleTypes";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
 
 interface StyleTipsProps {
   tips: StyleTip[];
 }
 
 export const StyleTips = ({ tips }: StyleTipsProps) => {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  
-  // Get unique categories
-  const categories = Array.from(new Set(tips.map(tip => tip.category)));
-  
-  const filteredTips = selectedCategory 
-    ? tips.filter(tip => tip.category === selectedCategory)
-    : tips;
-  
+  // Get the 3 most important tips
+  const crucialTips = tips
+    .filter(tip => tip.level === "advanced")
+    .slice(0, 3);
+
+  // If we don't have enough advanced tips, add intermediate ones
+  if (crucialTips.length < 3) {
+    const intermediateCount = 3 - crucialTips.length;
+    const intermediateTips = tips
+      .filter(tip => tip.level === "intermediate")
+      .slice(0, intermediateCount);
+    crucialTips.push(...intermediateTips);
+  }
+
+  // Ensure we always have 3 tips by adding beginner tips if needed
+  if (crucialTips.length < 3) {
+    const remainingCount = 3 - crucialTips.length;
+    const beginnerTips = tips
+      .filter(tip => tip.level === "beginner")
+      .slice(0, remainingCount);
+    crucialTips.push(...beginnerTips);
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4 }}
-      className="bg-[#2C2C3E] backdrop-blur-lg rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+      transition={{ delay: 0.2 }}
+      className="bg-[#121212] rounded-xl p-6 max-w-2xl mx-auto"
     >
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Lightbulb className="w-5 h-5 text-[#9b87f5]" />
-          <h3 className="text-xl font-semibold text-white">Style Tips</h3>
-        </div>
-        
-        {categories.length > 0 && (
-          <div className="flex gap-2 flex-wrap mb-4">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`text-xs rounded-full px-3 py-1 transition-all duration-300 ${
-                selectedCategory === null 
-                  ? 'bg-[#9b87f5] text-white' 
-                  : 'bg-white/10 text-white/70 hover:bg-white/20'
-              }`}
-            >
-              All
-            </button>
-            {categories.map(category => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`text-xs rounded-full px-3 py-1 transition-all duration-300 ${
-                  selectedCategory === category 
-                    ? 'bg-[#9b87f5] text-white' 
-                    : 'bg-white/10 text-white/70 hover:bg-white/20'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        )}
-        
-        <ScrollArea className="h-[250px] pr-4">
-          <div className="space-y-3">
-            {filteredTips.map((tip, index) => (
-              <motion.div
-                key={`${tip.category}-${index}`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className={cn(
-                  "p-4 rounded-xl bg-[#3A3A4C] border border-transparent transition-all duration-300 hover:border-[#9b87f5]/30 hover:shadow-lg",
-                  tip.level === 'advanced' && "bg-gradient-to-r from-[#6A5ACD]/20 to-[#8A4FFF]/20 border-[#9b87f5]/30"
-                )}
-              >
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 mt-1">
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center",
-                      tip.level === 'advanced' 
-                        ? "bg-[#9b87f5]/20" 
-                        : "bg-[#4A4A5E]"
-                    )}>
-                      <Lightbulb 
-                        className={cn(
-                          "w-4 h-4", 
-                          tip.level === 'advanced' 
-                            ? "text-[#9b87f5]" 
-                            : "text-[#7E69AB]"
-                        )} 
-                      />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-white/90 leading-relaxed">{tip.tip}</p>
-                    <div className="flex items-center mt-2">
-                      <span className="text-xs text-white/50">{tip.category}</span>
-                      <div className="ml-auto">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          tip.level === 'advanced'
-                            ? 'bg-[#9b87f5]/20 text-[#9b87f5]'
-                            : 'bg-[#7E69AB]/20 text-[#7E69AB]'
-                        }`}>
-                          {tip.level}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Get tips to enhance your style
+        </h2>
+        <p className="text-gray-400">
+          Key recommendations to improve your look
+        </p>
+      </div>
+
+      <div className="space-y-4 mt-8">
+        <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <Lightbulb className="w-5 h-5 text-[#ff6b6b]" />
+          Recommendations
+        </h3>
+
+        {crucialTips.map((tip, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="bg-[#1E1E1E] rounded-lg p-4 border border-white/5"
+          >
+            <div className="flex gap-3">
+              <div className="mt-1">
+                <div className="w-8 h-8 rounded-full bg-[#ff6b6b]/10 flex items-center justify-center">
+                  <Lightbulb className="w-4 h-4 text-[#ff6b6b]" />
                 </div>
-              </motion.div>
-            ))}
-            
-            {filteredTips.length === 0 && (
-              <div className="text-center py-8 text-white/50">
-                No tips available for this category
               </div>
-            )}
-          </div>
-        </ScrollArea>
+              <div>
+                <h4 className="text-white font-medium mb-2">{tip.tip}</h4>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  {tip.category} - This tip will help you improve your overall style by focusing on {tip.category.toLowerCase()} aspects.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </motion.div>
   );
