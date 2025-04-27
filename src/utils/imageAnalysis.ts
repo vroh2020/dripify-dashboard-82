@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
@@ -38,6 +39,21 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
 
 export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult> => {
   try {
+    // First check if user has scans remaining
+    const { data: userData } = await supabase.auth.getUser();
+    
+    if (userData && userData.user) {
+      // Check remaining scans directly from the database
+      const { data: scanCountData, error: scanCountError } = await supabase.rpc(
+        'get_daily_scan_count',
+        { _user_id: userData.user.id }
+      );
+      
+      if (!scanCountError && scanCountData >= 3) {
+        throw new Error('Daily scan limit (3) exceeded for today');
+      }
+    }
+    
     // Convert image to base64
     const base64Image = await fileToBase64(imageFile);
     
@@ -77,12 +93,12 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
     console.log('Image uploaded to Supabase:', imageUrl);
     
     // Get user info for database save
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: currentUserData } = await supabase.auth.getUser();
     
     // Save analysis to database if user is logged in and we have a valid score
-    if (userData && userData.user && analysisData.overallScore !== undefined) {
+    if (currentUserData && currentUserData.user && analysisData.overallScore !== undefined) {
       const dbAnalysisData = {
-        user_id: userData.user.id,
+        user_id: currentUserData.user.id,
         total_score: analysisData.overallScore,
         raw_analysis: data.feedback,
         feedback: analysisData.summary || data.feedback.substring(0, 200) + '...',
@@ -90,7 +106,7 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
         tips: JSON.stringify(analysisData.tips || []),
         image_url: imageUrl,
         thumbnail_url: imageUrl,
-        scan_date: new Date().toISOString(),
+        scan_date: new Date().toISOString(), // Use ISO string for consistent timezone handling
       };
       
       try {
@@ -99,12 +115,18 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
           .insert(dbAnalysisData);
           
         if (insertError) {
+          if (insertError.message.includes('limit')) {
+            throw new Error('Daily scan limit (3) exceeded');
+          }
           console.error('Error saving analysis to database:', insertError);
         } else {
           console.log('Analysis saved to database successfully');
         }
       } catch (dbError) {
         console.error('Database error:', dbError);
+        if (dbError instanceof Error && dbError.message.includes('limit')) {
+          throw dbError; // Rethrow limit errors
+        }
       }
     }
     
