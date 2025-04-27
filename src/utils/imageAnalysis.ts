@@ -3,6 +3,39 @@ import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 import { parseAnalysis } from '@/utils/analysisParser';
 
+// Upload image to Supabase Storage
+const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
+  try {
+    const timestamp = new Date().getTime();
+    const filePath = `outfit_${timestamp}_${imageFile.name.replace(/\s+/g, '_')}`;
+    
+    console.log('Attempting to upload image to style_images bucket:', filePath);
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('style_images')
+      .upload(filePath, imageFile, {
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (uploadError) {
+      console.error('Error uploading image:', uploadError);
+      throw new Error('Failed to upload image to storage');
+    }
+    
+    // Get public URL for the uploaded image
+    const { data: { publicUrl } } = supabase.storage
+      .from('style_images')
+      .getPublicUrl(filePath);
+      
+    console.log('Image uploaded successfully, public URL:', publicUrl);
+    return publicUrl;
+  } catch (error) {
+    console.error('Image upload error:', error);
+    throw error;
+  }
+};
+
 export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult> => {
   try {
     // Convert image to base64
@@ -92,33 +125,6 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
     return result;
   } catch (error) {
     console.error('Error analyzing style:', error);
-    throw error;
-  }
-};
-
-// Upload image to Supabase Storage
-const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
-  try {
-    const timestamp = new Date().getTime();
-    const filePath = `outfit_${timestamp}_${imageFile.name.replace(/\s+/g, '_')}`;
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('style_images')
-      .upload(filePath, imageFile);
-      
-    if (uploadError) {
-      console.error('Error uploading image:', uploadError);
-      throw new Error('Failed to upload image to storage');
-    }
-    
-    // Get public URL for the uploaded image
-    const { data: { publicUrl } } = supabase.storage
-      .from('style_images')
-      .getPublicUrl(filePath);
-      
-    return publicUrl;
-  } catch (error) {
-    console.error('Image upload error:', error);
     throw error;
   }
 };
