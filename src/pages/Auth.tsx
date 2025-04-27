@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -573,7 +572,7 @@ export const Auth = () => {
               <p className="text-sm text-gray-400">Advanced fashion analysis</p>
             </div>
             <div>
-              <p className="font-semibold text-white">$4.99<span className="text-xs text-gray-400">/month</span></p>
+              <p className="font-semibold text-white">$12.99<span className="text-xs text-gray-400">/month</span></p>
             </div>
           </div>
           <ul className="mt-4 space-y-2 text-sm">
