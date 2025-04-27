@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
@@ -147,137 +146,23 @@ const Profile = () => {
         return;
       }
 
-      // Get total scan count
-      const { count: totalScans, error: countError } = await supabase
-        .from('style_analyses')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      if (countError) {
-        console.error('Error fetching scan count:', countError);
-      }
-
-      // Get average score
-      const { data: scoreData, error: scoreError } = await supabase
-        .from('style_analyses')
-        .select('total_score')
-        .eq('user_id', user.id);
-
-      if (scoreError) {
-        console.error('Error fetching scores:', scoreError);
-      }
-
-      let averageScore = 0;
-      if (scoreData && scoreData.length > 0) {
-        averageScore = Math.round(
-          scoreData.reduce((acc, curr) => acc + curr.total_score, 0) / scoreData.length
-        );
-      }
-
-      // Get best category
-      const { data: analyses, error: analysesError } = await supabase
-        .from('style_analyses')
-        .select('breakdown')
-        .eq('user_id', user.id);
-
-      if (analysesError) {
-        console.error('Error fetching analyses:', analysesError);
-      }
-
-      let bestCategory = '';
-      if (analyses && analyses.length > 0) {
-        // Process breakdown data to find best category
-        const categoryScores: Record<string, { total: number; count: number }> = {};
-        
-        analyses.forEach(analysis => {
-          if (analysis.breakdown && Array.isArray(analysis.breakdown)) {
-            // Safe type casting with runtime checks
-            (analysis.breakdown as unknown as Breakdown[]).forEach((item) => {
-              if (item && typeof item === 'object' && 'category' in item && 'score' in item) {
-                const category = item.category as string;
-                const score = item.score as number;
-                
-                if (!categoryScores[category]) {
-                  categoryScores[category] = { total: 0, count: 0 };
-                }
-                categoryScores[category].total += score;
-                categoryScores[category].count += 1;
-              }
-            });
-          }
-        });
-
-        let highestAvg = 0;
-        Object.entries(categoryScores).forEach(([category, data]) => {
-          const avg = data.total / data.count;
-          if (avg > highestAvg) {
-            highestAvg = avg;
-            bestCategory = category;
-          }
-        });
-      }
-
-      // Get last scan date and streak
-      const { data: latestScan, error: latestError } = await supabase
-        .from('style_analyses')
-        .select('scan_date, streak_count')
-        .eq('user_id', user.id)
-        .order('scan_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      let lastScan = '';
-      let styleStreak = 0;
-
-      if (latestScan) {
-        // Format date as "X days ago"
-        const scanDate = new Date(latestScan.scan_date);
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - scanDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        lastScan = diffDays <= 1 ? 'today' : `${diffDays} days ago`;
-        styleStreak = latestScan.streak_count || 0;
-      }
-
-      // Calculate improved categories based on actual data
-      // This looks at categories that have improved scores over time
-      let improvedCategories = 0;
-      if (analyses && analyses.length >= 2) {
-        const oldestAnalysis = analyses[analyses.length - 1];
-        const newestAnalysis = analyses[0];
-        
-        if (oldestAnalysis.breakdown && newestAnalysis.breakdown) {
-          const oldCategories: Record<string, number> = {};
-          
-          // Process older breakdown
-          (oldestAnalysis.breakdown as unknown as Breakdown[]).forEach((item) => {
-            if (item && typeof item === 'object' && 'category' in item && 'score' in item) {
-              oldCategories[item.category] = item.score;
-            }
-          });
-          
-          // Compare with newer breakdown
-          (newestAnalysis.breakdown as unknown as Breakdown[]).forEach((item) => {
-            if (item && typeof item === 'object' && 'category' in item && 'score' in item) {
-              if (oldCategories[item.category] && item.score > oldCategories[item.category]) {
-                improvedCategories++;
-              }
-            }
-          });
-        }
-      }
-
+      const { stats } = useStatsStore.getState();
       setStyleStats({
-        totalScans: totalScans || 0,
-        averageScore,
-        bestCategory,
-        lastScan,
-        improvedCategories,
-        styleStreak,
+        totalScans: stats.totalScans,
+        averageScore: stats.averageScore,
+        bestCategory: stats.bestCategory,
+        lastScan: stats.lastScan,
+        improvedCategories: stats.improvedCategories,
+        styleStreak: stats.streak,
       });
+
     } catch (error) {
       console.error('Error in fetchStyleStats:', error);
+      toast({
+        title: "Error loading stats",
+        description: "Could not load your style statistics",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -348,7 +233,7 @@ const Profile = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Best Category:</p>
-                  <p className="text-white font-medium">{styleStats.bestCategory || "N/A"}</p>
+                  <p className="text-white font-medium">{styleStats.bestCategory}</p>
                 </div>
               </div>
             </CardContent>
