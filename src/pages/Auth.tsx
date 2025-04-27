@@ -50,15 +50,6 @@ export const Auth = () => {
           throw new Error("Username must be at least 3 characters long");
         }
 
-        console.log("Onboarding data being saved:", {
-          username,
-          gender,
-          referral_source: referralSource,
-          body_type: bodyType,
-          style_preference: stylePreference,
-          favorite_brands: favoriteBrands
-        });
-
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -88,8 +79,6 @@ export const Auth = () => {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
-          console.log("User created, updating profile:", user.id);
-          
           const { error: profileError } = await supabase
             .from('profiles')
             .update({
@@ -108,10 +97,8 @@ export const Auth = () => {
             toast({
               title: "Partial Success",
               description: "Account created, but some profile details could not be saved.",
-              variant: "default"
+              variant: "default" // Changed from "warning" to "default" as warning is not an allowed variant
             });
-          } else {
-            console.log("Profile updated successfully");
           }
         }
 
