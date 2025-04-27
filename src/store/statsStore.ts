@@ -1,7 +1,7 @@
-
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
+import Logger from '@/utils/logger';
 
 interface UserStats {
   averageScore: number;
@@ -39,13 +39,13 @@ export const useStatsStore = create<StatsState>((set) => ({
       if (!userId) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+          Logger.warn('No user found while fetching stats');
           set({ isLoading: false });
           return;
         }
         userId = user.id;
       }
 
-      // Get all analyses for the user
       const { data: analyses, error } = await supabase
         .from('style_analyses')
         .select('total_score, breakdown, created_at, streak_count, scan_date')
@@ -53,7 +53,7 @@ export const useStatsStore = create<StatsState>((set) => ({
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching analyses:', error);
+        Logger.error('Error fetching analyses:', error);
         set({ 
           isLoading: false, 
           error: 'Failed to fetch analyses' 
@@ -77,17 +77,13 @@ export const useStatsStore = create<StatsState>((set) => ({
         return;
       }
 
-      // Calculate average score
       const totalScore = analyses.reduce((sum, analysis) => sum + analysis.total_score, 0);
       const averageScore = Math.round((totalScore / analyses.length) * 10) / 10;
 
-      // Get best score
       const bestScore = Math.max(...analyses.map(a => a.total_score));
 
-      // Get current streak from the most recent analysis
       const currentStreak = analyses[0]?.streak_count || 0;
 
-      // Calculate best category
       const categoryScores: Record<string, { total: number; count: number }> = {};
       
       analyses.forEach(analysis => {
@@ -110,7 +106,7 @@ export const useStatsStore = create<StatsState>((set) => ({
               categoryScores[item.category].count += 1;
             });
           } catch (e) {
-            console.error('Error parsing breakdown:', e);
+            Logger.error('Error parsing breakdown:', e);
           }
         }
       });
@@ -126,7 +122,6 @@ export const useStatsStore = create<StatsState>((set) => ({
         }
       });
 
-      // Calculate improved categories by comparing first and last scan
       let improvedCategories = 0;
       if (analyses.length >= 2) {
         try {
@@ -158,16 +153,17 @@ export const useStatsStore = create<StatsState>((set) => ({
             }
           }
         } catch (e) {
-          console.error('Error calculating improved categories:', e);
+          Logger.error('Error calculating improved categories:', e);
         }
       }
 
-      // Format last scan time
       const lastScanTime = analyses[0]?.scan_date || analyses[0]?.created_at;
       const lastScan = lastScanTime 
         ? formatDistanceToNow(new Date(lastScanTime), { addSuffix: true })
         : 'No scans yet';
 
+      Logger.info('Stats fetched successfully for user:', userId);
+      
       set({
         stats: {
           averageScore,
@@ -181,7 +177,7 @@ export const useStatsStore = create<StatsState>((set) => ({
         isLoading: false
       });
     } catch (error) {
-      console.error('Error fetching user stats:', error);
+      Logger.error('Error in fetchUserStats:', error);
       set({
         isLoading: false,
         error: 'Error loading stats',
