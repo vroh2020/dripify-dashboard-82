@@ -15,7 +15,6 @@ export type Database = {
           budget_range: string | null
           color_preferences: string[] | null
           created_at: string
-          daily_scans_remaining: number | null
           favorite_brands: string[] | null
           id: string
           size_info: Json | null
@@ -28,7 +27,6 @@ export type Database = {
           budget_range?: string | null
           color_preferences?: string[] | null
           created_at?: string
-          daily_scans_remaining?: number | null
           favorite_brands?: string[] | null
           id: string
           size_info?: Json | null
@@ -41,7 +39,6 @@ export type Database = {
           budget_range?: string | null
           color_preferences?: string[] | null
           created_at?: string
-          daily_scans_remaining?: number | null
           favorite_brands?: string[] | null
           id?: string
           size_info?: Json | null
@@ -171,10 +168,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_daily_scan_count: {
-        Args: { _user_id: string }
-        Returns: number
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never

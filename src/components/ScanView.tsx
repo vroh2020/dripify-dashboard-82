@@ -7,15 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { useScanStore } from "@/store/scanStore";
-import { Sparkles, Camera, Save, Share2 } from "lucide-react";
-import { ScanLimitStatus } from "./ScanLimitStatus";
-import { useScanLimits } from "@/hooks/useScanLimits";
+import { Sparkles, Camera, Share2, Save } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CategoryBreakdown } from "./analysis/CategoryBreakdown";
 import { StyleTips } from "./analysis/StyleTips";
 import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
 import type { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
-import { useSession } from "@/hooks/useSession";
 
 export const ScanView = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -33,9 +30,6 @@ export const ScanView = () => {
     tips?: StyleTip[];
     summary?: string;
   } | null>(null);
-
-  const { dailyScansRemaining, refreshScanCount } = useScanLimits();
-  const { user } = useSession();
 
   const handleAnalyzeTimeout = () => {
     setAnalyzing(false);
@@ -56,15 +50,6 @@ export const ScanView = () => {
       return;
     }
 
-    if (user && dailyScansRemaining !== null && dailyScansRemaining <= 0) {
-      toast({
-        title: "Daily Limit Reached",
-        description: "You've reached your daily limit of 3 style scans. Please try again tomorrow!",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setAnalyzing(true);
     setAnalysisPhase("Starting analysis...");
     
@@ -76,12 +61,6 @@ export const ScanView = () => {
       console.log('Analysis completed successfully:', analysisResult);
       setResult(analysisResult);
       setLatestScan(analysisResult);
-      
-      if (user) {
-        setTimeout(() => {
-          refreshScanCount();
-        }, 500);
-      }
       
       toast({
         title: "Analysis Complete",
@@ -96,24 +75,11 @@ export const ScanView = () => {
       
     } catch (error) {
       console.error("Analysis error:", error);
-      const errorMessage = error instanceof Error ? error.message : "There was an error analyzing your image";
-      
-      if (errorMessage.includes('Daily scan limit')) {
-        if (user) {
-          refreshScanCount();
-        }
-        toast({
-          title: "Daily Limit Exceeded",
-          description: "You've reached your daily limit of 3 style scans. Please try again tomorrow!",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Analysis failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Analysis failed",
+        description: error instanceof Error ? error.message : "There was an error analyzing your image",
+        variant: "destructive",
+      });
       setAnalyzing(false);
     }
   };
@@ -151,13 +117,12 @@ export const ScanView = () => {
       <StyleLoadingOverlay 
         isAnalyzing={analyzing} 
         onTimeout={handleAnalyzeTimeout}
-        timeoutDuration={90000}
+        timeoutDuration={90000} // 90 seconds timeout
       />
 
       {!showResults ? (
         <Card className="backdrop-blur-xl bg-black/30 border-white/10">
           <CardContent className="space-y-8 p-8">
-            {user && <ScanLimitStatus />}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

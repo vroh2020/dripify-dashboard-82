@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -68,32 +67,16 @@ export const DashboardView = () => {
         
         setAnalyses(processedData);
         
-        // Calculate statistics
-        let totalScore = 0;
-        let highestScore = 0;
-        
-        data.forEach(scan => {
-          totalScore += scan.total_score;
-          highestScore = Math.max(highestScore, scan.total_score);
-        });
-        
-        const averageScore = totalScore / data.length;
+        const scores = data.map(a => a.total_score);
+        const averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const bestScore = Math.max(...scores);
         const currentStreak = data[0].streak_count || 0;
 
         setStats({
           averageScore: Math.round(averageScore * 10) / 10,
           streak: currentStreak,
           totalScans: data.length,
-          bestScore: highestScore
-        });
-      } else {
-        // No analyses found
-        setAnalyses([]);
-        setStats({
-          averageScore: 0,
-          streak: 0,
-          totalScans: 0,
-          bestScore: 0
+          bestScore: bestScore
         });
       }
     } catch (error) {
@@ -111,7 +94,6 @@ export const DashboardView = () => {
   useEffect(() => {
     fetchAnalyses();
 
-    // Set up realtime subscription to update analyses when changes occur
     const subscription = supabase
       .channel('style_analyses_changes')
       .on('postgres_changes', 
@@ -121,7 +103,6 @@ export const DashboardView = () => {
           table: 'style_analyses' 
         }, 
         () => {
-          console.log('Detected change in style_analyses table - refreshing data');
           fetchAnalyses();
         }
       )
