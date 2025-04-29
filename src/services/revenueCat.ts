@@ -129,9 +129,12 @@ class RevenueCatService {
 
       Logger.info('Purchasing package:', pack.identifier);
       
-      const { customerInfo } = await Purchases.purchasePackage({ identifier: pack.identifier });
+      // Fix the type error by using the correct property structure
+      const purchaseResult = await Purchases.purchasePackage({ 
+        packageIdentifier: pack.identifier
+      });
       
-      const isPro = customerInfo.entitlements.active[this.PRO_ENTITLEMENT] !== undefined;
+      const isPro = purchaseResult.customerInfo.entitlements.active[this.PRO_ENTITLEMENT] !== undefined;
       
       if (isPro) {
         Logger.info('Purchase successful, Pro features unlocked');
@@ -194,9 +197,9 @@ class RevenueCatService {
       }
 
       Logger.info('Restoring purchases...');
-      const { customerInfo } = await Purchases.restorePurchases();
+      const restoreResult = await Purchases.restorePurchases();
       
-      const isPro = customerInfo.entitlements.active[this.PRO_ENTITLEMENT] !== undefined;
+      const isPro = restoreResult.customerInfo.entitlements.active[this.PRO_ENTITLEMENT] !== undefined;
       
       if (isPro) {
         Logger.info('Purchases restored successfully, Pro features unlocked');
