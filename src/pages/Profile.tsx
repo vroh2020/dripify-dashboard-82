@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -10,6 +10,8 @@ import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useStatsStore } from "@/store/statsStore";
+import { SubscriptionButton } from "@/components/profile/SubscriptionButton";
+import Logger from "@/utils/logger";
 
 interface Breakdown {
   category: string;
@@ -95,7 +97,7 @@ const Profile = () => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        Logger.error('Error fetching profile:', error);
         
         if (error.code === 'PGRST116') {
           // Create a profile if it doesn't exist
@@ -108,7 +110,7 @@ const Profile = () => {
             });
 
           if (insertError) {
-            console.error('Error creating profile:', insertError);
+            Logger.error('Error creating profile:', insertError);
             toast({
               title: "Error creating profile",
               description: "Could not create a profile for you",
@@ -139,7 +141,7 @@ const Profile = () => {
         });
       }
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      Logger.error('Error in fetchProfile:', error);
     } finally {
       setLoading(false);
     }
@@ -169,15 +171,18 @@ const Profile = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl mx-auto space-y-6"
       >
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => navigate('/')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
+          </div>
+          <SubscriptionButton />
         </div>
 
         <Card className="bg-black/20 backdrop-blur-lg border-white/10">
