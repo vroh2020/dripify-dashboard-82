@@ -1,14 +1,17 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useStatsStore } from "@/store/statsStore";
+import { SubscriptionButton } from "@/components/profile/SubscriptionButton";
+import Logger from "@/utils/logger";
 
 interface Breakdown {
   category: string;
@@ -19,14 +22,7 @@ interface Breakdown {
 
 const Profile = () => {
   const [profile, setProfile] = useState<{ username: string; avatar_url: string | null, id: string } | null>(null);
-  const [styleStats, setStyleStats] = useState({
-    totalScans: 0,
-    averageScore: 0,
-    bestCategory: '',
-    lastScan: '',
-    improvedCategories: 0,
-    styleStreak: 0,
-  });
+  const { stats, isLoading, error, fetchUserStats } = useStatsStore();
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -34,8 +30,7 @@ const Profile = () => {
 
   useEffect(() => {
     fetchProfile();
-    fetchStyleStats();
-
+    
     // Set up real-time subscription for profile updates
     const profileChannel = supabase
       .channel('profile_changes')
@@ -60,8 +55,11 @@ const Profile = () => {
           schema: 'public', 
           table: 'style_analyses' 
         }, 
-        () => {
-          fetchStyleStats();
+        async () => {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            fetchUserStats(user.id);
+          }
         }
       )
       .subscribe();
@@ -70,7 +68,18 @@ const Profile = () => {
       supabase.removeChannel(profileChannel);
       supabase.removeChannel(analysisChannel);
     };
-  }, []);
+  }, [fetchUserStats]);
+
+  useEffect(() => {
+    const initializeStats = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        fetchUserStats(user.id);
+      }
+    };
+    
+    initializeStats();
+  }, [fetchUserStats]);
 
   const fetchProfile = async () => {
     try {
@@ -88,7 +97,7 @@ const Profile = () => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        Logger.error('Error fetching profile:', error);
         
         if (error.code === 'PGRST116') {
           // Create a profile if it doesn't exist
@@ -101,7 +110,7 @@ const Profile = () => {
             });
 
           if (insertError) {
-            console.error('Error creating profile:', insertError);
+            Logger.error('Error creating profile:', insertError);
             toast({
               title: "Error creating profile",
               description: "Could not create a profile for you",
@@ -132,152 +141,7 @@ const Profile = () => {
         });
       }
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStyleStats = async () => {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      // Get total scan count
-      const { count: totalScans, error: countError } = await supabase
-        .from('style_analyses')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      if (countError) {
-        console.error('Error fetching scan count:', countError);
-      }
-
-      // Get average score
-      const { data: scoreData, error: scoreError } = await supabase
-        .from('style_analyses')
-        .select('total_score')
-        .eq('user_id', user.id);
-
-      if (scoreError) {
-        console.error('Error fetching scores:', scoreError);
-      }
-
-      let averageScore = 0;
-      if (scoreData && scoreData.length > 0) {
-        averageScore = Math.round(
-          scoreData.reduce((acc, curr) => acc + curr.total_score, 0) / scoreData.length
-        );
-      }
-
-      // Get best category
-      const { data: analyses, error: analysesError } = await supabase
-        .from('style_analyses')
-        .select('breakdown')
-        .eq('user_id', user.id);
-
-      if (analysesError) {
-        console.error('Error fetching analyses:', analysesError);
-      }
-
-      let bestCategory = '';
-      if (analyses && analyses.length > 0) {
-        // Process breakdown data to find best category
-        const categoryScores: Record<string, { total: number; count: number }> = {};
-        
-        analyses.forEach(analysis => {
-          if (analysis.breakdown && Array.isArray(analysis.breakdown)) {
-            // Safe type casting with runtime checks
-            (analysis.breakdown as unknown as Breakdown[]).forEach((item) => {
-              if (item && typeof item === 'object' && 'category' in item && 'score' in item) {
-                const category = item.category as string;
-                const score = item.score as number;
-                
-                if (!categoryScores[category]) {
-                  categoryScores[category] = { total: 0, count: 0 };
-                }
-                categoryScores[category].total += score;
-                categoryScores[category].count += 1;
-              }
-            });
-          }
-        });
-
-        let highestAvg = 0;
-        Object.entries(categoryScores).forEach(([category, data]) => {
-          const avg = data.total / data.count;
-          if (avg > highestAvg) {
-            highestAvg = avg;
-            bestCategory = category;
-          }
-        });
-      }
-
-      // Get last scan date and streak
-      const { data: latestScan, error: latestError } = await supabase
-        .from('style_analyses')
-        .select('scan_date, streak_count')
-        .eq('user_id', user.id)
-        .order('scan_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      let lastScan = '';
-      let styleStreak = 0;
-
-      if (latestScan) {
-        // Format date as "X days ago"
-        const scanDate = new Date(latestScan.scan_date);
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - scanDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        lastScan = diffDays <= 1 ? 'today' : `${diffDays} days ago`;
-        styleStreak = latestScan.streak_count || 0;
-      }
-
-      // Calculate improved categories based on actual data
-      // This looks at categories that have improved scores over time
-      let improvedCategories = 0;
-      if (analyses && analyses.length >= 2) {
-        const oldestAnalysis = analyses[analyses.length - 1];
-        const newestAnalysis = analyses[0];
-        
-        if (oldestAnalysis.breakdown && newestAnalysis.breakdown) {
-          const oldCategories: Record<string, number> = {};
-          
-          // Process older breakdown
-          (oldestAnalysis.breakdown as unknown as Breakdown[]).forEach((item) => {
-            if (item && typeof item === 'object' && 'category' in item && 'score' in item) {
-              oldCategories[item.category] = item.score;
-            }
-          });
-          
-          // Compare with newer breakdown
-          (newestAnalysis.breakdown as unknown as Breakdown[]).forEach((item) => {
-            if (item && typeof item === 'object' && 'category' in item && 'score' in item) {
-              if (oldCategories[item.category] && item.score > oldCategories[item.category]) {
-                improvedCategories++;
-              }
-            }
-          });
-        }
-      }
-
-      setStyleStats({
-        totalScans: totalScans || 0,
-        averageScore,
-        bestCategory,
-        lastScan,
-        improvedCategories,
-        styleStreak,
-      });
-    } catch (error) {
-      console.error('Error in fetchStyleStats:', error);
+      Logger.error('Error in fetchProfile:', error);
     } finally {
       setLoading(false);
     }
@@ -292,7 +156,7 @@ const Profile = () => {
     }
   };
 
-  if (loading) {
+  if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1F3D] py-8 px-4 flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-[#9b87f5] border-t-transparent animate-spin" />
@@ -307,15 +171,18 @@ const Profile = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl mx-auto space-y-6"
       >
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => navigate('/')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
+          </div>
+          <SubscriptionButton />
         </div>
 
         <Card className="bg-black/20 backdrop-blur-lg border-white/10">
@@ -340,15 +207,15 @@ const Profile = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Total Scans:</p>
-                  <p className="text-white font-medium">{styleStats.totalScans}</p>
+                  <p className="text-white font-medium">{stats.totalScans || 0}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Average Score:</p>
-                  <p className="text-white font-medium">{styleStats.averageScore}</p>
+                  <p className="text-white font-medium">{stats.averageScore || 0}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Best Category:</p>
-                  <p className="text-white font-medium">{styleStats.bestCategory || "N/A"}</p>
+                  <p className="text-white font-medium">{stats.bestCategory || 'N/A'}</p>
                 </div>
               </div>
             </CardContent>
@@ -360,20 +227,28 @@ const Profile = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Last Scan:</p>
-                  <p className="text-white font-medium">{styleStats.lastScan || "No scans yet"}</p>
+                  <p className="text-white font-medium">{stats.lastScan || 'No scans yet'}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Improved Categories:</p>
-                  <p className="text-white font-medium">{styleStats.improvedCategories}</p>
+                  <p className="text-white font-medium">{stats.improvedCategories || 0}</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-white/60">Style Streak:</p>
-                  <p className="text-white font-medium">{styleStats.styleStreak} days</p>
+                  <p className="text-white font-medium">{stats.streak || 0} days</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {error && (
+          <Card className="bg-red-500/10 backdrop-blur-lg border-red-500/30">
+            <CardContent className="p-4">
+              <p className="text-red-400 text-center">{error}</p>
+            </CardContent>
+          </Card>
+        )}
       </motion.div>
     </div>
   );
