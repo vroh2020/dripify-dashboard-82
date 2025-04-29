@@ -25,6 +25,8 @@ export const StyleStats = ({ hasScans, stats }: StyleStatsProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         fetchUserStats(user.id);
+      } else {
+        fetchUserStats(); // Call without userId to trigger the internal auth check
       }
     };
     
