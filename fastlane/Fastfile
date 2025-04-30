@@ -1,0 +1,62 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and deploy the iOS app"
+  lane :build_and_deploy do
+    setup_ci
+    
+    # Update code signing settings
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "./ios/App/App.xcodeproj",
+      team_id: "TN748MMP9M",
+      targets: ["App"],
+      build_configurations: ["Debug", "Release"],
+      code_sign_identity: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
+      profile_name: "Gen Style"
+    )
+    
+    # Build the app
+    build_ios_app(
+      workspace: "./ios/App/App.xcworkspace",
+      scheme: "App",
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        teamID: "TN748MMP9M",
+        signingStyle: "manual",
+        signingCertificate: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
+        provisioningProfiles: {
+          "com.genstyle.app" => "Gen Style"
+        }
+      }
+    )
+    
+    # Upload to App Store Connect
+    upload_to_app_store(
+      skip_screenshots: true,
+      skip_metadata: true,
+      force: true
+    )
+  end
+  
+  desc "Setup CI environment"
+  lane :setup_ci do
+    # Create temporary keychain
+    create_keychain(
+      name: ENV["MATCH_KEYCHAIN_NAME"],
+      password: ENV["MATCH_KEYCHAIN_PASSWORD"],
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600
+    )
+    
+    # Import certificates
+    import_certificate(
+      certificate_path: ENV["CERTIFICATE_PATH"],
+      certificate_password: ENV["CERTIFICATE_PASSWORD"],
+      keychain_name: ENV["MATCH_KEYCHAIN_NAME"],
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
+    )
+  end
+end 

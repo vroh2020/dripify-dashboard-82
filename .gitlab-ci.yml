@@ -1,0 +1,92 @@
+variables:
+  BUNDLE_ID: "com.genstyle.app"
+  PROVISIONING_PROFILE_SPECIFIER: "Gen Style"
+  TEAM_ID: "TN748MMP9M"
+  CODE_SIGN_IDENTITY: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)"
+  FASTLANE_USER: "ramvelpuri2020"
+  FASTLANE_PASSWORD: "$FASTLANE_PASSWORD"
+  MATCH_PASSWORD: "$MATCH_PASSWORD"
+  MATCH_KEYCHAIN_NAME: "temp.keychain"
+  MATCH_KEYCHAIN_PASSWORD: "temp"
+
+stages:
+  - prepare
+  - build
+  - deploy
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - ios/Pods/
+    - ~/.cache/CocoaPods
+
+before_script:
+  - npm ci
+  - npx cap sync ios
+  - cd ios/App
+  - pod install
+  - cd ../..
+
+prepare_ios:
+  stage: prepare
+  image: registry.gitlab.com/gitlab-org/incubation-engineering/mobile-devops/ios-build-image:latest
+  script:
+    - echo "Setting up keychain..."
+    - security create-keychain -p $MATCH_KEYCHAIN_PASSWORD $MATCH_KEYCHAIN_NAME
+    - security list-keychains -d user -s $MATCH_KEYCHAIN_NAME $(security list-keychains -d user | sed -e s/\"//g)
+    - security set-keychain-settings -t 3600 -l ~/Library/Keychains/$MATCH_KEYCHAIN_NAME
+    - security unlock-keychain -p $MATCH_KEYCHAIN_PASSWORD $MATCH_KEYCHAIN_NAME
+    - security import $CERTIFICATE_PATH -k ~/Library/Keychains/$MATCH_KEYCHAIN_NAME -P $CERTIFICATE_PASSWORD -T /usr/bin/codesign
+    - security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k $MATCH_KEYCHAIN_PASSWORD $MATCH_KEYCHAIN_NAME
+    - echo "Updating project settings..."
+    - /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${BUNDLE_ID}" ios/App/App/Info.plist
+    - xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release
+      DEVELOPMENT_TEAM="${TEAM_ID}"
+      PROVISIONING_PROFILE_SPECIFIER="${PROVISIONING_PROFILE_SPECIFIER}"
+      CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY}"
+      CODE_SIGN_STYLE=Manual
+  artifacts:
+    paths:
+      - ios/App/App.xcodeproj/project.pbxproj
+      - ios/App/App/Info.plist
+    expire_in: 1 week
+
+build_ios:
+  stage: build
+  image: registry.gitlab.com/gitlab-org/incubation-engineering/mobile-devops/ios-build-image:latest
+  dependencies:
+    - prepare_ios
+  script:
+    - echo "Building iOS app..."
+    - xcodebuild clean -workspace ios/App/App.xcworkspace -scheme App
+    - xcodebuild archive -workspace ios/App/App.xcworkspace -scheme App
+      -configuration Release
+      -archivePath build/App.xcarchive
+      DEVELOPMENT_TEAM="${TEAM_ID}"
+      PROVISIONING_PROFILE_SPECIFIER="${PROVISIONING_PROFILE_SPECIFIER}"
+      CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY}"
+      CODE_SIGN_STYLE=Manual
+    - xcodebuild -exportArchive
+      -archivePath build/App.xcarchive
+      -exportOptionsPlist exportOptions.plist
+      -exportPath build
+  artifacts:
+    paths:
+      - build/App.ipa
+    expire_in: 1 week
+  only:
+    - master
+    - tags
+
+deploy_ios:
+  stage: deploy
+  image: registry.gitlab.com/gitlab-org/incubation-engineering/mobile-devops/ios-build-image:latest
+  dependencies:
+    - build_ios
+  script:
+    - echo "Deploying to App Store Connect..."
+    - fastlane pilot upload --skip_submission --skip_waiting_for_build_processing
+  only:
+    - master
+    - tags 
