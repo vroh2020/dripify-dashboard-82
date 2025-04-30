@@ -1,86 +1,112 @@
 
-# iOS Build Instructions
+# iOS Build Instructions for Gen Style App
 
-## Build Environment Requirements
+## Prerequisites
 - macOS (latest stable version recommended)
-- Xcode (latest stable version recommended)
+- Xcode (latest version, currently works with Xcode 16.1)
 - Node.js (LTS version)
 - NPM or Yarn
+- Apple Developer account with distribution certificates
 
-## Provisioning Profile Setup
-The app is configured to use the following settings:
-- Bundle ID: `com.genstyle.app`
-- Team ID: `TN748MMP9M`
-- Provisioning Profile: `Gen Style`
+## Important Configuration Files
+- **build.xcconfig**: Contains essential code signing settings
+- **exportOptions.plist**: Configures the app export process
+- **capacitor.config.ts**: Defines app ID, name, and other Capacitor settings
+- **.gitlab-ci.yml**: CI/CD pipeline configuration
 
 ## Local Development Build
 
-1. Make sure you have the latest dependencies:
-```
+1. **Installation**:
+```bash
 npm install
-```
-
-2. Sync the Capacitor project:
-```
 npx cap sync ios
+cd ios/App && pod install && cd ../..
 ```
 
-3. Configure signing in Xcode:
-   - Open the project in Xcode: `npx cap open ios`
-   - Select the project in the Navigator
-   - Select the "App" target
-   - Go to "Signing & Capabilities"
-   - Ensure "Automatically manage signing" is enabled (or disabled if using manual profiles)
-   - Select your team and provisioning profile
+2. **Ensure Build Configuration**:
+```bash
+node ios/App/update-build-config.js
+```
 
-4. Run the build:
+3. **Configure Code Signing in Xcode**:
+   - Open the project: `npx cap open ios`
+   - Select the App project in Navigator
+   - Go to "Signing & Capabilities" tab
+   - Ensure "Automatically manage signing" is **unchecked**
+   - Select team: "TN748MMP9M"
+   - Set Provisioning Profile: "Gen Style"
+   - Set Bundle Identifier: "com.genstyle.app"
+
+4. **Verify build.xcconfig Integration**:
+   - In Xcode, select the project in Navigator
+   - Go to "Build Settings" tab
+   - Search for "config file"
+   - Ensure "Configuration File" is set to "App/build.xcconfig"
+
+5. **Build the App**:
    - Select your device or simulator
-   - Click the Play button or press Cmd+R
+   - Build using Cmd+B or the Play button
 
-## CI/CD Build
+## CI/CD Build Process
 
-For CI/CD environments, ensure the following:
+The GitLab CI pipeline is configured to:
 
-1. The provisioning profile and certificate are properly installed in the build environment
-2. The `build.xcconfig` file is included in the project
-3. The build script includes these steps:
-```
-npm install
-npx cap sync ios
-node ios/App/update-build-config.js  # Optional, if needed
-cd ios/App && xcodebuild -workspace App.xcworkspace -scheme App -configuration Release archive -archivePath ./Build/App.xcarchive CODE_SIGN_IDENTITY="Apple Distribution: Rohini Mallavarapu (TN748MMP9M)" PROVISIONING_PROFILE_SPECIFIER="Gen Style" DEVELOPMENT_TEAM=TN748MMP9M
+1. **Prepare Stage**:
+   - Set up build environment
+   - Install certificates and provisioning profiles
+   - Configure code signing
+
+2. **Build Stage**:
+   - Apply build.xcconfig settings
+   - Clean and archive the project
+   - Export IPA using the exportOptions.plist
+
+3. **Deploy Stage**:
+   - Upload the IPA to App Store Connect
+
+## Manual Build from Terminal
+
+To build the app manually from terminal:
+
+```bash
+cd ios/App
+xcodebuild clean -workspace App.xcworkspace -scheme App
+xcodebuild archive -workspace App.xcworkspace -scheme App \
+  -configuration Release \
+  -archivePath build/App.xcarchive \
+  DEVELOPMENT_TEAM=TN748MMP9M \
+  PROVISIONING_PROFILE_SPECIFIER="Gen Style" \
+  CODE_SIGN_IDENTITY="Apple Distribution: Rohini Mallavarapu (TN748MMP9M)" \
+  CODE_SIGN_STYLE=Manual
+xcodebuild -exportArchive \
+  -archivePath build/App.xcarchive \
+  -exportOptionsPlist ../../exportOptions.plist \
+  -exportPath build
 ```
 
 ## Troubleshooting
 
-### Common Issues:
+### Provisioning Profile Not Found
+- Ensure profile "Gen Style" exists in your Apple Developer account
+- Download and install it on your local machine in Xcode Accounts
+- Check the bundle ID matches "com.genstyle.app"
+- Verify the profile is not expired
 
-#### Provisioning Profile Mismatch
-Error: "No provisioning profile found matching 'Gen Style'"
+### Code Signing Failures
+- Run `security find-identity -v -p codesigning` to list available certificates
+- Ensure certificate "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)" is installed
+- Check keychain access for any permission issues
 
-Solution: 
-- Verify that the provisioning profile exists in your Apple Developer account
-- Download and install the profile on your build machine
-- Make sure the bundle ID in Xcode matches `com.genstyle.app`
+### Configuration File Not Applied
+- Manually edit the Xcode project settings to include build.xcconfig
+- Run `node ios/App/update-build-config.js` to ensure settings are applied
+- Check the build.xcconfig file content is correct
 
-#### Code Signing Identity Not Found
-Error: "No code signing identities found"
+### CI/CD Pipeline Issues
+- Review the GitLab CI logs for specific errors
+- Ensure all environment variables are properly set
+- Verify the provisioning profile and certificate are correctly uploaded to CI
 
-Solution:
-- Install the required certificates on your build machine
-- Verify that the development team ID is correct (TN748MMP9M)
-- Check if the certificate has expired and needs renewal
+## Contact
 
-#### Build Configuration Issues
-If you're experiencing build configuration issues, you may need to manually set the build settings in Xcode:
-
-1. Open Xcode and your project
-2. Select the project in the Navigator
-3. Select the "App" target
-4. Go to "Build Settings"
-5. Search for "Code Signing"
-6. Manually set the "Development Team," "Provisioning Profile," and "Code Signing Identity"
-
-## Additional Resources
-- [Capacitor iOS Documentation](https://capacitorjs.com/docs/ios)
-- [Xcode Code Signing Guide](https://developer.apple.com/documentation/xcode/signing-a-mac-app)
+For assistance with iOS build issues, contact the mobile development team.

@@ -1,3 +1,4 @@
+
 default_platform(:ios)
 
 platform :ios do
@@ -13,7 +14,17 @@ platform :ios do
       targets: ["App"],
       build_configurations: ["Debug", "Release"],
       code_sign_identity: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
-      profile_name: "Gen Style"
+      profile_name: "Gen Style",
+      profile_uuid: ENV["PROVISIONING_PROFILE_UUID"] || "",
+      bundle_identifier: "com.genstyle.app"
+    )
+    
+    # Set provisioning profile specifier directly
+    update_project_provisioning(
+      xcodeproj: "./ios/App/App.xcodeproj",
+      target_filter: "App",
+      profile: ENV["PROVISIONING_PROFILE_PATH"] || "",
+      build_configuration: "Release"
     )
     
     # Build the app
@@ -21,15 +32,7 @@ platform :ios do
       workspace: "./ios/App/App.xcworkspace",
       scheme: "App",
       export_method: "app-store",
-      export_options: {
-        method: "app-store",
-        teamID: "TN748MMP9M",
-        signingStyle: "manual",
-        signingCertificate: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
-        provisioningProfiles: {
-          "com.genstyle.app" => "Gen Style"
-        }
-      }
+      export_options: "./exportOptions.plist"
     )
     
     # Upload to App Store Connect
@@ -59,4 +62,4 @@ platform :ios do
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
     )
   end
-end 
+end
