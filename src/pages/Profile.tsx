@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Crown } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -10,6 +10,8 @@ import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useStatsStore } from "@/store/statsStore";
+import { ProUpgrade } from "@/components/subscription/ProUpgrade";
+import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 
 interface Breakdown {
   category: string;
@@ -25,6 +27,7 @@ const Profile = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isPro } = useSubscription();
 
   useEffect(() => {
     fetchProfile();
@@ -178,6 +181,13 @@ const Profile = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
+          
+          {isPro && (
+            <div className="ml-auto flex items-center gap-1 bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-1 rounded-full">
+              <Crown className="h-4 w-4 text-purple-400" />
+              <span className="text-sm font-medium text-purple-300">Pro</span>
+            </div>
+          )}
         </div>
 
         <Card className="bg-black/20 backdrop-blur-lg border-white/10">
@@ -194,6 +204,9 @@ const Profile = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Pro Upgrade Card */}
+        <ProUpgrade />
 
         <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
           <Card className="bg-black/20 backdrop-blur-lg border-white/10">

@@ -12,36 +12,48 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          body_type: string | null
           budget_range: string | null
           color_preferences: string[] | null
           created_at: string
           favorite_brands: string[] | null
+          gender: string | null
           id: string
+          referral_source: string | null
           size_info: Json | null
+          style_preference: string | null
           style_preferences: string[] | null
           updated_at: string | null
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          body_type?: string | null
           budget_range?: string | null
           color_preferences?: string[] | null
           created_at?: string
           favorite_brands?: string[] | null
+          gender?: string | null
           id: string
+          referral_source?: string | null
           size_info?: Json | null
+          style_preference?: string | null
           style_preferences?: string[] | null
           updated_at?: string | null
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          body_type?: string | null
           budget_range?: string | null
           color_preferences?: string[] | null
           created_at?: string
           favorite_brands?: string[] | null
+          gender?: string | null
           id?: string
+          referral_source?: string | null
           size_info?: Json | null
+          style_preference?: string | null
           style_preferences?: string[] | null
           updated_at?: string | null
           username?: string | null
