@@ -1,32 +1,43 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
-// This function returns the RevenueCat public API key
-// The actual key should be set in Supabase secrets with: supabase secrets set REVENUECAT_PUBLIC_KEY=your_api_key
+// This endpoint provides the public RevenueCat API key to the client
+// This is a safer approach than embedding it directly in the client code
+
 serve(async (req) => {
+  // Handle OPTIONS request for CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
-    // Get the API key from the environment
-    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_KEY') || 'appl_YWYCyRvMoDlPPLYdeRWDIyZadYs';
-    
+    // Get RevenueCat API key from environment variables
+    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_API_KEY') || 'appl_QwxqqjiqoZWMHsekYsUEihoxRfX'
+
     // Return the public key
     return new Response(
       JSON.stringify({
-        publicKey,
-        message: 'RevenueCat configuration retrieved successfully'
+        publicKey
       }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
         status: 200,
       },
     )
   } catch (error) {
+    console.error('Error in revenuecat-config function:', error)
+    
     return new Response(
-      JSON.stringify({
-        error: error.message,
-        message: 'Failed to retrieve RevenueCat configuration'
-      }),
+      JSON.stringify({ error: 'Failed to get RevenueCat configuration' }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
         status: 500,
       },
     )

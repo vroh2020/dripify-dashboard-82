@@ -115,41 +115,43 @@ export const useRevenueCat = () => {
       const customerInfo = await Purchases.getCustomerInfo();
       
       // Check if user has an active subscription
-      const isProActive = customerInfo.entitlements?.active?.["pro"] || false;
+      const isPro = customerInfo.entitlements.active && customerInfo.entitlements.active["pro"] || false;
       
       // Get the expiration date if available
       let expirationDate = null;
       let productId = null;
       let offeringId = null;
       
-      if (isProActive && customerInfo.activeSubscriptions?.length > 0) {
+      if (isPro && customerInfo.activeSubscriptions && customerInfo.activeSubscriptions.length > 0) {
         const subId = customerInfo.activeSubscriptions[0];
         
-        if (customerInfo.allExpirationDatesByProduct?.[subId]) {
-          expirationDate = new Date(customerInfo.allExpirationDatesByProduct[subId] * 1000);
+        if (customerInfo.allExpirationDates && customerInfo.allExpirationDates[subId]) {
+          expirationDate = new Date(customerInfo.allExpirationDates[subId] * 1000);
         }
         
         productId = subId;
         
         // Try to determine the offering ID
-        for (const offering in customerInfo.allPurchasedProductIdentifiers) {
-          if (offering.includes('pro')) {
-            offeringId = offering;
-            break;
+        if (customerInfo.allPurchasedProductIdentifiers) {
+          for (const offering of Object.keys(customerInfo.allPurchasedProductIdentifiers)) {
+            if (offering.includes('pro')) {
+              offeringId = offering;
+              break;
+            }
           }
         }
       }
       
       setSubscription({
-        isActive: isProActive,
+        isActive: isPro,
         expirationDate,
         productId,
         offeringId
       });
       
-      console.log('Subscription status:', isProActive ? 'Active' : 'Inactive');
+      console.log('Subscription status:', isPro ? 'Active' : 'Inactive');
       
-      return { isActive: isProActive, expirationDate, productId, offeringId };
+      return { isActive: isPro, expirationDate, productId, offeringId };
     } catch (error) {
       console.error('Error fetching subscription status:', error);
       toast({
@@ -201,11 +203,12 @@ export const useRevenueCat = () => {
       }
       
       setIsLoading(true);
-      const result = await Purchases.purchaseProduct(productId);
+      const result = await Purchases.purchaseStoreProduct(productId);
       
       if (result) {
         // Check if purchase was successful and entitlement is active
-        const isProActive = result.entitlements?.active?.["pro"] || false;
+        const isProActive = result.customerInfo.entitlements.active && 
+                           result.customerInfo.entitlements.active["pro"] || false;
         
         if (isProActive) {
           toast({
