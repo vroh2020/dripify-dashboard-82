@@ -3,8 +3,6 @@ default_platform(:ios)
 platform :ios do
   desc "Build and deploy the iOS app"
   lane :build_and_deploy do
-    setup_ci
-    
     # Update code signing settings
     update_code_signing_settings(
       use_automatic_signing: false,
@@ -14,16 +12,7 @@ platform :ios do
       build_configurations: ["Debug", "Release"],
       code_sign_identity: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
       profile_name: "Gen Style",
-      profile_uuid: ENV["PROVISIONING_PROFILE_UUID"] || "",
       bundle_identifier: "com.genstyle.app"
-    )
-    
-    # Set provisioning profile specifier directly
-    update_project_provisioning(
-      xcodeproj: "./ios/App/App.xcodeproj",
-      target_filter: "App",
-      profile: ENV["PROVISIONING_PROFILE_PATH"] || "",
-      build_configuration: "Release"
     )
     
     # Build the app
@@ -37,141 +26,7 @@ platform :ios do
     # Upload to App Store Connect
     upload_to_app_store(
       skip_screenshots: true,
-      skip_metadata: true,
-      force: true
-    )
-  end
-  
-  desc "Setup CI environment"
-  lane :setup_ci do
-    # Create temporary keychain
-    create_keychain(
-      name: ENV["MATCH_KEYCHAIN_NAME"],
-      password: ENV["MATCH_KEYCHAIN_PASSWORD"],
-      default_keychain: true,
-      unlock: true,
-      timeout: 3600
-    )
-    
-    # Import certificates
-    import_certificate(
-      certificate_path: ENV["CERTIFICATE_PATH"],
-      certificate_password: ENV["CERTIFICATE_PASSWORD"],
-      keychain_name: ENV["MATCH_KEYCHAIN_NAME"],
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
-    )
-  end
-
-  desc "Build iOS app with Capacitor"
-  lane :build_capacitor do
-    begin
-      # Verify environment
-      verify_environment
-      
-      # Setup keychain
-      setup_keychain
-      
-      # Get certificates and profiles
-      get_certificates_and_profiles
-      
-      # Update code signing settings
-      update_code_signing_settings(
-        path: "ios/App/App.xcodeproj",
-        use_automatic_signing: false,
-        team_id: "TN748MMP9M",
-        code_sign_identity: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
-        profile_name: "Gen Style",
-        bundle_identifier: "com.genstyle.app"
-      )
-      
-      # Install CocoaPods dependencies with retry
-      retry_count = 0
-      begin
-        cocoapods(
-          clean_install: true,
-          podfile: "ios/App/Podfile",
-          try_repo_update_on_error: true
-        )
-      rescue => e
-        retry_count += 1
-        if retry_count < 3
-          UI.message("CocoaPods installation failed, retrying... (Attempt #{retry_count}/3)")
-          sleep 5
-          retry
-        else
-          UI.error("CocoaPods installation failed after 3 attempts")
-          raise e
-        end
-      end
-      
-      # Build the app
-      build_app(
-        workspace: "ios/App/App.xcworkspace",
-        scheme: "App",
-        clean: true,
-        export_method: "app-store",
-        export_options: {
-          provisioningProfiles: { 
-            "com.genstyle.app" => "Gen Style"
-          }
-        }
-      )
-    rescue => e
-      UI.error("Build failed: #{e.message}")
-      raise e
-    end
-  end
-
-  private_lane :verify_environment do
-    # Verify Ruby version
-    ruby_version = sh("ruby -v").split("\n").first
-    UI.message("Using Ruby version: #{ruby_version}")
-    
-    # Verify Xcode version
-    xcode_version = sh("xcodebuild -version").split("\n").first
-    UI.message("Using Xcode version: #{xcode_version}")
-    
-    # Verify fastlane version
-    fastlane_version = sh("fastlane -v").split("\n").first
-    UI.message("Using fastlane version: #{fastlane_version}")
-    
-    # Verify CocoaPods version
-    pod_version = sh("pod --version").split("\n").first
-    UI.message("Using CocoaPods version: #{pod_version}")
-  end
-
-  private_lane :setup_keychain do
-    # Create temporary keychain
-    create_keychain(
-      name: "ios_build_keychain",
-      password: "ios_build_keychain_password",
-      default_keychain: true,
-      unlock: true,
-      timeout: 3600,
-      lock_when_sleeps: false
-    )
-    
-    # Import certificate
-    import_certificate(
-      certificate_path: "cert_file.p12",
-      certificate_password: ENV["CERTIFICATE_PASSWORD"],
-      keychain_name: "ios_build_keychain",
-      keychain_password: "ios_build_keychain_password"
-    )
-  end
-
-  private_lane :get_certificates_and_profiles do
-    # Download certificates and profiles
-    get_certificates(
-      development: false,
-      output_path: "."
-    )
-    
-    get_provisioning_profile(
-      app_identifier: "com.genstyle.app",
-      username: ENV["APPLE_ID"],
-      team_id: "TN748MMP9M",
-      output_path: "."
+      skip_metadata: true
     )
   end
 end
