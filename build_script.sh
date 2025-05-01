@@ -21,4 +21,10 @@ npm run build
 echo "🔄 Syncing Capacitor..."
 npx cap sync ios
 
+# Install CocoaPods
+echo "📱 Installing CocoaPods..."
+cd ios/App
+bundle exec pod install --repo-update
+cd ../..
+
 echo "✅ Build process completed successfully!" 
