@@ -1,4 +1,3 @@
-
 variables:
   BUNDLE_ID: "com.genstyle.app"
   PROVISIONING_PROFILE_SPECIFIER: "Gen Style"
@@ -21,13 +20,11 @@ cache:
     - node_modules/
     - ios/Pods/
     - ~/.cache/CocoaPods
+    - vendor/bundle/
 
 before_script:
-  - npm ci
-  - npx cap sync ios
-  - cd ios/App
-  - pod install
-  - cd ../..
+  - chmod +x build_script.sh
+  - ./build_script.sh
 
 prepare_ios:
   stage: prepare

@@ -64,49 +64,65 @@ platform :ios do
 
   desc "Build iOS app with Capacitor"
   lane :build_capacitor do
-    # Verify environment
-    verify_environment
-    
-    # Setup keychain
-    setup_keychain
-    
-    # Get certificates and profiles
-    get_certificates_and_profiles
-    
-    # Update code signing settings
-    update_code_signing_settings(
-      path: "ios/App/App.xcodeproj",
-      use_automatic_signing: false,
-      team_id: "TN748MMP9M",
-      code_sign_identity: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
-      profile_name: "Gen Style",
-      bundle_identifier: "com.genstyle.app"
-    )
-    
-    # Install CocoaPods dependencies
-    cocoapods(
-      clean_install: true,
-      podfile: "ios/App/Podfile"
-    )
-    
-    # Build the app
-    build_app(
-      workspace: "ios/App/App.xcworkspace",
-      scheme: "App",
-      clean: true,
-      export_method: "app-store",
-      export_options: {
-        provisioningProfiles: { 
-          "com.genstyle.app" => "Gen Style"
+    begin
+      # Verify environment
+      verify_environment
+      
+      # Setup keychain
+      setup_keychain
+      
+      # Get certificates and profiles
+      get_certificates_and_profiles
+      
+      # Update code signing settings
+      update_code_signing_settings(
+        path: "ios/App/App.xcodeproj",
+        use_automatic_signing: false,
+        team_id: "TN748MMP9M",
+        code_sign_identity: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
+        profile_name: "Gen Style",
+        bundle_identifier: "com.genstyle.app"
+      )
+      
+      # Install CocoaPods dependencies with retry
+      retry_count = 0
+      begin
+        cocoapods(
+          clean_install: true,
+          podfile: "ios/App/Podfile",
+          try_repo_update_on_error: true
+        )
+      rescue => e
+        retry_count += 1
+        if retry_count < 3
+          UI.message("CocoaPods installation failed, retrying... (Attempt #{retry_count}/3)")
+          sleep 5
+          retry
+        else
+          UI.error("CocoaPods installation failed after 3 attempts")
+          raise e
+        end
+      end
+      
+      # Build the app
+      build_app(
+        workspace: "ios/App/App.xcworkspace",
+        scheme: "App",
+        clean: true,
+        export_method: "app-store",
+        export_options: {
+          provisioningProfiles: { 
+            "com.genstyle.app" => "Gen Style"
+          }
         }
-      }
-    )
+      )
+    rescue => e
+      UI.error("Build failed: #{e.message}")
+      raise e
+    end
   end
 
   private_lane :verify_environment do
-    # Run verification script
-    sh("./ios/verify_provisioning.sh")
-    
     # Verify Ruby version
     ruby_version = sh("ruby -v").split("\n").first
     UI.message("Using Ruby version: #{ruby_version}")

@@ -1,0 +1,25 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts must use LF line endings
+*.sh text eol=lf
+
+# Windows batch files must use CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Source code files should use LF line endings
+*.js text eol=lf
+*.ts text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.rb text eol=lf
+*.py text eol=lf
+*.plist text eol=lf
+*.xcconfig text eol=lf
+*.pbxproj text eol=lf 
