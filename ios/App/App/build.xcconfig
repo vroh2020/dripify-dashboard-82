@@ -1,0 +1,13 @@
+
+// Provisioning profile configuration
+PROVISIONING_PROFILE_SPECIFIER = Gen Style
+DEVELOPMENT_TEAM = TN748MMP9M
+CODE_SIGN_IDENTITY = Apple Distribution: Rohini Mallavarapu (TN748MMP9M)
+CODE_SIGN_STYLE = Manual
+
+// Bundle identifier should match what's in capacitor.config.ts
+PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app
+
+// Include build.xcconfig in Xcode project
+#include? "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"
+#include? "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"

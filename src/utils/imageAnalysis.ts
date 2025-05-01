@@ -2,14 +2,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 import { parseAnalysis } from '@/utils/analysisParser';
+import Logger from '@/utils/logger';
 
-// Upload image to Supabase Storage
 const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
   try {
     const timestamp = new Date().getTime();
     const filePath = `outfit_${timestamp}_${imageFile.name.replace(/\s+/g, '_')}`;
     
-    console.log('Attempting to upload image to style_images bucket:', filePath);
+    Logger.debug('Attempting to upload image:', filePath);
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('style_images')
@@ -19,67 +19,57 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
       });
       
     if (uploadError) {
-      console.error('Error uploading image:', uploadError);
+      Logger.error('Error uploading image:', uploadError);
       throw new Error('Failed to upload image to storage');
     }
     
-    // Get public URL for the uploaded image
     const { data: { publicUrl } } = supabase.storage
       .from('style_images')
       .getPublicUrl(filePath);
       
-    console.log('Image uploaded successfully, public URL:', publicUrl);
+    Logger.info('Image upload successful');
     return publicUrl;
   } catch (error) {
-    console.error('Image upload error:', error);
+    Logger.error('Image upload error:', error);
     throw error;
   }
 };
 
 export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult> => {
   try {
-    // Convert image to base64
     const base64Image = await fileToBase64(imageFile);
     
-    console.log('Starting style analysis...');
+    Logger.info('Starting style analysis...');
     const startTime = performance.now();
     
-    // Call the analyze-style Supabase function
     const { data, error } = await supabase.functions.invoke('analyze-style', {
       body: { image: base64Image, style: "casual" }
     });
 
     if (error) {
-      console.error('Supabase function error:', error);
+      Logger.error('Supabase function error:', error);
       throw new Error('Failed to analyze image: ' + error.message);
     }
 
     const endTime = performance.now();
-    console.log(`Analysis completed in ${Math.round(endTime - startTime)}ms`);
-    console.log('Analysis response:', data);
+    Logger.debug(`Analysis completed in ${Math.round(endTime - startTime)}ms`);
     
     if (!data || !data.feedback) {
       throw new Error('Invalid response format from AI service');
     }
     
-    // Parse the analysis results
     const analysisData = parseAnalysis(data.feedback);
     
-    // Make sure we have a valid overall score
     if (analysisData.overallScore === undefined) {
-      console.error('Failed to extract a valid overall score from the analysis');
-      // Set a default score of 5 if no score could be extracted
+      Logger.error('Failed to extract a valid overall score from the analysis');
       analysisData.overallScore = 5;
     }
     
-    // Upload image to Supabase Storage
     const imageUrl = await uploadImageToSupabase(imageFile);
-    console.log('Image uploaded to Supabase:', imageUrl);
+    Logger.info('Image uploaded to Supabase:', imageUrl);
     
-    // Get user info for database save
     const { data: userData } = await supabase.auth.getUser();
     
-    // Save analysis to database if user is logged in and we have a valid score
     if (userData && userData.user && analysisData.overallScore !== undefined) {
       const dbAnalysisData = {
         user_id: userData.user.id,
@@ -99,16 +89,15 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
           .insert(dbAnalysisData);
           
         if (insertError) {
-          console.error('Error saving analysis to database:', insertError);
+          Logger.error('Error saving analysis to database:', insertError);
         } else {
-          console.log('Analysis saved to database successfully');
+          Logger.info('Analysis saved to database successfully');
         }
       } catch (dbError) {
-        console.error('Database error:', dbError);
+        Logger.error('Database error:', dbError);
       }
     }
     
-    // Create the result object
     const result: StyleAnalysisResult = {
       overallScore: analysisData.overallScore,
       rawAnalysis: data.feedback,
@@ -118,18 +107,16 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
       summary: analysisData.summary
     };
     
-    // Update the scan store with the new analysis
     const store = useScanStore.getState();
     store.setLatestScan(result);
     
     return result;
   } catch (error) {
-    console.error('Error analyzing style:', error);
+    Logger.error('Error analyzing style:', error);
     throw error;
   }
 };
 
-// Convert file to base64 - optimized for speed
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

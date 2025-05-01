@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
+import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 
 const queryClient = new QueryClient();
 
@@ -16,13 +17,15 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/*" element={<Index />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/auth" element={<Auth />} />
-          </Routes>
-        </BrowserRouter>
+        <SubscriptionProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/*" element={<Index />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/auth" element={<Auth />} />
+            </Routes>
+          </BrowserRouter>
+        </SubscriptionProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
