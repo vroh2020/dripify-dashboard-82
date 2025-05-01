@@ -83,6 +83,12 @@ platform :ios do
       bundle_identifier: "com.genstyle.app"
     )
     
+    # Install CocoaPods dependencies
+    cocoapods(
+      clean_install: true,
+      podfile: "ios/App/Podfile"
+    )
+    
     # Build the app
     build_app(
       workspace: "ios/App/App.xcworkspace",
@@ -101,6 +107,10 @@ platform :ios do
     # Run verification script
     sh("./ios/verify_provisioning.sh")
     
+    # Verify Ruby version
+    ruby_version = sh("ruby -v").split("\n").first
+    UI.message("Using Ruby version: #{ruby_version}")
+    
     # Verify Xcode version
     xcode_version = sh("xcodebuild -version").split("\n").first
     UI.message("Using Xcode version: #{xcode_version}")
@@ -108,6 +118,10 @@ platform :ios do
     # Verify fastlane version
     fastlane_version = sh("fastlane -v").split("\n").first
     UI.message("Using fastlane version: #{fastlane_version}")
+    
+    # Verify CocoaPods version
+    pod_version = sh("pod --version").split("\n").first
+    UI.message("Using CocoaPods version: #{pod_version}")
   end
 
   private_lane :setup_keychain do
