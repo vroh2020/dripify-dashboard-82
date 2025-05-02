@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Purchases, PurchasesOffering } from '@revenuecat/purchases-capacitor';
+import { Purchases, PurchasesOffering, CustomerInfo } from '@revenuecat/purchases-capacitor';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/hooks/useSession';
@@ -15,7 +14,7 @@ export type SubscriptionStatus = {
 export const useRevenueCat = () => {
   const [initialized, setInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [offerings, setOfferings] = useState<PurchasesOffering[] | null>(null);
+  const [offerings, setOfferings] = useState<PurchasesOffering[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionStatus>({
     isActive: false,
     expirationDate: null,
@@ -74,11 +73,6 @@ export const useRevenueCat = () => {
     } else {
       setIsLoading(false);
     }
-    
-    // Cleanup function
-    return () => {
-      // No cleanup needed for RevenueCat
-    };
   }, [user?.id, initialized, toast]);
 
   // Fetch available offerings
@@ -86,19 +80,32 @@ export const useRevenueCat = () => {
     try {
       if (!initialized) return;
       
+      console.log('Fetching RevenueCat offerings...');
       const offeringsData = await Purchases.getOfferings();
       
-      if (offeringsData.current && offeringsData.all) {
-        // Convert to array for easier use in UI
+      console.log('Raw offerings data:', JSON.stringify(offeringsData, null, 2));
+      
+      if (offeringsData.current) {
+        console.log('Current offering:', offeringsData.current);
+        console.log('Available packages:', offeringsData.current.availablePackages);
+      }
+      
+      if (offeringsData.all) {
+        console.log('All offerings:', offeringsData.all);
         const offeringsArray = Object.values(offeringsData.all);
         setOfferings(offeringsArray);
-        console.log('RevenueCat offerings:', offeringsArray);
+        console.log('Processed offerings:', offeringsArray);
       } else {
-        console.log('No offerings available');
+        console.warn('No offerings available in RevenueCat dashboard');
         setOfferings([]);
       }
     } catch (error) {
       console.error('Error fetching offerings:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       toast({
         variant: "destructive",
         title: "Subscription Error",
@@ -112,10 +119,10 @@ export const useRevenueCat = () => {
     try {
       if (!initialized) return;
       
-      const customerInfo = await Purchases.getCustomerInfo();
+      const { customerInfo } = await Purchases.getCustomerInfo();
       
       // Check if user has an active subscription
-      const isPro = customerInfo.entitlements.active && customerInfo.entitlements.active["pro"] || false;
+      const isPro = Boolean(customerInfo.entitlements.active?.["pro"]?.isActive);
       
       // Get the expiration date if available
       let expirationDate = null;

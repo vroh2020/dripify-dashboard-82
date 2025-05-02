@@ -18,6 +18,9 @@ declare module '@revenuecat/purchases-capacitor' {
         };
       };
     };
+    activeSubscriptions: string[];
+    allExpirationDates: { [key: string]: number };
+    allPurchasedProductIdentifiers: { [key: string]: string[] };
   }
 
   export interface PurchasesPackage {
@@ -34,6 +37,17 @@ declare module '@revenuecat/purchases-capacitor' {
     };
   }
 
+  export interface PurchasesOffering {
+    identifier: string;
+    serverDescription: string;
+    availablePackages: PurchasesPackage[];
+  }
+
+  export interface Offerings {
+    current: PurchasesOffering | null;
+    all: { [key: string]: PurchasesOffering };
+  }
+
   export enum LOG_LEVEL {
     DEBUG = 'DEBUG',
     INFO = 'INFO',
@@ -44,8 +58,9 @@ declare module '@revenuecat/purchases-capacitor' {
   export class Purchases {
     static setLogLevel({ level }: { level: LOG_LEVEL }): Promise<void>;
     static configure({ apiKey, appUserID }: { apiKey: string; appUserID: string | null }): Promise<void>;
-    static getOfferings(): Promise<{ current: { availablePackages: PurchasesPackage[] } }>;
+    static getOfferings(): Promise<Offerings>;
     static purchasePackage({ offeringIdentifier, packageIdentifier }: { offeringIdentifier: string; packageIdentifier: string }): Promise<{ customerInfo: CustomerInfo }>;
+    static purchaseStoreProduct(productIdentifier: string): Promise<{ customerInfo: CustomerInfo }>;
     static restorePurchases(): Promise<{ customerInfo: CustomerInfo }>;
     static getCustomerInfo(): Promise<{ customerInfo: CustomerInfo }>;
     static logIn({ appUserID }: { appUserID: string }): Promise<void>;
