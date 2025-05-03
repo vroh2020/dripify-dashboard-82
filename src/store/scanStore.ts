@@ -10,7 +10,6 @@ type ScanState = {
     tips?: StyleTip[];
     summary?: string;
   } | null;
-  scanCount: number;
   setLatestScan: (scan: {
     overallScore: number;
     rawAnalysis: string;
@@ -19,12 +18,9 @@ type ScanState = {
     tips?: StyleTip[];
     summary?: string;
   }) => void;
-  incrementScanCount: () => void;
 };
 
 export const useScanStore = create<ScanState>((set) => ({
   latestScan: null,
-  scanCount: 0,
   setLatestScan: (scan) => set({ latestScan: scan }),
-  incrementScanCount: () => set((state) => ({ scanCount: state.scanCount + 1 })),
 }));

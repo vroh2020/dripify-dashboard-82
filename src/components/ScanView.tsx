@@ -12,7 +12,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CategoryBreakdown } from "./analysis/CategoryBreakdown";
 import { StyleTips } from "./analysis/StyleTips";
 import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
-import { reviewService } from "@/services/reviewService";
 import type { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 
 export const ScanView = () => {
@@ -23,8 +22,6 @@ export const ScanView = () => {
   const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
   const setLatestScan = useScanStore((state) => state.setLatestScan);
-  const incrementScanCount = useScanStore((state) => state.incrementScanCount);
-  const scanCount = useScanStore((state) => state.scanCount);
   const [result, setResult] = useState<{ 
     overallScore: number; 
     rawAnalysis: string; 
@@ -64,15 +61,6 @@ export const ScanView = () => {
       console.log('Analysis completed successfully:', analysisResult);
       setResult(analysisResult);
       setLatestScan(analysisResult);
-      
-      // Check if we should show the review prompt before incrementing scan count
-      const shouldPrompt = await reviewService.shouldPromptForReview(scanCount);
-      if (shouldPrompt) {
-        await reviewService.promptForReview();
-      }
-      
-      // Increment scan count after review prompt check
-      incrementScanCount();
       
       toast({
         title: "Analysis Complete",
