@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Purchases, PurchasesOffering, CustomerInfo } from '@revenuecat/purchases-capacitor';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,11 +102,6 @@ export const useRevenueCat = () => {
       }
     } catch (error) {
       console.error('Error fetching offerings:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack
-      });
       toast({
         variant: "destructive",
         title: "Subscription Error",
@@ -138,14 +134,9 @@ export const useRevenueCat = () => {
         
         productId = subId;
         
-        // Try to determine the offering ID
-        if (customerInfo.allPurchasedProductIdentifiers) {
-          for (const offering of Object.keys(customerInfo.allPurchasedProductIdentifiers)) {
-            if (offering.includes('pro')) {
-              offeringId = offering;
-              break;
-            }
-          }
+        // Try to determine the offering ID from purchased products
+        if (customerInfo.allPurchasedProductIdentifiers && customerInfo.allPurchasedProductIdentifiers.length > 0) {
+          offeringId = customerInfo.allPurchasedProductIdentifiers[0];
         }
       }
       
@@ -174,52 +165,19 @@ export const useRevenueCat = () => {
   const purchaseProduct = async (productId: string) => {
     try {
       if (!initialized) {
-        // We need to initialize first
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast({
-            variant: "destructive",
-            title: "Authentication Required",
-            description: "Please sign in before purchasing."
-          });
-          return false;
-        }
-        
-        setIsLoading(true);
-        
-        // Fetch API key from Supabase Edge Function
-        const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        
-        if (error || !data.publicKey) {
-          toast({
-            variant: "destructive",
-            title: "Service Unavailable",
-            description: "Could not connect to subscription service. Please try again later."
-          });
-          return false;
-        }
-        
-        // Initialize RevenueCat with the API key
-        await Purchases.configure({ 
-          apiKey: data.publicKey,
-          appUserID: user.id 
-        });
-        
-        console.log('RevenueCat initialized with user ID:', user.id);
-        setInitialized(true);
+        throw new Error('RevenueCat not initialized');
       }
       
       setIsLoading(true);
-      const result = await Purchases.purchaseStoreProduct(productId);
+      const result = await Purchases.purchaseStoreProduct({ productIdentifier: productId });
       
       if (result) {
         // Check if purchase was successful and entitlement is active
         const isProActive = result.customerInfo.entitlements.active && 
-                           result.customerInfo.entitlements.active["pro"] || false;
+                           result.customerInfo.entitlements.active["pro"]?.isActive || false;
         
         if (isProActive) {
           toast({
-            variant: "success",
             title: "Upgrade Successful",
             description: "You've successfully upgraded to Pro!"
           });
@@ -254,39 +212,7 @@ export const useRevenueCat = () => {
   const restorePurchases = async () => {
     try {
       if (!initialized) {
-        // We need to initialize first
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast({
-            variant: "destructive",
-            title: "Authentication Required",
-            description: "Please sign in before restoring purchases."
-          });
-          return false;
-        }
-        
-        setIsLoading(true);
-        
-        // Fetch API key from Supabase Edge Function
-        const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        
-        if (error || !data.publicKey) {
-          toast({
-            variant: "destructive",
-            title: "Service Unavailable",
-            description: "Could not connect to subscription service. Please try again later."
-          });
-          return false;
-        }
-        
-        // Initialize RevenueCat with the API key
-        await Purchases.configure({ 
-          apiKey: data.publicKey,
-          appUserID: user.id 
-        });
-        
-        console.log('RevenueCat initialized with user ID:', user.id);
-        setInitialized(true);
+        throw new Error('RevenueCat not initialized');
       }
       
       setIsLoading(true);
@@ -297,14 +223,12 @@ export const useRevenueCat = () => {
       
       if (status.isActive) {
         toast({
-          variant: "success",
           title: "Purchases Restored",
           description: "Your Pro subscription has been restored successfully!"
         });
         return true;
       } else {
         toast({
-          variant: "default",
           title: "No Purchases Found",
           description: "We couldn't find any previous Pro subscriptions to restore."
         });
