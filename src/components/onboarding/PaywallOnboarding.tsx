@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,6 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   const ageOptions = [
     "16-20", "21-25", "26-30", "31-35", "36-40", "41-45", "46-50", "50+"
@@ -105,8 +103,35 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
     }
   };
 
-  const handleContinueWithEmail = () => {
-    setCurrentStep('age');
+  const handleContinueWithEmail = async () => {
+    try {
+      // Create a temporary user account for the onboarding process
+      const tempEmail = `temp_${Date.now()}@example.com`;
+      const tempPassword = Math.random().toString(36).substring(2, 15);
+      
+      const { data, error } = await supabase.auth.signUp({
+        email: tempEmail,
+        password: tempPassword,
+        options: {
+          data: {
+            username: `temp_user_${Date.now()}`,
+            is_temp_account: true
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Temp account creation error:', error);
+        // Continue anyway
+      } else {
+        console.log('Temporary account created for onboarding');
+      }
+      
+      setCurrentStep('age');
+    } catch (error) {
+      console.error('Error creating temp account:', error);
+      setCurrentStep('age');
+    }
   };
 
   const handleAgeSelect = (age: string) => {
@@ -139,23 +164,27 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
         ...parsedResult
       });
       
-      // Save the analysis to Supabase
+      // Save the analysis to Supabase only if user is authenticated
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { error } = await supabase
-          .from('style_analyses')
-          .insert({
-            user_id: user.id,
-            total_score: parsedResult.overallScore || analysisResult.overallScore,
-            breakdown: JSON.stringify(parsedResult.breakdown || []),
-            feedback: parsedResult.summary || analysisResult.rawAnalysis.substring(0, 200),
-            tips: JSON.stringify(parsedResult.tips || []),
-            image_url: analysisResult.imageUrl,
-            raw_analysis: analysisResult.rawAnalysis
-          });
+        try {
+          const { error } = await supabase
+            .from('style_analyses')
+            .insert({
+              user_id: user.id,
+              total_score: parsedResult.overallScore || analysisResult.overallScore,
+              breakdown: JSON.stringify(parsedResult.breakdown || []),
+              feedback: parsedResult.summary || analysisResult.rawAnalysis.substring(0, 200),
+              tips: JSON.stringify(parsedResult.tips || []),
+              image_url: analysisResult.imageUrl,
+              raw_analysis: analysisResult.rawAnalysis
+            });
 
-        if (error) {
-          console.error('Error saving analysis:', error);
+          if (error) {
+            console.error('Error saving analysis:', error);
+          }
+        } catch (dbError) {
+          console.error('Database error:', dbError);
         }
       }
 

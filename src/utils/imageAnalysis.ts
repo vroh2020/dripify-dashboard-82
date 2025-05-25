@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
@@ -11,6 +12,12 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
     
     Logger.debug('Attempting to upload image:', filePath);
     
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User must be authenticated to upload images');
+    }
+    
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('style_images')
       .upload(filePath, imageFile, {
@@ -20,7 +27,7 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
       
     if (uploadError) {
       Logger.error('Error uploading image:', uploadError);
-      throw new Error('Failed to upload image to storage');
+      throw new Error('Failed to upload image to storage: ' + uploadError.message);
     }
     
     const { data: { publicUrl } } = supabase.storage
@@ -65,10 +72,18 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
       analysisData.overallScore = 5;
     }
     
-    const imageUrl = await uploadImageToSupabase(imageFile);
-    Logger.info('Image uploaded to Supabase:', imageUrl);
-    
+    // Only upload image and save to database if user is authenticated
     const { data: userData } = await supabase.auth.getUser();
+    let imageUrl = '';
+    
+    try {
+      imageUrl = await uploadImageToSupabase(imageFile);
+      Logger.info('Image uploaded to Supabase:', imageUrl);
+    } catch (uploadError) {
+      // If upload fails, create a local URL as fallback
+      Logger.warn('Image upload failed, using local URL:', uploadError);
+      imageUrl = URL.createObjectURL(imageFile);
+    }
     
     if (userData && userData.user && analysisData.overallScore !== undefined) {
       const dbAnalysisData = {
