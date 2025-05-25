@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleLoadingOverlay } from "@/components/StyleLoadingOverlay";
 import { DripScore } from "@/components/DripScore";
-import { analyzeImageWithAPI } from "@/utils/imageAnalysis";
-import { parseAnalysisResult } from "@/utils/analysisParser";
+import { analyzeStyle } from "@/utils/imageAnalysis";
+import { parseAnalysis } from "@/utils/analysisParser";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, PartyPopper, Crown, Clock, Shield } from "lucide-react";
@@ -131,10 +131,13 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
       setIsAnalyzing(true);
       setCurrentStep('rating');
 
-      const analysisResult = await analyzeImageWithAPI(selectedImage);
-      const parsedResult = parseAnalysisResult(analysisResult);
+      const analysisResult = await analyzeStyle(selectedImage);
+      const parsedResult = parseAnalysis(analysisResult.rawAnalysis);
       
-      setAnalysisResult(parsedResult);
+      setAnalysisResult({
+        ...analysisResult,
+        ...parsedResult
+      });
       
       // Save the analysis to Supabase
       const { data: { user } } = await supabase.auth.getUser();
@@ -143,12 +146,12 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
           .from('style_analyses')
           .insert({
             user_id: user.id,
-            total_score: parsedResult.overallScore,
-            breakdown: parsedResult.breakdown,
-            feedback: parsedResult.feedback,
-            tips: parsedResult.tips || [],
-            image_url: URL.createObjectURL(selectedImage),
-            raw_analysis: analysisResult
+            total_score: parsedResult.overallScore || analysisResult.overallScore,
+            breakdown: JSON.stringify(parsedResult.breakdown || []),
+            feedback: parsedResult.summary || analysisResult.rawAnalysis.substring(0, 200),
+            tips: JSON.stringify(parsedResult.tips || []),
+            image_url: analysisResult.imageUrl,
+            raw_analysis: analysisResult.rawAnalysis
           });
 
         if (error) {
@@ -182,7 +185,6 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
             id: user.id,
             username: user.email?.split('@')[0] || 'User',
             referral_source: onboardingData.referralSource,
-            // We can add more fields as needed
           });
 
         if (error) {
@@ -383,11 +385,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                     <p className="text-white/60 text-sm">Upload a photo to get your style rating</p>
                   </div>
 
-                  <ImageUpload
-                    onImageSelected={setSelectedImage}
-                    videoRef={videoRef}
-                    selectedImage={selectedImage}
-                  />
+                  <ImageUpload onImageSelect={setSelectedImage} />
 
                   {selectedImage && (
                     <Button
@@ -414,12 +412,12 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                       
                       <DripScore 
                         score={analysisResult.overallScore} 
-                        feedback={analysisResult.rawAnalysis || "Looking good! Keep exploring your style."}
+                        feedback={analysisResult.summary || analysisResult.rawAnalysis || "Looking good! Keep exploring your style."}
                       />
                       
                       <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                         <p className="text-white/70 text-sm">
-                          {analysisResult.feedback || "Great style! Keep it up!"}
+                          {analysisResult.summary || "Great style! Keep it up!"}
                         </p>
                       </div>
                     </>
