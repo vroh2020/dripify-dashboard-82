@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { analyzeStyle } from "@/utils/imageAnalysis";
 import { parseAnalysis } from "@/utils/analysisParser";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, PartyPopper, Crown, Clock, Shield } from "lucide-react";
+import { Sparkles, PartyPopper, Crown, Shield } from "lucide-react";
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { Capacitor } from '@capacitor/core';
 
@@ -43,6 +44,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [showNextButton, setShowNextButton] = useState(false);
   const { toast } = useToast();
 
   const ageOptions = [
@@ -161,7 +163,8 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
       
       setAnalysisResult({
         ...analysisResult,
-        ...parsedResult
+        ...parsedResult,
+        imageUrl: URL.createObjectURL(selectedImage) // Use local URL for display
       });
       
       // Save the analysis to Supabase only if user is authenticated
@@ -188,9 +191,10 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
         }
       }
 
+      // Show results for 5 seconds, then show next button
       setTimeout(() => {
-        setCurrentStep('celebration');
-      }, 2000);
+        setShowNextButton(true);
+      }, 5000);
     } catch (error) {
       console.error('Analysis error:', error);
       toast({
@@ -202,6 +206,11 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleNextFromResults = () => {
+    setShowNextButton(false);
+    setCurrentStep('celebration');
   };
 
   const saveUserProfile = async () => {
@@ -281,7 +290,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                     <Button
                       onClick={handleContinueWithEmail}
                       variant="outline"
-                      className="w-full border-white/20 text-white hover:bg-white/10 py-3"
+                      className="w-full border-white/20 text-white hover:bg-white/10 hover:text-white py-3"
                     >
                       Continue with Email
                     </Button>
@@ -308,7 +317,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                         key={age}
                         onClick={() => handleAgeSelect(age)}
                         variant="outline"
-                        className="border-white/20 text-white hover:bg-orange-500/20 hover:border-orange-500/50 py-3"
+                        className="border-white/20 text-white hover:bg-orange-500/20 hover:border-orange-500/50 hover:text-white py-3"
                       >
                         {age}
                       </Button>
@@ -336,7 +345,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                         key={source}
                         onClick={() => handleReferralSelect(source)}
                         variant="outline"
-                        className="w-full border-white/20 text-white hover:bg-orange-500/20 hover:border-orange-500/50 py-3"
+                        className="w-full border-white/20 text-white hover:bg-orange-500/20 hover:border-orange-500/50 hover:text-white py-3"
                       >
                         {source}
                       </Button>
@@ -364,7 +373,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                         key={goal.id}
                         onClick={() => handleGoalSelect(goal.id)}
                         variant="outline"
-                        className="w-full border-white/20 text-white hover:bg-orange-500/20 hover:border-orange-500/50 py-4 text-left"
+                        className="w-full border-white/20 text-white hover:bg-orange-500/20 hover:border-orange-500/50 hover:text-white py-4 text-left"
                       >
                         <div>
                           <div className="font-medium">{goal.title}</div>
@@ -437,18 +446,38 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                 >
                   {analysisResult && (
                     <>
-                      <h2 className="text-xl font-semibold text-white">Your Style Rating</h2>
-                      
-                      <DripScore 
-                        score={analysisResult.overallScore} 
-                        feedback={analysisResult.summary || analysisResult.rawAnalysis || "Looking good! Keep exploring your style."}
-                      />
+                      <div className="space-y-4">
+                        {/* Display the user's image */}
+                        <div className="w-32 h-32 mx-auto rounded-lg overflow-hidden border-2 border-purple-500/30">
+                          <img 
+                            src={analysisResult.imageUrl} 
+                            alt="Your outfit" 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        <h2 className="text-xl font-semibold text-white">Your Style Rating</h2>
+                        
+                        <DripScore 
+                          score={analysisResult.overallScore} 
+                          feedback={analysisResult.summary || analysisResult.rawAnalysis || "Looking good! Keep exploring your style."}
+                        />
+                      </div>
                       
                       <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                         <p className="text-white/70 text-sm">
                           {analysisResult.summary || "Great style! Keep it up!"}
                         </p>
                       </div>
+
+                      {showNextButton && (
+                        <Button
+                          onClick={handleNextFromResults}
+                          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 py-3"
+                        >
+                          Next
+                        </Button>
+                      )}
                     </>
                   )}
                 </motion.div>
@@ -463,12 +492,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                   className="text-center space-y-6"
                 >
                   <div className="space-y-4">
-                    <motion.div
-                      animate={{ rotate: [0, 360] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    >
-                      <PartyPopper className="w-20 h-20 text-orange-400 mx-auto" />
-                    </motion.div>
+                    <PartyPopper className="w-20 h-20 text-orange-400 mx-auto" />
                     <h2 className="text-2xl font-bold text-white">Congratulations!</h2>
                     <p className="text-white/70">
                       You've just experienced the power of Drip Max! Ready to unlock your full style potential?
@@ -490,23 +514,13 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="text-center space-y-6"
+                  className="text-center space-y-8"
                 >
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <Crown className="w-16 h-16 text-orange-400 mx-auto" />
-                    <h2 className="text-xl font-semibold text-white">7 Days Free Trial</h2>
-                    <p className="text-white/70">
-                      We offer 7 days free for anyone who wants to Drip Max! Experience unlimited style ratings and personalized recommendations.
-                    </p>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-orange-500/20 to-purple-500/20 rounded-lg p-4 border border-white/10">
-                    <ul className="text-sm text-white/80 space-y-2">
-                      <li>• Unlimited outfit ratings</li>
-                      <li>• Personalized style tips</li>
-                      <li>• Advanced analytics</li>
-                      <li>• Style trend alerts</li>
-                    </ul>
+                    <h2 className="text-3xl font-bold text-white leading-tight">
+                      We offer 7 days free trial for you to max your drip with drip max
+                    </h2>
                   </div>
 
                   <Button
@@ -524,21 +538,13 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="text-center space-y-6"
+                  className="text-center space-y-8"
                 >
-                  <div className="space-y-4">
-                    <Clock className="w-16 h-16 text-orange-400 mx-auto" />
-                    <h2 className="text-xl font-semibold text-white">Trial Reminder</h2>
-                    <p className="text-white/70">
-                      You will get a reminder before your trial expires in 2 days. Cancel anytime with no commitment.
-                    </p>
-                  </div>
-
-                  <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <div className="flex items-center justify-center gap-2 text-green-400">
-                      <Shield className="w-5 h-5" />
-                      <span className="text-sm">No commitment • Cancel anytime</span>
-                    </div>
+                  <div className="space-y-6">
+                    <Shield className="w-16 h-16 text-orange-400 mx-auto" />
+                    <h2 className="text-xl font-semibold text-white">
+                      You will get a reminder before your trial expires in 2 days.
+                    </h2>
                   </div>
 
                   <Button

@@ -32,10 +32,12 @@ export const Auth = () => {
 
   const handleOnboardingComplete = (userData: any) => {
     setOnboardingData(userData);
-    setShowOnboarding(false);
-    // Auto-generate username from email or use a random one
-    const randomUsername = `user_${Math.random().toString(36).substr(2, 9)}`;
-    setUsername(randomUsername);
+    // Skip the account setup form and go directly to app
+    toast({
+      title: "Welcome to Drip Max!",
+      description: "Your account has been created successfully.",
+    });
+    navigate("/");
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -136,10 +138,10 @@ export const Auth = () => {
                     ← Back to onboarding
                   </Button>
                   <h2 className="text-xl font-semibold text-white">
-                    Complete your account setup
+                    Sign in to continue
                   </h2>
                   <p className="text-white/60 text-sm mt-2">
-                    Just a few more details to get started
+                    Welcome back to Drip Max
                   </p>
                 </div>
                 
@@ -152,7 +154,7 @@ export const Auth = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="bg-white/5 border-white/10 text-white"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
                       placeholder="Enter your email"
                     />
                   </div>
@@ -164,22 +166,22 @@ export const Auth = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="bg-white/5 border-white/10 text-white"
-                      placeholder="Choose a password"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
+                      placeholder="Enter your password"
                     />
                   </div>
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                   >
                     {loading ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                        Creating account...
+                        {isSignUp ? "Creating account..." : "Signing in..."}
                       </div>
                     ) : (
-                      <>Start Your Free Trial <ChevronRight className="ml-2 h-4 w-4" /></>
+                      <>{isSignUp ? "Sign Up" : "Sign In"} <ChevronRight className="ml-2 h-4 w-4" /></>
                     )}
                   </Button>
                   <div className="text-center">
