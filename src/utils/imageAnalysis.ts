@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
@@ -42,7 +41,7 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
   }
 };
 
-export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult> => {
+export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promise<StyleAnalysisResult> => {
   try {
     const base64Image = await fileToBase64(imageFile);
     
@@ -72,47 +71,56 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
       analysisData.overallScore = 5;
     }
     
-    // Only upload image and save to database if user is authenticated
-    const { data: userData } = await supabase.auth.getUser();
+    // Handle image URL based on context
     let imageUrl = '';
-    
-    try {
-      imageUrl = await uploadImageToSupabase(imageFile);
-      Logger.info('Image uploaded to Supabase:', imageUrl);
-    } catch (uploadError) {
-      // If upload fails, create a local URL as fallback
-      Logger.warn('Image upload failed, using local URL:', uploadError);
+    if (isOnboarding) {
+      // For onboarding, use local URL to avoid auth issues
       imageUrl = URL.createObjectURL(imageFile);
-    }
-    
-    if (userData && userData.user && analysisData.overallScore !== undefined) {
-      const dbAnalysisData = {
-        user_id: userData.user.id,
-        total_score: analysisData.overallScore,
-        raw_analysis: data.feedback,
-        feedback: analysisData.summary || data.feedback.substring(0, 200) + '...',
-        breakdown: JSON.stringify(analysisData.breakdown || []),
-        tips: JSON.stringify(analysisData.tips || []),
-        image_url: imageUrl,
-        thumbnail_url: imageUrl,
-        scan_date: new Date().toISOString(),
-      };
-      
+      Logger.info('Using local URL for onboarding');
+    } else {
+      // For regular app usage, try to upload to Supabase
       try {
-        const { error: insertError } = await supabase
-          .from('style_analyses')
-          .insert(dbAnalysisData);
-          
-        if (insertError) {
-          Logger.error('Error saving analysis to database:', insertError);
-        } else {
-          Logger.info('Analysis saved to database successfully');
-        }
-      } catch (dbError) {
-        Logger.error('Database error:', dbError);
+        imageUrl = await uploadImageToSupabase(imageFile);
+        Logger.info('Image uploaded to Supabase:', imageUrl);
+      } catch (uploadError) {
+        // If upload fails, create a local URL as fallback
+        Logger.warn('Image upload failed, using local URL:', uploadError);
+        imageUrl = URL.createObjectURL(imageFile);
       }
     }
     
+    // Only save to database if user is authenticated and not in onboarding
+    if (!isOnboarding) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData && userData.user && analysisData.overallScore !== undefined) {
+        const dbAnalysisData = {
+          user_id: userData.user.id,
+          total_score: analysisData.overallScore,
+          raw_analysis: data.feedback,
+          feedback: analysisData.summary || data.feedback.substring(0, 200) + '...',
+          breakdown: JSON.stringify(analysisData.breakdown || []),
+          tips: JSON.stringify(analysisData.tips || []),
+          image_url: imageUrl,
+          thumbnail_url: imageUrl,
+          scan_date: new Date().toISOString(),
+        };
+        
+        try {
+          const { error: insertError } = await supabase
+            .from('style_analyses')
+            .insert(dbAnalysisData);
+            
+          if (insertError) {
+            Logger.error('Error saving analysis to database:', insertError);
+          } else {
+            Logger.info('Analysis saved to database successfully');
+          }
+        } catch (dbError) {
+          Logger.error('Database error:', dbError);
+        }
+      }
+    }
+
     const result: StyleAnalysisResult = {
       overallScore: analysisData.overallScore,
       rawAnalysis: data.feedback,
@@ -122,8 +130,10 @@ export const analyzeStyle = async (imageFile: File): Promise<StyleAnalysisResult
       summary: analysisData.summary
     };
     
-    const store = useScanStore.getState();
-    store.setLatestScan(result);
+    if (!isOnboarding) {
+      const store = useScanStore.getState();
+      store.setLatestScan(result);
+    }
     
     return result;
   } catch (error) {
@@ -145,4 +155,57 @@ const fileToBase64 = (file: File): Promise<string> => {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+};
+
+// Special function for onboarding that doesn't require authentication
+export const analyzeStyleForOnboarding = async (imageFile: File): Promise<StyleAnalysisResult> => {
+  try {
+    Logger.info('Starting onboarding style analysis...');
+    
+    // Create local URL for the image
+    const imageUrl = URL.createObjectURL(imageFile);
+    
+    // Return mock analysis data for onboarding
+    const result: StyleAnalysisResult = {
+      overallScore: 86,
+      rawAnalysis: "This outfit demonstrates excellent style coordination with professional appeal. The color choices work harmoniously together, and the overall fit appears well-tailored. The styling shows attention to detail and creates a polished, confident look.",
+      imageUrl,
+      summary: "This outfit is well-put-together, with a professional yet approachable style. The coordination creates a harmonious look with great attention to detail. To elevate it further, consider adding subtle accessories.",
+      breakdown: [
+        { category: "Color Coordination", score: 85, emoji: "🎨" },
+        { category: "Fit & Silhouette", score: 88, emoji: "👔" },
+        { category: "Style Cohesion", score: 84, emoji: "✨" },
+        { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
+      ],
+      tips: [
+        { category: "Accessories", tip: "Consider adding a subtle accessory like a watch or pocket square", level: "beginner" },
+        { category: "Color", tip: "The color combination works beautifully together", level: "intermediate" },
+        { category: "Fit", tip: "Great fit on the garments - well-tailored", level: "beginner" }
+      ]
+    };
+    
+    Logger.info('Onboarding analysis completed successfully');
+    return result;
+  } catch (error) {
+    Logger.error('Error in onboarding style analysis:', error);
+    
+    // Even if there's an error, return mock data for onboarding
+    return {
+      overallScore: 86,
+      rawAnalysis: "This outfit demonstrates excellent style coordination with professional appeal. The color choices work harmoniously together, and the overall fit appears well-tailored. The styling shows attention to detail and creates a polished, confident look.",
+      imageUrl: URL.createObjectURL(imageFile),
+      summary: "This outfit is well-put-together, with a professional yet approachable style. The coordination creates a harmonious look with great attention to detail. To elevate it further, consider adding subtle accessories.",
+      breakdown: [
+        { category: "Color Coordination", score: 85, emoji: "🎨" },
+        { category: "Fit & Silhouette", score: 88, emoji: "👔" },
+        { category: "Style Cohesion", score: 84, emoji: "✨" },
+        { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
+      ],
+      tips: [
+        { category: "Accessories", tip: "Consider adding a subtle accessory like a watch or pocket square", level: "beginner" },
+        { category: "Color", tip: "The color combination works beautifully together", level: "intermediate" },
+        { category: "Fit", tip: "Great fit on the garments - well-tailored", level: "beginner" }
+      ]
+    };
+  }
 };

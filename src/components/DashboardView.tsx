@@ -28,7 +28,9 @@ export const DashboardView = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        navigate('/auth');
+        // User not authenticated, but don't redirect here since Index.tsx handles it
+        // Just show empty state
+        setLoading(false);
         return;
       }
 
