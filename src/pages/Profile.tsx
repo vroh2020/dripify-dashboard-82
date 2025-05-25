@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Crown } from "lucide-react";
+import { ArrowLeft, Crown, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -24,6 +24,7 @@ const Profile = () => {
   const [profile, setProfile] = useState<{ username: string; avatar_url: string | null, id: string } | null>(null);
   const { stats, isLoading, error, fetchUserStats } = useStatsStore();
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -157,6 +158,30 @@ const Profile = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast({
+        title: "Logged out successfully",
+        description: "You have been signed out of your account.",
+      });
+      
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        title: "Error logging out",
+        description: "There was an error signing out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   if (loading || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1F3D] py-8 px-4 flex items-center justify-center">
@@ -172,22 +197,35 @@ const Profile = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl mx-auto space-y-6"
       >
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
-            onClick={() => navigate('/')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
+          </div>
           
-          {isPro && (
-            <div className="ml-auto flex items-center gap-1 bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-1 rounded-full">
-              <Crown className="h-4 w-4 text-purple-400" />
-              <span className="text-sm font-medium text-purple-300">Pro</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {isPro && (
+              <div className="flex items-center gap-1 bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-1 rounded-full">
+                <Crown className="h-4 w-4 text-purple-400" />
+                <span className="text-sm font-medium text-purple-300">Pro</span>
+              </div>
+            )}
+            
+            <Button 
+              variant="ghost" 
+              className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         <Card className="bg-black/20 backdrop-blur-lg border-white/10">
