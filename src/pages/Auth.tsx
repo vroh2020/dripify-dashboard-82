@@ -12,12 +12,12 @@ import { PaywallOnboarding } from "@/components/onboarding/PaywallOnboarding";
 import { ChevronRight } from "lucide-react";
 
 export const Auth = () => {
-  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(true);
   const [onboardingData, setOnboardingData] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -32,8 +32,10 @@ export const Auth = () => {
 
   const handleOnboardingComplete = (userData: any) => {
     setOnboardingData(userData);
-    setShowEmailAuth(true);
-    setIsSignUp(true);
+    setShowOnboarding(false);
+    // Auto-generate username from email or use a random one
+    const randomUsername = `user_${Math.random().toString(36).substr(2, 9)}`;
+    setUsername(randomUsername);
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -72,9 +74,10 @@ export const Auth = () => {
         }
 
         toast({
-          title: "Sign up successful!",
-          description: "Please check your email to verify your account.",
+          title: "Welcome to Drip Max!",
+          description: "Your account has been created successfully.",
         });
+        navigate("/");
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -101,11 +104,11 @@ export const Auth = () => {
   };
 
   const handleBackToOnboarding = () => {
-    setShowEmailAuth(false);
+    setShowOnboarding(true);
     setOnboardingData(null);
   };
 
-  if (!showEmailAuth) {
+  if (showOnboarding) {
     return <PaywallOnboarding onComplete={handleOnboardingComplete} />;
   }
 
@@ -130,27 +133,17 @@ export const Auth = () => {
                     onClick={handleBackToOnboarding}
                     className="text-white/70 hover:text-white mb-4"
                   >
-                    ← Back to setup
+                    ← Back to onboarding
                   </Button>
                   <h2 className="text-xl font-semibold text-white">
-                    {isSignUp ? "Create your account" : "Sign in to your account"}
+                    Complete your account setup
                   </h2>
+                  <p className="text-white/60 text-sm mt-2">
+                    Just a few more details to get started
+                  </p>
                 </div>
                 
                 <form onSubmit={handleAuth} className="space-y-4">
-                  {isSignUp && (
-                    <div className="space-y-2">
-                      <Label htmlFor="username" className="text-white">Username</Label>
-                      <Input
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                        className="bg-white/5 border-white/10 text-white"
-                        placeholder="Choose a username"
-                      />
-                    </div>
-                  )}
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-white">Email</Label>
                     <Input
@@ -183,10 +176,10 @@ export const Auth = () => {
                     {loading ? (
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                        {isSignUp ? "Creating account..." : "Signing in..."}
+                        Creating account...
                       </div>
                     ) : (
-                      <>{isSignUp ? "Create Account" : "Sign In"} <ChevronRight className="ml-2 h-4 w-4" /></>
+                      <>Start Your Free Trial <ChevronRight className="ml-2 h-4 w-4" /></>
                     )}
                   </Button>
                   <div className="text-center">
