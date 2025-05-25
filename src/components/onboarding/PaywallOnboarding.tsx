@@ -155,7 +155,7 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
           >
             <Card className="backdrop-blur-xl bg-black/30 border-white/10">
               <CardContent className="p-6">
-                {isAnalyzing && <StyleLoadingOverlay />}
+                <StyleLoadingOverlay isAnalyzing={isAnalyzing} />
                 
                 {currentStep === 'app-preview' && (
                   <div className="text-center space-y-6">
@@ -355,7 +355,10 @@ export const PaywallOnboarding = ({ onComplete }: PaywallOnboardingProps) => {
                     
                     <h2 className="text-xl font-semibold text-white">Your Style Rating</h2>
                     
-                    <DripScore score={analysisResult.overallScore} />
+                    <DripScore 
+                      score={analysisResult.overallScore} 
+                      feedback={analysisResult.rawAnalysis || "Looking good! Keep exploring your style."}
+                    />
                     
                     <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                       <p className="text-white/70 text-sm">
