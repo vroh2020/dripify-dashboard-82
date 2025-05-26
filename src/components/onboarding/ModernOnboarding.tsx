@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Sparkles, PartyPopper, Crown, Apple } from "lucide-react";
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { Capacitor } from '@capacitor/core';
+import { InAppReview } from '@capacitor-community/in-app-review';
 
 interface OnboardingData {
   age?: string;
@@ -229,6 +230,18 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       // Show results for 10 seconds to give proper viewing time, then enable next button
       setTimeout(() => {
         setShowNextButton(true);
+        
+        // Request in-app review after user has experienced the core value
+        // This is the perfect moment - they just got their style analysis!
+        try {
+          InAppReview.requestReview().catch(error => {
+            console.log('In-app review request failed (this is normal):', error);
+            // Don't show error to user - review prompts often fail and that's expected
+          });
+        } catch (error) {
+          console.log('In-app review not available:', error);
+          // Silently handle - this might happen on web or unsupported platforms
+        }
       }, 10000);
     } catch (error) {
       console.error('Analysis error:', error);
@@ -247,6 +260,15 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       
       setTimeout(() => {
         setShowNextButton(true);
+        
+        // Request in-app review even in demo mode
+        try {
+          InAppReview.requestReview().catch(error => {
+            console.log('In-app review request failed (this is normal):', error);
+          });
+        } catch (error) {
+          console.log('In-app review not available:', error);
+        }
       }, 2000);
       
       toast({
