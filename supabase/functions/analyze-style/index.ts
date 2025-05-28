@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -14,14 +15,6 @@ serve(async (req) => {
   try {
     const { image, style } = await req.json();
     console.log('Analyzing style for:', style);
-
-    // Check if Nebius API key is available
-    const nebiusApiKey = Deno.env.get('NEBIUS_API_KEY');
-    
-    if (!nebiusApiKey) {
-      console.error('Nebius API key not configured');
-      throw new Error('API key not configured');
-    }
     
     // Updated prompt to be more positive and encouraging
     const stylePrompt = `You're an upbeat, encouraging fashion stylist who loves helping people feel confident about their outfits. Focus on the positives and provide constructive suggestions with warmth and enthusiasm. Give honest but optimistic scores between 1-10, with most great outfits deserving 8-10.
@@ -96,22 +89,15 @@ IMPORTANT:
 - Use upbeat, positive language
 - Start directly with "**Overall Score:**`;
 
-    console.log('Calling Nebius API with Qwen for style analysis...');
+    console.log('Calling Hack Club API for style analysis...');
     
-    // Only changing the model, keeping everything else exactly the same
-    const response = await fetch('https://api.studio.nebius.com/v1/chat/completions', {
+    // Using Hack Club API instead of Nebius
+    const response = await fetch('https://ai.hackclub.com/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${nebiusApiKey}`,
         'Content-Type': 'application/json',
-        'Accept': '*/*'
       },
       body: JSON.stringify({
-        model: "Qwen/Qwen2-VL-7B-Instruct",
-        temperature: 0.7,
-        top_p: 0.9,
-        top_k: 50,
-        max_tokens: 1000,
         messages: [
           {
             role: 'system',
@@ -138,16 +124,16 @@ IMPORTANT:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Nebius API error:', errorText);
-      throw new Error(`Nebius API error: ${errorText}`);
+      console.error('Hack Club API error:', errorText);
+      throw new Error(`Hack Club API error: ${errorText}`);
     }
 
     const data = await response.json();
     console.log('Style analysis completed');
       
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('Invalid response format from Nebius API');
-      throw new Error('Invalid response format from Nebius API');
+      console.error('Invalid response format from Hack Club API');
+      throw new Error('Invalid response format from Hack Club API');
     }
 
     // Extract the content
