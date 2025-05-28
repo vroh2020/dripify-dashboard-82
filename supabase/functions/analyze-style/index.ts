@@ -1,5 +1,4 @@
 
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -90,15 +89,17 @@ IMPORTANT:
 - Use upbeat, positive language
 - Start directly with "**Overall Score:**`;
 
-    console.log('Calling Hack Club API for style analysis...');
+    console.log('Calling Nebius API for style analysis...');
     
-    // Using Hack Club API with correct format
-    const response = await fetch('https://ai.hackclub.com/chat/completions', {
+    // Using Nebius API with vision model
+    const response = await fetch('https://api.studio.nebius.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('NEBIUS_API_KEY')}`,
       },
       body: JSON.stringify({
+        model: 'Qwen/Qwen2-VL-72B-Instruct',
         messages: [
           {
             role: 'system',
@@ -106,24 +107,37 @@ IMPORTANT:
           },
           {
             role: 'user',
-            content: `Analyze this outfit image and provide feedback according to the format. The image is: ${image}`
+            content: [
+              {
+                type: 'text',
+                text: "Analyze this outfit precisely according to the format. Provide a numerical score (not text) for each category and make sure feedback is specific and actionable."
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: image
+                }
+              }
+            ]
           }
-        ]
+        ],
+        max_tokens: 2000,
+        temperature: 0.7
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Hack Club API error:', errorText);
-      throw new Error(`Hack Club API error: ${errorText}`);
+      console.error('Nebius API error:', errorText);
+      throw new Error(`Nebius API error: ${errorText}`);
     }
 
     const data = await response.json();
     console.log('Style analysis completed');
       
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('Invalid response format from Hack Club API');
-      throw new Error('Invalid response format from Hack Club API');
+      console.error('Invalid response format from Nebius API');
+      throw new Error('Invalid response format from Nebius API');
     }
 
     // Extract the content
@@ -238,4 +252,3 @@ We can tell you have amazing style! While we had some technical difficulties ful
     });
   }
 });
-
