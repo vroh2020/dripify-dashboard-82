@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -91,7 +92,7 @@ IMPORTANT:
 
     console.log('Calling Hack Club API for style analysis...');
     
-    // Using Hack Club API instead of Nebius
+    // Using Hack Club API with correct format
     const response = await fetch('https://ai.hackclub.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -105,18 +106,7 @@ IMPORTANT:
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: "Analyze this outfit precisely according to the format. Provide a numerical score (not text) for each category and make sure feedback is specific and actionable."
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: image
-                }
-              }
-            ]
+            content: `Analyze this outfit image and provide feedback according to the format. The image is: ${image}`
           }
         ]
       }),
@@ -248,3 +238,4 @@ We can tell you have amazing style! While we had some technical difficulties ful
     });
   }
 });
+
