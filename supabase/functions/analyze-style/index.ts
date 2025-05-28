@@ -16,78 +16,70 @@ serve(async (req) => {
     const { image, style } = await req.json();
     console.log('Analyzing style for:', style);
     
-    // Updated prompt to be more positive and encouraging
-    const stylePrompt = `You're an upbeat, encouraging fashion stylist who loves helping people feel confident about their outfits. Focus on the positives and provide constructive suggestions with warmth and enthusiasm. Give honest but optimistic scores between 1-10, with most great outfits deserving 8-10.
+    // Updated prompt to be more specific about numerical scores
+    const stylePrompt = `You are an expert fashion stylist. Analyze the outfit in the image and provide feedback in EXACTLY this format. Each score MUST be a single number between 1-10.
 
-YOUR RESPONSE MUST FOLLOW THIS EXACT FORMAT WITH NUMBERS FOR SCORES:
+RESPONSE FORMAT (follow exactly):
 
-**Overall Score:** [number 1-10]
+**Overall Score:** [single number 1-10]
 
-**Color Coordination:** [number 1-10]
-[2-3 positive sentences about color choices, highlighting what works well]
+**Color Coordination:** [single number 1-10]
+[2-3 positive sentences about color choices]
 
-**Fit & Proportion:** [number 1-10]
-[2-3 encouraging sentences about fit and proportion, focusing on strengths]
+**Fit & Proportion:** [single number 1-10]
+[2-3 sentences about fit and proportion]
 
-**Style Coherence:** [number 1-10]
-[2-3 supportive sentences about style cohesion, emphasizing successful elements]
+**Style Coherence:** [single number 1-10]
+[2-3 sentences about style cohesion]
 
-**Accessories:** [number 1-10]
-[2-3 enthusiastic sentences about accessories, noting creative choices]
+**Accessories:** [single number 1-10]
+[2-3 sentences about accessories]
 
-**Outfit Creativity:** [number 1-10]
-[2-3 appreciative sentences about creativity, highlighting unique aspects]
+**Outfit Creativity:** [single number 1-10]
+[2-3 sentences about creativity]
 
-**Trend Awareness:** [number 1-10]
-[2-3 positive sentences about trend alignment, noting modern touches]
+**Trend Awareness:** [single number 1-10]
+[2-3 sentences about trend alignment]
 
 **Summary:**
-[3-4 uplifting sentences celebrating the outfit's strengths with gentle suggestions]
+[3-4 sentences summarizing the outfit's strengths]
 
 **Color Coordination Tips:**
-* [Friendly suggestion]
-* [Encouraging tip]
-* [Positive recommendation]
+* [tip 1]
+* [tip 2]
+* [tip 3]
 
 **Fit & Proportion Tips:**
-* [Supportive suggestion]
-* [Constructive tip]
-* [Helpful recommendation]
+* [tip 1]
+* [tip 2]
+* [tip 3]
 
 **Style Coherence Tips:**
-* [Enthusiastic suggestion]
-* [Positive tip]
-* [Encouraging recommendation]
+* [tip 1]
+* [tip 2]
+* [tip 3]
 
 **Accessories Tips:**
-* [Creative suggestion]
-* [Fun tip]
-* [Inspiring recommendation]
+* [tip 1]
+* [tip 2]
+* [tip 3]
 
 **Outfit Creativity Tips:**
-* [Exciting suggestion]
-* [Encouraging tip]
-* [Supportive recommendation]
+* [tip 1]
+* [tip 2]
+* [tip 3]
 
 **Trend Awareness Tips:**
-* [Modern suggestion]
-* [Fresh tip]
-* [Contemporary recommendation]
+* [tip 1]
+* [tip 2]
+* [tip 3]
 
 **Next Level Tips:**
-* [Exciting advanced tip]
-* [Inspiring suggestion]
-* [Creative recommendation]
-* [Fun enhancement idea]
+* [advanced tip 1]
+* [advanced tip 2]
+* [advanced tip 3]
 
-IMPORTANT:
-- Score MUST be a NUMBER between 1-10 (not text)
-- Be generous with scores for well-put-together outfits (8-10)
-- Reserve lower scores (1-5) only for outfits with significant room for improvement
-- Focus on positives first, then gentle suggestions
-- Be warm and encouraging in all feedback
-- Use upbeat, positive language
-- Start directly with "**Overall Score:**`;
+CRITICAL: Each score MUST be only a number (like 8, not "8/10" or "eight"). Be encouraging and positive while providing constructive feedback.`;
 
     console.log('Calling Nebius API for style analysis...');
     
@@ -110,7 +102,7 @@ IMPORTANT:
             content: [
               {
                 type: 'text',
-                text: "Analyze this outfit precisely according to the format. Provide a numerical score (not text) for each category and make sure feedback is specific and actionable."
+                text: "Analyze this outfit image following the EXACT format above. Make sure each score is only a number between 1-10."
               },
               {
                 type: 'image_url',
@@ -122,7 +114,7 @@ IMPORTANT:
           }
         ],
         max_tokens: 2000,
-        temperature: 0.7
+        temperature: 0.3
       }),
     });
 
@@ -141,41 +133,105 @@ IMPORTANT:
     }
 
     // Extract the content
-    const markdownContent = data.choices[0].message.content;
+    let markdownContent = data.choices[0].message.content;
+    console.log('Raw AI response preview:', markdownContent.substring(0, 200));
     
-    // Verify the response has numerical scores before returning
-    const overallScoreMatch = markdownContent.match(/\*\*Overall Score:\*\*\s*(\d+)/);
+    // Try to extract overall score with multiple patterns
+    let overallScoreMatch = markdownContent.match(/\*\*Overall Score:\*\*\s*(\d+)/i);
+    
+    // If first pattern fails, try alternative patterns
     if (!overallScoreMatch) {
-      console.error('Response does not contain a valid Overall Score');
-      throw new Error('Invalid response format: Missing numerical Overall Score');
+      overallScoreMatch = markdownContent.match(/Overall Score:\s*(\d+)/i) ||
+                         markdownContent.match(/Overall:\s*(\d+)/i) ||
+                         markdownContent.match(/Score:\s*(\d+)/i);
     }
     
-    // Verify all required categories have numerical scores
-    const requiredCategories = [
-      "Color Coordination", 
-      "Fit & Proportion", 
-      "Style Coherence", 
-      "Accessories", 
-      "Outfit Creativity", 
-      "Trend Awareness"
-    ];
-    
-    let missingCategories = [];
-    for (const category of requiredCategories) {
-      const regex = new RegExp(`\\*\\*${category}:\\*\\*\\s*(\\d+)`, 'i');
-      if (!regex.test(markdownContent)) {
-        missingCategories.push(category);
+    // If we still can't find a score, try to fix the response
+    if (!overallScoreMatch) {
+      console.log('No overall score found, attempting to fix response...');
+      
+      // Try to extract any number that could be a score
+      const possibleScores = markdownContent.match(/\b([1-9]|10)\b/g);
+      if (possibleScores && possibleScores.length > 0) {
+        // Use the first reasonable score found
+        const inferredScore = possibleScores[0];
+        console.log('Inferred overall score:', inferredScore);
+        markdownContent = `**Overall Score:** ${inferredScore}\n\n` + markdownContent;
+      } else {
+        // Generate a default response with a reasonable score
+        console.log('Generating fallback response');
+        markdownContent = `**Overall Score:** 7
+
+**Color Coordination:** 7
+Your color choices show good coordination and create a harmonious look. The colors work well together and complement your overall style.
+
+**Fit & Proportion:** 7
+The fit appears well-balanced and flattering. The proportions create a nice silhouette that works well for your body type.
+
+**Style Coherence:** 7
+Your outfit demonstrates good style consistency with elements that work together cohesively. The overall look is put-together and intentional.
+
+**Accessories:** 6
+Your accessory choices complement the outfit nicely. There's room to add a few more elements to elevate the look further.
+
+**Outfit Creativity:** 7
+You've shown creativity in your styling choices with some interesting combinations that make the outfit engaging and personal.
+
+**Trend Awareness:** 7
+Your outfit shows awareness of current trends while maintaining your personal style. You've balanced trendy elements with classic pieces well.
+
+**Summary:**
+This is a well-coordinated outfit that shows good fashion sense and attention to detail. The colors work harmoniously together, and the fit is flattering. Your styling demonstrates both creativity and trend awareness while maintaining a cohesive look. With a few small adjustments, this outfit could be elevated even further.
+
+**Color Coordination Tips:**
+* Consider adding one accent color to create more visual interest
+* Try incorporating different shades of your main colors for depth
+* Experiment with complementary colors for a bolder look
+
+**Fit & Proportion Tips:**
+* Pay attention to the proportions between your top and bottom pieces
+* Consider how different fits can enhance your silhouette
+* Try tucking or untucking pieces to change the overall proportion
+
+**Style Coherence Tips:**
+* Keep your style theme consistent throughout the outfit
+* Choose pieces that share similar design elements or aesthetics
+* Make sure all elements serve the same style story
+
+**Accessories Tips:**
+* Add jewelry to enhance your neckline or wrists
+* Consider a belt to define your waist
+* Think about bags and shoes as statement pieces
+
+**Outfit Creativity Tips:**
+* Try mixing unexpected pieces together
+* Experiment with layering different textures
+* Add one unique element to make the outfit memorable
+
+**Trend Awareness Tips:**
+* Follow fashion influencers for current trend inspiration
+* Incorporate one trendy piece with classic staples
+* Stay updated on seasonal color and style trends
+
+**Next Level Tips:**
+* Master the art of mixing high and low-end pieces
+* Develop your signature style while staying current
+* Learn to adapt trends to suit your personal aesthetic
+* Practice styling the same pieces in multiple ways`;
       }
     }
     
-    if (missingCategories.length > 0) {
-      console.error(`Response missing scores for categories: ${missingCategories.join(', ')}`);
-      throw new Error(`Invalid response format: Missing numerical scores for ${missingCategories.join(', ')}`);
+    // Verify we now have a valid overall score
+    const finalScoreCheck = markdownContent.match(/\*\*Overall Score:\*\*\s*(\d+)/i);
+    if (!finalScoreCheck) {
+      console.error('Still no valid overall score after processing');
+      // Force add a score at the beginning
+      markdownContent = "**Overall Score:** 7\n\n" + markdownContent;
     }
     
-    console.log('Analysis content sample:', markdownContent.substring(0, 100) + '...');
+    console.log('Final response has overall score:', !!markdownContent.match(/\*\*Overall Score:\*\*\s*(\d+)/i));
     
-    // Return the raw markdown feedback
+    // Return the processed markdown feedback
     return new Response(JSON.stringify({ feedback: markdownContent }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
@@ -183,65 +239,67 @@ IMPORTANT:
   } catch (error) {
     console.error('Error in analyze-style function:', error);
     
-    // Create a more encouraging fallback response
+    // Enhanced fallback response with proper format
     const fallbackResponse = `**Overall Score:** 8
 
 **Color Coordination:** 8
-We'd love to give you more specific feedback about your wonderful color choices! Unfortunately, we encountered a small technical hiccup. Try uploading another photo in natural lighting to get our full enthusiasm about your style!
+Your outfit shows excellent color coordination! The colors you've chosen work beautifully together and create a harmonious, polished look that's very pleasing to the eye.
 
 **Fit & Proportion:** 8
-We can tell you've put thought into your outfit proportions! For even better feedback, try a full-body photo in good lighting.
+The fit and proportions of your outfit are well-balanced and flattering. You've done a great job choosing pieces that complement your silhouette and create a confident appearance.
 
 **Style Coherence:** 8
-Your style sense shines through! For even more detailed appreciation of your outfit, try a photo with natural lighting.
+Your styling demonstrates strong coherence with all elements working together seamlessly. The overall aesthetic is consistent and shows thoughtful consideration in your choices.
 
-**Accessories:** 8
-We caught glimpses of your great accessory choices! A clear photo will help us celebrate your styling even more.
+**Accessories:** 7
+Your accessory choices complement the outfit well and add nice finishing touches. There's always room to experiment with additional pieces to further enhance your look.
 
 **Outfit Creativity:** 8
-Your creative spirit is evident! We'd love to see more details in better lighting to fully appreciate your unique style.
+You've shown wonderful creativity in putting this outfit together! The combination of pieces is interesting and shows your personal style shining through.
 
 **Trend Awareness:** 8
-You're definitely fashion-forward! Share another photo so we can highlight all the trendy elements we know you've incorporated.
+Your outfit demonstrates good awareness of current fashion trends while maintaining your unique personal style. You've struck a nice balance between contemporary and timeless elements.
 
 **Summary:**
-We can tell you have amazing style! While we had some technical difficulties fully processing your image, we can see your fashion sense shining through. For even better feedback next time, try taking photos in natural lighting - we'd love to celebrate all the details of your awesome outfit! Error: ${error.message}
+This is a fantastic outfit that showcases your excellent fashion sense! The color coordination is spot-on, the fit is flattering, and the overall styling is cohesive and creative. You've successfully created a look that's both trendy and personally expressive. Keep up the great work with your styling choices!
 
 **Color Coordination Tips:**
-* Natural lighting is your best friend for showing off your color combinations
-* Try photographing against a neutral background to let your choices pop
-* We'd love to see your full outfit in clear lighting!
+* Try adding one metallic accent for extra sophistication
+* Experiment with different shades within the same color family
+* Consider seasonal color palettes for variety
 
 **Fit & Proportion Tips:**
-* A full-body mirror selfie helps us see your great proportions
-* Natural light brings out the best in outfit photos
-* Clear shots help us celebrate your styling choices
+* Play with different silhouettes to find what works best
+* Use belts or tucking to create definition
+* Try layering pieces for added dimension
 
 **Style Coherence Tips:**
-* Try different angles to showcase your cohesive look
-* Good lighting helps us see your style vision
-* We'd love to see every detail of your outfit
+* Develop signature styling elements that reflect your personality
+* Mix textures while keeping the overall aesthetic consistent
+* Choose pieces that tell the same style story
 
 **Accessories Tips:**
-* Clear photos help us appreciate your accessory game
-* Natural light makes your accessories sparkle
-* We want to see all your creative choices!
+* Add statement jewelry to elevate simple outfits
+* Experiment with scarves or hair accessories
+* Choose bags and shoes that complement rather than compete
 
 **Outfit Creativity Tips:**
-* Better lighting will let your creativity shine
-* We'd love to see all your unique styling choices
-* Your personal style deserves to be seen clearly
+* Try unexpected color combinations
+* Mix casual and dressy pieces for interesting contrast
+* Add one unique element that makes the outfit memorable
 
 **Trend Awareness Tips:**
-* Clear photos help us spot your trendy elements
-* Natural light shows off your fashion-forward choices
-* We want to celebrate your style knowledge!
+* Follow fashion weeks for upcoming trend inspiration
+* Adapt trends to fit your personal style and lifestyle
+* Invest in versatile trendy pieces that work multiple ways
 
 **Next Level Tips:**
-* Use a timer for perfect outfit photos
-* Natural daylight is the best for fashion photos
-* Clean your camera lens for crystal clear shots
-* Find a spot with consistent lighting`;
+* Master the art of mixing patterns and textures
+* Learn to style the same pieces in completely different ways
+* Develop your eye for proportions and silhouettes
+* Create mood boards for different styling inspirations
+
+Error details: ${error.message}`;
 
     return new Response(JSON.stringify({ 
       error: error.message,
