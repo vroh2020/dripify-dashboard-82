@@ -22,7 +22,7 @@ serve(async (req) => {
       console.error('Nebius API key not configured');
       throw new Error('API key not configured');
     }
-
+    
     // Updated prompt to be more positive and encouraging
     const stylePrompt = `You're an upbeat, encouraging fashion stylist who loves helping people feel confident about their outfits. Focus on the positives and provide constructive suggestions with warmth and enthusiasm. Give honest but optimistic scores between 1-10, with most great outfits deserving 8-10.
 
@@ -96,8 +96,9 @@ IMPORTANT:
 - Use upbeat, positive language
 - Start directly with "**Overall Score:**`;
 
-    console.log('Calling Nebius API with Gemma model for style analysis...');
-
+    console.log('Calling Nebius API with Qwen for style analysis...');
+    
+    // Only changing the model, keeping everything else exactly the same
     const response = await fetch('https://api.studio.nebius.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -106,7 +107,11 @@ IMPORTANT:
         'Accept': '*/*'
       },
       body: JSON.stringify({
-        model: "google/gemma-3-27b-it",
+        model: "Qwen/Qwen2-VL-7B-Instruct",
+        temperature: 0.7,
+        top_p: 0.9,
+        top_k: 50,
+        max_tokens: 1000,
         messages: [
           {
             role: 'system',
@@ -117,7 +122,7 @@ IMPORTANT:
             content: [
               {
                 type: 'text',
-                text: "Analyze this outfit and provide feedback according to the format."
+                text: "Analyze this outfit precisely according to the format. Provide a numerical score (not text) for each category and make sure feedback is specific and actionable."
               },
               {
                 type: 'image_url',
@@ -127,11 +132,7 @@ IMPORTANT:
               }
             ]
           }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7,
-        top_p: 0.9,
-        top_k: 50
+        ]
       }),
     });
 
@@ -143,7 +144,7 @@ IMPORTANT:
 
     const data = await response.json();
     console.log('Style analysis completed');
-
+      
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid response format from Nebius API');
       throw new Error('Invalid response format from Nebius API');
@@ -151,14 +152,14 @@ IMPORTANT:
 
     // Extract the content
     const markdownContent = data.choices[0].message.content;
-
+    
     // Verify the response has numerical scores before returning
     const overallScoreMatch = markdownContent.match(/\*\*Overall Score:\*\*\s*(\d+)/);
     if (!overallScoreMatch) {
       console.error('Response does not contain a valid Overall Score');
       throw new Error('Invalid response format: Missing numerical Overall Score');
     }
-
+    
     // Verify all required categories have numerical scores
     const requiredCategories = [
       "Color Coordination", 
@@ -168,7 +169,7 @@ IMPORTANT:
       "Outfit Creativity", 
       "Trend Awareness"
     ];
-
+    
     let missingCategories = [];
     for (const category of requiredCategories) {
       const regex = new RegExp(`\\*\\*${category}:\\*\\*\\s*(\\d+)`, 'i');
@@ -176,14 +177,14 @@ IMPORTANT:
         missingCategories.push(category);
       }
     }
-
+    
     if (missingCategories.length > 0) {
       console.error(`Response missing scores for categories: ${missingCategories.join(', ')}`);
       throw new Error(`Invalid response format: Missing numerical scores for ${missingCategories.join(', ')}`);
     }
-
+    
     console.log('Analysis content sample:', markdownContent.substring(0, 100) + '...');
-
+    
     // Return the raw markdown feedback
     return new Response(JSON.stringify({ feedback: markdownContent }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -191,7 +192,7 @@ IMPORTANT:
 
   } catch (error) {
     console.error('Error in analyze-style function:', error);
-
+    
     // Create a more encouraging fallback response
     const fallbackResponse = `**Overall Score:** 8
 
