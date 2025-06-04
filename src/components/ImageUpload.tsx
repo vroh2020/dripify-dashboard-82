@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, Camera, Image as ImageIcon, X } from "lucide-react";
+import { Upload, Camera, Image as ImageIcon, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "./ui/button";
@@ -14,6 +14,7 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string>("");
   const isMobile = useIsMobile();
 
   const handleDrag = (e: React.DragEvent) => {
@@ -44,18 +45,19 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
   };
 
   const handleFile = (file: File) => {
-    // Prevent processing if already processing
     if (isProcessing) return;
+    setError("");
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+    // Validate file type (no GIFs, only PNG, JPG, JPEG, WEBP)
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Only PNG, JPG, JPEG, or WEBP files are allowed. GIFs are not supported.");
       return;
     }
 
     // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size should be less than 10MB');
+      setError("File size should be less than 10MB");
       return;
     }
 
@@ -63,8 +65,6 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
     setPreview(URL.createObjectURL(file));
     setFileName(file.name);
     onImageSelect(file);
-    
-    // Reset processing state after a short delay
     setTimeout(() => {
       setIsProcessing(false);
     }, 1000);
@@ -184,7 +184,6 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
                     <Upload className="w-6 h-6 text-orange-400" />
                   </motion.div>
                 </div>
-                
                 <div className="space-y-2">
                   <p className="text-white font-medium text-lg">
                     {isProcessing ? "Processing..." : dragActive ? "Drop your photo here!" : "Upload your outfit photo"}
@@ -198,54 +197,33 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
                 </div>
               </motion.div>
             </div>
+            {/* Take a Photo Button */}
+            <div className="flex justify-center mt-4 gap-3">
+              <Button
+                onClick={openGallery}
+                disabled={isProcessing}
+                className="bg-gray-800 border border-white/20 text-white hover:bg-gray-900 h-10 text-sm font-medium rounded-lg px-4"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" /> Gallery
+              </Button>
+              <Button
+                onClick={openCamera}
+                disabled={isProcessing}
+                className="bg-gray-800 border border-white/20 text-white hover:bg-gray-900 h-10 text-sm font-medium rounded-lg px-4"
+              >
+                <Camera className="w-4 h-4 mr-2" /> Take Photo
+              </Button>
+            </div>
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center justify-center mt-3 text-red-400 bg-red-900/20 rounded-lg px-3 py-2 text-sm">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                {error}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Action buttons for mobile */}
-      {isMobile && !preview && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 gap-3"
-        >
-          <Button
-            onClick={openCamera}
-            variant="outline"
-            className="border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/20 hover:to-orange-400/20 hover:border-orange-500/50 h-12 rounded-xl transition-all duration-200"
-          >
-            <Camera className="w-5 h-5 mr-2" />
-            Camera
-          </Button>
-          
-          <Button
-            onClick={openGallery}
-            variant="outline"
-            className="border-white/20 text-white hover:bg-gradient-to-r hover:from-purple-500/20 hover:to-purple-400/20 hover:border-purple-500/50 h-12 rounded-xl transition-all duration-200"
-          >
-            <ImageIcon className="w-5 h-5 mr-2" />
-            Gallery
-          </Button>
-        </motion.div>
-      )}
-
-      {/* Desktop action buttons when preview exists */}
-      {!isMobile && preview && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex justify-center"
-        >
-          <Button
-            onClick={openGallery}
-            variant="outline"
-            className="border-white/20 text-white hover:bg-white/10 hover:text-white rounded-xl"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Choose different photo
-          </Button>
-        </motion.div>
-      )}
     </div>
   );
 };

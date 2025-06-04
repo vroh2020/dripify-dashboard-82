@@ -107,7 +107,7 @@ IMPORTANT:
         'Accept': '*/*'
       },
       body: JSON.stringify({
-        model: "Qwen/Qwen2-VL-7B-Instruct",
+        model: "google/gemma-3-27b-it",
         temperature: 0.7,
         top_p: 0.9,
         top_k: 50,

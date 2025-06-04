@@ -9,7 +9,7 @@ import { analyzeStyle } from "@/utils/imageAnalysis";
 import { parseAnalysis } from "@/utils/analysisParser";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, PartyPopper, Crown, Apple } from "lucide-react";
+import { Sparkles, PartyPopper, Crown, Apple, TrendingUp, Ruler, Palette, Star, Zap } from "lucide-react";
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { Capacitor } from '@capacitor/core';
 import { InAppReview } from '@capacitor-community/in-app-review';
@@ -35,6 +35,28 @@ type OnboardingStep =
   | 'trial-offer' 
   | 'trial-reminder'
   | 'pricing';
+
+// Secure random generation utility
+const generateSecureRandom = (length: number = 16): string => {
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    // Use crypto.getRandomValues for secure random generation
+    const values = new Uint8Array(length);
+    crypto.getRandomValues(values);
+    for (let i = 0; i < length; i++) {
+      result += charset[values[i] % charset.length];
+    }
+  } else {
+    // Fallback for environments without crypto.getRandomValues
+    for (let i = 0; i < length; i++) {
+      result += charset[Math.floor(Math.random() * charset.length)];
+    }
+  }
+  
+  return result;
+};
 
 export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
@@ -82,8 +104,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           clientId: 'com.dripmax.app',
           redirectURI: 'https://jjqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback',
           scopes: 'email name',
-          state: Math.random().toString(36).substring(7),
-          nonce: Math.random().toString(36).substring(7),
+          state: generateSecureRandom(10),
+          nonce: generateSecureRandom(10),
         };
 
         const result = await SignInWithApple.authorize(options);
@@ -110,16 +132,20 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   // Continue with email (temp account)
   const handleContinueWithEmail = async () => {
     try {
-      const tempEmail = `temp_${Date.now()}@dripmax.com`;
-      const tempPassword = Math.random().toString(36).substring(2, 15);
+      // Use secure random generation for temporary accounts
+      const randomId = generateSecureRandom(12);
+      const timestamp = Date.now();
+      const tempEmail = `temp_${timestamp}_${randomId}@dripmax.internal`;
+      const tempPassword = generateSecureRandom(24); // 24 character secure password
       
       const { data, error } = await supabase.auth.signUp({
         email: tempEmail,
         password: tempPassword,
         options: {
           data: {
-            username: `user_${Date.now()}`,
-            is_temp_account: true
+            username: `user_${timestamp}_${generateSecureRandom(8)}`,
+            is_temp_account: true,
+            created_via: 'onboarding_flow'
           }
         }
       });
@@ -128,7 +154,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         console.error('Temp account error:', error);
         // If temp account fails, just continue anyway
       } else {
-        console.log('Temp account created successfully:', data);
+        console.log('Secure temp account created successfully:', data);
       }
       
       setCurrentStep('age');
@@ -318,19 +344,22 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
       console.log('No authenticated user found, creating new account...');
       
-      // Create a new account only if no user exists
-      const tempEmail = `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}@dripmax.com`;
-      const tempPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // Create a new secure account only if no user exists
+      const randomId = generateSecureRandom(12);
+      const timestamp = Date.now();
+      const tempEmail = `user_${timestamp}_${randomId}@dripmax.internal`;
+      const tempPassword = generateSecureRandom(32); // Very secure 32 character password
       
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: tempEmail,
         password: tempPassword,
         options: {
           data: {
-            username: `user_${Date.now()}`,
+            username: `user_${timestamp}_${generateSecureRandom(8)}`,
             age_range: onboardingData.age,
             main_goal: onboardingData.mainGoal,
-            is_temp_account: true
+            is_temp_account: true,
+            created_via: 'onboarding_completion'
           }
         }
       });
@@ -346,7 +375,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           variant: "default"
         });
       } else {
-        console.log('New user account created successfully:', authData.user?.id);
+        console.log('New secure user account created successfully:', authData.user?.id);
         
         // Wait a moment for session to be established
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -401,20 +430,32 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   transition={{ duration: 0.5 }}
                   className="text-center space-y-8"
                 >
+                  {/* Mascot/Emoji Animation */}
+                  <div className="flex justify-center">
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="inline-block"
+                    >
+                      <span className="text-5xl sm:text-6xl">🧑‍🎤</span>
+                    </motion.div>
+                  </div>
                   <div className="space-y-4">
                     <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
                       Welcome to <span className="bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text">Drip Max</span>
                     </h1>
-                    <p className="text-white/70 text-lg leading-relaxed">
-                      Get instant style ratings and become the best dressed version of yourself
+                    <p className="text-white/80 text-lg leading-relaxed">
+                      Your personal AI stylist is here!<br />
+                      Get instant style ratings and become the best dressed version of yourself.
                     </p>
                   </div>
-
                   {/* App Preview */}
                   <div className="bg-gradient-to-r from-orange-500/10 to-purple-500/10 rounded-2xl p-6 border border-white/10">
                     <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className="w-16 h-16 bg-gradient-to-br from-gray-600 to-gray-800 rounded-lg"></div>
+                        <div className="w-16 h-16 bg-gradient-to-br from-gray-600 to-gray-800 rounded-lg flex items-center justify-center">
+                          <span className="text-2xl text-white/70">⭐</span>
+                        </div>
                         <div>
                           <div className="text-white font-medium">Ratings</div>
                           <div className="text-white/60 text-sm">Overall</div>
@@ -426,16 +467,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                       </div>
                     </div>
                   </div>
-
                   <div className="space-y-4">
                     <Button
                       onClick={handleAppleSignIn}
-                      className="w-full bg-black hover:bg-gray-900 text-white h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02]"
+                      className="w-full bg-black hover:bg-gray-900 text-white h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] flex items-center justify-center"
                     >
                       <Apple className="mr-3 h-5 w-5" />
                       Continue with Apple
                     </Button>
-                    
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t border-white/20"></div>
@@ -444,11 +483,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                         <span className="px-4 bg-black/40 text-white/60">or</span>
                       </div>
                     </div>
-                    
                     <Button
                       onClick={handleContinueWithEmail}
-                      variant="outline"
-                      className="w-full border-white/20 text-white hover:bg-white/10 hover:text-white h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02]"
+                      className="w-full bg-gray-800 border border-white/20 text-white hover:bg-gray-900 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] flex items-center justify-center"
                     >
                       Continue with Email
                     </Button>
@@ -500,21 +537,39 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     <h2 className="text-2xl sm:text-3xl font-bold text-white">What's your main goal?</h2>
                     <p className="text-white/60">Let us know what you want to achieve</p>
                   </div>
-
-                  <div className="space-y-3">
-                    {goalOptions.map((goal) => (
-                      <Button
-                        key={goal.id}
-                        onClick={() => handleGoalSelect(goal.id)}
-                        variant="outline"
-                        className="w-full border-white/30 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[70px] text-left rounded-xl transition-all duration-200 hover:scale-[1.02] bg-white/5"
-                      >
-                        <div className="text-left">
-                          <div className="font-bold text-lg">{goal.title}</div>
-                          <div className="text-base text-white/70 mt-1">{goal.description}</div>
-                        </div>
-                      </Button>
-                    ))}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+                    <Button
+                      onClick={() => handleGoalSelect('get-drippy')}
+                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
+                    >
+                      <span className="text-2xl mb-2">🎯</span>
+                      <span className="font-bold text-lg">Get Drippy</span>
+                      <span className="text-xs text-white/70 mt-1">Elevate my style game</span>
+                    </Button>
+                    <Button
+                      onClick={() => handleGoalSelect('find-outfits')}
+                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
+                    >
+                      <span className="text-2xl mb-2">🧥</span>
+                      <span className="font-bold text-lg">Find Good Outfits</span>
+                      <span className="text-xs text-white/70 mt-1">Discover what looks good on me</span>
+                    </Button>
+                    <Button
+                      onClick={() => handleGoalSelect('get-partner')}
+                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
+                    >
+                      <span className="text-2xl mb-2">💑</span>
+                      <span className="font-bold text-lg">Trying to get a BF/GF</span>
+                      <span className="text-xs text-white/70 mt-1">Look attractive for dating</span>
+                    </Button>
+                    <Button
+                      onClick={() => handleGoalSelect('drip-max')}
+                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
+                    >
+                      <span className="text-2xl mb-2">👑</span>
+                      <span className="font-bold text-lg">Drip Max</span>
+                      <span className="text-xs text-white/70 mt-1">Become a style icon</span>
+                    </Button>
                   </div>
                 </motion.div>
               )}
@@ -560,37 +615,29 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.5 }}
-                  className="text-center space-y-8"
+                  className="flex flex-col items-center space-y-8"
                 >
                   {analysisResult && (
                     <>
-                      <div className="space-y-6">
-                        {/* User's image */}
-                        <div className="w-32 h-32 sm:w-40 sm:h-40 mx-auto rounded-3xl overflow-hidden border-4 border-orange-500/30 shadow-2xl">
-                          <img 
-                            src={analysisResult.imageUrl} 
-                            alt="Your outfit" 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        
-                        <h2 className="text-3xl sm:text-4xl font-bold text-white">Your Style Rating</h2>
-                        
-                        <DripScore 
-                          score={analysisResult.overallScore || 86} 
-                          feedback={analysisResult.summary || "This outfit is well-put-together, with a professional yet approachable style. The light blue shirt and tie create a harmonious look, and the glasses add a unique personal touch. To take the outfit to the next level, consider adding a subtle accessory like a watch or a pocket square."}
+                      {/* Profile Picture */}
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto rounded-full overflow-hidden border-4 border-orange-500/30 shadow-2xl mb-2">
+                        <img 
+                          src={analysisResult.imageUrl} 
+                          alt="Your outfit" 
+                          className="w-full h-full object-cover"
                         />
                       </div>
-                      
-                      <div className="bg-gradient-to-r from-white/5 to-white/10 rounded-xl p-6 border border-white/10">
-                        <p className="text-white/80 text-sm leading-relaxed">
-                          {analysisResult.summary || "This outfit is well-put-together, with a professional yet approachable style. The light blue shirt and tie create a harmonious look, and the glasses add a unique personal touch. To take the outfit to the next level, consider adding a subtle accessory like a watch or a pocket square."}
-                        </p>
+                      {/* Minimal Results List */}
+                      <div className="w-full max-w-xs space-y-4">
+                        <ResultBar icon={<Star className="w-5 h-5 text-orange-400" />} label="Overall" value={analysisResult.overallScore || 86} color="bg-orange-400" />
+                        <ResultBar icon={<Zap className="w-5 h-5 text-yellow-400" />} label="Potential" value={analysisResult.potential || 90} color="bg-yellow-400" />
+                        <ResultBar icon={<Ruler className="w-5 h-5 text-blue-400" />} label="Fit & Tailoring" value={analysisResult.fit || 78} color="bg-blue-400" />
+                        <ResultBar icon={<TrendingUp className="w-5 h-5 text-pink-400" />} label="Trendiness" value={analysisResult.trendiness || 85} color="bg-pink-400" />
+                        <ResultBar icon={<Sparkles className="w-5 h-5 text-purple-400" />} label="Aura" value={analysisResult.aura || 80} color="bg-purple-400" />
+                        <ResultBar icon={<Palette className="w-5 h-5 text-green-400" />} label="Color Coordination" value={analysisResult.colorCoordination || 88} color="bg-green-400" />
                       </div>
-
                       {showNextButton ? (
-                        <div className="space-y-4">
-                          <p className="text-white/60 text-sm">Ready to continue?</p>
+                        <div className="w-full max-w-xs mx-auto mt-8">
                           <Button
                             onClick={() => setCurrentStep('celebration')}
                             className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
@@ -598,11 +645,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                             Next
                           </Button>
                         </div>
-                      ) : (
-                        <div className="text-center">
-                          <p className="text-white/50 text-sm">Take your time to review your results...</p>
-                        </div>
-                      )}
+                      ) : null}
                     </>
                   )}
                 </motion.div>
@@ -758,4 +801,26 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       </div>
     </div>
   );
-}; 
+};
+
+interface ResultBarProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+}
+
+const ResultBar = ({ icon, label, value, color }: ResultBarProps) => (
+  <div className="flex items-center gap-3">
+    <div>{icon}</div>
+    <div className="flex-1">
+      <div className="flex justify-between text-xs text-white/70 mb-1">
+        <span>{label}</span>
+        <span className="font-bold text-white">{value}</span>
+      </div>
+      <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${value}%` }}></div>
+      </div>
+    </div>
+  </div>
+); 

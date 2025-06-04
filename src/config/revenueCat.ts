@@ -1,6 +1,7 @@
 export const REVENUECAT_CONFIG = {
-  // RevenueCat API key
-  API_KEY: 'appl_xeXwsXdzeTPLDObsCBanrDrxUWV',
+  // RevenueCat API key - Now fetched securely from server
+  API_KEY: '', // Removed for security - fetched from server
+  apiKey: '', // Removed for security - fetched from server
 
   // Product identifiers for your subscriptions
   PRODUCT_IDENTIFIERS: {
