@@ -1,11 +1,19 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 import { parseAnalysis } from '@/utils/analysisParser';
 import Logger from '@/utils/logger';
+import { validateImageFile, analysisRateLimiter } from '@/utils/validation';
 
 const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
   try {
+    // Validate image before upload
+    const validation = validateImageFile(imageFile);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
     const timestamp = new Date().getTime();
     const filePath = `outfit_${timestamp}_${imageFile.name.replace(/\s+/g, '_')}`;
     
@@ -43,6 +51,22 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
 
 export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promise<StyleAnalysisResult> => {
   try {
+    // Validate image file
+    const validation = validateImageFile(imageFile);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    // Check rate limiting (unless onboarding)
+    if (!isOnboarding) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || 'anonymous';
+      
+      if (!analysisRateLimiter.canMakeRequest(userId)) {
+        throw new Error('Too many analysis requests. Please wait a moment before trying again.');
+      }
+    }
+
     const base64Image = await fileToBase64(imageFile);
     
     Logger.info('Starting style analysis...');
@@ -160,6 +184,12 @@ const fileToBase64 = (file: File): Promise<string> => {
 // Special function for onboarding that doesn't require authentication
 export const analyzeStyleForOnboarding = async (imageFile: File): Promise<StyleAnalysisResult> => {
   try {
+    // Validate image file even for onboarding
+    const validation = validateImageFile(imageFile);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
     Logger.info('Starting onboarding style analysis...');
     
     // Create local URL for the image

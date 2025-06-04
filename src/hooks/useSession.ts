@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session, User } from '@supabase/supabase-js';
+import { sanitizeHtml } from '@/utils/validation';
 
 interface UseSessionReturn {
   session: Session | null;
@@ -21,7 +22,23 @@ export function useSession(): UseSessionReturn {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user || null);
-      setUserMetadata(session?.user?.user_metadata || null);
+      
+      // Sanitize user metadata to prevent XSS
+      const metadata = session?.user?.user_metadata;
+      if (metadata) {
+        const sanitizedMetadata: Record<string, any> = {};
+        Object.entries(metadata).forEach(([key, value]) => {
+          if (typeof value === 'string') {
+            sanitizedMetadata[key] = sanitizeHtml(value);
+          } else {
+            sanitizedMetadata[key] = value;
+          }
+        });
+        setUserMetadata(sanitizedMetadata);
+      } else {
+        setUserMetadata(null);
+      }
+      
       setIsLoading(false);
     });
 
@@ -31,7 +48,23 @@ export function useSession(): UseSessionReturn {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user || null);
-      setUserMetadata(session?.user?.user_metadata || null);
+      
+      // Sanitize user metadata to prevent XSS
+      const metadata = session?.user?.user_metadata;
+      if (metadata) {
+        const sanitizedMetadata: Record<string, any> = {};
+        Object.entries(metadata).forEach(([key, value]) => {
+          if (typeof value === 'string') {
+            sanitizedMetadata[key] = sanitizeHtml(value);
+          } else {
+            sanitizedMetadata[key] = value;
+          }
+        });
+        setUserMetadata(sanitizedMetadata);
+      } else {
+        setUserMetadata(null);
+      }
+      
       setIsLoading(false);
     });
 
