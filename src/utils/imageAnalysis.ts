@@ -1,25 +1,10 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 import { parseAnalysis } from '@/utils/analysisParser';
-
-export class Logger {
-  static info(message: string, ...args: unknown[]) {
-    console.log(`[INFO] ${message}`, ...args);
-  }
-  
-  static error(message: string, ...args: unknown[]) {
-    console.error(`[ERROR] ${message}`, ...args);
-  }
-  
-  static debug(message: string, ...args: unknown[]) {
-    console.debug(`[DEBUG] ${message}`, ...args);
-  }
-  
-  static warn(message: string, ...args: unknown[]) {
-    console.warn(`[WARN] ${message}`, ...args);
-  }
-}
+import Logger from '@/utils/logger';
+import { validateImageFile, analysisRateLimiter } from '@/utils/validation';
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -36,30 +21,68 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const uploadImageToSupabase = async (file: File): Promise<string> => {
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) {
-    throw new Error('User not authenticated');
-  }
+const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
+  try {
+    // Validate image before upload
+    const validation = validateImageFile(imageFile);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
 
-  const fileName = `${Date.now()}-${file.name}`;
-  const { data, error } = await supabase.storage
-    .from('style-images')
-    .upload(fileName, file);
-
-  if (error) {
+    const timestamp = new Date().getTime();
+    const filePath = `outfit_${timestamp}_${imageFile.name.replace(/\s+/g, '_')}`;
+    
+    Logger.debug('Attempting to upload image:', filePath);
+    
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User must be authenticated to upload images');
+    }
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('style_images')
+      .upload(filePath, imageFile, {
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (uploadError) {
+      Logger.error('Error uploading image:', uploadError);
+      throw new Error('Failed to upload image to storage: ' + uploadError.message);
+    }
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from('style_images')
+      .getPublicUrl(filePath);
+      
+    Logger.info('Image upload successful');
+    return publicUrl;
+  } catch (error) {
+    Logger.error('Image upload error:', error);
+>>>>>>> 36fe58a9cbd156fb33203df8340394974422d208
     throw error;
   }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('style-images')
-    .getPublicUrl(data.path);
-
-  return publicUrl;
 };
 
 export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promise<StyleAnalysisResult> => {
   try {
+    // Validate image file
+    const validation = validateImageFile(imageFile);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    // Check rate limiting (unless onboarding)
+    if (!isOnboarding) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || 'anonymous';
+      
+      if (!analysisRateLimiter.canMakeRequest(userId)) {
+        throw new Error('Too many analysis requests. Please wait a moment before trying again.');
+      }
+    }
+
     const base64Image = await fileToBase64(imageFile);
     
     Logger.info(`Starting style analysis... (Onboarding: ${isOnboarding})`);
@@ -187,3 +210,80 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     throw error;
   }
 };
+<<<<<<< HEAD
+=======
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to convert file to base64'));
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+};
+
+// Special function for onboarding that doesn't require authentication
+export const analyzeStyleForOnboarding = async (imageFile: File): Promise<StyleAnalysisResult> => {
+  try {
+    // Validate image file even for onboarding
+    const validation = validateImageFile(imageFile);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    Logger.info('Starting onboarding style analysis...');
+    
+    // Create local URL for the image
+    const imageUrl = URL.createObjectURL(imageFile);
+    
+    // Return mock analysis data for onboarding
+    const result: StyleAnalysisResult = {
+      overallScore: 86,
+      rawAnalysis: "This outfit demonstrates excellent style coordination with professional appeal. The color choices work harmoniously together, and the overall fit appears well-tailored. The styling shows attention to detail and creates a polished, confident look.",
+      imageUrl,
+      summary: "This outfit is well-put-together, with a professional yet approachable style. The coordination creates a harmonious look with great attention to detail. To elevate it further, consider adding subtle accessories.",
+      breakdown: [
+        { category: "Color Coordination", score: 85, emoji: "🎨" },
+        { category: "Fit & Silhouette", score: 88, emoji: "👔" },
+        { category: "Style Cohesion", score: 84, emoji: "✨" },
+        { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
+      ],
+      tips: [
+        { category: "Accessories", tip: "Consider adding a subtle accessory like a watch or pocket square", level: "beginner" },
+        { category: "Color", tip: "The color combination works beautifully together", level: "intermediate" },
+        { category: "Fit", tip: "Great fit on the garments - well-tailored", level: "beginner" }
+      ]
+    };
+    
+    Logger.info('Onboarding analysis completed successfully');
+    return result;
+  } catch (error) {
+    Logger.error('Error in onboarding style analysis:', error);
+    
+    // Even if there's an error, return mock data for onboarding
+    return {
+      overallScore: 86,
+      rawAnalysis: "This outfit demonstrates excellent style coordination with professional appeal. The color choices work harmoniously together, and the overall fit appears well-tailored. The styling shows attention to detail and creates a polished, confident look.",
+      imageUrl: URL.createObjectURL(imageFile),
+      summary: "This outfit is well-put-together, with a professional yet approachable style. The coordination creates a harmonious look with great attention to detail. To elevate it further, consider adding subtle accessories.",
+      breakdown: [
+        { category: "Color Coordination", score: 85, emoji: "🎨" },
+        { category: "Fit & Silhouette", score: 88, emoji: "👔" },
+        { category: "Style Cohesion", score: 84, emoji: "✨" },
+        { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
+      ],
+      tips: [
+        { category: "Accessories", tip: "Consider adding a subtle accessory like a watch or pocket square", level: "beginner" },
+        { category: "Color", tip: "The color combination works beautifully together", level: "intermediate" },
+        { category: "Fit", tip: "Great fit on the garments - well-tailored", level: "beginner" }
+      ]
+    };
+  }
+};
+>>>>>>> 36fe58a9cbd156fb33203df8340394974422d208

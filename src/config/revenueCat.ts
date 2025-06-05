@@ -1,24 +1,24 @@
+import { Capacitor } from '@capacitor/core';
+
 export const REVENUECAT_CONFIG = {
-  // RevenueCat API key - Clean development mode (no env variables in code)
-  API_KEY: '', 
-  apiKey: '', 
-
-  // Development mode - always true for clean development experience
-  DEVELOPMENT_MODE: true,
-
-  // Product identifiers for your subscriptions
-  PRODUCT_IDENTIFIERS: {
-    MONTHLY: 'gs_1299_1m', // Monthly $12.99 subscription
+  // Remove exposed API key - this will now be handled server-side
+  apiKey: '', // Empty - API operations should go through Supabase Edge Functions
+  API_KEY: '', // Keep for backward compatibility but empty
+  
+  // Keep platform detection for client-side SDK initialization if needed
+  get platform() {
+    return Capacitor.getPlatform();
   },
-
-  // Entitlement identifier for premium access
-  ENTITLEMENT_IDENTIFIER: 'pro',
-
-  // Offering identifiers
-  OFFERING_IDENTIFIERS: {
-    DEFAULT: 'ofrng4657c81eae', // Default offering ID
+  
+  // Product identifiers remain client-side as they're not sensitive
+  products: {
+    monthly: 'monthly_pro',
+    yearly: 'yearly_pro'
   },
+  
+  // Add the missing entitlement identifier
+  ENTITLEMENT_IDENTIFIER: 'pro'
+};
 
-  // Project ID
-  PROJECT_ID: 'proj5951efed',
-}; 
+// Note: All RevenueCat API operations should now go through secure backend endpoints
+// using the API key stored in Supabase secrets

@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,7 +18,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <SubscriptionProvider apiKey={REVENUECAT_CONFIG.API_KEY}>
+        <SubscriptionProvider apiKey={REVENUECAT_CONFIG.apiKey}>
           <BrowserRouter>
             <Routes>
               <Route path="/*" element={<Index />} />

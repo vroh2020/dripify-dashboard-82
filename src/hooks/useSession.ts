@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session, User } from '@supabase/supabase-js';
+import { sanitizeHtml } from '@/utils/validation';
 
 interface UseSessionReturn {
   session: Session | null;
@@ -44,7 +45,7 @@ export function useSession(): UseSessionReturn {
   useEffect(() => {
     let mounted = true;
 
-    // Get initial session
+    // Get initial session with security improvements
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -56,7 +57,30 @@ export function useSession(): UseSessionReturn {
           return;
         }
         
-        updateSession(session);
+        if (session) {
+          setSession(session);
+          setUser(session?.user || null);
+          
+          // Sanitize user metadata to prevent XSS
+          const metadata = session?.user?.user_metadata;
+          if (metadata) {
+            const sanitizedMetadata: Record<string, any> = {};
+            Object.entries(metadata).forEach(([key, value]) => {
+              if (typeof value === 'string') {
+                sanitizedMetadata[key] = sanitizeHtml(value);
+              } else {
+                sanitizedMetadata[key] = value;
+              }
+            });
+            setUserMetadata(sanitizedMetadata);
+          } else {
+            setUserMetadata(null);
+          }
+        } else {
+          updateSession(null);
+        }
+        
+        setIsLoading(false);
       } catch (error) {
         if (!mounted) return;
         console.error('Initial session error:', error);
@@ -72,24 +96,30 @@ export function useSession(): UseSessionReturn {
       
       console.log('Auth state change:', event, session ? 'session exists' : 'no session');
       
-      // Handle different auth events
-      switch (event) {
-        case 'SIGNED_IN':
-        case 'TOKEN_REFRESHED':
-          updateSession(session);
-          break;
-        case 'SIGNED_OUT':
-          updateSession(null);
-          break;
-        case 'INITIAL_SESSION':
-          // Only update if we haven't initialized yet
-          if (!initialized) {
-            updateSession(session);
-          }
-          break;
-        default:
-          updateSession(session);
+      if (session) {
+        setSession(session);
+        setUser(session?.user || null);
+        
+        // Sanitize user metadata to prevent XSS
+        const metadata = session?.user?.user_metadata;
+        if (metadata) {
+          const sanitizedMetadata: Record<string, any> = {};
+          Object.entries(metadata).forEach(([key, value]) => {
+            if (typeof value === 'string') {
+              sanitizedMetadata[key] = sanitizeHtml(value);
+            } else {
+              sanitizedMetadata[key] = value;
+            }
+          });
+          setUserMetadata(sanitizedMetadata);
+        } else {
+          setUserMetadata(null);
+        }
+      } else {
+        updateSession(null);
       }
+      
+      setIsLoading(false);
     });
 
     getInitialSession();
