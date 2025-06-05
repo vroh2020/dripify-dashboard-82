@@ -60,7 +60,6 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
     return publicUrl;
   } catch (error) {
     Logger.error('Image upload error:', error);
->>>>>>> 36fe58a9cbd156fb33203df8340394974422d208
     throw error;
   }
 };
@@ -210,23 +209,6 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     throw error;
   }
 };
-<<<<<<< HEAD
-=======
-
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to convert file to base64'));
-      }
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-};
 
 // Special function for onboarding that doesn't require authentication
 export const analyzeStyleForOnboarding = async (imageFile: File): Promise<StyleAnalysisResult> => {
@@ -286,4 +268,3 @@ export const analyzeStyleForOnboarding = async (imageFile: File): Promise<StyleA
     };
   }
 };
->>>>>>> 36fe58a9cbd156fb33203df8340394974422d208
