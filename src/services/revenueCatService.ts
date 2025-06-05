@@ -1,4 +1,5 @@
 import { Purchases, PurchasesPackage, CustomerInfo, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
+import { Capacitor } from '@capacitor/core';
 
 class RevenueCatService {
   private static instance: RevenueCatService;
@@ -13,7 +14,15 @@ class RevenueCatService {
     return RevenueCatService.instance;
   }
 
+  private throwWebNotSupported(): never {
+    throw new Error('RevenueCat is not supported on web platform');
+  }
+
   public async initialize(apiKey: string): Promise<void> {
+    if (!Capacitor.isNativePlatform()) {
+      this.throwWebNotSupported();
+    }
+
     if (this.isInitialized) return;
 
     try {
@@ -30,6 +39,10 @@ class RevenueCatService {
   }
 
   public async getOfferings(): Promise<PurchasesPackage[]> {
+    if (!Capacitor.isNativePlatform()) {
+      this.throwWebNotSupported();
+    }
+
     try {
       const offerings = await Purchases.getOfferings();
       return offerings.current?.availablePackages || [];
@@ -40,6 +53,10 @@ class RevenueCatService {
   }
 
   public async purchasePackage(packageToPurchase: PurchasesPackage): Promise<CustomerInfo> {
+    if (!Capacitor.isNativePlatform()) {
+      this.throwWebNotSupported();
+    }
+
     try {
       const { customerInfo } = await Purchases.purchasePackage({ 
         offeringIdentifier: packageToPurchase.offeringIdentifier,
@@ -53,6 +70,10 @@ class RevenueCatService {
   }
 
   public async restorePurchases(): Promise<CustomerInfo> {
+    if (!Capacitor.isNativePlatform()) {
+      this.throwWebNotSupported();
+    }
+
     try {
       const { customerInfo } = await Purchases.restorePurchases();
       return customerInfo;
@@ -63,6 +84,10 @@ class RevenueCatService {
   }
 
   public async getCustomerInfo(): Promise<CustomerInfo> {
+    if (!Capacitor.isNativePlatform()) {
+      this.throwWebNotSupported();
+    }
+
     try {
       const { customerInfo } = await Purchases.getCustomerInfo();
       return customerInfo;
@@ -73,6 +98,10 @@ class RevenueCatService {
   }
 
   public async identifyUser(userId: string): Promise<void> {
+    if (!Capacitor.isNativePlatform()) {
+      this.throwWebNotSupported();
+    }
+
     try {
       await Purchases.logIn({ appUserID: userId });
     } catch (error) {
@@ -82,6 +111,10 @@ class RevenueCatService {
   }
 
   public async logout(): Promise<void> {
+    if (!Capacitor.isNativePlatform()) {
+      this.throwWebNotSupported();
+    }
+
     try {
       await Purchases.logOut();
     } catch (error) {

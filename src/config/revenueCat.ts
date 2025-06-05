@@ -1,7 +1,10 @@
 export const REVENUECAT_CONFIG = {
-  // RevenueCat API key - Now fetched securely from server
-  API_KEY: '', // Removed for security - fetched from server
-  apiKey: '', // Removed for security - fetched from server
+  // RevenueCat API key - Clean development mode (no env variables in code)
+  API_KEY: '', 
+  apiKey: '', 
+
+  // Development mode - always true for clean development experience
+  DEVELOPMENT_MODE: true,
 
   // Product identifiers for your subscriptions
   PRODUCT_IDENTIFIERS: {

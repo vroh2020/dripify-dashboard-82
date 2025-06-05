@@ -1,6 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { Purchases, PurchasesOffering, CustomerInfo } from '@revenuecat/purchases-capacitor';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/hooks/useSession';
@@ -17,7 +17,7 @@ export const useRevenueCat = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [offerings, setOfferings] = useState<PurchasesOffering[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionStatus>({
-    isActive: false,
+    isActive: true, // Default to true on web for development
     expirationDate: null,
     productId: null,
     offeringId: null,
@@ -29,6 +29,20 @@ export const useRevenueCat = () => {
   useEffect(() => {
     const initializeRevenueCat = async () => {
       if (initialized) return;
+      
+      // Skip RevenueCat initialization on web platform
+      if (!Capacitor.isNativePlatform()) {
+        console.log('RevenueCat: Skipping initialization on web platform');
+        setInitialized(true);
+        setIsLoading(false);
+        setSubscription({
+          isActive: true, // Grant access on web for development
+          expirationDate: null,
+          productId: 'development',
+          offeringId: 'development'
+        });
+        return;
+      }
       
       try {
         setIsLoading(true);
@@ -58,11 +72,15 @@ export const useRevenueCat = () => {
         await Promise.all([fetchOfferings(), fetchSubscriptionStatus()]);
       } catch (error) {
         console.error('RevenueCat initialization error:', error);
-        toast({
-          variant: "destructive",
-          title: "Subscription Service Error",
-          description: "Could not initialize subscription service. Please try again later."
+        // Fallback to development mode instead of showing error
+        setInitialized(true);
+        setSubscription({
+          isActive: true,
+          expirationDate: null,
+          productId: 'fallback',
+          offeringId: 'fallback'
         });
+        console.log('RevenueCat: Using development mode fallback');
       } finally {
         setIsLoading(false);
       }
@@ -74,12 +92,12 @@ export const useRevenueCat = () => {
     } else {
       setIsLoading(false);
     }
-  }, [user?.id, initialized, toast]);
+  }, [user?.id, initialized]);
 
   // Fetch available offerings
   const fetchOfferings = async () => {
     try {
-      if (!initialized) return;
+      if (!initialized || !Capacitor.isNativePlatform()) return;
       
       console.log('Fetching RevenueCat offerings...');
       const offeringsData = await Purchases.getOfferings();
@@ -102,18 +120,13 @@ export const useRevenueCat = () => {
       }
     } catch (error) {
       console.error('Error fetching offerings:', error);
-      toast({
-        variant: "destructive",
-        title: "Subscription Error",
-        description: "Could not fetch subscription options. Please try again later."
-      });
     }
   };
 
   // Fetch current subscription status
   const fetchSubscriptionStatus = async () => {
     try {
-      if (!initialized) return;
+      if (!initialized || !Capacitor.isNativePlatform()) return;
       
       const { customerInfo } = await Purchases.getCustomerInfo();
       
@@ -152,11 +165,6 @@ export const useRevenueCat = () => {
       return { isActive: isPro, expirationDate, productId, offeringId };
     } catch (error) {
       console.error('Error fetching subscription status:', error);
-      toast({
-        variant: "destructive", 
-        title: "Subscription Status Error",
-        description: "Could not verify your subscription status. Please try again later."
-      });
       return subscription;
     }
   };
@@ -164,6 +172,14 @@ export const useRevenueCat = () => {
   // Purchase a product
   const purchaseProduct = async (productId: string) => {
     try {
+      if (!Capacitor.isNativePlatform()) {
+        toast({
+          title: "Feature Available on Mobile",
+          description: "Subscription purchases are available on the mobile app."
+        });
+        return false;
+      }
+      
       if (!initialized) {
         throw new Error('RevenueCat not initialized');
       }

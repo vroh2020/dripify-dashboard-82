@@ -3,6 +3,7 @@
 -- 1. Removing dangerous public access policies
 -- 2. Ensuring proper Row Level Security (RLS) is enabled
 -- 3. Implementing secure, user-scoped access policies
+-- 4. Fixing function search_path security vulnerabilities
 
 -- Begin transaction for atomic execution
 BEGIN;
@@ -97,6 +98,32 @@ CREATE POLICY "user_achievements_update_own" ON public.user_achievements
 CREATE POLICY "user_achievements_delete_own" ON public.user_achievements
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Fix function search_path security vulnerabilities
+-- Secure the handle_new_user function by setting a fixed search_path
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)),
+    NOW(),
+    NOW()
+  );
+  RETURN NEW;
+END;
+$$;
+
+-- Recreate the trigger with the secured function
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- Add security constraints and indexes for better performance
 -- Add updated_at column with automatic updates if not exists
 ALTER TABLE public.profiles 
@@ -118,7 +145,9 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language plpgsql;
+$$ LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public;
 
 -- Create triggers for automatic timestamp updates
 DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;

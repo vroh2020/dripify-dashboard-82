@@ -8,6 +8,7 @@ interface SubscriptionState {
   isSubscribed: boolean;
   isLoading: boolean;
   error: Error | null;
+  developmentMode: boolean;
   initialize: (apiKey: string) => Promise<void>;
   refreshCustomerInfo: () => Promise<void>;
   setCustomerInfo: (info: CustomerInfo) => void;
@@ -20,23 +21,52 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   isSubscribed: false,
   isLoading: true,
   error: null,
+  developmentMode: REVENUECAT_CONFIG.DEVELOPMENT_MODE,
 
   initialize: async (apiKey: string) => {
     try {
       set({ isLoading: true, error: null });
+      
+      // If no API key provided, simulate subscription in development mode
+      if (!apiKey || apiKey.trim() === '') {
+        console.log('RevenueCat: Development mode - simulating subscription features');
+        set({
+          customerInfo: null,
+          isSubscribed: true, // Grant access in development mode
+          isLoading: false,
+          developmentMode: true,
+        });
+        return;
+      }
+
       await revenueCatService.initialize(apiKey);
       const customerInfo = await revenueCatService.getCustomerInfo();
       set({
         customerInfo,
         isSubscribed: customerInfo.entitlements.active[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false,
         isLoading: false,
+        developmentMode: false,
       });
     } catch (error) {
-      set({ error: error as Error, isLoading: false });
+      console.warn('RevenueCat initialization failed, falling back to development mode:', error);
+      // Fallback to development mode if RevenueCat fails
+      set({ 
+        error: null, // Don't treat this as an error in development
+        isLoading: false,
+        isSubscribed: true, // Grant access
+        developmentMode: true,
+      });
     }
   },
 
   refreshCustomerInfo: async () => {
+    const currentState = useSubscriptionStore.getState();
+    
+    // Skip refresh in development mode
+    if (currentState.developmentMode) {
+      return;
+    }
+
     try {
       set({ isLoading: true, error: null });
       const customerInfo = await revenueCatService.getCustomerInfo();

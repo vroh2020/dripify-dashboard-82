@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleLoadingOverlay } from "@/components/StyleLoadingOverlay";
 import { DripScore } from "@/components/DripScore";
+import { ModernRatingsDisplay } from "@/components/ModernRatingsDisplay";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { parseAnalysis } from "@/utils/analysisParser";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,20 +212,32 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         // Use the REAL analysis API with onboarding flag - this is what the user wants!
         const analysisResult = await analyzeStyle(selectedImage, true);
         
-        // Use the real analysis result
+        console.log('Onboarding: Real AI analysis received:', analysisResult);
+        
+        // Use the real analysis result completely
         finalResult = {
           overallScore: analysisResult.overallScore,
           rawAnalysis: analysisResult.rawAnalysis,
           imageUrl: analysisResult.imageUrl,
-          summary: analysisResult.summary || "Great style analysis completed!",
-          breakdown: analysisResult.breakdown || mockAnalysisResult.breakdown,
-          tips: mockAnalysisResult.tips // Use mock tips to avoid type conflicts
+          summary: analysisResult.summary || analysisResult.rawAnalysis || "Great style analysis completed!",
+          breakdown: analysisResult.breakdown && analysisResult.breakdown.length > 0 
+            ? analysisResult.breakdown 
+            : [
+                { category: "Overall Style", score: analysisResult.overallScore, emoji: "✨" }
+              ],
+          tips: analysisResult.tips && analysisResult.tips.length > 0 
+            ? analysisResult.tips 
+            : [
+                { category: "General", tip: "Your style analysis has been completed successfully!", level: "beginner" as const }
+              ]
         };
+        
+        console.log('Onboarding: Using real analysis result:', finalResult);
       } catch (analysisError) {
         console.log('Real analysis failed, using fallback mock:', analysisError);
         // Only use mock as fallback if real API fails
         toast({
-          title: "Analysis Notice",
+          title: "Analysis Notice", 
           description: "Using demo analysis for onboarding experience",
           variant: "default"
         });
@@ -619,23 +632,15 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                 >
                   {analysisResult && (
                     <>
-                      {/* Profile Picture */}
-                      <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto rounded-full overflow-hidden border-4 border-orange-500/30 shadow-2xl mb-2">
-                        <img 
-                          src={analysisResult.imageUrl} 
-                          alt="Your outfit" 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      {/* Minimal Results List */}
-                      <div className="w-full max-w-xs space-y-4">
-                        <ResultBar icon={<Star className="w-5 h-5 text-orange-400" />} label="Overall" value={analysisResult.overallScore || 86} color="bg-orange-400" />
-                        <ResultBar icon={<Zap className="w-5 h-5 text-yellow-400" />} label="Potential" value={analysisResult.potential || 90} color="bg-yellow-400" />
-                        <ResultBar icon={<Ruler className="w-5 h-5 text-blue-400" />} label="Fit & Tailoring" value={analysisResult.fit || 78} color="bg-blue-400" />
-                        <ResultBar icon={<TrendingUp className="w-5 h-5 text-pink-400" />} label="Trendiness" value={analysisResult.trendiness || 85} color="bg-pink-400" />
-                        <ResultBar icon={<Sparkles className="w-5 h-5 text-purple-400" />} label="Aura" value={analysisResult.aura || 80} color="bg-purple-400" />
-                        <ResultBar icon={<Palette className="w-5 h-5 text-green-400" />} label="Color Coordination" value={analysisResult.colorCoordination || 88} color="bg-green-400" />
-                      </div>
+                      {/* New Modern Ratings Display */}
+                      <ModernRatingsDisplay
+                        overallScore={analysisResult.overallScore || 86}
+                        profileImage={analysisResult.imageUrl}
+                        breakdown={analysisResult.breakdown || []}
+                        onSave={() => console.log('Save clicked')}
+                        onShare={() => console.log('Share clicked')}
+                      />
+                      
                       {showNextButton ? (
                         <div className="w-full max-w-xs mx-auto mt-8">
                           <Button

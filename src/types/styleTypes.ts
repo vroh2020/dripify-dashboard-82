@@ -1,4 +1,3 @@
-
 export interface StyleAnalysisResult {
   overallScore: number;
   rawAnalysis: string;
@@ -33,9 +32,9 @@ export interface StyleAnalysis {
   scan_date?: string | null;
   streak_count?: number | null;
   last_scan_date?: string | null;
-  breakdown?: ScoreBreakdown[] | any;
+  breakdown?: ScoreBreakdown[] | string;
   raw_analysis?: string;
-  tips?: StyleTip[] | any;
+  tips?: StyleTip[] | string;
   user_id?: string | null;
 }
 

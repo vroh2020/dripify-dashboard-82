@@ -5,9 +5,8 @@ import { TipsView } from "@/components/TipsView";
 import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSession } from "@/hooks/useSession";
-import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -19,25 +18,10 @@ const Index = () => {
   useEffect(() => {
     console.log('Index.tsx - Auth check:', { isLoading, session: !!session, user: !!user });
     
-    if (!isLoading) {
-      if (!session || !user) {
-        console.log('Index.tsx - No session/user found');
-        
-        // Give a bit more time for session to be established (especially after onboarding)
-        setTimeout(() => {
-          // Check one more time before redirecting
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (!session) {
-              console.log('Index.tsx - Still no session after delay, redirecting to auth');
-              navigate('/auth');
-            } else {
-              console.log('Index.tsx - Session found after delay, staying on main app');
-            }
-          });
-        }, 2000);
-      } else {
-        console.log('Index.tsx - User authenticated, showing main app');
-      }
+    // Only redirect if we're done loading and have no session
+    if (!isLoading && (!session || !user)) {
+      console.log('Index.tsx - No session/user found, redirecting to auth');
+      navigate('/auth');
     }
   }, [session, user, isLoading, navigate]);
 
@@ -56,12 +40,18 @@ const Index = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex items-center justify-center">
-        <div className="text-white text-lg">Loading...</div>
+        <motion.div 
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-white text-lg font-medium"
+        >
+          Loading your style profile...
+        </motion.div>
       </div>
     );
   }
 
-  // Don't render main app if not authenticated
+  // Don't render main app if not authenticated (will redirect in useEffect)
   if (!session || !user) {
     return null;
   }

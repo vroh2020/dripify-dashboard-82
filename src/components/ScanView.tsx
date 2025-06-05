@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CategoryBreakdown } from "./analysis/CategoryBreakdown";
 import { StyleTips } from "./analysis/StyleTips";
 import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
+import { ModernRatingsDisplay } from "./ModernRatingsDisplay";
 import type { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 
 export const ScanView = () => {
@@ -178,30 +179,16 @@ export const ScanView = () => {
         >
           {result && (
             <div className="w-full max-w-2xl mx-auto space-y-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center space-y-4"
-              >
-                <Avatar className="w-24 h-24 mx-auto border-2 border-purple-500/30">
-                  <AvatarImage src={selectedImage ? URL.createObjectURL(selectedImage) : undefined} alt="Profile" className="object-cover" />
-                  <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-2xl">👕</AvatarFallback>
-                </Avatar>
-                
-                <div className="space-y-2">
-                  <h2 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">{result.overallScore}/10</h2>
-                  <p className="text-xl text-green-400 font-semibold">Style Score</p>
-                  <div className="h-1.5 w-32 mx-auto bg-gray-800 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(result.overallScore / 10) * 100}%` }}
-                      transition={{ delay: 0.5, duration: 1.2 }}
-                      className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
-                    />
-                  </div>
-                </div>
-              </motion.div>
+              {/* New Modern Ratings Display */}
+              <ModernRatingsDisplay
+                overallScore={result.overallScore}
+                profileImage={result.imageUrl}
+                breakdown={result.breakdown || []}
+                onSave={handleSave}
+                onShare={handleShare}
+              />
 
+              {/* Optional: Keep detailed feedback below the ratings */}
               {result.summary && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -210,7 +197,7 @@ export const ScanView = () => {
                   className="bg-black/30 backdrop-blur-lg border-white/10 rounded-lg"
                 >
                   <div className="p-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">Overall Feedback</h3>
+                    <h3 className="text-xl font-semibold text-white mb-4">Detailed Analysis</h3>
                     <p className="text-white/80 leading-relaxed">
                       {result.summary}
                     </p>
@@ -218,10 +205,7 @@ export const ScanView = () => {
                 </motion.div>
               )}
 
-              {result.breakdown && result.breakdown.length > 0 && (
-                <CategoryBreakdown categories={result.breakdown} />
-              )}
-
+              {/* Optional: Keep tips section */}
               {result.tips && result.tips.length > 0 && (
                 <StyleTips tips={result.tips} />
               )}
@@ -233,33 +217,15 @@ export const ScanView = () => {
                 className="flex justify-center gap-4"
               >
                 <Button
+                  onClick={handleRestart}
                   variant="outline"
                   size="lg"
-                  className="rounded-full bg-white hover:bg-white/90 text-black border-none"
-                  onClick={handleSave}
+                  className="rounded-full bg-gray-800 hover:bg-gray-700 text-white border-white/20"
                 >
-                  <Save className="w-5 h-5 mr-2" />
-                  Save
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="rounded-full bg-white hover:bg-white/90 text-black border-none"
-                  onClick={handleShare}
-                >
-                  <Share2 className="w-5 h-5 mr-2" />
-                  Share
+                  <Camera className="w-5 h-5 mr-2" />
+                  Scan Again
                 </Button>
               </motion.div>
-              
-              <div className="mt-8 flex justify-center">
-                <Button
-                  onClick={handleRestart}
-                  className="bg-white/10 hover:bg-white/20 text-white transition-all"
-                >
-                  Analyze Another Outfit
-                </Button>
-              </div>
             </div>
           )}
         </motion.div>

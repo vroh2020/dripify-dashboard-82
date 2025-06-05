@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
@@ -13,12 +12,30 @@ serve(async (req) => {
 
   try {
     // Get RevenueCat API key from environment variables
-    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_API_KEY') || 'appl_QwxqqjiqoZWMHsekYsUEihoxRfX'
+    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_API_KEY')
+
+    if (!publicKey) {
+      console.log('RevenueCat public key not configured - development mode')
+      return new Response(
+        JSON.stringify({
+          publicKey: '',
+          developmentMode: true
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          status: 200,
+        },
+      )
+    }
 
     // Return the public key
     return new Response(
       JSON.stringify({
-        publicKey
+        publicKey,
+        developmentMode: false
       }),
       {
         headers: {

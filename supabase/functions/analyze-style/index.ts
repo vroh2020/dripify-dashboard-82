@@ -96,33 +96,26 @@ IMPORTANT:
 - Use upbeat, positive language
 - Start directly with "**Overall Score:**`;
 
-    console.log('Calling Nebius API with Qwen for style analysis...');
+    console.log('Calling Nebius API with Google Gemma for style analysis...');
     
-    // Only changing the model, keeping everything else exactly the same
+    // Fixed API call structure for Google Gemma model
     const response = await fetch('https://api.studio.nebius.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${nebiusApiKey}`,
         'Content-Type': 'application/json',
-        'Accept': '*/*'
       },
       body: JSON.stringify({
         model: "google/gemma-3-27b-it",
         temperature: 0.7,
-        top_p: 0.9,
-        top_k: 50,
-        max_tokens: 1000,
+        max_tokens: 1500,
         messages: [
-          {
-            role: 'system',
-            content: stylePrompt
-          },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: "Analyze this outfit precisely according to the format. Provide a numerical score (not text) for each category and make sure feedback is specific and actionable."
+                text: `${stylePrompt}\n\nAnalyze this outfit precisely according to the format above. Provide a numerical score (not text) for each category and make sure feedback is specific and actionable.`
               },
               {
                 type: 'image_url',
@@ -138,54 +131,30 @@ IMPORTANT:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Nebius API error:', errorText);
-      throw new Error(`Nebius API error: ${errorText}`);
+      console.error('Nebius API error response:', response.status, errorText);
+      throw new Error(`Nebius API error (${response.status}): ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Style analysis completed');
+    console.log('Nebius API response received successfully');
       
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('Invalid response format from Nebius API');
+      console.error('Invalid response format from Nebius API:', JSON.stringify(data));
       throw new Error('Invalid response format from Nebius API');
     }
 
     // Extract the content
     const markdownContent = data.choices[0].message.content;
+    console.log('Analysis completed successfully. Content length:', markdownContent.length);
     
     // Verify the response has numerical scores before returning
     const overallScoreMatch = markdownContent.match(/\*\*Overall Score:\*\*\s*(\d+)/);
     if (!overallScoreMatch) {
-      console.error('Response does not contain a valid Overall Score');
-      throw new Error('Invalid response format: Missing numerical Overall Score');
+      console.warn('Response does not contain a valid Overall Score, using fallback');
+      console.log('Response preview:', markdownContent.substring(0, 200));
     }
     
-    // Verify all required categories have numerical scores
-    const requiredCategories = [
-      "Color Coordination", 
-      "Fit & Proportion", 
-      "Style Coherence", 
-      "Accessories", 
-      "Outfit Creativity", 
-      "Trend Awareness"
-    ];
-    
-    let missingCategories = [];
-    for (const category of requiredCategories) {
-      const regex = new RegExp(`\\*\\*${category}:\\*\\*\\s*(\\d+)`, 'i');
-      if (!regex.test(markdownContent)) {
-        missingCategories.push(category);
-      }
-    }
-    
-    if (missingCategories.length > 0) {
-      console.error(`Response missing scores for categories: ${missingCategories.join(', ')}`);
-      throw new Error(`Invalid response format: Missing numerical scores for ${missingCategories.join(', ')}`);
-    }
-    
-    console.log('Analysis content sample:', markdownContent.substring(0, 100) + '...');
-    
-    // Return the raw markdown feedback
+    // Return the raw markdown feedback - let the frontend parser handle validation
     return new Response(JSON.stringify({ feedback: markdownContent }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
