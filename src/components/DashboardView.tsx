@@ -10,7 +10,7 @@ import { DashboardHeader } from "./dashboard/DashboardHeader";
 import { StyleStats } from "./dashboard/StyleStats";
 import { StyleAnalysesList } from "./dashboard/StyleAnalysesList";
 import { QuickStartSection } from "./dashboard/QuickStartSection";
-import { StyleAnalysis, ScoreBreakdown } from "@/types/styleTypes";
+import { StyleAnalysis, ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 
 export const DashboardView = () => {
   const navigate = useNavigate();
@@ -46,6 +46,7 @@ export const DashboardView = () => {
       if (data && data.length > 0) {
         const processedData: StyleAnalysis[] = data.map(analysis => {
           let typedBreakdown: ScoreBreakdown[] = [];
+          let typedTips: StyleTip[] = [];
           
           if (analysis.breakdown && typeof analysis.breakdown === 'object') {
             if (Array.isArray(analysis.breakdown)) {
@@ -59,10 +60,24 @@ export const DashboardView = () => {
               }
             }
           }
+
+          // Handle tips parsing
+          if (analysis.tips) {
+            if (typeof analysis.tips === 'string') {
+              try {
+                typedTips = JSON.parse(analysis.tips) as StyleTip[];
+              } catch (e) {
+                console.error('Error parsing tips JSON:', e);
+              }
+            } else if (Array.isArray(analysis.tips)) {
+              typedTips = analysis.tips as StyleTip[];
+            }
+          }
           
           return {
             ...analysis,
             breakdown: typedBreakdown,
+            tips: typedTips,
             image_url: analysis.thumbnail_url || analysis.image_url
           };
         });

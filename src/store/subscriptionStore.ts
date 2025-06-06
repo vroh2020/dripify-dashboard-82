@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { CustomerInfo } from '@revenuecat/purchases-capacitor';
 import { revenueCatService } from '../services/revenueCatService';
@@ -21,7 +22,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   isSubscribed: false,
   isLoading: true,
   error: null,
-  developmentMode: REVENUECAT_CONFIG.DEVELOPMENT_MODE,
+  developmentMode: true, // Default to development mode
 
   initialize: async (apiKey: string) => {
     try {
@@ -89,4 +90,4 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
 
   setError: (error: Error | null) => set({ error }),
   setIsLoading: (loading: boolean) => set({ isLoading: loading }),
-})); 
+}));

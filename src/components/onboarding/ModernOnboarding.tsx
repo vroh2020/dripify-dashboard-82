@@ -828,4 +828,4 @@ const ResultBar = ({ icon, label, value, color }: ResultBarProps) => (
       </div>
     </div>
   </div>
-); 
+);
