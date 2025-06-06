@@ -1,4 +1,3 @@
-
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { Paywall } from './Paywall';
@@ -34,4 +33,4 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   return <>{children}</>;
-};
+}; 
