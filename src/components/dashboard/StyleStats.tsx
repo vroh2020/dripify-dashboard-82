@@ -33,6 +33,9 @@ export const StyleStats = ({ hasScans, stats }: StyleStatsProps) => {
       fetchStats();
     }
     
+    // DISABLED: Real-time subscription for performance optimization  
+    // This was one of 3 duplicate subscriptions causing 94.8% of DB load
+    /*
     // Set up real-time subscription for style_analyses table
     const channel = supabase
       .channel('style_stats_changes')
@@ -54,6 +57,7 @@ export const StyleStats = ({ hasScans, stats }: StyleStatsProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
+    */
   }, [fetchUserStats, stats]);
 
   // Use provided stats or fall back to store stats

@@ -156,7 +156,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         console.error('Temp account error:', error);
         // If temp account fails, just continue anyway
       } else {
-        console.log('Secure temp account created successfully:', data);
+        // Secure temp account created successfully
       }
       
       setCurrentStep('age');
@@ -642,8 +642,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                         overallScore={analysisResult.overallScore || 86}
                         profileImage={analysisResult.imageUrl}
                         breakdown={analysisResult.breakdown || []}
-                        onSave={() => console.log('Save clicked')}
-                        onShare={() => console.log('Share clicked')}
+                                onSave={() => {}} // Save functionality not implemented yet
+        onShare={() => {}} // Share functionality not implemented yet
                       />
                       
                       {showNextButton ? (

@@ -55,11 +55,7 @@ export const ScanView = () => {
     setAnalysisPhase("Starting analysis...");
     
     try {
-      console.log('Starting analysis...');
-      
       const analysisResult = await analyzeStyle(selectedImage);
-      
-      console.log('Analysis completed successfully:', analysisResult);
       setResult(analysisResult);
       setLatestScan(analysisResult);
       

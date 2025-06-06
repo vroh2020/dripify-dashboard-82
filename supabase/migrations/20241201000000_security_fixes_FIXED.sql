@@ -378,5 +378,23 @@ BEGIN
     END LOOP;
 END $$;
 
+-- ============================================================================
+-- PART 8: Add foreign key covering indexes (FINAL FIX)
+-- ============================================================================
+
+-- These indexes are specifically needed to cover foreign key constraints
+-- This eliminates the "unindexed foreign key" performance warnings
+
+-- Drop any problematic duplicate indexes first
+DROP INDEX IF EXISTS public.idx_style_analyses_user_id_clean;
+DROP INDEX IF EXISTS public.idx_saved_outfits_user_id_clean;
+DROP INDEX IF EXISTS public.idx_user_achievements_user_id_clean;
+
+-- Create proper foreign key covering indexes
+-- Note: We already have some of these from Part 6, but ensuring they exist
+CREATE INDEX IF NOT EXISTS idx_style_analyses_user_id ON public.style_analyses(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_outfits_user_id ON public.saved_outfits(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON public.user_achievements(user_id);
+
 -- Commit the transaction
 COMMIT; 

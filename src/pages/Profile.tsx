@@ -33,6 +33,9 @@ const Profile = () => {
   useEffect(() => {
     fetchProfile();
     
+    // DISABLED: Real-time subscriptions for performance optimization
+    // These were causing 94.8% of database load with duplicate subscriptions
+    /*
     // Set up real-time subscription for profile updates
     const profileChannel = supabase
       .channel('profile_changes')
@@ -70,6 +73,7 @@ const Profile = () => {
       supabase.removeChannel(profileChannel);
       supabase.removeChannel(analysisChannel);
     };
+    */
   }, [fetchUserStats]);
 
   useEffect(() => {

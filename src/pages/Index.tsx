@@ -16,11 +16,9 @@ const Index = () => {
 
   // Check authentication and redirect if needed
   useEffect(() => {
-    console.log('Index.tsx - Auth check:', { isLoading, session: !!session, user: !!user });
-    
+    // Auth check - redirect if no session
     // Only redirect if we're done loading and have no session
     if (!isLoading && (!session || !user)) {
-      console.log('Index.tsx - No session/user found, redirecting to auth');
       navigate('/auth');
     }
   }, [session, user, isLoading, navigate]);

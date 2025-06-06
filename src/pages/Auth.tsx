@@ -30,10 +30,8 @@ export const Auth = () => {
   }, [navigate]);
 
   const handleOnboardingComplete = (userData: any) => {
-    console.log('Onboarding completed with data:', userData);
     // Sanitize user data before processing
     const sanitizedData = sanitizeUserMetadata(userData);
-    console.log('Sanitized user data:', sanitizedData);
     setIsOnboarding(false);
   };
 

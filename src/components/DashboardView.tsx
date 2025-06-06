@@ -115,6 +115,9 @@ export const DashboardView = () => {
   useEffect(() => {
     fetchAnalyses();
 
+    // DISABLED: Real-time subscription for performance optimization
+    // This was one of 3 duplicate subscriptions causing 94.8% of DB load
+    /*
     const subscription = supabase
       .channel('style_analyses_changes')
       .on('postgres_changes', 
@@ -132,6 +135,7 @@ export const DashboardView = () => {
     return () => {
       subscription.unsubscribe();
     };
+    */
   }, [navigate, toast]);
 
   const handleSignOut = async () => {
