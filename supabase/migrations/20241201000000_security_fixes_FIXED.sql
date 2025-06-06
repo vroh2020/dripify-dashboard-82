@@ -1,6 +1,6 @@
--- Complete Security Fixes Migration
+-- Complete Security Fixes Migration (FIXED VERSION)
 -- This addresses ALL the security issues mentioned in Supabase advisor
--- Based on the actual functions that exist in your database and comprehensive analysis
+-- FIXED: PostgreSQL constraint syntax compatibility
 
 -- Begin transaction for atomic execution
 BEGIN;
@@ -26,48 +26,26 @@ ALTER TABLE public.style_analyses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_outfits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_achievements ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies to rebuild them properly (COMPREHENSIVE CLEANUP)
--- Drop old policy names
+-- Drop existing policies to rebuild them properly
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can delete own profile" ON public.profiles;
 
--- Drop new policy names (in case they already exist)
-DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
-DROP POLICY IF EXISTS "profiles_delete_own" ON public.profiles;
-
--- Drop style_analyses policies (old and new names)
 DROP POLICY IF EXISTS "Users can view own analyses" ON public.style_analyses;
 DROP POLICY IF EXISTS "Users can create own analyses" ON public.style_analyses;
 DROP POLICY IF EXISTS "Users can update own analyses" ON public.style_analyses;
 DROP POLICY IF EXISTS "Users can delete own analyses" ON public.style_analyses;
-DROP POLICY IF EXISTS "style_analyses_select_own" ON public.style_analyses;
-DROP POLICY IF EXISTS "style_analyses_insert_own" ON public.style_analyses;
-DROP POLICY IF EXISTS "style_analyses_update_own" ON public.style_analyses;
-DROP POLICY IF EXISTS "style_analyses_delete_own" ON public.style_analyses;
 
--- Drop saved_outfits policies (old and new names)
 DROP POLICY IF EXISTS "Users can view own outfits" ON public.saved_outfits;
 DROP POLICY IF EXISTS "Users can create own outfits" ON public.saved_outfits;
 DROP POLICY IF EXISTS "Users can update own outfits" ON public.saved_outfits;
 DROP POLICY IF EXISTS "Users can delete own outfits" ON public.saved_outfits;
-DROP POLICY IF EXISTS "saved_outfits_select_own" ON public.saved_outfits;
-DROP POLICY IF EXISTS "saved_outfits_insert_own" ON public.saved_outfits;
-DROP POLICY IF EXISTS "saved_outfits_update_own" ON public.saved_outfits;
-DROP POLICY IF EXISTS "saved_outfits_delete_own" ON public.saved_outfits;
 
--- Drop user_achievements policies (old and new names)
 DROP POLICY IF EXISTS "Users can view own achievements" ON public.user_achievements;
 DROP POLICY IF EXISTS "Users can create own achievements" ON public.user_achievements;
 DROP POLICY IF EXISTS "Users can update own achievements" ON public.user_achievements;
 DROP POLICY IF EXISTS "Users can delete own achievements" ON public.user_achievements;
-DROP POLICY IF EXISTS "user_achievements_select_own" ON public.user_achievements;
-DROP POLICY IF EXISTS "user_achievements_insert_own" ON public.user_achievements;
-DROP POLICY IF EXISTS "user_achievements_update_own" ON public.user_achievements;
-DROP POLICY IF EXISTS "user_achievements_delete_own" ON public.user_achievements;
 
 -- ============================================================================
 -- PART 2: Create secure RLS policies
@@ -284,7 +262,7 @@ CREATE TRIGGER trigger_update_style_streak
 -- Add indexes for better performance on common queries
 CREATE INDEX IF NOT EXISTS idx_style_analyses_user_id ON public.style_analyses(user_id);
 CREATE INDEX IF NOT EXISTS idx_style_analyses_created_at ON public.style_analyses(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_style_analyses_user_date ON public.style_analyses(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_style_analyses_user_date ON public.style_analyses(user_id, DATE(created_at));
 CREATE INDEX IF NOT EXISTS idx_saved_outfits_user_id ON public.saved_outfits(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON public.user_achievements(user_id);
 
@@ -307,7 +285,7 @@ END $$;
 DO $$
 BEGIN
     -- Add username format constraint if it doesn't exist
-    IF NOT EXISTS (1
+    IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints 
         WHERE constraint_name = 'check_username_format' 
         AND table_name = 'profiles'
