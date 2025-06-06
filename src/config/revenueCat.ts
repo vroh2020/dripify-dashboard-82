@@ -1,24 +1,18 @@
-import { Capacitor } from '@capacitor/core';
 
+// RevenueCat configuration with secure server-side key fetching
 export const REVENUECAT_CONFIG = {
-  // Remove exposed API key - this will now be handled server-side
-  apiKey: '', // Empty - API operations should go through Supabase Edge Functions
-  API_KEY: '', // Keep for backward compatibility but empty
+  // API key will be fetched securely from server-side
+  apiKey: '', // Removed hardcoded key for security
   
-  // Keep platform detection for client-side SDK initialization if needed
-  get platform() {
-    return Capacitor.getPlatform();
-  },
-  
-  // Product identifiers remain client-side as they're not sensitive
-  products: {
-    monthly: 'monthly_pro',
-    yearly: 'yearly_pro'
-  },
-  
-  // Add the missing entitlement identifier
-  ENTITLEMENT_IDENTIFIER: 'pro'
+  // Use server-side endpoint to get API key securely
+  async getApiKey(): Promise<string> {
+    try {
+      const response = await fetch('/api/revenuecat-config');
+      const data = await response.json();
+      return data.apiKey || '';
+    } catch (error) {
+      console.error('Failed to fetch RevenueCat API key:', error);
+      return '';
+    }
+  }
 };
-
-// Note: All RevenueCat API operations should now go through secure backend endpoints
-// using the API key stored in Supabase secrets
