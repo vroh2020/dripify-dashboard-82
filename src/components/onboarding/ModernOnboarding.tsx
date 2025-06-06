@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -199,9 +200,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
         ],
         tips: [
-          { category: "Accessories", tip: "Consider adding a subtle accessory like a watch", level: "beginner" as const },
-          { category: "Color", tip: "The color combination works well together", level: "intermediate" as const },
-          { category: "Fit", tip: "Good fit on the shirt and tie", level: "beginner" as const }
+          { category: "Accessories", tip: "Consider adding a subtle accessory like a watch", level: "beginner" },
+          { category: "Color", tip: "The color combination works well together", level: "intermediate" },
+          { category: "Fit", tip: "Good fit on the shirt and tie", level: "beginner" }
         ]
       };
 
@@ -225,10 +226,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
             : [
                 { category: "Overall Style", score: analysisResult.overallScore, emoji: "✨" }
               ],
+          // Ensure tips conform to the expected type (beginner or intermediate only)
           tips: analysisResult.tips && analysisResult.tips.length > 0 
-            ? analysisResult.tips 
+            ? analysisResult.tips.map(tip => ({
+                ...tip,
+                level: tip.level === "advanced" ? "intermediate" : tip.level
+              }))
             : [
-                { category: "General", tip: "Your style analysis has been completed successfully!", level: "beginner" as const }
+                { category: "General", tip: "Your style analysis has been completed successfully!", level: "beginner" }
               ]
         };
         

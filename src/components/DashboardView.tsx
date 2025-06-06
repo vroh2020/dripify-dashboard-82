@@ -1,3 +1,4 @@
+
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -61,16 +62,19 @@ export const DashboardView = () => {
             }
           }
 
-          // Handle tips parsing
+          // Handle tips parsing with proper type checking
           if (analysis.tips) {
             if (typeof analysis.tips === 'string') {
               try {
-                typedTips = JSON.parse(analysis.tips) as StyleTip[];
+                const parsedTips = JSON.parse(analysis.tips);
+                if (Array.isArray(parsedTips)) {
+                  typedTips = parsedTips as StyleTip[];
+                }
               } catch (e) {
                 console.error('Error parsing tips JSON:', e);
               }
             } else if (Array.isArray(analysis.tips)) {
-              typedTips = analysis.tips as StyleTip[];
+              typedTips = analysis.tips as unknown as StyleTip[];
             }
           }
           
