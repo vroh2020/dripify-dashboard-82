@@ -12,7 +12,7 @@ serve(async (req) => {
 
   try {
     // Get RevenueCat API key from environment variables
-    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_API_KEY')
+    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_KEY')
 
     if (!publicKey) {
       console.log('RevenueCat public key not configured - development mode')

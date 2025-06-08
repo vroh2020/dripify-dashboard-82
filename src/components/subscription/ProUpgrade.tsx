@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,11 +36,19 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
     }
   };
 
-  // Handle restore
+  // Handle restore - ONLY restore, don't trigger purchases
   const handleRestore = async () => {
     setRestoring(true);
-    await restorePurchases();
-    setRestoring(false);
+    try {
+      const restored = await restorePurchases();
+      // Note: restorePurchases now handles all success/failure messaging
+      // We don't trigger any purchase flows from here
+      return restored;
+    } catch (error) {
+      console.error('Error in handleRestore:', error);
+    } finally {
+      setRestoring(false);
+    }
   };
 
   if (compact) {

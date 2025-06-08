@@ -1,7 +1,6 @@
-
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Crown, Check } from "lucide-react";
+import { Sparkles, Crown, Check, RefreshCw } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useState } from "react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
@@ -11,9 +10,10 @@ interface ProOfferCardProps {
 }
 
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
-  const { offerings, purchaseProduct } = useRevenueCat();
+  const { offerings, purchaseProduct, restorePurchases } = useRevenueCat();
   const { isPro } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   // Find the Pro product
   const proProduct = offerings?.[0]?.availablePackages?.find(pkg => 
@@ -33,13 +33,27 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     try {
       const success = await purchaseProduct(proProduct.product.identifier);
       if (success) {
-        setTimeout(onContinue, 1000); // Give user a moment to see the success message
+        setTimeout(onContinue, 1000);
       } else {
         setIsProcessing(false);
       }
     } catch (error) {
       console.error("Purchase error:", error);
       setIsProcessing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setIsRestoring(true);
+    try {
+      const restored = await restorePurchases();
+      if (restored) {
+        setTimeout(onContinue, 1500);
+      }
+    } catch (error) {
+      console.error("Restore error:", error);
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -74,7 +88,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 py-2 px-4 text-center">
         <span className="text-sm font-medium text-purple-300">Special Offer</span>
       </div>
-      
+
       <CardContent className="p-6">
         <div className="flex justify-center mb-4">
           <div className="rounded-full bg-purple-500/20 p-3">
@@ -116,15 +130,35 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         <Button 
           className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white"
           onClick={handleUpgrade}
-          disabled={isProcessing}
+          disabled={isProcessing || isRestoring}
         >
           {isProcessing ? 'Processing...' : `Upgrade for ${formattedPrice}/month`}
         </Button>
         
         <Button 
           variant="ghost" 
+          className="w-full text-purple-300 hover:text-purple-200 hover:bg-purple-500/10"
+          onClick={handleRestore}
+          disabled={isProcessing || isRestoring}
+        >
+          {isRestoring ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Restoring...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Restore Purchases
+            </>
+          )}
+        </Button>
+        
+        <Button 
+          variant="ghost" 
           className="w-full text-white/70"
           onClick={onContinue}
+          disabled={isProcessing || isRestoring}
         >
           Continue with Free Plan
         </Button>

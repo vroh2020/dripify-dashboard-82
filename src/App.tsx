@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,8 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
-import { SubscriptionProvider } from "./components/SubscriptionProvider";
-import { REVENUECAT_CONFIG } from "./config/revenueCat";
+import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 
 const queryClient = new QueryClient();
 
@@ -18,7 +16,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <SubscriptionProvider apiKey={REVENUECAT_CONFIG.apiKey}>
+        <SubscriptionProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/*" element={<Index />} />

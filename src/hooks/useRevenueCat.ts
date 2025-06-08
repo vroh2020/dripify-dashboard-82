@@ -17,7 +17,7 @@ export const useRevenueCat = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [offerings, setOfferings] = useState<PurchasesOffering[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionStatus>({
-    isActive: true, // Default to true on web for development
+    isActive: false, // Changed to false so we can test the paywall
     expirationDate: null,
     productId: null,
     offeringId: null,
@@ -36,7 +36,7 @@ export const useRevenueCat = () => {
         setInitialized(true);
         setIsLoading(false);
         setSubscription({
-          isActive: true, // Grant access on web for development
+          isActive: false, // Changed to false so we can test the paywall
           expirationDate: null,
           productId: 'development',
           offeringId: 'development'
@@ -75,7 +75,7 @@ export const useRevenueCat = () => {
         // Fallback to development mode instead of showing error
         setInitialized(true);
         setSubscription({
-          isActive: true,
+          isActive: false, // Changed to false so we can test the paywall
           expirationDate: null,
           productId: 'fallback',
           offeringId: 'fallback'
@@ -227,35 +227,80 @@ export const useRevenueCat = () => {
   // Restore purchases
   const restorePurchases = async () => {
     try {
+      if (!Capacitor.isNativePlatform()) {
+        toast({
+          title: "Feature Available on Mobile",
+          description: "Restore purchases is only available on the mobile app."
+        });
+        return false;
+      }
+      
       if (!initialized) {
         throw new Error('RevenueCat not initialized');
       }
       
       setIsLoading(true);
-      await Purchases.restorePurchases();
       
-      // Check status after restore
-      const status = await fetchSubscriptionStatus();
+      // Call RevenueCat restore - this only restores, doesn't trigger purchase flows
+      const { customerInfo } = await Purchases.restorePurchases();
       
-      if (status.isActive) {
+      // Update subscription status after restore
+      const isPro = Boolean(customerInfo.entitlements.active?.["pro"]?.isActive);
+      
+      let expirationDate = null;
+      let productId = null;
+      let offeringId = null;
+      
+      if (isPro && customerInfo.activeSubscriptions && customerInfo.activeSubscriptions.length > 0) {
+        const subId = customerInfo.activeSubscriptions[0];
+        
+        if (customerInfo.allExpirationDates && customerInfo.allExpirationDates[subId]) {
+          expirationDate = new Date(customerInfo.allExpirationDates[subId] * 1000);
+        }
+        
+        productId = subId;
+        
+        if (customerInfo.allPurchasedProductIdentifiers && customerInfo.allPurchasedProductIdentifiers.length > 0) {
+          offeringId = customerInfo.allPurchasedProductIdentifiers[0];
+        }
+      }
+      
+      setSubscription({
+        isActive: isPro,
+        expirationDate,
+        productId,
+        offeringId
+      });
+      
+      if (isPro) {
         toast({
-          title: "Purchases Restored",
-          description: "Your Pro subscription has been restored successfully!"
+          title: "Purchases Restored Successfully",
+          description: "Your Pro subscription has been restored!"
         });
         return true;
       } else {
         toast({
           title: "No Purchases Found",
-          description: "We couldn't find any previous Pro subscriptions to restore."
+          description: "We couldn't find any previous Pro subscriptions associated with your account."
         });
         return false;
       }
     } catch (error) {
       console.error('Restore purchases error:', error);
+      
+      // Handle specific error cases
+      if (error.message && error.message.includes('cancelled')) {
+        toast({
+          title: "Restore Cancelled",
+          description: "The restore process was cancelled."
+        });
+        return false;
+      }
+      
       toast({
         variant: "destructive",
         title: "Restore Failed",
-        description: "Could not restore your previous purchases. Please try again later."
+        description: "Could not restore your previous purchases. Please try again or contact support if this continues."
       });
       return false;
     } finally {

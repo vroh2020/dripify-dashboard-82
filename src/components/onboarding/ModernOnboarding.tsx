@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +6,13 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { StyleLoadingOverlay } from "@/components/StyleLoadingOverlay";
 import { DripScore } from "@/components/DripScore";
 import { ModernRatingsDisplay } from "@/components/ModernRatingsDisplay";
+import { ProOfferCard } from "@/components/onboarding/ProOfferCard";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { parseAnalysis } from "@/utils/analysisParser";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useRevenueCat } from "@/hooks/useRevenueCat";
+import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { Sparkles, PartyPopper, Crown, Apple, TrendingUp, Ruler, Palette, Star, Zap } from "lucide-react";
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { Capacitor } from '@capacitor/core';
@@ -36,7 +38,8 @@ type OnboardingStep =
   | 'celebration' 
   | 'trial-offer' 
   | 'trial-reminder'
-  | 'pricing';
+  | 'pricing'
+  | 'paywall';
 
 // Secure random generation utility
 const generateSecureRandom = (length: number = 16): string => {
@@ -69,6 +72,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
+  
+  // RevenueCat hooks for subscription management
+  const { subscription, isLoading: revenueCatLoading, initialized } = useRevenueCat();
+  const { isPro } = useSubscription();
 
   // Progress calculation
   const totalSteps = 9;
@@ -81,7 +88,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     'celebration': 6,
     'trial-offer': 7,
     'trial-reminder': 8,
-    'pricing': 9
+    'pricing': 9,
+    'paywall': 10
   };
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
@@ -199,11 +207,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           { category: "Style Cohesion", score: 84, emoji: "✨" },
           { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
         ],
-        tips: [
-          { category: "Accessories", tip: "Consider adding a subtle accessory like a watch", level: "beginner" },
-          { category: "Color", tip: "The color combination works well together", level: "intermediate" },
-          { category: "Fit", tip: "Good fit on the shirt and tie", level: "beginner" }
-        ]
+        tips: [] // Remove tips for onboarding - user doesn't want 22+ tips
       };
 
       // Try to get REAL analysis from the API
@@ -213,9 +217,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         // Use the REAL analysis API with onboarding flag - this is what the user wants!
         const analysisResult = await analyzeStyle(selectedImage, true);
         
-        console.log('Onboarding: Real AI analysis received:', analysisResult);
-        
-        // Use the real analysis result completely
+        // Use the real analysis result completely BUT remove excessive tips
         finalResult = {
           overallScore: analysisResult.overallScore,
           rawAnalysis: analysisResult.rawAnalysis,
@@ -226,26 +228,13 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
             : [
                 { category: "Overall Style", score: analysisResult.overallScore, emoji: "✨" }
               ],
-          // Ensure tips conform to the expected type (beginner or intermediate only)
-          tips: analysisResult.tips && analysisResult.tips.length > 0 
-            ? analysisResult.tips.map(tip => ({
-                ...tip,
-                level: tip.level === "advanced" ? "intermediate" : tip.level
-              }))
-            : [
-                { category: "General", tip: "Your style analysis has been completed successfully!", level: "beginner" }
-              ]
+          // REMOVE TIPS for onboarding - user specifically doesn't want them
+          tips: []
         };
-        
-        console.log('Onboarding: Using real analysis result:', finalResult);
       } catch (analysisError) {
         console.log('Real analysis failed, using fallback mock:', analysisError);
         // Only use mock as fallback if real API fails
-        toast({
-          title: "Analysis Notice", 
-          description: "Using demo analysis for onboarding experience",
-          variant: "default"
-        });
+        // No toast needed - this is normal for onboarding
       }
       
       setAnalysisResult(finalResult);
@@ -261,7 +250,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               total_score: finalResult.overallScore || 86,
               breakdown: JSON.stringify(finalResult.breakdown || []),
               feedback: finalResult.summary || "Great style!",
-              tips: JSON.stringify(finalResult.tips || []),
+              tips: JSON.stringify([]), // Empty tips array for onboarding
               image_url: null, // Don't store image URL for temp accounts
               raw_analysis: finalResult.rawAnalysis || "Style analysis completed"
             });
@@ -296,8 +285,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         rawAnalysis: "Demo analysis for onboarding",
         imageUrl: URL.createObjectURL(selectedImage),
         summary: "Looking great! Your style shows good attention to detail and coordination.",
-        breakdown: [],
-        tips: []
+        breakdown: [
+          { category: "Overall Style", score: 86, emoji: "✨" }
+        ],
+        tips: [] // No tips for onboarding
       };
       
       setAnalysisResult(demoResult);
@@ -315,11 +306,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         }
       }, 2000);
       
-      toast({
-        title: "Demo Mode",
-        description: "Showing sample rating for onboarding demo",
-        variant: "default"
-      });
+      // No error toast - keep onboarding smooth
     } finally {
       setIsAnalyzing(false);
     }
@@ -637,13 +624,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                 >
                   {analysisResult && (
                     <>
-                      {/* New Modern Ratings Display */}
+                      {/* New Modern Ratings Display - WITH isOnboarding prop */}
                       <ModernRatingsDisplay
                         overallScore={analysisResult.overallScore || 86}
                         profileImage={analysisResult.imageUrl}
                         breakdown={analysisResult.breakdown || []}
-                                onSave={() => {}} // Save functionality not implemented yet
-        onShare={() => {}} // Share functionality not implemented yet
+                        isOnboarding={true} // This will hide Save/Share buttons and dots
                       />
                       
                       {showNextButton ? (
@@ -681,20 +667,37 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     <h2 className="text-3xl sm:text-4xl font-bold text-white">Congratulations!</h2>
                     <p className="text-white/70 text-lg leading-relaxed">
                       You've just experienced the power of Drip Max!<br />
-                      Ready to unlock your full style potential?
+                      {isPro ? 
+                        "You already have Pro access - enjoy unlimited style analyses!" :
+                        "Ready to unlock your full style potential?"
+                      }
                     </p>
+                    
+                    {/* Debug info - temporary */}
+                    <div className="bg-blue-500 text-white p-2 rounded text-sm">
+                      DEBUG: isPro = {isPro ? 'true' : 'false'}, subscription.isActive = {subscription.isActive ? 'true' : 'false'}
+                    </div>
                   </div>
 
                   <Button
-                    onClick={() => setCurrentStep('trial-offer')}
+                    onClick={() => {
+                      console.log('Celebration button clicked:', { isPro, subscriptionIsActive: subscription.isActive });
+                      if (isPro) {
+                        console.log('Going to handleCompleteOnboarding');
+                        handleCompleteOnboarding();
+                      } else {
+                        console.log('Going to trial-offer');
+                        setCurrentStep('trial-offer');
+                      }
+                    }}
                     className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
                   >
-                    Next
+                    {isPro ? "Continue to App" : "Next"}
                   </Button>
                 </motion.div>
               )}
 
-              {/* Trial Offer Step */}
+              {/* Trial Offer Intro Step */}
               {currentStep === 'trial-offer' && (
                 <motion.div
                   key="trial-offer"
@@ -714,13 +717,27 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                       <span className="text-orange-400">Drip Max</span>
                     </h1>
                   </div>
-
+                  
                   <Button
-                    onClick={() => setCurrentStep('trial-reminder')}
+                    onClick={() => setCurrentStep('paywall')}
                     className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
                   >
                     Try for Free
                   </Button>
+                </motion.div>
+              )}
+
+              {/* Paywall Step */}
+              {currentStep === 'paywall' && (
+                <motion.div
+                  key="paywall"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.5 }}
+                  className="space-y-8"
+                >
+                  <ProOfferCard onContinue={handleCompleteOnboarding} />
                 </motion.div>
               )}
 
@@ -756,7 +773,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                 </motion.div>
               )}
 
-              {/* Pricing Step */}
+              {/* Pricing Step - Now using RevenueCat ProOfferCard */}
               {currentStep === 'pricing' && (
                 <motion.div
                   key="pricing"
@@ -764,45 +781,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.5 }}
-                  className="text-center space-y-8"
+                  className="w-full"
                 >
-                  <div className="space-y-3">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white">Choose Your Plan</h2>
-                    <p className="text-white/60">Start your 7-day free trial today</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Weekly Plan */}
-                    <div className="bg-gradient-to-r from-orange-500/20 to-purple-500/20 rounded-xl p-6 border border-orange-500/50 transition-all duration-200 hover:scale-[1.02]">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-white font-semibold text-lg">Weekly</span>
-                        <span className="bg-orange-400 text-black text-xs font-bold px-3 py-1 rounded-full">Most Popular</span>
-                      </div>
-                      <div className="text-3xl font-bold text-white">
-                        $4.99<span className="text-base text-white/60 font-normal">/week</span>
-                      </div>
-                    </div>
-
-                    {/* Monthly Plan */}
-                    <div className="bg-white/5 rounded-xl p-6 border border-white/10 transition-all duration-200 hover:scale-[1.02]">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-white font-semibold text-lg">Monthly</span>
-                        <span className="bg-green-400 text-black text-xs font-bold px-3 py-1 rounded-full">Best Value</span>
-                      </div>
-                      <div className="text-3xl font-bold text-white">
-                        $12.99<span className="text-base text-white/60 font-normal">/month</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <Button
-                      onClick={handleCompleteOnboarding}
-                      className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
-                    >
-                      Start Free Trial
-                    </Button>
-                  </div>
+                  <ProOfferCard onContinue={handleCompleteOnboarding} />
                 </motion.div>
               )}
             </AnimatePresence>

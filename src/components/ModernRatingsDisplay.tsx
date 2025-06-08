@@ -10,9 +10,10 @@ interface ModernRatingsDisplayProps {
   breakdown: ScoreBreakdown[];
   onSave?: () => void;
   onShare?: () => void;
+  isOnboarding?: boolean; // New prop to determine if this is onboarding
 }
 
-// Map AI categories to our 6 display categories
+// Map AI categories to our 6 display categories with NEW names and convert to /100 scale
 const mapAIDataToCategories = (overallScore: number, breakdown: ScoreBreakdown[]) => {
   // Create a map of AI categories for easy lookup
   const categoryMap = breakdown.reduce((acc, item) => {
@@ -20,48 +21,53 @@ const mapAIDataToCategories = (overallScore: number, breakdown: ScoreBreakdown[]
     return acc;
   }, {} as Record<string, number>);
 
-  // Calculate intelligent mappings
+  // Calculate intelligent mappings - scores should already be out of 100 from edge function
   const getScore = (keys: string[], fallback: number) => {
     for (const key of keys) {
-      if (categoryMap[key]) return categoryMap[key];
+      if (categoryMap[key]) {
+        return Math.min(100, Math.max(1, Math.round(categoryMap[key])));
+      }
     }
-    return fallback;
+    return Math.min(100, Math.max(1, Math.round(fallback)));
   };
+
+  // Use overall score directly - should already be out of 100 from edge function
+  const normalizedOverall = Math.min(100, Math.max(1, Math.round(overallScore)));
 
   return [
     {
       label: "Overall",
-      value: overallScore,
+      value: normalizedOverall,
       color: "from-orange-500 to-orange-600",
       bgColor: "bg-orange-500"
     },
     {
       label: "Potential", 
-      value: Math.min(100, overallScore + Math.floor(Math.random() * 10) + 5), // Realistic potential
+      value: Math.min(100, normalizedOverall + Math.floor(Math.random() * 15) + 5), // Realistic potential
       color: "from-purple-500 to-purple-600",
       bgColor: "bg-purple-500"
     },
     {
-      label: "Masculinity",
-      value: getScore(['style coherence', 'trend awareness', 'accessories'], overallScore + Math.floor(Math.random() * 6) - 3),
+      label: "Aura", // Changed from "Masculinity"
+      value: getScore(['style coherence', 'trend awareness', 'accessories'], normalizedOverall + Math.floor(Math.random() * 10) - 5),
       color: "from-blue-500 to-blue-600", 
       bgColor: "bg-blue-500"
     },
     {
-      label: "Skin Quality",
-      value: getScore(['color coordination', 'fit & proportion'], overallScore + Math.floor(Math.random() * 8) + 2),
+      label: "Drip Quality", // Changed from "Skin Quality"
+      value: getScore(['color coordination', 'fit & proportion'], normalizedOverall + Math.floor(Math.random() * 12) + 3),
       color: "from-green-500 to-green-600",
       bgColor: "bg-green-500"
     },
     {
-      label: "Jawline",
-      value: getScore(['fit & proportion', 'style coherence'], overallScore + Math.floor(Math.random() * 10) + 5),
+      label: "Color Coordination", // Changed from "Jawline"
+      value: getScore(['fit & proportion', 'style coherence', 'color coordination'], normalizedOverall + Math.floor(Math.random() * 8) + 2),
       color: "from-pink-500 to-pink-600",
       bgColor: "bg-pink-500"
     },
     {
-      label: "Cheekbones",
-      value: getScore(['accessories', 'outfit creativity'], overallScore + Math.floor(Math.random() * 6) - 2),
+      label: "Attractiveness", // Changed from "Cheekbones"
+      value: getScore(['accessories', 'outfit creativity'], normalizedOverall + Math.floor(Math.random() * 10) - 3),
       color: "from-cyan-500 to-cyan-600",
       bgColor: "bg-cyan-500"
     }
@@ -73,7 +79,8 @@ export const ModernRatingsDisplay = ({
   profileImage, 
   breakdown = [], 
   onSave, 
-  onShare 
+  onShare,
+  isOnboarding = false // Default to false for backward compatibility
 }: ModernRatingsDisplayProps) => {
   const ratings = mapAIDataToCategories(overallScore, breakdown);
 
@@ -98,7 +105,7 @@ export const ModernRatingsDisplay = ({
       </div>
 
       {/* Ratings Grid - 2x3 layout exactly like screenshot */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-2 gap-6 mb-6">
         {ratings.map((rating, index) => (
           <motion.div
             key={rating.label}
@@ -130,37 +137,41 @@ export const ModernRatingsDisplay = ({
         ))}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-4">
-        <Button
-          onClick={onSave}
-          variant="outline" 
-          className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          Save
-        </Button>
-        <Button
-          onClick={onShare}
-          variant="outline"
-          className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
-        >
-          <Share2 className="w-4 h-4 mr-2" />
-          Share
-        </Button>
-      </div>
+      {/* Action Buttons - Only show if NOT onboarding */}
+      {!isOnboarding && (
+        <div className="flex gap-4 mb-4">
+          <Button
+            onClick={onSave}
+            variant="outline" 
+            className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save
+          </Button>
+          <Button
+            onClick={onShare}
+            variant="outline"
+            className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
+        </div>
+      )}
 
-      {/* Bottom dots indicator (like in screenshot) */}
-      <div className="flex justify-center mt-6 space-x-2">
-        {[...Array(7)].map((_, i) => (
-          <div
-            key={i}
-            className={`w-2 h-2 rounded-full ${
-              i === 3 ? 'bg-white' : 'bg-white/30'
-            }`}
-          />
-        ))}
-      </div>
+      {/* Bottom dots indicator - Only show if NOT onboarding */}
+      {!isOnboarding && (
+        <div className="flex justify-center space-x-2">
+          {[...Array(7)].map((_, i) => (
+            <div
+              key={i}
+              className={`w-2 h-2 rounded-full ${
+                i === 3 ? 'bg-white' : 'bg-white/30'
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }; 

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useRevenueCat, SubscriptionStatus } from '@/hooks/useRevenueCat';
 import { useSession } from '@/hooks/useSession';
@@ -28,9 +27,15 @@ interface SubscriptionProviderProps {
 export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) => {
   const { user } = useSession();
   const { subscription, isLoading, fetchSubscriptionStatus } = useRevenueCat();
-  const [subscriptionState, setSubscriptionState] = useState<SubscriptionStatus>(subscription);
+  const [subscriptionState, setSubscriptionState] = useState<SubscriptionStatus>({
+    isActive: false, // Initialize as false to ensure paywall shows
+    expirationDate: null,
+    productId: null,
+    offeringId: null,
+  });
 
   useEffect(() => {
+    console.log('SubscriptionProvider: subscription changed', subscription);
     setSubscriptionState(subscription);
   }, [subscription]);
 
@@ -56,6 +61,8 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     checkSubscription,
     refreshSubscription
   };
+
+  console.log('SubscriptionProvider: providing isPro =', value.isPro);
 
   return (
     <SubscriptionContext.Provider value={value}>
