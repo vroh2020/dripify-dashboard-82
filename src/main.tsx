@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { performanceMonitor } from './utils/performance-monitor.ts'
+import { SplashScreen } from '@capacitor/splash-screen'
+import { Capacitor } from '@capacitor/core'
 
 // Extend Window interface for our performance tracking
 declare global {
@@ -14,7 +16,7 @@ declare global {
   }
 }
 
-// Smart Splash Manager
+// Smart Splash Manager with Capacitor Integration
 class SplashManager {
   private splashElement: HTMLElement | null;
   private appShellElement: HTMLElement | null;
@@ -23,6 +25,7 @@ class SplashManager {
   private minimumDisplayTime: number;
   private splashStartTime: number;
   private currentProgress: number;
+  private isCapacitor: boolean;
 
   constructor() {
     this.splashElement = document.getElementById('html-splash');
@@ -32,9 +35,25 @@ class SplashManager {
     this.minimumDisplayTime = 1500; // Minimum splash time for UX
     this.splashStartTime = Date.now();
     this.currentProgress = 0;
+    this.isCapacitor = Capacitor.isNativePlatform();
 
     // Start tracking splash display time
     performanceMonitor.startTiming('splash-display');
+
+    // Initialize Capacitor splash screen if on native platform
+    if (this.isCapacitor) {
+      this.initializeCapacitorSplash();
+    }
+  }
+
+  private async initializeCapacitorSplash(): Promise<void> {
+    try {
+      // The native splash is already showing from capacitor.config.ts
+      // We'll control when to hide it
+      console.log('🚀 Capacitor splash screen active');
+    } catch (error) {
+      console.warn('Capacitor splash screen not available:', error);
+    }
   }
 
   updateProgress(progress: number, message?: string) {
@@ -74,7 +93,19 @@ class SplashManager {
     performanceMonitor.endTiming('splash-display');
     performanceMonitor.mark('splash-hidden');
 
-    // Fade out splash and fade in app
+    // Hide Capacitor splash screen first if on native platform
+    if (this.isCapacitor) {
+      try {
+        await SplashScreen.hide({
+          fadeOutDuration: 300
+        });
+        console.log('✅ Capacitor splash screen hidden');
+      } catch (error) {
+        console.warn('Failed to hide Capacitor splash:', error);
+      }
+    }
+
+    // Fade out HTML splash and fade in app
     if (this.splashElement) {
       this.splashElement.classList.add('fade-out');
     }
