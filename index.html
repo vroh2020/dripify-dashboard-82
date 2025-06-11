@@ -8,12 +8,20 @@
     <meta name="author" content="Lovable" />
     <meta property="og:image" content="/og-image.png" />
     
-    <!-- Prevent white flash on startup -->
+    <!-- CRITICAL: Preload essential resources -->
+    <link rel="preload" href="/src/main.tsx" as="script">
+    
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="//jjqwhxamjxsiotnhhqco.supabase.co">
+    <link rel="dns-prefetch" href="//api.studio.nebius.com">
+    
+    <!-- Prevent white flash and provide instant splash -->
     <style>
+      /* Reset and base styles */
       html, body {
         margin: 0;
         padding: 0;
-        background: linear-gradient(to bottom right, #1A1F2C, #2C1F3D, #1A1F2C);
+        background: #1A1F2C;
         color: white;
         overflow-x: hidden;
         font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -23,51 +31,215 @@
       
       #root {
         min-height: 100vh;
-        min-height: 100dvh; /* Dynamic viewport height for mobile */
+        min-height: 100dvh;
       }
       
-      /* Loading spinner for initial load */
-      .initial-loader {
+      /* Advanced Splash Screen System */
+      .splash-screen {
         position: fixed;
         top: 0;
         left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(to bottom right, #1A1F2C, #2C1F3D, #1A1F2C);
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        background: linear-gradient(135deg, #1A1F2C 0%, #2C1F3D 50%, #1A1F2C 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 9999;
+        z-index: 10000;
+        opacity: 1;
+        transition: opacity 0.8s ease-out;
       }
-      
-      .loader-spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid rgba(255, 255, 255, 0.1);
-        border-top: 3px solid #f97316;
+
+      .splash-content {
+        text-align: center;
+        color: white;
+        animation: contentFadeIn 1s ease-out;
+      }
+
+      .logo-container {
+        margin-bottom: 32px;
+      }
+
+      .logo {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        animation: logoFloat 2s ease-in-out infinite alternate;
+        box-shadow: 0 8px 32px rgba(249, 115, 22, 0.3);
+      }
+
+      .logo-text {
+        font-size: 24px;
+        font-weight: 700;
+        color: white;
+        letter-spacing: -1px;
+      }
+
+      .app-title {
+        font-size: 28px;
+        font-weight: 700;
+        margin: 16px 0 8px 0;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .app-subtitle {
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.7);
+        margin: 0 0 32px 0;
+        font-weight: 400;
+      }
+
+      .loading-animation {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
-        animation: spin 1s linear infinite;
+        background: rgba(249, 115, 22, 0.8);
+        animation: pulse 1.4s ease-in-out infinite both;
       }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+
+      .pulse-dot:nth-child(1) { animation-delay: -0.32s; }
+      .pulse-dot:nth-child(2) { animation-delay: -0.16s; }
+      .pulse-dot:nth-child(3) { animation-delay: 0s; }
+
+      .loading-progress {
+        margin-top: 24px;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.6);
+        min-height: 20px;
       }
-      
-      /* Hide loader once React loads */
-      .app-loaded .initial-loader {
-        display: none;
+
+      .progress-bar {
+        width: 200px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 1px;
+        margin: 16px auto 0;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #f97316 0%, #ea580c 100%);
+        border-radius: 1px;
+        width: 0%;
+        transition: width 0.3s ease-out;
+      }
+
+      /* Animations */
+      @keyframes logoFloat {
+        0% { transform: translateY(0px); }
+        100% { transform: translateY(-8px); }
+      }
+
+      @keyframes pulse {
+        0%, 80%, 100% { 
+          transform: scale(0); 
+          opacity: 0.5; 
+        }
+        40% { 
+          transform: scale(1); 
+          opacity: 1; 
+        }
+      }
+
+      @keyframes contentFadeIn {
+        0% {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .splash-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* App shell skeleton */
+      .app-shell {
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: linear-gradient(135deg, #1A1F2C 0%, #2C1F3D 50%, #1A1F2C 100%);
+        opacity: 0;
+        transition: opacity 0.5s ease-in;
+      }
+
+      .app-shell.ready {
+        opacity: 1;
+      }
+
+      /* Performance optimizations */
+      .gpu-accelerated {
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        will-change: transform, opacity;
       }
     </style>
   </head>
 
   <body>
     <div id="root">
-      <!-- Initial loading indicator -->
-      <div class="initial-loader">
-        <div class="loader-spinner"></div>
+      <!-- Multi-Layer Splash Screen -->
+      <div id="html-splash" class="splash-screen gpu-accelerated">
+        <div class="splash-content">
+          <div class="logo-container">
+            <div class="logo">
+              <span class="logo-text">DM</span>
+            </div>
+          </div>
+          <h1 class="app-title">Drip Max</h1>
+          <p class="app-subtitle">AI-Powered Style Analysis</p>
+          <div class="loading-animation">
+            <div class="pulse-dot"></div>
+            <div class="pulse-dot"></div>
+            <div class="pulse-dot"></div>
+          </div>
+          <div class="loading-progress" id="loading-message">Initializing...</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Shell (hidden initially) -->
+      <div class="app-shell" id="app-shell">
+        <!-- React app will mount here -->
       </div>
     </div>
+
+    <!-- Performance monitoring -->
+    <script>
+      // Performance timing
+      window.APP_PERFORMANCE = {
+        startTime: performance.now(),
+        metrics: {},
+        mark: function(label) {
+          this.metrics[label] = performance.now() - this.startTime;
+          console.log(`📊 ${label}: ${this.metrics[label].toFixed(2)}ms`);
+        }
+      };
+      
+      window.APP_PERFORMANCE.mark('html-parsed');
+    </script>
+
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
