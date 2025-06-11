@@ -32,7 +32,7 @@ class SplashManager {
     this.appShellElement = document.getElementById('app-shell');
     this.progressFill = document.getElementById('progress-fill');
     this.loadingMessage = document.getElementById('loading-message');
-    this.minimumDisplayTime = 1500; // Minimum splash time for UX
+    this.minimumDisplayTime = 2000; // Increased for better UX
     this.splashStartTime = Date.now();
     this.currentProgress = 0;
     this.isCapacitor = Capacitor.isNativePlatform();
@@ -48,9 +48,17 @@ class SplashManager {
 
   private async initializeCapacitorSplash(): Promise<void> {
     try {
-      // The native splash is already showing from capacitor.config.ts
-      // We'll control when to hide it
+      // The native splash should already be showing from the launch
+      // Make sure it stays visible until we're ready
       console.log('🚀 Capacitor splash screen active');
+      
+      // Ensure splash stays visible (in case of any auto-hide)
+      await SplashScreen.show({
+        autoHide: false,
+        fadeInDuration: 0
+      });
+      
+      console.log('✅ Capacitor splash screen secured');
     } catch (error) {
       console.warn('Capacitor splash screen not available:', error);
     }
@@ -81,13 +89,14 @@ class SplashManager {
     
     if (remainingTime > 0) {
       this.updateProgress(90, 'Almost ready...');
+      console.log(`⏱️ Waiting ${remainingTime}ms more for smooth transition`);
       await new Promise(resolve => setTimeout(resolve, remainingTime));
     }
 
     this.updateProgress(100, 'Welcome!');
     
     // Small delay to show 100% progress
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     // End splash timing
     performanceMonitor.endTiming('splash-display');
@@ -96,6 +105,7 @@ class SplashManager {
     // Hide Capacitor splash screen first if on native platform
     if (this.isCapacitor) {
       try {
+        console.log('🔄 Hiding Capacitor splash screen...');
         await SplashScreen.hide({
           fadeOutDuration: 300
         });
@@ -152,9 +162,9 @@ class AppLauncher {
         window.APP_PERFORMANCE.mark('launch-start');
       }
 
-      // Step 1: Initialize
-      this.updateProgress(25, 'Loading components...');
-      await this.simulateAsyncWork(300);
+      // Step 1: Initialize core systems
+      this.updateProgress(20, 'Loading core systems...');
+      await this.simulateAsyncWork(400);
 
       // Step 2: Setup React
       this.updateProgress(50, 'Setting up interface...');
@@ -162,11 +172,11 @@ class AppLauncher {
       await this.initializeReact();
       performanceMonitor.endTiming('react-setup');
 
-      // Step 3: Mount app
-      this.updateProgress(75, 'Preparing experience...');
-      await this.simulateAsyncWork(200);
+      // Step 3: Initialize app data
+      this.updateProgress(75, 'Preparing your experience...');
+      await this.simulateAsyncWork(300);
 
-      // Step 4: Complete
+      // Step 4: Complete and hide splash
       performanceMonitor.endTiming('app-init');
       await this.splash.hideWhenReady();
 
@@ -197,7 +207,7 @@ class AppLauncher {
       setTimeout(() => {
         performanceMonitor.mark('react-mounted');
         resolve();
-      }, 100);
+      }, 200);
     });
   }
 

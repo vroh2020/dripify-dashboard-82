@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
     scheme: 'App',
     contentInset: 'automatic',
     scrollEnabled: true,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1A1F2C',
     limitsNavigationsToAppBoundDomains: true,
     preferredContentMode: 'mobile',
     allowsLinkPreview: true
@@ -21,15 +21,17 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 0, // Hide immediately to show our custom splash
-      launchAutoHide: false, // We'll control hiding manually
-      backgroundColor: "#1A1F2C",
-      androidSplashResourceName: "splash",
-      iosSplashResourceName: "Default",
-      showSpinner: false, // We have our own loading animation
+      launchShowDuration: 0, // Don't auto-hide, we control it manually
+      launchAutoHide: false, // We control hiding manually
+      backgroundColor: "#1A1F2C", // Match your brand color
+      androidSplashResourceName: "splash", // Android splash resource name
+      showSpinner: false, // No spinner, we have custom loading
       androidSpinnerStyle: "large",
       iosSpinnerStyle: "small",
-      spinnerColor: "#f97316"
+      spinnerColor: "#f97316",
+      splashFullScreen: true, // Full screen splash
+      splashImmersive: true, // Hide status bar on Android
+      launchFadeOutDuration: 300 // Smooth fade out
     },
     // Performance optimizations
     Keyboard: {
