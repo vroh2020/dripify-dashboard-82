@@ -1,6 +1,5 @@
-
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./ui/use-toast";
@@ -25,7 +24,7 @@ export const DashboardView = () => {
   });
   const { toast } = useToast();
 
-  const fetchAnalyses = async () => {
+  const fetchAnalyses = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -110,7 +109,7 @@ export const DashboardView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchAnalyses();
@@ -136,7 +135,7 @@ export const DashboardView = () => {
       subscription.unsubscribe();
     };
     */
-  }, [navigate, toast]);
+  }, [navigate, toast, fetchAnalyses]);
 
   const handleSignOut = async () => {
     try {
@@ -160,8 +159,12 @@ export const DashboardView = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full"
+        />
       </div>
     );
   }
@@ -171,67 +174,76 @@ export const DashboardView = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-6 px-4 pb-20 max-w-2xl mx-auto"
+      className="w-full max-w-sm mx-auto px-4 pb-6"
     >
-      <DashboardHeader 
-        hasScans={hasScans} 
-        totalScans={stats.totalScans} 
-      />
+        <DashboardHeader 
+          hasScans={hasScans} 
+          totalScans={stats.totalScans} 
+        />
 
-      {!hasScans ? (
-        <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-          <CardContent className="p-6 bg-slate-900/50">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-400" />
-                <h3 className="text-lg font-semibold text-slate-50">Getting Started</h3>
-              </div>
-              <Button 
-                onClick={() => navigate('/scan')} 
-                className="bg-purple-500 hover:bg-purple-600 transition-colors group rounded"
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                New Scan
-                <motion.div
-                  animate={{ x: [0, 4, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
+        {!hasScans ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20 backdrop-blur-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                    <h3 className="text-lg font-semibold text-white">Getting Started</h3>
+                  </div>
+                </div>
+                <p className="text-white/70 mb-6 leading-relaxed">
+                  Welcome to Drip Max! Take your first style scan to get personalized fashion insights and start building your style streak.
+                </p>
+                <Button 
+                  onClick={() => navigate('/scan')} 
+                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 h-auto transition-all duration-200 group"
                 >
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </motion.div>
-              </Button>
-            </div>
-            <div className="grid gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  1
-                </div>
-                <p className="text-white/80">Take a photo of your outfit</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  2
-                </div>
-                <p className="text-white/80">Get instant style feedback</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  3
-                </div>
-                <p className="text-white/80">Build your style profile</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+                  <Camera className="w-4 h-4 mr-2" />
+                  Take Your First Scan
+                  <motion.div
+                    animate={{ x: [0, 4, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                  >
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </motion.div>
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ) : (
+          <div className="space-y-6">
+            {/* Stats Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
+              <StyleStats hasScans={hasScans} stats={stats} />
+            </motion.div>
 
-      <StyleStats hasScans={hasScans} stats={stats} />
+            {/* Quick Actions */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+            >
+              <QuickStartSection />
+            </motion.div>
 
-      {hasScans && (
-        <>
-          <StyleAnalysesList analyses={analyses} />
-          <QuickStartSection />
-        </>
-      )}
-    </motion.div>
+            {/* Recent Analyses */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.3 }}
+            >
+              <StyleAnalysesList analyses={analyses} />
+            </motion.div>
+          </div>
+        )}
+      </motion.div>
   );
 };

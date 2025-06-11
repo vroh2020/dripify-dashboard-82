@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from '@/hooks/useSession';
+import { REVENUECAT_CONFIG, debugRevenueCat } from '@/config/revenueCat';
 
 export type SubscriptionStatus = {
   isActive: boolean;
@@ -30,9 +31,12 @@ export const useRevenueCat = () => {
     const initializeRevenueCat = async () => {
       if (initialized) return;
       
+      // Debug logging for troubleshooting
+      debugRevenueCat();
+      
       // Skip RevenueCat initialization on web platform
       if (!Capacitor.isNativePlatform()) {
-        console.log('RevenueCat: Skipping initialization on web platform');
+        console.log('🌐 RevenueCat: Skipping initialization on web platform');
         setInitialized(true);
         setIsLoading(false);
         setSubscription({
@@ -46,32 +50,61 @@ export const useRevenueCat = () => {
       
       try {
         setIsLoading(true);
+        console.log('🍎 Starting RevenueCat initialization...');
         
         // Fetch API key from Supabase Edge Function
+        console.log('🔑 Fetching API key from Supabase Edge Function...');
         const { data, error } = await supabase.functions.invoke('revenuecat-config');
         
         if (error) {
-          console.error('Error fetching RevenueCat config:', error);
-          throw new Error('Failed to fetch RevenueCat configuration');
+          console.error('❌ Error fetching RevenueCat config:', error);
+          throw new Error('Failed to fetch RevenueCat configuration: ' + error.message);
         }
         
-        if (!data.publicKey) {
-          throw new Error('RevenueCat API key not found');
+        console.log('📋 RevenueCat config response:', data);
+        
+        // Handle both development and production modes
+        let apiKey = data.publicKey;
+        if (!apiKey || data.developmentMode) {
+          console.log('🛠️ No API key found - using development mode fallback');
+          // Use a fallback for development testing
+          setInitialized(true);
+          setSubscription({
+            isActive: false,
+            expirationDate: null,
+            productId: 'development',
+            offeringId: 'development'
+          });
+          setIsLoading(false);
+          return;
         }
+        
+        console.log('🔐 API Key found, initializing RevenueCat SDK...');
+        console.log('👤 User ID:', user?.id);
+        console.log('📱 Platform:', Capacitor.getPlatform());
+        console.log('🏷️ Bundle ID:', REVENUECAT_CONFIG.bundleId);
         
         // Initialize RevenueCat with the API key
         await Purchases.configure({ 
-          apiKey: data.publicKey,
+          apiKey: apiKey,
           appUserID: user?.id 
         });
         
-        console.log('RevenueCat initialized with user ID:', user?.id);
+        console.log('✅ RevenueCat initialized successfully');
         setInitialized(true);
         
         // Once initialized, fetch offerings and subscription status
+        console.log('🛒 Fetching offerings and subscription status...');
         await Promise.all([fetchOfferings(), fetchSubscriptionStatus()]);
+        
       } catch (error) {
-        console.error('RevenueCat initialization error:', error);
+        console.error('❌ RevenueCat initialization error:', error);
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        
         // Fallback to development mode instead of showing error
         setInitialized(true);
         setSubscription({
@@ -80,7 +113,7 @@ export const useRevenueCat = () => {
           productId: 'fallback',
           offeringId: 'fallback'
         });
-        console.log('RevenueCat: Using development mode fallback');
+        console.log('🛠️ RevenueCat: Using development mode fallback due to error');
       } finally {
         setIsLoading(false);
       }
@@ -90,6 +123,7 @@ export const useRevenueCat = () => {
     if (user?.id) {
       initializeRevenueCat();
     } else {
+      console.log('⏳ Waiting for user authentication...');
       setIsLoading(false);
     }
   }, [user?.id, initialized]);
@@ -97,29 +131,83 @@ export const useRevenueCat = () => {
   // Fetch available offerings
   const fetchOfferings = async () => {
     try {
-      if (!initialized || !Capacitor.isNativePlatform()) return;
+      if (!initialized || !Capacitor.isNativePlatform()) {
+        console.log('⚠️ Skipping offerings fetch - not initialized or not native platform');
+        return;
+      }
       
-      console.log('Fetching RevenueCat offerings...');
+      console.log('🛒 Fetching RevenueCat offerings...');
+      console.log('🔍 Looking for product ID:', REVENUECAT_CONFIG.products.monthly);
+      
       const offeringsData = await Purchases.getOfferings();
       
-      console.log('Raw offerings data:', JSON.stringify(offeringsData, null, 2));
+      console.log('📦 Raw offerings data:', JSON.stringify(offeringsData, null, 2));
       
       if (offeringsData.current) {
-        console.log('Current offering:', offeringsData.current);
-        console.log('Available packages:', offeringsData.current.availablePackages);
+        console.log('🎯 Current offering found:', offeringsData.current);
+        console.log('📋 Available packages:', offeringsData.current.availablePackages);
+        
+        // Check if our specific product is available
+        const hasOurProduct = offeringsData.current.availablePackages?.some(
+          pkg => pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
+        );
+        console.log(`🎯 Our product (${REVENUECAT_CONFIG.products.monthly}) found:`, hasOurProduct);
+      } else {
+        console.warn('⚠️ No current offering found');
       }
       
       if (offeringsData.all) {
-        console.log('All offerings:', offeringsData.all);
+        console.log('📂 All offerings:', Object.keys(offeringsData.all));
         const offeringsArray = Object.values(offeringsData.all);
         setOfferings(offeringsArray);
-        console.log('Processed offerings:', offeringsArray);
+        console.log('✅ Processed offerings count:', offeringsArray.length);
+        
+        // Log each offering for debugging
+        offeringsArray.forEach((offering, index) => {
+          console.log(`📦 Offering ${index + 1}:`, {
+            identifier: offering.identifier,
+            serverDescription: offering.serverDescription,
+            packagesCount: offering.availablePackages?.length || 0,
+            packages: offering.availablePackages?.map(pkg => ({
+              identifier: pkg.identifier,
+              productId: pkg.product.identifier,
+              price: pkg.product.priceString
+            }))
+          });
+        });
       } else {
-        console.warn('No offerings available in RevenueCat dashboard');
+        console.warn('⚠️ No offerings available in RevenueCat dashboard');
+        console.log('💡 This could mean:');
+        console.log('  1. Products not configured in RevenueCat dashboard');
+        console.log('  2. Products not imported from App Store Connect');
+        console.log('  3. API key doesn\'t have access to products');
+        console.log('  4. Bundle ID mismatch between app and App Store Connect');
         setOfferings([]);
       }
     } catch (error) {
-      console.error('Error fetching offerings:', error);
+      console.error('❌ Error fetching offerings:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        userInfo: error.userInfo
+      });
+      
+      // Log specific RevenueCat error codes
+      if (error.code) {
+        switch (error.code) {
+          case 'NETWORK_ERROR':
+            console.log('🌐 Network error - check internet connection');
+            break;
+          case 'INVALID_CREDENTIALS':
+            console.log('🔑 Invalid API key or configuration');
+            break;
+          case 'PRODUCT_NOT_AVAILABLE':
+            console.log('🛒 Product not available - check App Store Connect setup');
+            break;
+          default:
+            console.log('❓ Unknown RevenueCat error code:', error.code);
+        }
+      }
     }
   };
 

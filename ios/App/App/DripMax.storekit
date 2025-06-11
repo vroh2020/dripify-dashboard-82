@@ -1,0 +1,122 @@
+{
+  "identifier" : "B6A95D58",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "12.99",
+      "familyShareable" : false,
+      "internalID" : "6741270016",
+      "localizations" : [
+        {
+          "description" : "Unlock unlimited AI-powered style analysis and personalized fashion recommendations.",
+          "displayName" : "Drip Max Pro Monthly",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "gs_1299_1m",
+      "referenceName" : "Monthly Subscription",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6737845367",
+    "_developerTeamID" : "TN748MMP9M",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 762577434.07644594,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21672094",
+      "localizations" : [
+
+      ],
+      "name" : "Drip Max Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "12.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6741270016",
+          "introductoryOffer" : {
+            "internalID" : "70612345",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock unlimited AI-powered style analysis and personalized fashion recommendations.",
+              "displayName" : "Drip Max Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "gs_1299_1m",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly $12.99",
+          "subscriptionGroupID" : "21672094",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+} 

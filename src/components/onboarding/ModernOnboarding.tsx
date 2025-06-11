@@ -22,7 +22,23 @@ interface OnboardingData {
   age?: string;
   referralSource?: string;
   mainGoal?: string;
-  analysisResult?: any;
+  analysisResult?: StyleAnalysisResult;
+}
+
+interface StyleAnalysisResult {
+  overallScore: number;
+  rawAnalysis: string;
+  imageUrl: string;
+  summary?: string;
+  breakdown?: Array<{
+    category: string;
+    score: number;
+    emoji: string;
+  }>;
+  tips?: Array<{
+    category: string;
+    tip: string;
+  }>;
 }
 
 interface ModernOnboardingProps {
@@ -68,7 +84,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisResult, setAnalysisResult] = useState<StyleAnalysisResult | null>(null);
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();

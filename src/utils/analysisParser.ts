@@ -177,7 +177,7 @@ function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): v
       new RegExp(`\\*\\*${category}:\\*\\*\\s*(\\d+)[^\\d]*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
       new RegExp(`\\*\\*${category}\\*\\*\\s*-?\\s*(\\d+)[^\\d]*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
       new RegExp(`${category}:\\s*(\\d+)[^\\d]*([\\s\\S]*?)(?=\\*\\*|$)`, 'i'),
-      new RegExp(`${category}\\s*-?\\s*(\\d+)\\s*\\/\\s*10([\\s\\S]*?)(?=\\*\\*|$)`, 'i')
+      new RegExp(`${category}\\s*-?\\s*(\\d+)\\s*/\\s*10([\\s\\S]*?)(?=\\*\\*|$)`, 'i')
     ];
     
     for (const pattern of patterns) {
@@ -216,7 +216,7 @@ function extractAllTips(text: string, tips: StyleTip[]): void {
     if (!line) continue;
     
     // Check if we're entering a tips section
-    const tipsSectionMatch = line.match(/(?:\*\*|\#)?\s*([A-Za-z\s&]+)\s+Tips(?:\*\*|\#)?:?/i);
+    const tipsSectionMatch = line.match(/(?:\*\*|#)?\s*([A-Za-z\s&]+)\s+Tips(?:\*\*|#)?:?/i);
     
     if (tipsSectionMatch) {
       inTipsSection = true;
@@ -225,7 +225,7 @@ function extractAllTips(text: string, tips: StyleTip[]): void {
     }
     
     // Special case for "Next Level Tips" section
-    if (line.match(/(?:\*\*|\#)?\s*Next\s+Level\s+Tips(?:\*\*|\#)?:?/i)) {
+    if (line.match(/(?:\*\*|#)?\s*Next\s+Level\s+Tips(?:\*\*|#)?:?/i)) {
       inTipsSection = true;
       currentCategory = "Advanced";
       continue;
@@ -234,7 +234,7 @@ function extractAllTips(text: string, tips: StyleTip[]): void {
     // If we're in a tips section, look for bullet points or numbered items
     if (inTipsSection && (line.startsWith('*') || line.startsWith('-') || line.match(/^\d+\./))) {
       // Extract the tip content (remove the bullet/number)
-      const tipContent = line.replace(/^(?:\*|\-|\d+\.)\s*/, '').trim();
+      const tipContent = line.replace(/^(?:\*|-|\d+\.)\s*/, '').trim();
       
       if (tipContent) {
         tips.push({
@@ -246,7 +246,7 @@ function extractAllTips(text: string, tips: StyleTip[]): void {
     }
     
     // If we hit a new section header, exit the tips section
-    if (inTipsSection && line.match(/(?:\*\*|\#)\s*[A-Za-z\s&]+(?:\*\*|\#):?/) && !line.includes('Tips')) {
+    if (inTipsSection && line.match(/(?:\*\*|#)\s*[A-Za-z\s&]+(?:\*\*|#):?/) && !line.includes('Tips')) {
       inTipsSection = false;
       currentCategory = '';
     }
