@@ -1,5 +1,7 @@
 
-// Import the main StyleAnalysisResult type first
+import type { StyleAnalysisResult } from '@/types/styleTypes';
+
+// Re-export the type for other files to use
 export type { StyleAnalysisResult } from '@/types/styleTypes';
 
 export interface OnboardingData {
