@@ -65,7 +65,7 @@ export const useRevenueCatManager = () => {
           throw new Error(`Failed to fetch RevenueCat config: ${error.message}`);
         }
 
-        if (!data?.publicKey || data.developmentMode) {
+        if (!data?.publicKey) {
           debugLog('API key not available - using development mode');
           setSubscription({
             isActive: false,
@@ -100,7 +100,18 @@ export const useRevenueCatManager = () => {
       } catch (error) {
         debugLog('RevenueCat initialization failed', error);
         
-        // Fallback to development mode
+        // Check if it's a simulator-specific error
+        const errorMessage = error?.message || '';
+        if (errorMessage.includes('No active account') || errorMessage.includes('StoreKit')) {
+          debugLog('iOS Simulator detected - providing helpful guidance');
+          toast({
+            title: "iOS Simulator Setup Required",
+            description: "Sign in with Apple ID in iOS Simulator Settings to test purchases.",
+            duration: 5000
+          });
+        }
+        
+        // Fallback to development mode for testing
         setSubscription({
           isActive: false,
           expirationDate: null,
@@ -108,11 +119,6 @@ export const useRevenueCatManager = () => {
           offeringId: 'fallback'
         });
         
-        toast({
-          variant: "destructive",
-          title: "Subscription Service Unavailable",
-          description: "Running in development mode. Check your connection and try again."
-        });
       } finally {
         setIsLoading(false);
       }
@@ -150,6 +156,15 @@ export const useRevenueCatManager = () => {
           pkg => pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
         );
         debugLog(`Target product '${REVENUECAT_CONFIG.products.monthly}' found: ${hasTargetProduct}`);
+        
+        if (!hasTargetProduct) {
+          debugLog('Target product not found in offerings - check StoreKit configuration');
+          toast({
+            title: "Product Configuration Issue",
+            description: "The subscription product is not properly configured in StoreKit.",
+            variant: "destructive"
+          });
+        }
       }
 
       const allOfferings = Object.values(offeringsData.all || {});
@@ -158,11 +173,22 @@ export const useRevenueCatManager = () => {
 
     } catch (error) {
       debugLog('Failed to fetch offerings', error);
-      toast({
-        variant: "destructive",
-        title: "Could not load subscription options",
-        description: "Please check your connection and try again."
-      });
+      
+      // Provide specific guidance for common errors
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('None of the products registered')) {
+        toast({
+          variant: "destructive",
+          title: "StoreKit Configuration Required",
+          description: "Add DripMax.storekit to your Xcode project and set it in scheme settings."
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Could not load subscription options",
+          description: "Please check your connection and try again."
+        });
+      }
     }
   }, [debugLog, toast]);
 
