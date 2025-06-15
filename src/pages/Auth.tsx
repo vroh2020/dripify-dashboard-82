@@ -12,7 +12,7 @@ import { usePendingOnboarding } from "@/hooks/usePendingOnboarding";
 export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isOnboarding, setIsOnboarding] = useState(false); // Start with auth form, not onboarding
+  const [isOnboarding, setIsOnboarding] = useState(true); // Start with onboarding flow
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
   // Handle pending onboarding data after auth
