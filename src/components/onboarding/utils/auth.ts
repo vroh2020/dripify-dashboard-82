@@ -23,6 +23,27 @@ const generateSecureRandom = (length: number = 16): string => {
   return result;
 };
 
+export const handleGoogleSignIn = async (): Promise<boolean> => {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth`
+      }
+    });
+    
+    if (error) {
+      console.error('Google Sign In error:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Google Sign In error:', error);
+    return false;
+  }
+};
+
 export const handleAppleSignIn = async (): Promise<boolean> => {
   try {
     if (Capacitor.isNativePlatform()) {
@@ -45,40 +66,33 @@ export const handleAppleSignIn = async (): Promise<boolean> => {
         if (error) throw error;
         return true;
       }
+    } else {
+      // For web, use Supabase OAuth
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: `${window.location.origin}/auth`
+        }
+      });
+      
+      if (error) throw error;
+      return true;
     }
+    
     return true;
   } catch (error) {
     console.error('Apple Sign In error:', error);
-    return true;
+    return false;
   }
 };
 
 export const handleContinueWithEmail = async (): Promise<boolean> => {
   try {
-    const randomId = generateSecureRandom(12);
-    const timestamp = Date.now();
-    const tempEmail = `temp_${timestamp}_${randomId}@dripmax.internal`;
-    const tempPassword = generateSecureRandom(24);
-    
-    const { data, error } = await supabase.auth.signUp({
-      email: tempEmail,
-      password: tempPassword,
-      options: {
-        data: {
-          username: `user_${timestamp}_${generateSecureRandom(8)}`,
-          is_temp_account: true,
-          created_via: 'onboarding_flow'
-        }
-      }
-    });
-
-    if (error) {
-      console.error('Temp account error:', error);
-    }
-    
+    // Simply return true to continue with onboarding without auth
+    // User will be prompted to authenticate later if needed
     return true;
   } catch (error) {
-    console.error('Error creating temp account:', error);
+    console.error('Error in continue with email:', error);
     return true;
   }
 };
