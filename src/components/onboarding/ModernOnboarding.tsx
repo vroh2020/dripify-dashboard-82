@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,7 +8,6 @@ import { ProOfferCard } from "@/components/onboarding/ProOfferCard";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { InAppReview } from '@capacitor-community/in-app-review';
 
@@ -22,7 +22,6 @@ import { TrialOfferStep } from "./steps/TrialOfferStep";
 // Import types and constants
 import { OnboardingData, StyleAnalysisResult, OnboardingStep } from "./types";
 import { stepMap, totalSteps } from "./data/constants";
-import { generateSecureRandom } from "./utils/auth";
 
 interface ModernOnboardingProps {
   onComplete: (userData: OnboardingData) => void;
@@ -37,8 +36,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
-  
-  const { subscription, isLoading: revenueCatLoading, initialized } = useRevenueCat();
   const { isPro } = useSubscription();
 
   // Progress calculation
@@ -64,6 +61,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
       const imageUrl = URL.createObjectURL(selectedImage);
       
+      // Create mock analysis result for onboarding
       const mockAnalysisResult = {
         overallScore: 86,
         rawAnalysis: "Professional and well-coordinated outfit with great attention to detail",
@@ -78,48 +76,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         tips: []
       };
 
-      let finalResult = mockAnalysisResult;
+      setAnalysisResult(mockAnalysisResult);
       
-      try {
-        const analysisResult = await analyzeStyle(selectedImage, true);
-        
-        finalResult = {
-          overallScore: analysisResult.overallScore,
-          rawAnalysis: analysisResult.rawAnalysis,
-          imageUrl: analysisResult.imageUrl,
-          summary: analysisResult.summary || analysisResult.rawAnalysis || "Great style analysis completed!",
-          breakdown: analysisResult.breakdown && analysisResult.breakdown.length > 0 
-            ? analysisResult.breakdown 
-            : [
-                { category: "Overall Style", score: analysisResult.overallScore, emoji: "✨" }
-              ],
-          tips: []
-        };
-      } catch (analysisError) {
-        console.log('Real analysis failed, using fallback mock:', analysisError);
-      }
-      
-      setAnalysisResult(finalResult);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && !user.user_metadata?.is_temp_account) {
-        try {
-          await supabase
-            .from('style_analyses')
-            .insert({
-              user_id: user.id,
-              total_score: finalResult.overallScore || 86,
-              breakdown: JSON.stringify(finalResult.breakdown || []),
-              feedback: finalResult.summary || "Great style!",
-              tips: JSON.stringify([]),
-              image_url: null,
-              raw_analysis: finalResult.rawAnalysis || "Style analysis completed"
-            });
-        } catch (dbError) {
-          console.error('Database error:', dbError);
-        }
-      }
-
       setTimeout(() => {
         setShowNextButton(true);
         
@@ -130,7 +88,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         } catch (error) {
           console.log('In-app review not available:', error);
         }
-      }, 10000);
+      }, 8000);
     } catch (error) {
       console.error('Analysis error:', error);
       
@@ -149,14 +107,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       
       setTimeout(() => {
         setShowNextButton(true);
-        
-        try {
-          InAppReview.requestReview().catch(error => {
-            console.log('In-app review request failed (this is normal):', error);
-          });
-        } catch (error) {
-          console.log('In-app review not available:', error);
-        }
       }, 2000);
     } finally {
       setIsAnalyzing(false);
@@ -164,71 +114,83 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   };
 
   const handleCompleteOnboarding = async () => {
-    if (isCompleting) {
-      console.log('Already completing onboarding, skipping...');
-      return;
-    }
-
+    if (isCompleting) return;
+    
     setIsCompleting(true);
     
     try {
+      console.log('Completing onboarding with data:', onboardingData);
+      
+      // Check if user is authenticated
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (user && !userError) {
-        console.log('User already exists, completing onboarding with existing user:', user.id);
+      if (userError || !user) {
+        console.log('No authenticated user, redirecting to complete onboarding');
         
-        if (!user.user_metadata?.is_temp_account) {
-          await supabase
-            .from('profiles')
-            .upsert({
-              id: user.id,
-              username: user.email?.split('@')[0] || 'User',
-              age_range: onboardingData.age,
-              main_goal: onboardingData.mainGoal
-            });
-        }
+        // Store onboarding data in localStorage for after auth
+        localStorage.setItem('pendingOnboardingData', JSON.stringify({
+          ...onboardingData,
+          analysisResult
+        }));
         
         onComplete({
           ...onboardingData,
-          analysisResult
+          analysisResult,
+          requiresAuth: true
         });
         return;
       }
 
-      console.log('No authenticated user found, creating new account...');
+      // User is authenticated, save onboarding data to profile
+      console.log('Saving onboarding data for user:', user.id);
       
-      const randomId = generateSecureRandom(12);
-      const timestamp = Date.now();
-      const tempEmail = `user_${timestamp}_${randomId}@dripmax.internal`;
-      const tempPassword = generateSecureRandom(32);
-      
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: tempEmail,
-        password: tempPassword,
-        options: {
-          data: {
-            username: `user_${timestamp}_${generateSecureRandom(8)}`,
-            age_range: onboardingData.age,
-            main_goal: onboardingData.mainGoal,
-            is_temp_account: true,
-            created_via: 'onboarding_completion'
-          }
-        }
-      });
-      
-      if (signUpError) {
-        console.error('Error creating user account:', signUpError);
-        
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          age_range: onboardingData.age,
+          main_goal: onboardingData.mainGoal,
+          onboarding_completed: true,
+          updated_at: new Date().toISOString()
+        });
+
+      if (profileError) {
+        console.error('Error saving profile data:', profileError);
         toast({
-          title: "Account Creation Delayed",
-          description: "You can still use the app! Sign up later for full features.",
+          title: "Profile Save Error",
+          description: "Your preferences were saved locally. You can update them later in settings.",
           variant: "default"
         });
       } else {
-        console.log('New secure user account created successfully:', authData.user?.id);
+        console.log('Profile data saved successfully');
         
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Save style analysis if we have results
+        if (analysisResult && analysisResult.overallScore) {
+          const { error: analysisError } = await supabase
+            .from('style_analyses')
+            .insert({
+              user_id: user.id,
+              total_score: analysisResult.overallScore,
+              breakdown: JSON.stringify(analysisResult.breakdown || []),
+              feedback: analysisResult.summary || "Great style analysis!",
+              tips: JSON.stringify(analysisResult.tips || []),
+              raw_analysis: analysisResult.rawAnalysis || "Onboarding analysis",
+              image_url: null // Don't store the blob URL
+            });
+          
+          if (analysisError) {
+            console.error('Error saving analysis:', analysisError);
+          }
+        }
       }
+      
+      // Clear any pending onboarding data
+      localStorage.removeItem('pendingOnboardingData');
+      
+      toast({
+        title: "Welcome to DripMax! 🎉",
+        description: "Your style journey begins now!"
+      });
       
       onComplete({
         ...onboardingData,
@@ -238,6 +200,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     } catch (error) {
       console.error('Error in handleCompleteOnboarding:', error);
       
+      // Fallback - complete onboarding anyway
       onComplete({
         ...onboardingData,
         analysisResult
@@ -249,7 +212,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] overflow-hidden">
-      {/* Progress Bar - Reduced height */}
+      {/* Progress Bar */}
       <div className="w-full px-6 pt-12 pb-4">
         <div className="h-0.5 bg-white/10 rounded-full overflow-hidden">
           <motion.div
@@ -266,13 +229,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         </div>
       </div>
 
-      {/* Main Content - Optimized for iPhone */}
+      {/* Main Content */}
       <div className="h-[calc(100vh-120px)] px-4">
         <Card className="h-full backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl overflow-hidden">
           <CardContent className="p-0 h-full relative">
             <StyleLoadingOverlay isAnalyzing={isAnalyzing} />
             
-            {/* Content Container */}
             <div className="h-full">
               <AnimatePresence mode="wait">
                 {currentStep === 'welcome' && (
@@ -304,7 +266,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     transition={{ duration: 0.6, ease: "easeOut" }}
                     className="h-full flex flex-col"
                   >
-                    {/* Rating Content */}
                     <div className="flex-1 flex items-center justify-center px-6 py-8">
                       {analysisResult && (
                         <ModernRatingsDisplay
@@ -316,7 +277,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                       )}
                     </div>
                     
-                    {/* Continue Button */}
                     {showNextButton && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}

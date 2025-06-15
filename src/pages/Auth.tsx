@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { AuthForm } from "@/components/auth/AuthForm";
+import { usePendingOnboarding } from "@/hooks/usePendingOnboarding";
 
 export const Auth = () => {
   const navigate = useNavigate();
   const [isOnboarding, setIsOnboarding] = useState(true);
+  
+  // Handle pending onboarding data after auth
+  usePendingOnboarding();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -21,7 +25,13 @@ export const Auth = () => {
   }, [navigate]);
 
   const handleOnboardingComplete = (userData: any) => {
-    setIsOnboarding(false);
+    if (userData.requiresAuth) {
+      // User needs to authenticate first
+      setIsOnboarding(false);
+    } else {
+      // Onboarding completed with authenticated user
+      navigate("/");
+    }
   };
 
   const handleAuthSuccess = () => {
@@ -44,7 +54,7 @@ export const Auth = () => {
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-center gradient-text">Welcome to Drip Max</CardTitle>
             <CardDescription className="text-center text-white/70">
-              Sign in to your account or create a new one
+              Sign in to your account or create a new one to save your style preferences
             </CardDescription>
           </CardHeader>
           <CardContent>
