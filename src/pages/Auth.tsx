@@ -12,7 +12,7 @@ import { usePendingOnboarding } from "@/hooks/usePendingOnboarding";
 export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isOnboarding, setIsOnboarding] = useState(true);
+  const [isOnboarding, setIsOnboarding] = useState(false); // Start with auth form, not onboarding
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
   // Handle pending onboarding data after auth
@@ -60,7 +60,6 @@ export const Auth = () => {
 
         if (session && isMounted) {
           console.log('Found existing session, redirecting to dashboard');
-          // Small delay to ensure proper state management
           setTimeout(() => {
             navigate("/dashboard", { replace: true });
           }, 100);
@@ -84,7 +83,6 @@ export const Auth = () => {
       
       if (event === 'SIGNED_IN' && session && isMounted) {
         console.log('User signed in, redirecting to dashboard');
-        // Use replace to avoid back button issues
         setTimeout(() => {
           navigate("/dashboard", { replace: true });
         }, 100);
@@ -93,7 +91,6 @@ export const Auth = () => {
       }
     });
 
-    // Check initial auth state
     handleAuthStateChange();
 
     return () => {
