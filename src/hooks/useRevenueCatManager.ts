@@ -246,11 +246,21 @@ export const useRevenueCatManager = () => {
   const purchaseProduct = useCallback(async (productId: string) => {
     try {
       if (!Capacitor.isNativePlatform()) {
-        toast({
-          title: "Mobile App Required",
-          description: "Subscriptions are only available in the mobile app."
+        debugLog('Web platform - simulating purchase for development');
+        
+        // Simulate successful purchase on web for testing
+        setSubscription({
+          isActive: true,
+          expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          productId: productId,
+          offeringId: 'web-simulation'
         });
-        return false;
+        
+        toast({
+          title: "Development Mode Purchase",
+          description: "Simulated successful purchase for web testing."
+        });
+        return true;
       }
 
       if (!isRevenueCatInitialized) {
@@ -320,8 +330,8 @@ export const useRevenueCatManager = () => {
     try {
       if (!Capacitor.isNativePlatform()) {
         toast({
-          title: "Mobile App Required",
-          description: "Restore purchases is only available in the mobile app."
+          title: "Web Development Mode",
+          description: "Restore purchases is simulated on web platform."
         });
         return false;
       }
@@ -368,16 +378,11 @@ export const useRevenueCatManager = () => {
     }
   }, [debugLog, toast, fetchSubscriptionStatus]);
 
-  // Initialize when user is available
+  // Initialize on mount, don't wait for user
   useEffect(() => {
-    if (user?.id) {
-      debugLog('User authenticated, initializing RevenueCat...');
-      initializeRevenueCat();
-    } else {
-      debugLog('No user, skipping RevenueCat initialization');
-      setIsLoading(false);
-    }
-  }, [user?.id, initializeRevenueCat, debugLog]);
+    debugLog('Initializing RevenueCat Manager...');
+    initializeRevenueCat();
+  }, [initializeRevenueCat, debugLog]);
 
   return {
     isLoading,

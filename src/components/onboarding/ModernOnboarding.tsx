@@ -41,70 +41,80 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   // Progress calculation
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
+  console.log('🎯 ModernOnboarding: Current step:', currentStep, 'Progress:', progress);
+
   // Step handlers
   const handleAgeSelect = (age: string) => {
+    console.log('🎯 ModernOnboarding: Age selected:', age);
     setOnboardingData(prev => ({ ...prev, age }));
     setCurrentStep('goal');
   };
 
   const handleGoalSelect = (goal: string) => {
+    console.log('🎯 ModernOnboarding: Goal selected:', goal);
     setOnboardingData(prev => ({ ...prev, mainGoal: goal }));
     setCurrentStep('test-photo');
   };
 
   const handleImageUpload = async () => {
-    if (!selectedImage || isAnalyzing) return;
+    if (!selectedImage || isAnalyzing) {
+      console.log('🎯 ModernOnboarding: Cannot start analysis - no image or already analyzing');
+      return;
+    }
 
     try {
       setIsAnalyzing(true);
       setCurrentStep('rating');
 
-      console.log('🎯 Onboarding: Starting REAL AI analysis...');
+      console.log('🎯 ModernOnboarding: Starting image analysis for onboarding...');
       
-      // Use REAL AI analysis - same as main scan
+      // Use REAL AI analysis for onboarding
       const realAnalysisResult = await analyzeStyle(selectedImage, true);
       
-      console.log('🎯 Onboarding: Real AI analysis completed:', realAnalysisResult);
+      console.log('🎯 ModernOnboarding: Analysis completed:', realAnalysisResult);
       
       // Ensure we have a summary, provide default if needed
-      const analysisWithSummary = {
+      const analysisWithSummary: StyleAnalysisResult = {
         ...realAnalysisResult,
         summary: realAnalysisResult.summary || "Looking great! Your style shows good attention to detail and coordination."
       };
       
       setAnalysisResult(analysisWithSummary);
       
+      // Show next button after a delay
       setTimeout(() => {
         setShowNextButton(true);
         
+        // Request in-app review if available
         try {
           InAppReview.requestReview().catch(error => {
-            console.log('In-app review request failed (this is normal):', error);
+            console.log('🎯 In-app review request failed (this is normal):', error);
           });
         } catch (error) {
-          console.log('In-app review not available:', error);
+          console.log('🎯 In-app review not available:', error);
         }
       }, 8000);
-    } catch (error) {
-      console.error('🎯 Onboarding: Analysis error:', error);
       
-      // Only fallback to demo if real analysis completely fails
+    } catch (error) {
+      console.error('🎯 ModernOnboarding: Analysis error:', error);
+      
+      // Fallback to demo result if analysis fails
       const demoResult: StyleAnalysisResult = {
         overallScore: 86,
-        rawAnalysis: "Demo analysis for onboarding",
+        rawAnalysis: "Demo analysis for onboarding - analysis service unavailable",
         imageUrl: URL.createObjectURL(selectedImage),
         summary: "Looking great! Your style shows good attention to detail and coordination.",
         breakdown: [
           { category: "Overall Style", score: 86, emoji: "✨" }
         ],
-        tips: []
+        tips: ["Great outfit choice!", "The colors work well together."]
       };
       
       setAnalysisResult(demoResult);
       
       setTimeout(() => {
         setShowNextButton(true);
-      }, 2000);
+      }, 3000);
       
       toast({
         title: "Analysis completed with demo data",
@@ -117,7 +127,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   };
 
   const handleAnalysisTimeout = () => {
-    console.log('🎯 Onboarding: Analysis timeout triggered');
+    console.log('🎯 ModernOnboarding: Analysis timeout triggered');
     setIsAnalyzing(false);
     toast({
       title: "Analysis timed out",
@@ -129,22 +139,24 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const handleCompleteOnboarding = async () => {
     if (isCompleting) return;
     
+    console.log('🎯 ModernOnboarding: Starting completion process...');
     setIsCompleting(true);
     
     try {
-      console.log('Completing onboarding with data:', onboardingData);
+      console.log('🎯 Completing onboarding with data:', onboardingData);
       
       // Check if user is authenticated
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
-        console.log('No authenticated user, redirecting to complete onboarding');
+        console.log('🎯 No authenticated user, storing data for later auth');
         
         // Store onboarding data in localStorage for after auth
-        localStorage.setItem('pendingOnboardingData', JSON.stringify({
+        const pendingData = {
           ...onboardingData,
           analysisResult
-        }));
+        };
+        localStorage.setItem('pendingOnboardingData', JSON.stringify(pendingData));
         
         onComplete({
           ...onboardingData,
@@ -155,7 +167,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       }
 
       // User is authenticated, save onboarding data to profile
-      console.log('Saving onboarding data for user:', user.id);
+      console.log('🎯 Saving onboarding data for user:', user.id);
       
       const { error: profileError } = await supabase
         .from('profiles')
@@ -168,14 +180,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         });
 
       if (profileError) {
-        console.error('Error saving profile data:', profileError);
+        console.error('🎯 Error saving profile data:', profileError);
         toast({
           title: "Profile Save Error",
           description: "Your preferences were saved locally. You can update them later in settings.",
           variant: "default"
         });
       } else {
-        console.log('Profile data saved successfully');
+        console.log('🎯 Profile data saved successfully');
         
         // Save style analysis if we have results
         if (analysisResult && analysisResult.overallScore) {
@@ -192,7 +204,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
             });
           
           if (analysisError) {
-            console.error('Error saving analysis:', analysisError);
+            console.error('🎯 Error saving analysis:', analysisError);
+          } else {
+            console.log('🎯 Analysis data saved successfully');
           }
         }
       }
@@ -211,9 +225,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       });
       
     } catch (error) {
-      console.error('Error in handleCompleteOnboarding:', error);
+      console.error('🎯 Error in handleCompleteOnboarding:', error);
       
       // Fallback - complete onboarding anyway
+      toast({
+        title: "Welcome to DripMax! 🎉",
+        description: "Setup completed! Some data may sync later."
+      });
+      
       onComplete({
         ...onboardingData,
         analysisResult
