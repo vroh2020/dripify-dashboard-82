@@ -25,10 +25,16 @@ const generateSecureRandom = (length: number = 16): string => {
 
 export const handleGoogleSignIn = async (): Promise<boolean> => {
   try {
+    console.log('Starting Google Sign In...');
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth`
+        redirectTo: `${window.location.origin}/auth`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       }
     });
     
@@ -37,6 +43,7 @@ export const handleGoogleSignIn = async (): Promise<boolean> => {
       return false;
     }
     
+    console.log('Google OAuth initiated successfully');
     return true;
   } catch (error) {
     console.error('Google Sign In error:', error);
@@ -46,6 +53,8 @@ export const handleGoogleSignIn = async (): Promise<boolean> => {
 
 export const handleAppleSignIn = async (): Promise<boolean> => {
   try {
+    console.log('Starting Apple Sign In...');
+    
     if (Capacitor.isNativePlatform()) {
       const options = {
         clientId: 'com.dripmax.app',

@@ -12,29 +12,63 @@ import { usePendingOnboarding } from "@/hooks/usePendingOnboarding";
 export const Auth = () => {
   const navigate = useNavigate();
   const [isOnboarding, setIsOnboarding] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
   // Handle pending onboarding data after auth
   usePendingOnboarding();
 
   useEffect(() => {
-    // Check if user is already authenticated
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/dashboard");
+    let isMounted = true;
+
+    const handleAuthStateChange = async () => {
+      try {
+        // First check for existing session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          if (isMounted) {
+            setIsCheckingAuth(false);
+          }
+          return;
+        }
+
+        if (session && isMounted) {
+          console.log('Found existing session, redirecting to dashboard');
+          navigate("/dashboard");
+          return;
+        }
+
+        if (isMounted) {
+          setIsCheckingAuth(false);
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        if (isMounted) {
+          setIsCheckingAuth(false);
+        }
       }
     };
 
-    checkAuth();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session ? 'session exists' : 'no session');
+      
+      if (event === 'SIGNED_IN' && session && isMounted) {
+        console.log('User signed in, redirecting to dashboard');
         navigate("/dashboard");
+      } else if (event === 'SIGNED_OUT' && isMounted) {
+        setIsCheckingAuth(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Check initial auth state
+    handleAuthStateChange();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleOnboardingComplete = (userData: any) => {
@@ -50,6 +84,21 @@ export const Auth = () => {
   const handleAuthSuccess = () => {
     navigate("/dashboard");
   };
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex items-center justify-center">
+        <motion.div 
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-white text-lg font-medium"
+        >
+          Checking authentication...
+        </motion.div>
+      </div>
+    );
+  }
 
   if (isOnboarding) {
     return <ModernOnboarding onComplete={handleOnboardingComplete} />;
