@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -13,7 +14,7 @@ import { Capacitor } from '@capacitor/core';
 export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isOnboarding, setIsOnboarding] = useState(true); // Start with onboarding flow
+  const [isOnboarding, setIsOnboarding] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const { toast } = useToast();
   
@@ -37,15 +38,15 @@ export const Auth = () => {
             console.log('Auth check timeout, stopping loading state');
             setIsCheckingAuth(false);
           }
-        }, 10000); // 10 second timeout
+        }, 5000); // Reduced to 5 seconds
 
-        // Check if we have auth tokens in the URL hash (from OAuth callback)
-        if (window.location.hash && window.location.hash.includes('access_token')) {
-          console.log('Auth tokens found in URL, processing...');
-          // Let Supabase handle the OAuth callback
+        // For mobile, check if we're handling a callback
+        if (Capacitor.isNativePlatform() && (location.pathname === '/auth/callback' || location.search.includes('code='))) {
+          console.log('Mobile OAuth callback detected, processing...');
+          // Let Supabase handle the callback
           const { data, error } = await supabase.auth.getSession();
           if (error) {
-            console.error('Error processing OAuth callback:', error);
+            console.error('Error processing mobile OAuth callback:', error);
             if (isMounted) {
               toast({
                 title: "Authentication Error",
@@ -55,13 +56,11 @@ export const Auth = () => {
               setIsCheckingAuth(false);
             }
           } else if (data.session) {
-            console.log('OAuth session established, redirecting to dashboard');
+            console.log('Mobile OAuth session established, redirecting to dashboard');
             if (isMounted) {
               clearTimeout(authTimeout);
-              // Clear the hash from URL
-              window.history.replaceState({}, document.title, window.location.pathname);
               toast({
-                title: "Welcome back!",
+                title: "Welcome!",
                 description: "You've successfully signed in.",
               });
               setTimeout(() => {
@@ -70,6 +69,13 @@ export const Auth = () => {
             }
             return;
           }
+        }
+
+        // Check if we have auth tokens in the URL hash (from OAuth callback)
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          console.log('Auth tokens found in URL hash, processing...');
+          // Clear the hash from URL
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
 
         // Check for error in URL params (OAuth errors)
@@ -91,7 +97,7 @@ export const Auth = () => {
           return;
         }
 
-        // First check for existing session
+        // Check for existing session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -121,11 +127,6 @@ export const Auth = () => {
         if (isMounted) {
           clearTimeout(authTimeout);
           setIsCheckingAuth(false);
-          toast({
-            title: "Authentication Error",
-            description: "There was an issue checking your authentication status.",
-            variant: "destructive",
-          });
         }
       }
     };
@@ -147,8 +148,6 @@ export const Auth = () => {
       } else if (event === 'SIGNED_OUT' && isMounted) {
         clearTimeout(authTimeout);
         setIsCheckingAuth(false);
-      } else if (event === 'TOKEN_REFRESHED' && session && isMounted) {
-        console.log('Token refreshed successfully');
       }
     });
 
@@ -161,7 +160,7 @@ export const Auth = () => {
       }
       subscription.unsubscribe();
     };
-  }, [navigate, location.search, location.hash, toast]);
+  }, [navigate, location.search, location.hash, location.pathname, toast]);
 
   const handleOnboardingComplete = (userData: any) => {
     if (userData.requiresAuth) {
