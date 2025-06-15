@@ -31,10 +31,10 @@ const isMobile = (): boolean => {
 // Helper function to get the correct redirect URL
 const getRedirectUrl = (): string => {
   if (isMobile()) {
-    // For mobile, use the app's deep link scheme
-    return 'com.genstyle.app://auth/callback';
+    // For mobile, use the Supabase callback URL directly
+    return 'https://jjqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback';
   } else {
-    // For web, use the current origin
+    // For web, use the current origin with auth path
     return `${window.location.origin}/auth`;
   }
 };
@@ -44,27 +44,51 @@ export const handleGoogleSignIn = async (): Promise<boolean> => {
     console.log('Starting Google Sign In...');
     console.log('Platform:', isMobile() ? 'Mobile' : 'Web');
     
-    const redirectUrl = getRedirectUrl();
-    console.log('Redirect URL set to:', redirectUrl);
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
+    if (isMobile()) {
+      // For mobile, we need to handle the OAuth differently
+      // The mobile app will handle the deep link after successful auth
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'https://jjqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }
+      });
+      
+      if (error) {
+        console.error('Mobile Google Sign In error:', error);
+        return false;
       }
-    });
-    
-    if (error) {
-      console.error('Google Sign In error:', error);
-      return false;
+      
+      console.log('Mobile Google OAuth initiated successfully');
+      return true;
+    } else {
+      // Web authentication
+      const redirectUrl = getRedirectUrl();
+      console.log('Web redirect URL set to:', redirectUrl);
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }
+      });
+      
+      if (error) {
+        console.error('Web Google Sign In error:', error);
+        return false;
+      }
+      
+      console.log('Web Google OAuth initiated successfully');
+      return true;
     }
-    
-    console.log('Google OAuth initiated successfully');
-    return true;
   } catch (error) {
     console.error('Google Sign In error:', error);
     return false;

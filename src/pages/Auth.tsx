@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -9,6 +8,7 @@ import { motion } from "framer-motion";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { usePendingOnboarding } from "@/hooks/usePendingOnboarding";
 import { useToast } from "@/hooks/use-toast";
+import { Capacitor } from '@capacitor/core';
 
 export const Auth = () => {
   const navigate = useNavigate();
@@ -22,13 +22,23 @@ export const Auth = () => {
 
   useEffect(() => {
     let isMounted = true;
+    let authTimeout: NodeJS.Timeout;
     
     console.log('Auth page loaded, current URL:', window.location.href);
     console.log('URL params:', new URLSearchParams(location.search).toString());
     console.log('URL hash:', window.location.hash);
+    console.log('Platform:', Capacitor.isNativePlatform() ? 'Mobile' : 'Web');
 
     const handleAuthStateChange = async () => {
       try {
+        // Set a timeout to prevent infinite loading
+        authTimeout = setTimeout(() => {
+          if (isMounted) {
+            console.log('Auth check timeout, stopping loading state');
+            setIsCheckingAuth(false);
+          }
+        }, 10000); // 10 second timeout
+
         // Check if we have auth tokens in the URL hash (from OAuth callback)
         if (window.location.hash && window.location.hash.includes('access_token')) {
           console.log('Auth tokens found in URL, processing...');
@@ -42,10 +52,12 @@ export const Auth = () => {
                 description: "There was an issue processing your login. Please try again.",
                 variant: "destructive",
               });
+              setIsCheckingAuth(false);
             }
           } else if (data.session) {
             console.log('OAuth session established, redirecting to dashboard');
             if (isMounted) {
+              clearTimeout(authTimeout);
               // Clear the hash from URL
               window.history.replaceState({}, document.title, window.location.pathname);
               toast({
@@ -67,6 +79,7 @@ export const Auth = () => {
         
         if (authError && isMounted) {
           console.error('OAuth error:', authError, errorDescription);
+          clearTimeout(authTimeout);
           toast({
             title: "Authentication Error",
             description: errorDescription || "Authentication failed. Please try again.",
@@ -74,6 +87,8 @@ export const Auth = () => {
           });
           // Clean up URL
           window.history.replaceState({}, document.title, window.location.pathname);
+          setIsCheckingAuth(false);
+          return;
         }
 
         // First check for existing session
@@ -82,6 +97,7 @@ export const Auth = () => {
         if (error) {
           console.error('Error getting session:', error);
           if (isMounted) {
+            clearTimeout(authTimeout);
             setIsCheckingAuth(false);
           }
           return;
@@ -89,6 +105,7 @@ export const Auth = () => {
 
         if (session && isMounted) {
           console.log('Found existing session, redirecting to dashboard');
+          clearTimeout(authTimeout);
           setTimeout(() => {
             navigate("/dashboard", { replace: true });
           }, 100);
@@ -96,11 +113,13 @@ export const Auth = () => {
         }
 
         if (isMounted) {
+          clearTimeout(authTimeout);
           setIsCheckingAuth(false);
         }
       } catch (error) {
         console.error('Auth check error:', error);
         if (isMounted) {
+          clearTimeout(authTimeout);
           setIsCheckingAuth(false);
           toast({
             title: "Authentication Error",
@@ -117,6 +136,7 @@ export const Auth = () => {
       
       if (event === 'SIGNED_IN' && session && isMounted) {
         console.log('User signed in, redirecting to dashboard');
+        clearTimeout(authTimeout);
         toast({
           title: "Welcome!",
           description: "You've successfully signed in.",
@@ -125,6 +145,7 @@ export const Auth = () => {
           navigate("/dashboard", { replace: true });
         }, 100);
       } else if (event === 'SIGNED_OUT' && isMounted) {
+        clearTimeout(authTimeout);
         setIsCheckingAuth(false);
       } else if (event === 'TOKEN_REFRESHED' && session && isMounted) {
         console.log('Token refreshed successfully');
@@ -135,6 +156,9 @@ export const Auth = () => {
 
     return () => {
       isMounted = false;
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+      }
       subscription.unsubscribe();
     };
   }, [navigate, location.search, location.hash, toast]);
