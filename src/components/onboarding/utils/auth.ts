@@ -26,11 +26,16 @@ const generateSecureRandom = (length: number = 16): string => {
 export const handleGoogleSignIn = async (): Promise<boolean> => {
   try {
     console.log('Starting Google Sign In...');
+    console.log('Current origin:', window.location.origin);
+    
+    // Use the actual current origin, not any hardcoded URLs
+    const redirectUrl = `${window.location.origin}/auth`;
+    console.log('Redirect URL set to:', redirectUrl);
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: redirectUrl,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -54,6 +59,9 @@ export const handleGoogleSignIn = async (): Promise<boolean> => {
 export const handleAppleSignIn = async (): Promise<boolean> => {
   try {
     console.log('Starting Apple Sign In...');
+    
+    const redirectUrl = `${window.location.origin}/auth`;
+    console.log('Apple redirect URL set to:', redirectUrl);
     
     if (Capacitor.isNativePlatform()) {
       const options = {
@@ -80,7 +88,7 @@ export const handleAppleSignIn = async (): Promise<boolean> => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: `${window.location.origin}/auth`
+          redirectTo: redirectUrl
         }
       });
       

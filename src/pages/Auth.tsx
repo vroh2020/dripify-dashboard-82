@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { usePendingOnboarding } from "@/hooks/usePendingOnboarding";
 
 export const Auth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOnboarding, setIsOnboarding] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
@@ -19,6 +20,9 @@ export const Auth = () => {
 
   useEffect(() => {
     let isMounted = true;
+    
+    console.log('Auth page loaded, current URL:', window.location.href);
+    console.log('URL params:', new URLSearchParams(location.search).toString());
 
     const handleAuthStateChange = async () => {
       try {
@@ -35,7 +39,10 @@ export const Auth = () => {
 
         if (session && isMounted) {
           console.log('Found existing session, redirecting to dashboard');
-          navigate("/dashboard");
+          // Small delay to ensure proper state management
+          setTimeout(() => {
+            navigate("/dashboard", { replace: true });
+          }, 100);
           return;
         }
 
@@ -56,7 +63,10 @@ export const Auth = () => {
       
       if (event === 'SIGNED_IN' && session && isMounted) {
         console.log('User signed in, redirecting to dashboard');
-        navigate("/dashboard");
+        // Use replace to avoid back button issues
+        setTimeout(() => {
+          navigate("/dashboard", { replace: true });
+        }, 100);
       } else if (event === 'SIGNED_OUT' && isMounted) {
         setIsCheckingAuth(false);
       }
@@ -69,7 +79,7 @@ export const Auth = () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, location.search]);
 
   const handleOnboardingComplete = (userData: any) => {
     if (userData.requiresAuth) {
@@ -77,12 +87,12 @@ export const Auth = () => {
       setIsOnboarding(false);
     } else {
       // Onboarding completed with authenticated user
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     }
   };
 
   const handleAuthSuccess = () => {
-    navigate("/dashboard");
+    navigate("/dashboard", { replace: true });
   };
 
   // Show loading while checking authentication
