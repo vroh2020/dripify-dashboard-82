@@ -50,7 +50,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.genstyle.app</string>
+			<string>com.genstyle.app.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.genstyle.app</string>
