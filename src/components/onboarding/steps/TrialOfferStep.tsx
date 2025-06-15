@@ -15,9 +15,9 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="text-center space-y-10 flex flex-col justify-center h-full"
+      className="flex flex-col justify-between h-full text-center"
     >
-      <div className="space-y-8">
+      <div className="flex-1 flex flex-col justify-center space-y-8">
         <motion.div
           animate={{ 
             scale: [1, 1.1, 1],
@@ -29,23 +29,27 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
             ease: "easeInOut"
           }}
         >
-          <Crown className="w-24 h-24 text-orange-400 mx-auto" />
+          <Crown className="w-20 h-20 text-orange-400 mx-auto" />
         </motion.div>
-        <h1 className="text-4xl font-bold text-white leading-tight">
-          We offer<br />
-          <span className="text-orange-400 text-5xl">7 days free</span><br />
-          so everyone can<br />
-          max their drip with<br />
-          <span className="text-orange-400">Drip Max</span>
-        </h1>
+        <div className="space-y-4 px-2">
+          <h1 className="text-3xl font-bold text-white leading-tight">
+            We offer<br />
+            <span className="text-orange-400 text-4xl">7 days free</span><br />
+            so everyone can<br />
+            max their drip with<br />
+            <span className="text-orange-400">Drip Max</span>
+          </h1>
+        </div>
       </div>
       
-      <Button
-        onClick={onNext}
-        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
-      >
-        Try for Free
-      </Button>
+      <div className="pb-4">
+        <Button
+          onClick={onNext}
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-base font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-2xl"
+        >
+          Try for Free
+        </Button>
+      </div>
     </motion.div>
   );
 };

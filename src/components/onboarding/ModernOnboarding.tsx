@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -249,114 +248,116 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex items-center justify-center p-4">
-      <div className="w-full max-w-sm mx-auto">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-orange-500 to-orange-400"
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.6, ease: "easeInOut" }}
-            />
-          </div>
-          <div className="text-center mt-3">
-            <span className="text-white/60 text-sm font-medium">
-              Step {stepMap[currentStep]} of {totalSteps}
-            </span>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex flex-col">
+      {/* Progress Bar */}
+      <div className="w-full px-6 pt-safe-area-inset-top pt-4 pb-4">
+        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-gradient-to-r from-orange-500 to-orange-400"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+          />
         </div>
+        <div className="text-center mt-2">
+          <span className="text-white/60 text-xs font-medium">
+            Step {stepMap[currentStep]} of {totalSteps}
+          </span>
+        </div>
+      </div>
 
-        {/* Main Card */}
-        <Card className="backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl h-[600px] flex flex-col">
-          <CardContent className="p-8 flex-1 flex flex-col justify-center relative overflow-hidden">
+      {/* Main Content */}
+      <div className="flex-1 px-4 pb-safe-area-inset-bottom pb-4">
+        <Card className="h-full backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl">
+          <CardContent className="p-0 h-full flex flex-col relative overflow-hidden">
             <StyleLoadingOverlay isAnalyzing={isAnalyzing} />
             
-            <AnimatePresence mode="wait">
-              {currentStep === 'welcome' && (
-                <WelcomeStep onNext={() => setCurrentStep('age')} />
-              )}
+            <div className="flex-1 p-6 flex flex-col">
+              <AnimatePresence mode="wait">
+                {currentStep === 'welcome' && (
+                  <WelcomeStep onNext={() => setCurrentStep('age')} />
+                )}
 
-              {currentStep === 'age' && (
-                <AgeStep onAgeSelect={handleAgeSelect} />
-              )}
+                {currentStep === 'age' && (
+                  <AgeStep onAgeSelect={handleAgeSelect} />
+                )}
 
-              {currentStep === 'goal' && (
-                <GoalStep onGoalSelect={handleGoalSelect} />
-              )}
+                {currentStep === 'goal' && (
+                  <GoalStep onGoalSelect={handleGoalSelect} />
+                )}
 
-              {currentStep === 'test-photo' && (
-                <TestPhotoStep 
-                  selectedImage={selectedImage}
-                  onImageSelect={setSelectedImage}
-                  onImageUpload={handleImageUpload}
-                />
-              )}
+                {currentStep === 'test-photo' && (
+                  <TestPhotoStep 
+                    selectedImage={selectedImage}
+                    onImageSelect={setSelectedImage}
+                    onImageUpload={handleImageUpload}
+                  />
+                )}
 
-              {currentStep === 'rating' && (
-                <motion.div
-                  key="rating"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -30 }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="flex flex-col items-center justify-center h-full space-y-8"
-                >
-                  {analysisResult && (
-                    <>
-                      <ModernRatingsDisplay
-                        overallScore={analysisResult.overallScore || 86}
-                        profileImage={analysisResult.imageUrl}
-                        breakdown={analysisResult.breakdown || []}
-                        isOnboarding={true}
-                      />
-                      
-                      {showNextButton && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.5 }}
-                          className="w-full"
-                        >
-                          <button
-                            onClick={() => setCurrentStep('celebration')}
-                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
+                {currentStep === 'rating' && (
+                  <motion.div
+                    key="rating"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -30 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className="flex flex-col items-center justify-center flex-1 space-y-6"
+                  >
+                    {analysisResult && (
+                      <>
+                        <ModernRatingsDisplay
+                          overallScore={analysisResult.overallScore || 86}
+                          profileImage={analysisResult.imageUrl}
+                          breakdown={analysisResult.breakdown || []}
+                          isOnboarding={true}
+                        />
+                        
+                        {showNextButton && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                            className="w-full"
                           >
-                            Continue
-                          </button>
-                        </motion.div>
-                      )}
-                    </>
-                  )}
-                </motion.div>
-              )}
+                            <button
+                              onClick={() => setCurrentStep('celebration')}
+                              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
+                            >
+                              Continue
+                            </button>
+                          </motion.div>
+                        )}
+                      </>
+                    )}
+                  </motion.div>
+                )}
 
-              {currentStep === 'celebration' && (
-                <CelebrationStep 
-                  isPro={isPro}
-                  onNext={() => setCurrentStep('trial-offer')}
-                  onComplete={handleCompleteOnboarding}
-                />
-              )}
+                {currentStep === 'celebration' && (
+                  <CelebrationStep 
+                    isPro={isPro}
+                    onNext={() => setCurrentStep('trial-offer')}
+                    onComplete={handleCompleteOnboarding}
+                  />
+                )}
 
-              {currentStep === 'trial-offer' && (
-                <TrialOfferStep onNext={() => setCurrentStep('paywall')} />
-              )}
+                {currentStep === 'trial-offer' && (
+                  <TrialOfferStep onNext={() => setCurrentStep('paywall')} />
+                )}
 
-              {currentStep === 'paywall' && (
-                <motion.div
-                  key="paywall"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -30 }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="h-full"
-                >
-                  <ProOfferCard onContinue={handleCompleteOnboarding} />
-                </motion.div>
-              )}
-            </AnimatePresence>
+                {currentStep === 'paywall' && (
+                  <motion.div
+                    key="paywall"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -30 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className="flex-1"
+                  >
+                    <ProOfferCard onContinue={handleCompleteOnboarding} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </CardContent>
         </Card>
       </div>
