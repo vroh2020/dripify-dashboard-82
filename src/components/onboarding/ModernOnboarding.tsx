@@ -58,24 +58,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       setIsAnalyzing(true);
       setCurrentStep('rating');
 
-      const imageUrl = URL.createObjectURL(selectedImage);
+      console.log('🎯 Onboarding: Starting REAL AI analysis...');
       
-      // Create mock analysis result for onboarding
-      const mockAnalysisResult = {
-        overallScore: 86,
-        rawAnalysis: "Professional and well-coordinated outfit with great attention to detail",
-        imageUrl: imageUrl,
-        summary: "This outfit is well-put-together, with a professional yet approachable style. The light blue shirt and tie create a harmonious look, and the glasses add a unique personal touch. To take the outfit to the next level, consider adding a subtle accessory like a watch or a pocket square.",
-        breakdown: [
-          { category: "Color Coordination", score: 85, emoji: "🎨" },
-          { category: "Fit & Silhouette", score: 88, emoji: "👔" },
-          { category: "Style Cohesion", score: 84, emoji: "✨" },
-          { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
-        ],
-        tips: []
-      };
-
-      setAnalysisResult(mockAnalysisResult);
+      // Use REAL AI analysis - same as main scan
+      const realAnalysisResult = await analyzeStyle(selectedImage, true);
+      
+      console.log('🎯 Onboarding: Real AI analysis completed:', realAnalysisResult);
+      
+      setAnalysisResult(realAnalysisResult);
       
       setTimeout(() => {
         setShowNextButton(true);
@@ -89,8 +79,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         }
       }, 8000);
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('🎯 Onboarding: Analysis error:', error);
       
+      // Only fallback to demo if real analysis completely fails
       const demoResult = {
         overallScore: 86,
         rawAnalysis: "Demo analysis for onboarding",
@@ -107,9 +98,25 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       setTimeout(() => {
         setShowNextButton(true);
       }, 2000);
+      
+      toast({
+        title: "Analysis completed with demo data",
+        description: "The AI analysis encountered an issue, but we've provided sample results.",
+        variant: "default"
+      });
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleAnalysisTimeout = () => {
+    console.log('🎯 Onboarding: Analysis timeout triggered');
+    setIsAnalyzing(false);
+    toast({
+      title: "Analysis timed out",
+      description: "The style analysis is taking too long. Please try again with a different image.",
+      variant: "destructive",
+    });
   };
 
   const handleCompleteOnboarding = async () => {
@@ -232,7 +239,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       <div className="flex-1 px-4 pb-safe-area-bottom pb-4">
         <Card className="min-h-[calc(100vh-140px)] min-h-[calc(100dvh-140px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
           <CardContent className="p-0 h-full relative">
-            <StyleLoadingOverlay isAnalyzing={isAnalyzing} />
+            {/* Style Loading Overlay with timeout */}
+            <StyleLoadingOverlay 
+              isAnalyzing={isAnalyzing} 
+              onTimeout={handleAnalysisTimeout}
+              timeoutDuration={90000}
+            />
             
             <div className="h-full overflow-y-auto">
               <AnimatePresence mode="wait">
@@ -268,7 +280,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     <div className="flex-1 flex items-center justify-center px-6 py-8">
                       {analysisResult && (
                         <ModernRatingsDisplay
-                          overallScore={analysisResult.overallScore || 86}
+                          overallScore={analysisResult.overallScore}
                           profileImage={analysisResult.imageUrl}
                           breakdown={analysisResult.breakdown || []}
                           isOnboarding={true}

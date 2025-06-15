@@ -97,7 +97,7 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     const analysisData = parseAnalysis(data.feedback);
     const overallScore = data.overallScore || analysisData.overallScore || 75;
     
-    Logger.info('Real AI analysis successful', { overallScore });
+    Logger.info(`${isOnboarding ? 'Onboarding' : 'Main'} AI analysis successful`, { overallScore });
 
     // Handle image URL
     let imageUrl: string;
@@ -168,41 +168,5 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
   }
 };
 
-// Special function for onboarding that provides mock data
-export const analyzeStyleForOnboarding = async (imageFile: File): Promise<StyleAnalysisResult> => {
-  try {
-    const validation = validateImageFile(imageFile);
-    if (!validation.isValid) {
-      throw new Error(validation.errors.join(', '));
-    }
-
-    Logger.info('Starting onboarding style analysis...');
-    
-    const imageUrl = URL.createObjectURL(imageFile);
-    
-    // Return high-quality mock analysis for onboarding
-    const result: StyleAnalysisResult = {
-      overallScore: 86,
-      rawAnalysis: "This outfit demonstrates excellent style coordination with professional appeal. The color choices work harmoniously together, and the overall fit appears well-tailored. The styling shows attention to detail and creates a polished, confident look.",
-      imageUrl,
-      summary: "This outfit is well-put-together, with a professional yet approachable style. The coordination creates a harmonious look with great attention to detail. To elevate it further, consider adding subtle accessories.",
-      breakdown: [
-        { category: "Color Coordination", score: 85, emoji: "🎨" },
-        { category: "Fit & Silhouette", score: 88, emoji: "👔" },
-        { category: "Style Cohesion", score: 84, emoji: "✨" },
-        { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
-      ],
-      tips: [
-        { category: "Accessories", tip: "Consider adding a subtle accessory like a watch or pocket square", level: "beginner" },
-        { category: "Color", tip: "The color combination works beautifully together", level: "intermediate" },
-        { category: "Fit", tip: "Great fit on the garments - well-tailored", level: "beginner" }
-      ]
-    };
-    
-    Logger.info('Onboarding analysis completed successfully');
-    return result;
-  } catch (error) {
-    Logger.error('Error in onboarding style analysis:', error);
-    throw error;
-  }
-};
+// Remove the mock onboarding function - use real analysis for everything
+export const analyzeStyleForOnboarding = analyzeStyle;
