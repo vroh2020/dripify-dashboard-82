@@ -1,25 +1,22 @@
 
 export interface OnboardingData {
   age?: string;
-  referralSource?: string;
   mainGoal?: string;
   analysisResult?: StyleAnalysisResult;
+  requiresAuth?: boolean;
 }
 
 export interface StyleAnalysisResult {
   overallScore: number;
   rawAnalysis: string;
-  imageUrl: string;
-  summary?: string;
-  breakdown?: Array<{
+  imageUrl?: string;
+  summary: string;
+  breakdown: Array<{
     category: string;
     score: number;
     emoji: string;
   }>;
-  tips?: Array<{
-    category: string;
-    tip: string;
-  }>;
+  tips: string[];
 }
 
 export type OnboardingStep = 
@@ -30,13 +27,4 @@ export type OnboardingStep =
   | 'rating' 
   | 'celebration' 
   | 'trial-offer' 
-  | 'trial-reminder'
-  | 'pricing'
   | 'paywall';
-
-export interface StepProps {
-  onNext: () => void;
-  onComplete?: () => void;
-  onboardingData?: OnboardingData;
-  setOnboardingData?: (data: OnboardingData) => void;
-}

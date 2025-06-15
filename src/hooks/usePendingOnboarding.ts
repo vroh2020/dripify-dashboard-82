@@ -45,7 +45,8 @@ export const usePendingOnboarding = () => {
                 breakdown: JSON.stringify(data.analysisResult.breakdown || []),
                 feedback: data.analysisResult.summary || "Welcome analysis!",
                 tips: JSON.stringify(data.analysisResult.tips || []),
-                raw_analysis: data.analysisResult.rawAnalysis || "Onboarding analysis"
+                raw_analysis: data.analysisResult.rawAnalysis || "Onboarding analysis",
+                image_url: data.analysisResult.imageUrl || null
               });
             
             if (analysisError) {
