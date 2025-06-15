@@ -6,18 +6,8 @@ export interface OnboardingData {
   requiresAuth?: boolean;
 }
 
-export interface StyleAnalysisResult {
-  overallScore: number;
-  rawAnalysis: string;
-  imageUrl?: string;
-  summary: string;
-  breakdown: Array<{
-    category: string;
-    score: number;
-    emoji: string;
-  }>;
-  tips: string[];
-}
+// Import the main StyleAnalysisResult type instead of defining our own
+export type { StyleAnalysisResult } from '@/types/styleTypes';
 
 export type OnboardingStep = 
   | 'welcome' 

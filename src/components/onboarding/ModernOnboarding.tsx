@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -65,7 +66,13 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       
       console.log('🎯 Onboarding: Real AI analysis completed:', realAnalysisResult);
       
-      setAnalysisResult(realAnalysisResult);
+      // Ensure we have a summary, provide default if needed
+      const analysisWithSummary = {
+        ...realAnalysisResult,
+        summary: realAnalysisResult.summary || "Looking great! Your style shows good attention to detail and coordination."
+      };
+      
+      setAnalysisResult(analysisWithSummary);
       
       setTimeout(() => {
         setShowNextButton(true);
@@ -82,7 +89,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       console.error('🎯 Onboarding: Analysis error:', error);
       
       // Only fallback to demo if real analysis completely fails
-      const demoResult = {
+      const demoResult: StyleAnalysisResult = {
         overallScore: 86,
         rawAnalysis: "Demo analysis for onboarding",
         imageUrl: URL.createObjectURL(selectedImage),
