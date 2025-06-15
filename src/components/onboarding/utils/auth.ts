@@ -33,8 +33,9 @@ export const handleGoogleSignIn = async (): Promise<boolean> => {
     console.log('Starting Google Sign In...');
     console.log('Platform:', isMobile() ? 'Mobile' : 'Web');
     
+    // For mobile, we need to use the web flow but handle the callback differently
     const redirectUrl = isMobile() 
-      ? 'com.genstyle.app://auth/callback'
+      ? `${window.location.origin}/auth`  // Use web URL for mobile too
       : `${window.location.origin}/auth`;
     
     console.log('Using redirect URL:', redirectUrl);

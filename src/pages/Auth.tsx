@@ -26,7 +26,7 @@ export const Auth = () => {
     let authTimeout: NodeJS.Timeout;
     
     console.log('Auth page loaded, current URL:', window.location.href);
-    console.log('URL params:', new URLSearchParams(location.search).toString());
+    console.log('URL search params:', location.search);
     console.log('URL hash:', window.location.hash);
     console.log('Platform:', Capacitor.isNativePlatform() ? 'Mobile' : 'Web');
 
@@ -38,30 +38,29 @@ export const Auth = () => {
             console.log('Auth check timeout, stopping loading state');
             setIsCheckingAuth(false);
           }
-        }, 5000); // Reduced to 5 seconds
+        }, 8000);
 
-        // For mobile, check if we're handling a callback
-        if (Capacitor.isNativePlatform() && (location.pathname === '/auth/callback' || location.search.includes('code='))) {
-          console.log('Mobile OAuth callback detected, processing...');
-          // Let Supabase handle the callback
+        // Check for auth tokens in URL hash first (OAuth callback)
+        const urlHash = window.location.hash;
+        const urlParams = new URLSearchParams(location.search);
+        
+        if (urlHash && (urlHash.includes('access_token') || urlHash.includes('code='))) {
+          console.log('Auth tokens found in URL, processing OAuth callback...');
+          // Let Supabase handle the OAuth callback
           const { data, error } = await supabase.auth.getSession();
+          
           if (error) {
-            console.error('Error processing mobile OAuth callback:', error);
-            if (isMounted) {
-              toast({
-                title: "Authentication Error",
-                description: "There was an issue processing your login. Please try again.",
-                variant: "destructive",
-              });
-              setIsCheckingAuth(false);
-            }
+            console.error('Error processing OAuth callback:', error);
           } else if (data.session) {
-            console.log('Mobile OAuth session established, redirecting to dashboard');
+            console.log('OAuth session established successfully');
+            clearTimeout(authTimeout);
+            // Clear the hash from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
             if (isMounted) {
-              clearTimeout(authTimeout);
               toast({
                 title: "Welcome!",
-                description: "You've successfully signed in.",
+                description: "You've successfully signed in with Google.",
               });
               setTimeout(() => {
                 navigate("/dashboard", { replace: true });
@@ -71,15 +70,7 @@ export const Auth = () => {
           }
         }
 
-        // Check if we have auth tokens in the URL hash (from OAuth callback)
-        if (window.location.hash && window.location.hash.includes('access_token')) {
-          console.log('Auth tokens found in URL hash, processing...');
-          // Clear the hash from URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-
-        // Check for error in URL params (OAuth errors)
-        const urlParams = new URLSearchParams(location.search);
+        // Check for OAuth error parameters
         const authError = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
         
@@ -136,7 +127,7 @@ export const Auth = () => {
       console.log('Auth state change:', event, session ? 'session exists' : 'no session');
       
       if (event === 'SIGNED_IN' && session && isMounted) {
-        console.log('User signed in, redirecting to dashboard');
+        console.log('User signed in via auth state change, redirecting to dashboard');
         clearTimeout(authTimeout);
         toast({
           title: "Welcome!",
@@ -160,7 +151,7 @@ export const Auth = () => {
       }
       subscription.unsubscribe();
     };
-  }, [navigate, location.search, location.hash, location.pathname, toast]);
+  }, [navigate, location.search, location.hash, toast]);
 
   const handleOnboardingComplete = (userData: any) => {
     if (userData.requiresAuth) {
