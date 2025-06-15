@@ -15,10 +15,10 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="flex flex-col h-full"
+      className="h-full flex flex-col"
     >
-      {/* Top Section - Content */}
-      <div className="flex-1 flex flex-col justify-center items-center space-y-8 pt-8">
+      {/* Content Area - Centered */}
+      <div className="flex-1 flex flex-col justify-center items-center px-8 py-12">
         <motion.div
           animate={{ 
             scale: [1, 1.1, 1],
@@ -29,13 +29,15 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
             repeat: Infinity,
             ease: "easeInOut"
           }}
+          className="mb-8"
         >
-          <Crown className="w-20 h-20 text-orange-400 mx-auto" />
+          <Crown className="w-24 h-24 text-orange-400 mx-auto" />
         </motion.div>
-        <div className="space-y-4 text-center px-4">
-          <h1 className="text-3xl font-bold text-white leading-tight">
+        
+        <div className="text-center space-y-6">
+          <h1 className="text-4xl font-bold text-white leading-tight">
             We offer<br />
-            <span className="text-orange-400 text-4xl">7 days free</span><br />
+            <span className="text-orange-400 text-5xl">7 days free</span><br />
             so everyone can<br />
             max their drip with<br />
             <span className="text-orange-400">Drip Max</span>
@@ -43,11 +45,11 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
         </div>
       </div>
       
-      {/* Bottom Section - Button */}
-      <div className="pb-6">
+      {/* Button Area - Fixed bottom */}
+      <div className="px-8 pb-8">
         <Button
           onClick={onNext}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
         >
           Try for Free
         </Button>
