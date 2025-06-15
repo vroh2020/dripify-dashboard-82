@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -249,8 +250,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex flex-col">
-      {/* Progress Bar */}
-      <div className="w-full px-6 pt-safe-area-inset-top pt-4 pb-4">
+      {/* Progress Bar - Fixed height and proper mobile spacing */}
+      <div className="w-full px-4 pt-12 pb-4 flex-shrink-0">
         <div className="h-1 bg-white/10 rounded-full overflow-hidden">
           <motion.div
             className="h-full bg-gradient-to-r from-orange-500 to-orange-400"
@@ -266,13 +267,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 pb-safe-area-inset-bottom pb-4">
+      {/* Main Content - Properly sized for mobile */}
+      <div className="flex-1 px-4 pb-8 min-h-0">
         <Card className="h-full backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl">
           <CardContent className="p-0 h-full flex flex-col relative overflow-hidden">
             <StyleLoadingOverlay isAnalyzing={isAnalyzing} />
             
-            <div className="flex-1 p-6 flex flex-col">
+            {/* Content area with proper mobile constraints */}
+            <div className="flex-1 p-4 flex flex-col min-h-0">
               <AnimatePresence mode="wait">
                 {currentStep === 'welcome' && (
                   <WelcomeStep onNext={() => setCurrentStep('age')} />
@@ -321,7 +323,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                           >
                             <button
                               onClick={() => setCurrentStep('celebration')}
-                              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
+                              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
                             >
                               Continue
                             </button>

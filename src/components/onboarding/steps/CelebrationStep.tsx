@@ -30,7 +30,8 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
       transition={{ duration: 0.6, ease: "easeOut" }}
       className="flex flex-col justify-between h-full text-center"
     >
-      <div className="flex-1 flex flex-col justify-center space-y-6">
+      {/* Content Area */}
+      <div className="flex-1 flex flex-col justify-center space-y-4 py-4">
         <motion.div
           animate={{ 
             scale: [1, 1.2, 1],
@@ -42,11 +43,11 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
             ease: "easeInOut"
           }}
         >
-          <PartyPopper className="w-20 h-20 text-orange-400 mx-auto" />
+          <PartyPopper className="w-16 h-16 text-orange-400 mx-auto" />
         </motion.div>
-        <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-white">Congratulations!</h2>
-          <p className="text-white/80 text-base leading-relaxed px-2">
+        <div className="space-y-3">
+          <h2 className="text-2xl font-bold text-white">Congratulations!</h2>
+          <p className="text-white/80 text-sm leading-relaxed px-2">
             You've just experienced the power of Drip Max!<br />
             {isPro ? 
               "You already have Pro access - enjoy unlimited style analyses!" :
@@ -56,10 +57,11 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
         </div>
       </div>
 
-      <div className="pb-4">
+      {/* Button Area - Fixed bottom positioning */}
+      <div className="pb-2 flex-shrink-0">
         <Button
           onClick={handleClick}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-base font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-2xl"
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-sm font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-2xl"
         >
           {isPro ? "Continue to App" : "Next"}
         </Button>
