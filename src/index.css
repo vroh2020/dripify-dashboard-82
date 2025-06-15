@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
@@ -234,6 +235,19 @@
   .progress-fill {
     @apply h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-500 ease-out;
   }
+
+  /* Enhanced onboarding scroll container */
+  .onboarding-scroll {
+    @apply overflow-y-auto overscroll-contain;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Better scroll performance for onboarding */
+  .onboarding-container {
+    @apply flex flex-col min-h-full;
+    contain: layout style paint;
+  }
 }
 
 @layer utilities {
@@ -263,11 +277,38 @@
     will-change: transform;
   }
 
+  /* Safe area inset utilities for modern devices */
+  .pt-safe-area-top {
+    padding-top: max(3rem, env(safe-area-inset-top, 3rem));
+  }
+
+  .pb-safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+  }
+
+  /* Improved scrolling utilities */
+  .scroll-smooth-touch {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
   /* Reduce motion for accessibility */
   @media (prefers-reduced-motion: reduce) {
     .motion-reduce {
       animation: none;
       transition: none;
     }
+  }
+
+  /* Dynamic viewport height support */
+  .min-h-screen-safe {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .h-screen-safe {
+    height: 100vh;
+    height: 100dvh;
   }
 }
