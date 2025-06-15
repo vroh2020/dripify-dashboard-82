@@ -1,3 +1,4 @@
+
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardView } from "@/components/DashboardView";
 import { ScanView } from "@/components/ScanView";
@@ -16,10 +17,10 @@ const Index = () => {
 
   // Check authentication and redirect if needed
   useEffect(() => {
-    // Auth check - redirect if no session
     // Only redirect if we're done loading and have no session
     if (!isLoading && (!session || !user)) {
       navigate('/auth');
+      return;
     }
   }, [session, user, isLoading, navigate]);
 

@@ -17,11 +17,24 @@ export const Auth = () => {
   usePendingOnboarding();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check if user is already authenticated
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate("/");
+        navigate("/dashboard");
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        navigate("/dashboard");
       }
     });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleOnboardingComplete = (userData: any) => {
@@ -30,12 +43,12 @@ export const Auth = () => {
       setIsOnboarding(false);
     } else {
       // Onboarding completed with authenticated user
-      navigate("/");
+      navigate("/dashboard");
     }
   };
 
   const handleAuthSuccess = () => {
-    navigate("/");
+    navigate("/dashboard");
   };
 
   if (isOnboarding) {
