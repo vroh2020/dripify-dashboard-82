@@ -1,3 +1,4 @@
+
 import { motion } from "framer-motion";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -10,29 +11,37 @@ interface ModernRatingsDisplayProps {
   breakdown: ScoreBreakdown[];
   onSave?: () => void;
   onShare?: () => void;
-  isOnboarding?: boolean; // New prop to determine if this is onboarding
+  isOnboarding?: boolean;
 }
 
-// Map AI categories to our 6 display categories with NEW names and convert to /100 scale
+// Map AI categories to our 6 display categories with proper score handling
 const mapAIDataToCategories = (overallScore: number, breakdown: ScoreBreakdown[]) => {
   // Create a map of AI categories for easy lookup
   const categoryMap = breakdown.reduce((acc, item) => {
-    acc[item.category.toLowerCase()] = item.score;
+    // Ensure scores are normalized to 0-100 range
+    let normalizedScore = item.score;
+    if (normalizedScore <= 10) {
+      normalizedScore = normalizedScore * 10; // Convert 0-10 to 0-100
+    }
+    acc[item.category.toLowerCase()] = Math.min(100, Math.max(1, normalizedScore));
     return acc;
   }, {} as Record<string, number>);
 
-  // Calculate intelligent mappings - scores should already be out of 100 from edge function
+  // Normalize overall score to 0-100 range
+  let normalizedOverall = overallScore;
+  if (normalizedOverall <= 10) {
+    normalizedOverall = normalizedOverall * 10;
+  }
+  normalizedOverall = Math.min(100, Math.max(1, normalizedOverall));
+
   const getScore = (keys: string[], fallback: number) => {
     for (const key of keys) {
       if (categoryMap[key]) {
-        return Math.min(100, Math.max(1, Math.round(categoryMap[key])));
+        return categoryMap[key];
       }
     }
-    return Math.min(100, Math.max(1, Math.round(fallback)));
+    return Math.min(100, Math.max(1, fallback));
   };
-
-  // Use overall score directly - should already be out of 100 from edge function
-  const normalizedOverall = Math.min(100, Math.max(1, Math.round(overallScore)));
 
   return [
     {
@@ -43,31 +52,31 @@ const mapAIDataToCategories = (overallScore: number, breakdown: ScoreBreakdown[]
     },
     {
       label: "Potential", 
-      value: Math.min(100, normalizedOverall + Math.floor(Math.random() * 15) + 5), // Realistic potential
+      value: Math.min(100, normalizedOverall + Math.floor(Math.random() * 10) + 5),
       color: "from-purple-500 to-purple-600",
       bgColor: "bg-purple-500"
     },
     {
-      label: "Aura", // Changed from "Masculinity"
-      value: getScore(['style coherence', 'trend awareness', 'accessories'], normalizedOverall + Math.floor(Math.random() * 10) - 5),
+      label: "Aura",
+      value: getScore(['style coherence', 'style cohesion', 'trend awareness'], normalizedOverall + Math.floor(Math.random() * 8) - 4),
       color: "from-blue-500 to-blue-600", 
       bgColor: "bg-blue-500"
     },
     {
-      label: "Drip Quality", // Changed from "Skin Quality"
-      value: getScore(['color coordination', 'fit & proportion'], normalizedOverall + Math.floor(Math.random() * 12) + 3),
+      label: "Drip Quality",
+      value: getScore(['color coordination', 'fit & proportion', 'fit & silhouette'], normalizedOverall + Math.floor(Math.random() * 10) + 2),
       color: "from-green-500 to-green-600",
       bgColor: "bg-green-500"
     },
     {
-      label: "Color Coordination", // Changed from "Jawline"
-      value: getScore(['fit & proportion', 'style coherence', 'color coordination'], normalizedOverall + Math.floor(Math.random() * 8) + 2),
+      label: "Color Coordination",
+      value: getScore(['color coordination'], normalizedOverall + Math.floor(Math.random() * 6) + 1),
       color: "from-pink-500 to-pink-600",
       bgColor: "bg-pink-500"
     },
     {
-      label: "Attractiveness", // Changed from "Cheekbones"
-      value: getScore(['accessories', 'outfit creativity'], normalizedOverall + Math.floor(Math.random() * 10) - 3),
+      label: "Attractiveness",
+      value: getScore(['accessories', 'outfit creativity', 'occasion appropriateness'], normalizedOverall + Math.floor(Math.random() * 8) - 2),
       color: "from-cyan-500 to-cyan-600",
       bgColor: "bg-cyan-500"
     }
@@ -80,7 +89,7 @@ export const ModernRatingsDisplay = ({
   breakdown = [], 
   onSave, 
   onShare,
-  isOnboarding = false // Default to false for backward compatibility
+  isOnboarding = false
 }: ModernRatingsDisplayProps) => {
   const ratings = mapAIDataToCategories(overallScore, breakdown);
 
@@ -104,7 +113,7 @@ export const ModernRatingsDisplay = ({
         </Avatar>
       </div>
 
-      {/* Ratings Grid - 2x3 layout exactly like screenshot */}
+      {/* Ratings Grid - 2x3 layout */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         {ratings.map((rating, index) => (
           <motion.div

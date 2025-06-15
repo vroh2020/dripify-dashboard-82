@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleSelector } from "@/components/StyleSelector";
@@ -7,9 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { useScanStore } from "@/store/scanStore";
-import { Sparkles, Camera, Share2, Save } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CategoryBreakdown } from "./analysis/CategoryBreakdown";
+import { Sparkles, Camera } from "lucide-react";
 import { StyleTips } from "./analysis/StyleTips";
 import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
 import { ModernRatingsDisplay } from "./ModernRatingsDisplay";
@@ -19,7 +18,6 @@ export const ScanView = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedStyle, setSelectedStyle] = useState("casual");
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysisPhase, setAnalysisPhase] = useState<string>("");
   const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
   const setLatestScan = useScanStore((state) => state.setLatestScan);
@@ -33,10 +31,11 @@ export const ScanView = () => {
   } | null>(null);
 
   const handleAnalyzeTimeout = () => {
+    console.log('Analysis timeout triggered');
     setAnalyzing(false);
     toast({
       title: "Analysis timed out",
-      description: "The style analysis is taking too long. Please try again.",
+      description: "The style analysis is taking too long. Please try again with a different image.",
       variant: "destructive",
     });
   };
@@ -51,55 +50,60 @@ export const ScanView = () => {
       return;
     }
 
+    console.log('Starting analysis process...');
     setAnalyzing(true);
-    setAnalysisPhase("Starting analysis...");
+    setShowResults(false);
     
     try {
-      const analysisResult = await analyzeStyle(selectedImage);
+      console.log('Calling analyzeStyle function...');
+      const analysisResult = await analyzeStyle(selectedImage, false);
+      console.log('Analysis result received:', analysisResult);
+      
       setResult(analysisResult);
       setLatestScan(analysisResult);
       
       toast({
-        title: "Analysis Complete",
-        description: "Your style has been analyzed!",
-        variant: "success"
+        title: "Analysis Complete! 🎉",
+        description: `Your style scored ${analysisResult.overallScore}/100!`,
       });
       
+      // Show results after a brief delay
       setTimeout(() => {
         setShowResults(true);
         setAnalyzing(false);
-      }, 800);
+      }, 1000);
       
     } catch (error) {
       console.error("Analysis error:", error);
+      setAnalyzing(false);
+      
       toast({
         title: "Analysis failed",
-        description: error instanceof Error ? error.message : "There was an error analyzing your image",
+        description: error instanceof Error ? error.message : "There was an error analyzing your image. Please try again.",
         variant: "destructive",
       });
-      setAnalyzing(false);
     }
   };
 
   const handleRestart = () => {
+    console.log('Restarting scan process...');
     setShowResults(false);
     setSelectedImage(null);
     setResult(null);
+    setAnalyzing(false);
   };
 
   const handleShare = () => {
     toast({
-      title: "Shared",
+      title: "Shared! 📸",
       description: "Your style analysis has been shared!",
-      variant: "success"
     });
   };
 
   const handleSave = () => {
     toast({
-      title: "Saved",
+      title: "Saved! 💾",
       description: "Your style analysis has been saved to your profile!",
-      variant: "success"
     });
   };
 
@@ -114,7 +118,7 @@ export const ScanView = () => {
       <StyleLoadingOverlay 
         isAnalyzing={analyzing} 
         onTimeout={handleAnalyzeTimeout}
-        timeoutDuration={90000} // 90 seconds timeout
+        timeoutDuration={90000}
       />
 
       {!showResults ? (
@@ -175,16 +179,17 @@ export const ScanView = () => {
         >
           {result && (
             <div className="w-full max-w-2xl mx-auto space-y-6">
-              {/* New Modern Ratings Display */}
+              {/* Modern Ratings Display */}
               <ModernRatingsDisplay
                 overallScore={result.overallScore}
                 profileImage={result.imageUrl}
                 breakdown={result.breakdown || []}
                 onSave={handleSave}
                 onShare={handleShare}
+                isOnboarding={false}
               />
 
-              {/* Optional: Keep detailed feedback below the ratings */}
+              {/* Detailed feedback */}
               {result.summary && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -201,7 +206,7 @@ export const ScanView = () => {
                 </motion.div>
               )}
 
-              {/* Optional: Keep tips section */}
+              {/* Style tips */}
               {result.tips && result.tips.length > 0 && (
                 <StyleTips tips={result.tips} />
               )}
