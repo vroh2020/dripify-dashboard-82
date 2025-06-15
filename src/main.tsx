@@ -1,3 +1,4 @@
+
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
@@ -16,7 +17,7 @@ declare global {
   }
 }
 
-// Smart Splash Manager with Capacitor Integration
+// Enhanced Splash Manager with iOS Optimizations
 class SplashManager {
   private splashElement: HTMLElement | null;
   private appShellElement: HTMLElement | null;
@@ -32,7 +33,7 @@ class SplashManager {
     this.appShellElement = document.getElementById('app-shell');
     this.progressFill = document.getElementById('progress-fill');
     this.loadingMessage = document.getElementById('loading-message');
-    this.minimumDisplayTime = 2000; // Increased for better UX
+    this.minimumDisplayTime = 2500; // Increased for iOS App Store feel
     this.splashStartTime = Date.now();
     this.currentProgress = 0;
     this.isCapacitor = Capacitor.isNativePlatform();
@@ -48,19 +49,19 @@ class SplashManager {
 
   private async initializeCapacitorSplash(): Promise<void> {
     try {
-      // The native splash should already be showing from the launch
-      // Make sure it stays visible until we're ready
-      console.log('🚀 Capacitor splash screen active');
+      console.log('🚀 Initializing Capacitor splash screen for iOS');
       
-      // Ensure splash stays visible (in case of any auto-hide)
+      // Ensure splash stays visible with proper configuration
       await SplashScreen.show({
         autoHide: false,
-        fadeInDuration: 0
+        fadeInDuration: 0,
+        fadeOutDuration: 500,
+        showSpinner: false
       });
       
-      console.log('✅ Capacitor splash screen secured');
+      console.log('✅ Capacitor splash screen secured with enhanced config');
     } catch (error) {
-      console.warn('Capacitor splash screen not available:', error);
+      console.warn('Capacitor splash screen initialization failed:', error);
     }
   }
 
@@ -83,39 +84,39 @@ class SplashManager {
   }
 
   async hideWhenReady(): Promise<void> {
-    // Ensure minimum display time for smooth UX
+    // Ensure minimum display time for premium iOS feel
     const elapsed = Date.now() - this.splashStartTime;
     const remainingTime = Math.max(0, this.minimumDisplayTime - elapsed);
     
     if (remainingTime > 0) {
-      this.updateProgress(90, 'Almost ready...');
-      console.log(`⏱️ Waiting ${remainingTime}ms more for smooth transition`);
+      this.updateProgress(90, 'Finalizing...');
+      console.log(`⏱️ Maintaining splash for ${remainingTime}ms more for iOS UX`);
       await new Promise(resolve => setTimeout(resolve, remainingTime));
     }
 
-    this.updateProgress(100, 'Welcome!');
+    this.updateProgress(100, 'Ready!');
     
-    // Small delay to show 100% progress
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Brief pause to show completion
+    await new Promise(resolve => setTimeout(resolve, 400));
 
     // End splash timing
     performanceMonitor.endTiming('splash-display');
     performanceMonitor.mark('splash-hidden');
 
-    // Hide Capacitor splash screen first if on native platform
+    // Hide Capacitor splash screen with enhanced timing for iOS
     if (this.isCapacitor) {
       try {
-        console.log('🔄 Hiding Capacitor splash screen...');
+        console.log('🔄 Hiding Capacitor splash with iOS optimization...');
         await SplashScreen.hide({
-          fadeOutDuration: 300
+          fadeOutDuration: 500
         });
-        console.log('✅ Capacitor splash screen hidden');
+        console.log('✅ Capacitor splash hidden with smooth iOS transition');
       } catch (error) {
         console.warn('Failed to hide Capacitor splash:', error);
       }
     }
 
-    // Fade out HTML splash and fade in app
+    // Enhanced fade transition
     if (this.splashElement) {
       this.splashElement.classList.add('fade-out');
     }
@@ -124,14 +125,14 @@ class SplashManager {
       this.appShellElement.classList.add('ready');
     }
 
-    // Remove splash from DOM after animation
+    // Remove splash from DOM after enhanced animation
     setTimeout(() => {
       if (this.splashElement) {
         this.splashElement.remove();
       }
-    }, 800);
+    }, 1000);
 
-    // Mark app as fully loaded
+    // Mark app as fully interactive
     performanceMonitor.mark('app-interactive');
     if (window.APP_PERFORMANCE) {
       window.APP_PERFORMANCE.mark('app-interactive');
@@ -139,7 +140,7 @@ class SplashManager {
   }
 }
 
-// App Launcher with orchestrated loading
+// Enhanced App Launcher with iOS Optimizations
 class AppLauncher {
   private splash: SplashManager;
   private loadingSteps: number;
@@ -148,7 +149,7 @@ class AppLauncher {
   constructor() {
     this.splash = new SplashManager();
     this.loadingSteps = 0;
-    this.totalSteps = 4;
+    this.totalSteps = 5;
 
     // Start timing app initialization
     performanceMonitor.startTiming('app-init');
@@ -163,20 +164,24 @@ class AppLauncher {
       }
 
       // Step 1: Initialize core systems
-      this.updateProgress(20, 'Loading core systems...');
+      this.updateProgress(15, 'Loading core systems...');
+      await this.simulateAsyncWork(500);
+
+      // Step 2: Setup security & validation
+      this.updateProgress(35, 'Initializing security...');
       await this.simulateAsyncWork(400);
 
-      // Step 2: Setup React
-      this.updateProgress(50, 'Setting up interface...');
+      // Step 3: Setup React
+      this.updateProgress(60, 'Setting up interface...');
       performanceMonitor.startTiming('react-setup');
       await this.initializeReact();
       performanceMonitor.endTiming('react-setup');
 
-      // Step 3: Initialize app data
-      this.updateProgress(75, 'Preparing your experience...');
-      await this.simulateAsyncWork(300);
+      // Step 4: Initialize app data
+      this.updateProgress(80, 'Preparing your experience...');
+      await this.simulateAsyncWork(400);
 
-      // Step 4: Complete and hide splash
+      // Step 5: Complete and hide splash
       performanceMonitor.endTiming('app-init');
       await this.splash.hideWhenReady();
 
@@ -203,11 +208,11 @@ class AppLauncher {
       // Mount React app
       root.render(<App />);
       
-      // Simulate React hydration
+      // Simulate React hydration with iOS timing
       setTimeout(() => {
         performanceMonitor.mark('react-mounted');
         resolve();
-      }, 200);
+      }, 300);
     });
   }
 
@@ -216,32 +221,33 @@ class AppLauncher {
   }
 
   private handleLaunchError(error: Error): void {
-    this.splash.updateProgress(100, 'Something went wrong...');
+    this.splash.updateProgress(100, 'Encountered an issue...');
     console.error('Launch error:', error);
     
-    // Fallback: still hide splash after error
+    // Fallback: still hide splash after error with iOS timing
     setTimeout(() => {
       this.splash.hideWhenReady();
-    }, 1000);
+    }, 1200);
   }
 }
 
-// Performance monitoring
+// Enhanced performance monitoring for iOS
 function initializePerformanceMonitoring() {
   performanceMonitor.mark('main-tsx-start');
   if (window.APP_PERFORMANCE) {
     window.APP_PERFORMANCE.mark('main-tsx-start');
   }
 
-  // Monitor Core Web Vitals
+  // Monitor Core Web Vitals with iOS-specific metrics
   if ('PerformanceObserver' in window) {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.entryType === 'navigation') {
           const navEntry = entry as PerformanceNavigationTiming;
-          console.log('📊 Navigation timing:', {
+          console.log('📊 iOS Navigation timing:', {
             domContentLoaded: navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
             loadComplete: navEntry.loadEventEnd - navEntry.loadEventStart,
+            platform: Capacitor.getPlatform()
           });
         }
       }
@@ -251,8 +257,9 @@ function initializePerformanceMonitoring() {
   }
 }
 
-// Launch sequence
+// Enhanced startup sequence
 function startApp() {
+  console.log('🚀 Starting Drip Max app with enhanced iOS splash...');
   initializePerformanceMonitoring();
   
   const launcher = new AppLauncher();

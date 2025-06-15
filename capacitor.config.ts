@@ -1,3 +1,4 @@
+
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -25,13 +26,14 @@ const config: CapacitorConfig = {
       launchAutoHide: false, // We control hiding manually
       backgroundColor: "#1A1F2C", // Match your brand color
       androidSplashResourceName: "splash", // Android splash resource name
+      iosSplashResourceName: "Splash", // iOS splash resource name (changed from Default)
       showSpinner: false, // No spinner, we have custom loading
       androidSpinnerStyle: "large",
       iosSpinnerStyle: "small",
       spinnerColor: "#f97316",
       splashFullScreen: true, // Full screen splash
       splashImmersive: true, // Hide status bar on Android
-      launchFadeOutDuration: 300 // Smooth fade out
+      launchFadeOutDuration: 500 // Smooth fade out (increased)
     },
     // Performance optimizations
     Keyboard: {

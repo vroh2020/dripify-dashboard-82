@@ -97,6 +97,33 @@ export const sanitizeTextInput = (input: string): string => {
 };
 
 /**
+ * File upload validation
+ */
+export const validateFileUpload = (file: File): ValidationResult => {
+  const errors: string[] = [];
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+
+  if (!allowedTypes.includes(file.type)) {
+    errors.push('Only JPEG, PNG, WebP, and HEIC images are allowed');
+  }
+
+  if (file.size > maxSize) {
+    errors.push('File must be smaller than 10MB');
+  }
+
+  if (file.size === 0) {
+    errors.push('File is empty');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitized: file
+  };
+};
+
+/**
  * Email validation
  */
 export const validateEmail = (email: string): ValidationResult => {
