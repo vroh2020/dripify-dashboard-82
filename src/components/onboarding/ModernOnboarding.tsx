@@ -250,8 +250,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex flex-col">
-      {/* Progress Bar - Fixed height and proper mobile spacing */}
-      <div className="w-full px-4 pt-12 pb-4 flex-shrink-0">
+      {/* Progress Bar */}
+      <div className="w-full px-6 pt-14 pb-6">
         <div className="h-1 bg-white/10 rounded-full overflow-hidden">
           <motion.div
             className="h-full bg-gradient-to-r from-orange-500 to-orange-400"
@@ -260,21 +260,21 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
             transition={{ duration: 0.6, ease: "easeInOut" }}
           />
         </div>
-        <div className="text-center mt-2">
-          <span className="text-white/60 text-xs font-medium">
+        <div className="text-center mt-3">
+          <span className="text-white/60 text-sm font-medium">
             Step {stepMap[currentStep]} of {totalSteps}
           </span>
         </div>
       </div>
 
-      {/* Main Content - Properly sized for mobile */}
-      <div className="flex-1 px-4 pb-8 min-h-0">
-        <Card className="h-full backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl">
-          <CardContent className="p-0 h-full flex flex-col relative overflow-hidden">
+      {/* Main Content */}
+      <div className="flex-1 px-6 pb-8">
+        <Card className="h-full backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
+          <CardContent className="p-0 h-full relative overflow-hidden rounded-3xl">
             <StyleLoadingOverlay isAnalyzing={isAnalyzing} />
             
-            {/* Content area with proper mobile constraints */}
-            <div className="flex-1 p-4 flex flex-col min-h-0">
+            {/* Content area */}
+            <div className="h-full p-6">
               <AnimatePresence mode="wait">
                 {currentStep === 'welcome' && (
                   <WelcomeStep onNext={() => setCurrentStep('age')} />
@@ -303,7 +303,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -30 }}
                     transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="flex flex-col items-center justify-center flex-1 space-y-6"
+                    className="flex flex-col items-center justify-center h-full space-y-6"
                   >
                     {analysisResult && (
                       <>
@@ -323,7 +323,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                           >
                             <button
                               onClick={() => setCurrentStep('celebration')}
-                              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-bold rounded-xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
+                              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
                             >
                               Continue
                             </button>
@@ -353,7 +353,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -30 }}
                     transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="flex-1"
+                    className="h-full"
                   >
                     <ProOfferCard onContinue={handleCompleteOnboarding} />
                   </motion.div>
