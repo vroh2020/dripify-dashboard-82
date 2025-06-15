@@ -23,9 +23,30 @@ export const Auth = () => {
     
     console.log('Auth page loaded, current URL:', window.location.href);
     console.log('URL params:', new URLSearchParams(location.search).toString());
+    console.log('URL hash:', window.location.hash);
 
     const handleAuthStateChange = async () => {
       try {
+        // Check if we have auth tokens in the URL hash (from OAuth callback)
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          console.log('Auth tokens found in URL, processing...');
+          // Let Supabase handle the OAuth callback
+          const { data, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error('Error processing OAuth callback:', error);
+          } else if (data.session) {
+            console.log('OAuth session established, redirecting to dashboard');
+            if (isMounted) {
+              // Clear the hash from URL
+              window.history.replaceState({}, document.title, window.location.pathname);
+              setTimeout(() => {
+                navigate("/dashboard", { replace: true });
+              }, 100);
+            }
+            return;
+          }
+        }
+
         // First check for existing session
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -79,7 +100,7 @@ export const Auth = () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.search]);
+  }, [navigate, location.search, location.hash]);
 
   const handleOnboardingComplete = (userData: any) => {
     if (userData.requiresAuth) {
