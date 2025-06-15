@@ -63,14 +63,12 @@ const generateSecureRandom = (length: number = 16): string => {
   let result = '';
   
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    // Use crypto.getRandomValues for secure random generation
     const values = new Uint8Array(length);
     crypto.getRandomValues(values);
     for (let i = 0; i < length; i++) {
       result += charset[values[i] % charset.length];
     }
   } else {
-    // Fallback for environments without crypto.getRandomValues
     for (let i = 0; i < length; i++) {
       result += charset[Math.floor(Math.random() * charset.length)];
     }
@@ -89,7 +87,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
   
-  // RevenueCat hooks for subscription management
   const { subscription, isLoading: revenueCatLoading, initialized } = useRevenueCat();
   const { isPro } = useSubscription();
 
@@ -116,10 +113,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   ];
 
   const goalOptions = [
-    { id: "get-drippy", title: "Get Drippy", description: "Elevate my style game" },
-    { id: "find-outfits", title: "Find Good Outfits", description: "Discover what looks good on me" },
-    { id: "get-partner", title: "Trying to get a BF/GF", description: "Look attractive for dating" },
-    { id: "drip-max", title: "Drip Max", description: "Become a style icon" }
+    { id: "get-drippy", title: "Get Drippy", description: "Elevate my style game", emoji: "🔥" },
+    { id: "find-outfits", title: "Find Good Outfits", description: "Discover what looks good on me", emoji: "👔" },
+    { id: "get-partner", title: "Trying to get a BF/GF", description: "Look attractive for dating", emoji: "💕" },
+    { id: "drip-max", title: "Drip Max", description: "Become a style icon", emoji: "🏆" }
   ];
 
   // Apple Sign In Handler
@@ -146,7 +143,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           setCurrentStep('age');
         }
       } else {
-        // Web fallback - continue to age step
         setCurrentStep('age');
       }
     } catch (error) {
@@ -158,11 +154,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   // Continue with email (temp account)
   const handleContinueWithEmail = async () => {
     try {
-      // Use secure random generation for temporary accounts
       const randomId = generateSecureRandom(12);
       const timestamp = Date.now();
       const tempEmail = `temp_${timestamp}_${randomId}@dripmax.internal`;
-      const tempPassword = generateSecureRandom(24); // 24 character secure password
+      const tempPassword = generateSecureRandom(24);
       
       const { data, error } = await supabase.auth.signUp({
         email: tempEmail,
@@ -178,9 +173,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
       if (error) {
         console.error('Temp account error:', error);
-        // If temp account fails, just continue anyway
-      } else {
-        // Secure temp account created successfully
       }
       
       setCurrentStep('age');
@@ -208,10 +200,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       setIsAnalyzing(true);
       setCurrentStep('rating');
 
-      // Create a local URL for the image to avoid authentication issues
       const imageUrl = URL.createObjectURL(selectedImage);
       
-      // Mock analysis result for demo purposes (properly typed)
       const mockAnalysisResult = {
         overallScore: 86,
         rawAnalysis: "Professional and well-coordinated outfit with great attention to detail",
@@ -223,17 +213,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           { category: "Style Cohesion", score: 84, emoji: "✨" },
           { category: "Occasion Appropriateness", score: 90, emoji: "🎯" }
         ],
-        tips: [] // Remove tips for onboarding - user doesn't want 22+ tips
+        tips: []
       };
 
-      // Try to get REAL analysis from the API
       let finalResult = mockAnalysisResult;
       
       try {
-        // Use the REAL analysis API with onboarding flag - this is what the user wants!
         const analysisResult = await analyzeStyle(selectedImage, true);
         
-        // Use the real analysis result completely BUT remove excessive tips
         finalResult = {
           overallScore: analysisResult.overallScore,
           rawAnalysis: analysisResult.rawAnalysis,
@@ -244,18 +231,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
             : [
                 { category: "Overall Style", score: analysisResult.overallScore, emoji: "✨" }
               ],
-          // REMOVE TIPS for onboarding - user specifically doesn't want them
           tips: []
         };
       } catch (analysisError) {
         console.log('Real analysis failed, using fallback mock:', analysisError);
-        // Only use mock as fallback if real API fails
-        // No toast needed - this is normal for onboarding
       }
       
       setAnalysisResult(finalResult);
       
-      // Save to Supabase only if user is properly authenticated (not temp account)
       const { data: { user } } = await supabase.auth.getUser();
       if (user && !user.user_metadata?.is_temp_account) {
         try {
@@ -266,36 +249,29 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               total_score: finalResult.overallScore || 86,
               breakdown: JSON.stringify(finalResult.breakdown || []),
               feedback: finalResult.summary || "Great style!",
-              tips: JSON.stringify([]), // Empty tips array for onboarding
-              image_url: null, // Don't store image URL for temp accounts
+              tips: JSON.stringify([]),
+              image_url: null,
               raw_analysis: finalResult.rawAnalysis || "Style analysis completed"
             });
         } catch (dbError) {
           console.error('Database error:', dbError);
-          // Continue anyway - this is just onboarding
         }
       }
 
-      // Show results for 10 seconds to give proper viewing time, then enable next button
       setTimeout(() => {
         setShowNextButton(true);
         
-        // Request in-app review after user has experienced the core value
-        // This is the perfect moment - they just got their style analysis!
         try {
           InAppReview.requestReview().catch(error => {
             console.log('In-app review request failed (this is normal):', error);
-            // Don't show error to user - review prompts often fail and that's expected
           });
         } catch (error) {
           console.log('In-app review not available:', error);
-          // Silently handle - this might happen on web or unsupported platforms
         }
       }, 10000);
     } catch (error) {
       console.error('Analysis error:', error);
       
-      // Even if analysis fails completely, show a demo result
       const demoResult = {
         overallScore: 86,
         rawAnalysis: "Demo analysis for onboarding",
@@ -304,7 +280,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         breakdown: [
           { category: "Overall Style", score: 86, emoji: "✨" }
         ],
-        tips: [] // No tips for onboarding
+        tips: []
       };
       
       setAnalysisResult(demoResult);
@@ -312,7 +288,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       setTimeout(() => {
         setShowNextButton(true);
         
-        // Request in-app review even in demo mode
         try {
           InAppReview.requestReview().catch(error => {
             console.log('In-app review request failed (this is normal):', error);
@@ -321,15 +296,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           console.log('In-app review not available:', error);
         }
       }, 2000);
-      
-      // No error toast - keep onboarding smooth
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const handleCompleteOnboarding = async () => {
-    // Prevent multiple completion attempts
     if (isCompleting) {
       console.log('Already completing onboarding, skipping...');
       return;
@@ -343,7 +315,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       if (user && !userError) {
         console.log('User already exists, completing onboarding with existing user:', user.id);
         
-        // Save user profile data if user exists and is not temp account
         if (!user.user_metadata?.is_temp_account) {
           await supabase
             .from('profiles')
@@ -355,7 +326,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
             });
         }
         
-        // Complete onboarding immediately - user is already authenticated
         onComplete({
           ...onboardingData,
           analysisResult
@@ -365,11 +335,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
       console.log('No authenticated user found, creating new account...');
       
-      // Create a new secure account only if no user exists
       const randomId = generateSecureRandom(12);
       const timestamp = Date.now();
       const tempEmail = `user_${timestamp}_${randomId}@dripmax.internal`;
-      const tempPassword = generateSecureRandom(32); // Very secure 32 character password
+      const tempPassword = generateSecureRandom(32);
       
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: tempEmail,
@@ -388,8 +357,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       if (signUpError) {
         console.error('Error creating user account:', signUpError);
         
-        // If account creation fails (like rate limit), still complete onboarding
-        // The user can use the app in a limited way or sign up later
         toast({
           title: "Account Creation Delayed",
           description: "You can still use the app! Sign up later for full features.",
@@ -398,11 +365,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       } else {
         console.log('New secure user account created successfully:', authData.user?.id);
         
-        // Wait a moment for session to be established
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      // Complete onboarding regardless of account creation success
       onComplete({
         ...onboardingData,
         analysisResult
@@ -411,7 +376,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     } catch (error) {
       console.error('Error in handleCompleteOnboarding:', error);
       
-      // Always complete onboarding to prevent getting stuck
       onComplete({
         ...onboardingData,
         analysisResult
@@ -422,22 +386,29 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md mx-auto">
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex items-center justify-center p-4">
+      {/* Fixed Container - Prevents Flickering */}
+      <div className="w-full max-w-sm mx-auto">
+        {/* Progress Bar - Fixed Position */}
+        <div className="mb-8">
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
             <motion.div
               className="h-full bg-gradient-to-r from-orange-500 to-orange-400"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
+              transition={{ duration: 0.6, ease: "easeInOut" }}
             />
+          </div>
+          <div className="text-center mt-3">
+            <span className="text-white/60 text-sm font-medium">
+              Step {stepMap[currentStep]} of {totalSteps}
+            </span>
           </div>
         </div>
 
-        <Card className="backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl">
-          <CardContent className="p-6 sm:p-8">
+        {/* Main Card - Fixed Height to Prevent Flickering */}
+        <Card className="backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl h-[600px] flex flex-col">
+          <CardContent className="p-8 flex-1 flex flex-col justify-center relative overflow-hidden">
             <StyleLoadingOverlay isAnalyzing={isAnalyzing} />
             
             <AnimatePresence mode="wait">
@@ -445,68 +416,87 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               {currentStep === 'welcome' && (
                 <motion.div
                   key="welcome"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-8"
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="text-center space-y-8 flex flex-col justify-center h-full"
                 >
-                  {/* Mascot/Emoji Animation */}
-                  <div className="flex justify-center">
+                  <div className="space-y-6">
                     <motion.div
-                      animate={{ rotate: [0, 10, -10, 0] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="inline-block"
+                      animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.05, 1]
+                      }}
+                      transition={{ 
+                        duration: 3, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="text-7xl mb-4"
                     >
-                      <span className="text-5xl sm:text-6xl">🧑‍🎤</span>
+                      🧑‍🎤
+                    </motion.div>
+                    
+                    <div className="space-y-4">
+                      <h1 className="text-4xl font-bold text-white leading-tight">
+                        Welcome to{" "}
+                        <span className="bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text">
+                          Drip Max
+                        </span>
+                      </h1>
+                      <p className="text-white/80 text-lg leading-relaxed">
+                        Your AI stylist is here!<br />
+                        Get instant style ratings & become the best dressed you.
+                      </p>
+                    </div>
+
+                    {/* Preview Card */}
+                    <motion.div 
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.3, duration: 0.5 }}
+                      className="bg-gradient-to-r from-orange-500/10 to-purple-500/10 rounded-2xl p-6 border border-white/10"
+                    >
+                      <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <Star className="text-white text-2xl" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-white font-semibold text-lg">Your Rating</div>
+                            <div className="text-white/60">Overall Style</div>
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-4xl font-bold text-white">86</div>
+                          <div className="w-16 h-3 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full"></div>
+                        </div>
+                      </div>
                     </motion.div>
                   </div>
-                  <div className="space-y-4">
-                    <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
-                      Welcome to <span className="bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text">Drip Max</span>
-                    </h1>
-                    <p className="text-white/80 text-lg leading-relaxed">
-                      Your personal AI stylist is here!<br />
-                      Get instant style ratings and become the best dressed version of yourself.
-                    </p>
-                  </div>
-                  {/* App Preview */}
-                  <div className="bg-gradient-to-r from-orange-500/10 to-purple-500/10 rounded-2xl p-6 border border-white/10">
-                    <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-16 h-16 bg-gradient-to-br from-gray-600 to-gray-800 rounded-lg flex items-center justify-center">
-                          <span className="text-2xl text-white/70">⭐</span>
-                        </div>
-                        <div>
-                          <div className="text-white font-medium">Ratings</div>
-                          <div className="text-white/60 text-sm">Overall</div>
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-white">86</div>
-                        <div className="w-12 h-2 bg-purple-500 rounded-full mx-auto"></div>
-                      </div>
-                    </div>
-                  </div>
+
                   <div className="space-y-4">
                     <Button
                       onClick={handleAppleSignIn}
-                      className="w-full bg-black hover:bg-gray-900 text-white h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] flex items-center justify-center"
+                      className="w-full bg-black hover:bg-gray-900 text-white h-14 text-lg font-semibold rounded-2xl transition-all duration-300 hover:scale-105 flex items-center justify-center shadow-xl"
                     >
-                      <Apple className="mr-3 h-5 w-5" />
+                      <Apple className="mr-3 h-6 w-6" />
                       Continue with Apple
                     </Button>
+                    
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t border-white/20"></div>
                       </div>
                       <div className="relative flex justify-center text-sm">
-                        <span className="px-4 bg-black/40 text-white/60">or</span>
+                        <span className="px-6 bg-black/40 text-white/60 font-medium">or</span>
                       </div>
                     </div>
+                    
                     <Button
                       onClick={handleContinueWithEmail}
-                      className="w-full bg-gray-800 border border-white/20 text-white hover:bg-gray-900 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] flex items-center justify-center"
+                      className="w-full bg-white/10 border-2 border-white/20 text-white hover:bg-white/20 hover:border-white/30 h-14 text-lg font-semibold rounded-2xl transition-all duration-300 hover:scale-105 backdrop-blur-sm"
                     >
                       Continue with Email
                     </Button>
@@ -518,27 +508,40 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               {currentStep === 'age' && (
                 <motion.div
                   key="age"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-8"
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="text-center space-y-8 flex flex-col justify-center h-full"
                 >
-                  <div className="space-y-3">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white">What's your age?</h2>
-                    <p className="text-white/60">Help us personalize your style experience</p>
+                  <div className="space-y-4">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                      className="text-6xl mb-4"
+                    >
+                      🎂
+                    </motion.div>
+                    <h2 className="text-3xl font-bold text-white">What's your age?</h2>
+                    <p className="text-white/70 text-lg">Help us personalize your style experience</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    {ageOptions.map((age) => (
-                      <Button
+                  <div className="grid grid-cols-2 gap-4">
+                    {ageOptions.map((age, index) => (
+                      <motion.div
                         key={age}
-                        onClick={() => handleAgeSelect(age)}
-                        variant="outline"
-                        className="border-white/30 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white h-14 text-lg font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] bg-white/5"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1, duration: 0.4 }}
                       >
-                        {age}
-                      </Button>
+                        <Button
+                          onClick={() => handleAgeSelect(age)}
+                          className="w-full h-16 text-xl font-bold bg-white/10 border-2 border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:scale-105 transition-all duration-300 rounded-2xl backdrop-blur-sm"
+                        >
+                          {age}
+                        </Button>
+                      </motion.div>
                     ))}
                   </div>
                 </motion.div>
@@ -548,49 +551,45 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               {currentStep === 'goal' && (
                 <motion.div
                   key="goal"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-8"
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="text-center space-y-8 flex flex-col justify-center h-full"
                 >
-                  <div className="space-y-3">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white">What's your main goal?</h2>
-                    <p className="text-white/60">Let us know what you want to achieve</p>
+                  <div className="space-y-4">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                      className="text-6xl mb-4"
+                    >
+                      🎯
+                    </motion.div>
+                    <h2 className="text-3xl font-bold text-white">What's your main goal?</h2>
+                    <p className="text-white/70 text-lg">Let us know what you want to achieve</p>
                   </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-                    <Button
-                      onClick={() => handleGoalSelect('get-drippy')}
-                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
-                    >
-                      <span className="text-2xl mb-2">🎯</span>
-                      <span className="font-bold text-lg">Get Drippy</span>
-                      <span className="text-xs text-white/70 mt-1">Elevate my style game</span>
-                    </Button>
-                    <Button
-                      onClick={() => handleGoalSelect('find-outfits')}
-                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
-                    >
-                      <span className="text-2xl mb-2">🧥</span>
-                      <span className="font-bold text-lg">Find Good Outfits</span>
-                      <span className="text-xs text-white/70 mt-1">Discover what looks good on me</span>
-                    </Button>
-                    <Button
-                      onClick={() => handleGoalSelect('get-partner')}
-                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
-                    >
-                      <span className="text-2xl mb-2">💑</span>
-                      <span className="font-bold text-lg">Trying to get a BF/GF</span>
-                      <span className="text-xs text-white/70 mt-1">Look attractive for dating</span>
-                    </Button>
-                    <Button
-                      onClick={() => handleGoalSelect('drip-max')}
-                      className="flex flex-col items-center justify-center bg-gray-800 border border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:text-white min-h-[90px] rounded-xl transition-all duration-200 hover:scale-[1.03] p-4"
-                    >
-                      <span className="text-2xl mb-2">👑</span>
-                      <span className="font-bold text-lg">Drip Max</span>
-                      <span className="text-xs text-white/70 mt-1">Become a style icon</span>
-                    </Button>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    {goalOptions.map((goal, index) => (
+                      <motion.div
+                        key={goal.id}
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.15, duration: 0.5 }}
+                      >
+                        <Button
+                          onClick={() => handleGoalSelect(goal.id)}
+                          className="w-full h-20 bg-white/10 border-2 border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:scale-105 transition-all duration-300 rounded-2xl backdrop-blur-sm flex items-center justify-start p-6"
+                        >
+                          <span className="text-3xl mr-4">{goal.emoji}</span>
+                          <div className="text-left">
+                            <div className="font-bold text-lg">{goal.title}</div>
+                            <div className="text-white/70 text-sm">{goal.description}</div>
+                          </div>
+                        </Button>
+                      </motion.div>
+                    ))}
                   </div>
                 </motion.div>
               )}
@@ -599,16 +598,28 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               {currentStep === 'test-photo' && (
                 <motion.div
                   key="test-photo"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-8"
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="text-center space-y-8 flex flex-col justify-center h-full"
                 >
-                  <div className="space-y-4">
-                    <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
-                    <h2 className="text-2xl sm:text-3xl font-bold text-white">Let's test it out!</h2>
-                    <p className="text-white/70 leading-relaxed">
+                  <div className="space-y-6">
+                    <motion.div
+                      animate={{ 
+                        rotate: [0, 10, -10, 0],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <Sparkles className="w-20 h-20 text-orange-400 mx-auto" />
+                    </motion.div>
+                    <h2 className="text-3xl font-bold text-white">Let's test it out!</h2>
+                    <p className="text-white/70 text-lg leading-relaxed">
                       Upload a photo to get your first style rating and see the magic in action
                     </p>
                   </div>
@@ -617,12 +628,19 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     <ImageUpload onImageSelect={setSelectedImage} />
 
                     {selectedImage && (
-                      <Button
-                        onClick={handleImageUpload}
-                        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3 }}
                       >
-                        Get My Style Rating ✨
-                      </Button>
+                        <Button
+                          onClick={handleImageUpload}
+                          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+                        >
+                          <Sparkles className="mr-3 h-6 w-6" />
+                          Get My Style Rating
+                        </Button>
+                      </motion.div>
                     )}
                   </div>
                 </motion.div>
@@ -632,32 +650,36 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               {currentStep === 'rating' && (
                 <motion.div
                   key="rating"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="flex flex-col items-center space-y-8"
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="flex flex-col items-center justify-center h-full space-y-8"
                 >
                   {analysisResult && (
                     <>
-                      {/* New Modern Ratings Display - WITH isOnboarding prop */}
                       <ModernRatingsDisplay
                         overallScore={analysisResult.overallScore || 86}
                         profileImage={analysisResult.imageUrl}
                         breakdown={analysisResult.breakdown || []}
-                        isOnboarding={true} // This will hide Save/Share buttons and dots
+                        isOnboarding={true}
                       />
                       
-                      {showNextButton ? (
-                        <div className="w-full max-w-xs mx-auto mt-8">
+                      {showNextButton && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5 }}
+                          className="w-full"
+                        >
                           <Button
                             onClick={() => setCurrentStep('celebration')}
-                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
                           >
-                            Next
+                            Continue
                           </Button>
-                        </div>
-                      ) : null}
+                        </motion.div>
+                      )}
                     </>
                   )}
                 </motion.div>
@@ -670,29 +692,31 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-8"
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="text-center space-y-8 flex flex-col justify-center h-full"
                 >
                   <div className="space-y-6">
                     <motion.div
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 5, -5, 0]
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
                     >
-                      <PartyPopper className="w-20 h-20 text-orange-400 mx-auto" />
+                      <PartyPopper className="w-24 h-24 text-orange-400 mx-auto" />
                     </motion.div>
-                    <h2 className="text-3xl sm:text-4xl font-bold text-white">Congratulations!</h2>
-                    <p className="text-white/70 text-lg leading-relaxed">
+                    <h2 className="text-4xl font-bold text-white">Congratulations!</h2>
+                    <p className="text-white/80 text-xl leading-relaxed">
                       You've just experienced the power of Drip Max!<br />
                       {isPro ? 
-                        "You already have Pro access - enjoy unlimited style analyses!" :
+                        "You already have Pro access - enjoy unlimite style analyses!" :
                         "Ready to unlock your full style potential?"
                       }
                     </p>
-                    
-                    {/* Debug info - temporary */}
-                    <div className="bg-blue-500 text-white p-2 rounded text-sm">
-                      DEBUG: isPro = {isPro ? 'true' : 'false'}, subscription.isActive = {subscription.isActive ? 'true' : 'false'}
-                    </div>
                   </div>
 
                   <Button
@@ -706,28 +730,40 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                         setCurrentStep('trial-offer');
                       }
                     }}
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-12 text-base font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
+                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
                   >
                     {isPro ? "Continue to App" : "Next"}
                   </Button>
                 </motion.div>
               )}
 
-              {/* Trial Offer Intro Step */}
+              {/* Trial Offer Step */}
               {currentStep === 'trial-offer' && (
                 <motion.div
                   key="trial-offer"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-12"
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="text-center space-y-10 flex flex-col justify-center h-full"
                 >
                   <div className="space-y-8">
-                    <Crown className="w-20 h-20 text-orange-400 mx-auto" />
-                    <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight">
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.1, 1],
+                        rotate: [0, 5, -5, 0]
+                      }}
+                      transition={{ 
+                        duration: 3, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <Crown className="w-24 h-24 text-orange-400 mx-auto" />
+                    </motion.div>
+                    <h1 className="text-4xl font-bold text-white leading-tight">
                       We offer<br />
-                      <span className="text-orange-400">7 days free</span><br />
+                      <span className="text-orange-400 text-5xl">7 days free</span><br />
                       so everyone can<br />
                       max their drip with<br />
                       <span className="text-orange-400">Drip Max</span>
@@ -736,7 +772,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   
                   <Button
                     onClick={() => setCurrentStep('paywall')}
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
+                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
                   >
                     Try for Free
                   </Button>
@@ -747,57 +783,11 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               {currentStep === 'paywall' && (
                 <motion.div
                   key="paywall"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="space-y-8"
-                >
-                  <ProOfferCard onContinue={handleCompleteOnboarding} />
-                </motion.div>
-              )}
-
-              {/* Trial Reminder Step */}
-              {currentStep === 'trial-reminder' && (
-                <motion.div
-                  key="trial-reminder"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center space-y-12"
-                >
-                  <div className="space-y-8">
-                    <motion.div
-                      animate={{ scale: [1, 1.05, 1] }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                      className="w-24 h-24 mx-auto bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center"
-                    >
-                      <span className="text-3xl">⏰</span>
-                    </motion.div>
-                    <h2 className="text-3xl sm:text-4xl font-bold text-white leading-relaxed">
-                      You will get a reminder before your trial expires in 2 days.
-                    </h2>
-                  </div>
-
-                  <Button
-                    onClick={() => setCurrentStep('pricing')}
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] shadow-lg"
-                  >
-                    Try for Free
-                  </Button>
-                </motion.div>
-              )}
-
-              {/* Pricing Step - Now using RevenueCat ProOfferCard */}
-              {currentStep === 'pricing' && (
-                <motion.div
-                  key="pricing"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                  className="w-full"
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="h-full"
                 >
                   <ProOfferCard onContinue={handleCompleteOnboarding} />
                 </motion.div>
@@ -809,25 +799,3 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     </div>
   );
 };
-
-interface ResultBarProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}
-
-const ResultBar = ({ icon, label, value, color }: ResultBarProps) => (
-  <div className="flex items-center gap-3">
-    <div>{icon}</div>
-    <div className="flex-1">
-      <div className="flex justify-between text-xs text-white/70 mb-1">
-        <span>{label}</span>
-        <span className="font-bold text-white">{value}</span>
-      </div>
-      <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${value}%` }}></div>
-      </div>
-    </div>
-  </div>
-);
