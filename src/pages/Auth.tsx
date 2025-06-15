@@ -8,12 +8,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { motion } from "framer-motion";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { usePendingOnboarding } from "@/hooks/usePendingOnboarding";
+import { useToast } from "@/hooks/use-toast";
 
 export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isOnboarding, setIsOnboarding] = useState(true); // Start with onboarding flow
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const { toast } = useToast();
   
   // Handle pending onboarding data after auth
   usePendingOnboarding();
@@ -34,17 +36,44 @@ export const Auth = () => {
           const { data, error } = await supabase.auth.getSession();
           if (error) {
             console.error('Error processing OAuth callback:', error);
+            if (isMounted) {
+              toast({
+                title: "Authentication Error",
+                description: "There was an issue processing your login. Please try again.",
+                variant: "destructive",
+              });
+            }
           } else if (data.session) {
             console.log('OAuth session established, redirecting to dashboard');
             if (isMounted) {
               // Clear the hash from URL
               window.history.replaceState({}, document.title, window.location.pathname);
+              toast({
+                title: "Welcome back!",
+                description: "You've successfully signed in.",
+              });
               setTimeout(() => {
                 navigate("/dashboard", { replace: true });
               }, 100);
             }
             return;
           }
+        }
+
+        // Check for error in URL params (OAuth errors)
+        const urlParams = new URLSearchParams(location.search);
+        const authError = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+        
+        if (authError && isMounted) {
+          console.error('OAuth error:', authError, errorDescription);
+          toast({
+            title: "Authentication Error",
+            description: errorDescription || "Authentication failed. Please try again.",
+            variant: "destructive",
+          });
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
 
         // First check for existing session
@@ -73,6 +102,11 @@ export const Auth = () => {
         console.error('Auth check error:', error);
         if (isMounted) {
           setIsCheckingAuth(false);
+          toast({
+            title: "Authentication Error",
+            description: "There was an issue checking your authentication status.",
+            variant: "destructive",
+          });
         }
       }
     };
@@ -83,11 +117,17 @@ export const Auth = () => {
       
       if (event === 'SIGNED_IN' && session && isMounted) {
         console.log('User signed in, redirecting to dashboard');
+        toast({
+          title: "Welcome!",
+          description: "You've successfully signed in.",
+        });
         setTimeout(() => {
           navigate("/dashboard", { replace: true });
         }, 100);
       } else if (event === 'SIGNED_OUT' && isMounted) {
         setIsCheckingAuth(false);
+      } else if (event === 'TOKEN_REFRESHED' && session && isMounted) {
+        console.log('Token refreshed successfully');
       }
     });
 
@@ -97,7 +137,7 @@ export const Auth = () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.search, location.hash]);
+  }, [navigate, location.search, location.hash, toast]);
 
   const handleOnboardingComplete = (userData: any) => {
     if (userData.requiresAuth) {

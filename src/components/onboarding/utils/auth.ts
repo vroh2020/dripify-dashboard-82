@@ -23,13 +23,28 @@ const generateSecureRandom = (length: number = 16): string => {
   return result;
 };
 
+// Helper function to determine if we're on mobile
+const isMobile = (): boolean => {
+  return Capacitor.isNativePlatform();
+};
+
+// Helper function to get the correct redirect URL
+const getRedirectUrl = (): string => {
+  if (isMobile()) {
+    // For mobile, use the app's deep link scheme
+    return 'com.genstyle.app://auth/callback';
+  } else {
+    // For web, use the current origin
+    return `${window.location.origin}/auth`;
+  }
+};
+
 export const handleGoogleSignIn = async (): Promise<boolean> => {
   try {
     console.log('Starting Google Sign In...');
-    console.log('Current origin:', window.location.origin);
+    console.log('Platform:', isMobile() ? 'Mobile' : 'Web');
     
-    // Use the actual current origin, not any hardcoded URLs
-    const redirectUrl = `${window.location.origin}/auth`;
+    const redirectUrl = getRedirectUrl();
     console.log('Redirect URL set to:', redirectUrl);
     
     const { error } = await supabase.auth.signInWithOAuth({
@@ -59,13 +74,12 @@ export const handleGoogleSignIn = async (): Promise<boolean> => {
 export const handleAppleSignIn = async (): Promise<boolean> => {
   try {
     console.log('Starting Apple Sign In...');
+    console.log('Platform:', isMobile() ? 'Mobile' : 'Web');
     
-    const redirectUrl = `${window.location.origin}/auth`;
-    console.log('Apple redirect URL set to:', redirectUrl);
-    
-    if (Capacitor.isNativePlatform()) {
+    if (isMobile()) {
+      // Native Apple Sign In for mobile
       const options = {
-        clientId: 'com.dripmax.app',
+        clientId: 'com.genstyle.app',
         redirectURI: 'https://jjqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback',
         scopes: 'email name',
         state: generateSecureRandom(10),
@@ -84,7 +98,10 @@ export const handleAppleSignIn = async (): Promise<boolean> => {
         return true;
       }
     } else {
-      // For web, use Supabase OAuth
+      // Web Apple Sign In
+      const redirectUrl = getRedirectUrl();
+      console.log('Apple redirect URL set to:', redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {

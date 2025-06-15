@@ -2,7 +2,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.genstyle.app', // Standardized bundle ID
+  appId: 'com.genstyle.app', // This matches your bundle ID
   appName: 'DripMax',
   webDir: 'dist',
   server: {
