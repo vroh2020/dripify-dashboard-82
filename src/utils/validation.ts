@@ -43,3 +43,36 @@ export const validateImageFile = (file: File): { isValid: boolean; errors: strin
   
   return { isValid: errors.length === 0, errors };
 };
+
+// Rate limiter for analysis requests
+const analysisRequestStore = new Map<string, { count: number; resetTime: number }>();
+
+export const analysisRateLimiter = (userId: string): { allowed: boolean; retryAfter?: number } => {
+  const now = Date.now();
+  const key = `analysis_${userId}`;
+  const maxRequests = 5;
+  const windowMs = 60000; // 1 minute
+  
+  const entry = analysisRequestStore.get(key);
+  
+  // Reset window if expired
+  if (!entry || now > entry.resetTime) {
+    analysisRequestStore.set(key, {
+      count: 1,
+      resetTime: now + windowMs
+    });
+    return { allowed: true };
+  }
+  
+  // Check limit
+  if (entry.count >= maxRequests) {
+    return {
+      allowed: false,
+      retryAfter: Math.ceil((entry.resetTime - now) / 1000)
+    };
+  }
+  
+  // Increment count
+  entry.count++;
+  return { allowed: true };
+};

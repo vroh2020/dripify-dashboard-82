@@ -87,6 +87,20 @@ export const validateEmail = (email: string): { isValid: boolean; errors: string
   return { isValid: errors.length === 0, errors };
 };
 
+export const validateFileUpload = (file: File): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  if (file.size > SECURITY_CONFIG.MAX_FILE_SIZE) {
+    errors.push(`File must be smaller than ${SECURITY_CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB`);
+  }
+  
+  if (!SECURITY_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    errors.push('Only JPEG, PNG, and WebP images are allowed');
+  }
+  
+  return { isValid: errors.length === 0, errors };
+};
+
 export const sanitizeUserMetadata = (metadata: Record<string, any>): Record<string, any> => {
   const sanitized: Record<string, any> = {};
   

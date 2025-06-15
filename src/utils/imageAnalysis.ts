@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
@@ -25,7 +26,7 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
     // Validate image before upload
     const validation = validateImageFile(imageFile);
     if (!validation.isValid) {
-      throw new Error(validation.error);
+      throw new Error(validation.errors.join(', '));
     }
 
     const timestamp = new Date().getTime();
@@ -68,7 +69,7 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     // Validate image file
     const validation = validateImageFile(imageFile);
     if (!validation.isValid) {
-      throw new Error(validation.error);
+      throw new Error(validation.errors.join(', '));
     }
 
     // Check rate limiting (unless onboarding)
@@ -220,7 +221,7 @@ export const analyzeStyleForOnboarding = async (imageFile: File): Promise<StyleA
     // Validate image file even for onboarding
     const validation = validateImageFile(imageFile);
     if (!validation.isValid) {
-      throw new Error(validation.error);
+      throw new Error(validation.errors.join(', '));
     }
 
     Logger.info('Starting onboarding style analysis...');
