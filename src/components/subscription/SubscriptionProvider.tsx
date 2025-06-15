@@ -1,6 +1,6 @@
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { useRevenueCat, SubscriptionStatus } from '@/hooks/useRevenueCat';
-import { useSession } from '@/hooks/useSession';
+
+import { createContext, useContext, ReactNode } from 'react';
+import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -8,6 +8,9 @@ interface SubscriptionContextType {
   expirationDate: Date | null;
   checkSubscription: () => Promise<boolean>;
   refreshSubscription: () => Promise<void>;
+  purchaseProduct: (productId: string) => Promise<boolean>;
+  restorePurchases: () => Promise<boolean>;
+  offerings: any[];
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType>({
@@ -16,6 +19,9 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   expirationDate: null,
   checkSubscription: async () => false,
   refreshSubscription: async () => {},
+  purchaseProduct: async () => false,
+  restorePurchases: async () => false,
+  offerings: [],
 });
 
 export const useSubscription = () => useContext(SubscriptionContext);
@@ -25,44 +31,38 @@ interface SubscriptionProviderProps {
 }
 
 export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) => {
-  const { user } = useSession();
-  const { subscription, isLoading, fetchSubscriptionStatus } = useRevenueCat();
-  const [subscriptionState, setSubscriptionState] = useState<SubscriptionStatus>({
-    isActive: false, // Initialize as false to ensure paywall shows
-    expirationDate: null,
-    productId: null,
-    offeringId: null,
-  });
-
-  useEffect(() => {
-    console.log('SubscriptionProvider: subscription changed', subscription);
-    setSubscriptionState(subscription);
-  }, [subscription]);
+  const {
+    isLoading,
+    subscription,
+    offerings,
+    fetchSubscriptionStatus,
+    purchaseProduct,
+    restorePurchases
+  } = useRevenueCatManager();
 
   // Check if user has Pro subscription
   const checkSubscription = async (): Promise<boolean> => {
-    if (!user) return false;
-    
     const status = await fetchSubscriptionStatus();
     return status.isActive;
   };
 
   // Force refresh the subscription status
   const refreshSubscription = async (): Promise<void> => {
-    if (!user) return;
-    
     await fetchSubscriptionStatus();
   };
 
   const value = {
-    isPro: subscriptionState.isActive,
+    isPro: subscription.isActive,
     isLoading,
-    expirationDate: subscriptionState.expirationDate,
+    expirationDate: subscription.expirationDate,
     checkSubscription,
-    refreshSubscription
+    refreshSubscription,
+    purchaseProduct,
+    restorePurchases,
+    offerings
   };
 
-  console.log('SubscriptionProvider: providing isPro =', value.isPro);
+  console.log('🔄 SubscriptionProvider: isPro =', value.isPro, 'isLoading =', value.isLoading);
 
   return (
     <SubscriptionContext.Provider value={value}>

@@ -2,12 +2,42 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Crown } from "lucide-react";
+import { useState } from "react";
+import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 
 interface TrialOfferStepProps {
   onNext: () => void;
 }
 
 export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
+  const { purchaseProduct, isPro, isLoading } = useSubscription();
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleStartTrial = async () => {
+    if (isPro) {
+      onNext();
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Use the specific product ID we know exists
+      const success = await purchaseProduct('gs_1299_1m');
+      if (success) {
+        setTimeout(onNext, 1000);
+      } else {
+        // If purchase fails, still allow user to continue
+        setTimeout(onNext, 500);
+      }
+    } catch (error) {
+      console.error("Trial start error:", error);
+      // Allow user to continue even if purchase fails
+      setTimeout(onNext, 500);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <motion.div
       key="trial-offer"
@@ -42,16 +72,32 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
             max their drip with<br />
             <span className="text-orange-400">Drip Max</span>
           </h1>
+          
+          {isPro && (
+            <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4 mt-6">
+              <p className="text-green-300 font-medium">✨ You already have Pro access!</p>
+            </div>
+          )}
         </div>
       </div>
       
       {/* Button Area - Fixed bottom */}
       <div className="px-8 pb-8">
         <Button
-          onClick={onNext}
+          onClick={handleStartTrial}
+          disabled={isProcessing || isLoading}
           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
         >
-          Try for Free
+          {isProcessing ? (
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Starting Trial...
+            </div>
+          ) : isPro ? (
+            "Continue to App"
+          ) : (
+            "Try for Free"
+          )}
         </Button>
       </div>
     </motion.div>
