@@ -196,6 +196,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('Nebius API error:', errorText);
       throw new Error(`API error (${response.status}): ${errorText}`);
     }
 
@@ -207,7 +208,7 @@ serve(async (req) => {
     }
 
     const markdownContent = data.choices[0].message.content;
-    console.log('Analysis completed. Content length:', markdownContent.length);
+    console.log('Analysis completed successfully. Content length:', markdownContent.length);
     
     // Extract overall score
     const scorePattern = /\*\*Overall Score:\*\*\s*(\d+)/;
@@ -230,7 +231,7 @@ serve(async (req) => {
     console.error('Error in analyze-style function:', error);
     
     return new Response(JSON.stringify({ 
-      error: error.message
+      error: error.message || 'Analysis failed'
     }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
