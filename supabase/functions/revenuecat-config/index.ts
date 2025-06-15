@@ -1,62 +1,48 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { corsHeaders } from '../_shared/cors.ts'
 
-// This endpoint provides the public RevenueCat API key to the client
-// This is a safer approach than embedding it directly in the client code
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+};
 
 serve(async (req) => {
-  // Handle OPTIONS request for CORS
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get RevenueCat API key from environment variables
-    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_KEY')
+    const publicKey = Deno.env.get('REVENUECAT_PUBLIC_KEY');
+    const isDevelopment = !publicKey || publicKey.trim() === '';
 
-    if (!publicKey) {
-      console.log('RevenueCat public key not configured - development mode')
-      return new Response(
-        JSON.stringify({
-          publicKey: '',
-          developmentMode: true
-        }),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-          status: 200,
-        },
-      )
-    }
+    console.log('RevenueCat config requested:', {
+      hasPuplicKey: !!publicKey,
+      isDevelopment
+    });
 
-    // Return the public key
-    return new Response(
-      JSON.stringify({
-        publicKey,
-        developmentMode: false
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 200,
-      },
-    )
+    return new Response(JSON.stringify({
+      publicKey: publicKey || null,
+      developmentMode: isDevelopment,
+      configured: !isDevelopment
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
   } catch (error) {
-    console.error('Error in revenuecat-config function:', error)
+    console.error('RevenueCat config error:', error);
     
-    return new Response(
-      JSON.stringify({ error: 'Failed to get RevenueCat configuration' }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 500,
-      },
-    )
+    return new Response(JSON.stringify({
+      error: 'Configuration error',
+      publicKey: null,
+      developmentMode: true,
+      configured: false
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
-})
+});
+
+console.log('RevenueCat Config Edge Function is running...');

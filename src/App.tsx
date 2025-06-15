@@ -8,15 +8,41 @@ import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
+import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
+import { useAuthState } from "./hooks/useAuthState";
+import { LoadingScreen } from "./components/LoadingScreen";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
+
+const AppRoutes = () => {
+  const { isLoading, isAuthenticated } = useAuthState();
+
+  if (isLoading) {
+    return <LoadingScreen message="Checking authentication..." />;
+  }
+
+  return (
+    <Routes>
+      <Route path="/auth" element={<Auth />} />
+      {isAuthenticated ? (
+        <>
+          <Route path="/*" element={<Index />} />
+          <Route path="/profile" element={<Profile />} />
+        </>
+      ) : (
+        <Route path="*" element={<Auth />} />
+      )}
+    </Routes>
+  );
+};
 
 const App = () => {
   return (
@@ -24,15 +50,13 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <SubscriptionProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/*" element={<Index />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/auth" element={<Auth />} />
-            </Routes>
-          </BrowserRouter>
-        </SubscriptionProvider>
+        <AuthErrorBoundary>
+          <SubscriptionProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </SubscriptionProvider>
+        </AuthErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );

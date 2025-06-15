@@ -7,27 +7,27 @@ import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { useSession } from "@/hooks/useSession";
+import { useAuthState } from "@/hooks/useAuthState";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname.split('/')[1] || 'dashboard';
-  const { session, user, isLoading } = useSession();
+  const { isLoading, isAuthenticated } = useAuthState();
 
-  // Check authentication and redirect if needed
+  // Redirect if not authenticated
   useEffect(() => {
-    // Only redirect if we're done loading and have no session
-    if (!isLoading && (!session || !user)) {
-      navigate('/auth');
+    if (!isLoading && !isAuthenticated) {
+      navigate('/auth', { replace: true });
       return;
     }
-  }, [session, user, isLoading, navigate]);
+  }, [isLoading, isAuthenticated, navigate]);
 
   // Sync tab value with URL
   useEffect(() => {
     if (location.pathname === '/') {
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
   }, [location.pathname, navigate]);
 
@@ -37,21 +37,11 @@ const Index = () => {
 
   // Show loading while checking authentication
   if (isLoading) {
-    return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex items-center justify-center">
-        <motion.div 
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="text-white text-lg font-medium"
-        >
-          Loading your style profile...
-        </motion.div>
-      </div>
-    );
+    return <LoadingScreen message="Loading your style profile..." />;
   }
 
-  // Don't render main app if not authenticated (will redirect in useEffect)
-  if (!session || !user) {
+  // Don't render if not authenticated
+  if (!isAuthenticated) {
     return null;
   }
 
