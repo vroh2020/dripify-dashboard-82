@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -107,7 +106,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         breakdown: [
           { category: "Overall Style", score: 86, emoji: "✨" }
         ],
-        tips: ["Great outfit choice!", "The colors work well together."]
+        tips: [
+          { category: "General", tip: "Great outfit choice!", level: "beginner" },
+          { category: "Colors", tip: "The colors work well together.", level: "intermediate" }
+        ]
       };
       
       setAnalysisResult(demoResult);
