@@ -67,6 +67,7 @@ export type Database = {
           image_url: string
           tags: string[] | null
           title: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -75,6 +76,7 @@ export type Database = {
           image_url: string
           tags?: string[] | null
           title: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -83,6 +85,7 @@ export type Database = {
           image_url?: string
           tags?: string[] | null
           title?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -109,6 +112,7 @@ export type Database = {
           thumbnail_url: string | null
           tips: Json | null
           total_score: number
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -124,6 +128,7 @@ export type Database = {
           thumbnail_url?: string | null
           tips?: Json | null
           total_score: number
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -139,6 +144,7 @@ export type Database = {
           thumbnail_url?: string | null
           tips?: Json | null
           total_score?: number
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -149,6 +155,7 @@ export type Database = {
           achievement_type: string
           id: string
           metadata: Json | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -156,6 +163,7 @@ export type Database = {
           achievement_type: string
           id?: string
           metadata?: Json | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -163,6 +171,7 @@ export type Database = {
           achievement_type?: string
           id?: string
           metadata?: Json | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [

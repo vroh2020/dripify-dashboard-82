@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Session, User } from '@supabase/supabase-js';
@@ -16,15 +17,27 @@ export function useSession(): UseSessionReturn {
   const [user, setUser] = useState<User | null>(null);
   const [userMetadata, setUserMetadata] = useState<Record<string, unknown> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
+
+  const sanitizeMetadata = useCallback((metadata: Record<string, any> | null) => {
+    if (!metadata) return null;
+    
+    const sanitizedMetadata: Record<string, any> = {};
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        sanitizedMetadata[key] = sanitizeHtml(value);
+      } else {
+        sanitizedMetadata[key] = value;
+      }
+    });
+    return sanitizedMetadata;
+  }, []);
 
   const updateSession = useCallback((session: Session | null) => {
     setSession(session);
     setUser(session?.user || null);
-    setUserMetadata(session?.user?.user_metadata || null);
+    setUserMetadata(sanitizeMetadata(session?.user?.user_metadata || null));
     setIsLoading(false);
-    setInitialized(true);
-  }, []);
+  }, [sanitizeMetadata]);
 
   const refetch = useCallback(async () => {
     try {
@@ -45,7 +58,7 @@ export function useSession(): UseSessionReturn {
   useEffect(() => {
     let mounted = true;
 
-    // Get initial session with security improvements
+    // Get initial session
     const getInitialSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -57,30 +70,7 @@ export function useSession(): UseSessionReturn {
           return;
         }
         
-        if (session) {
-          setSession(session);
-          setUser(session?.user || null);
-          
-          // Sanitize user metadata to prevent XSS
-          const metadata = session?.user?.user_metadata;
-          if (metadata) {
-            const sanitizedMetadata: Record<string, any> = {};
-            Object.entries(metadata).forEach(([key, value]) => {
-              if (typeof value === 'string') {
-                sanitizedMetadata[key] = sanitizeHtml(value);
-              } else {
-                sanitizedMetadata[key] = value;
-              }
-            });
-            setUserMetadata(sanitizedMetadata);
-          } else {
-            setUserMetadata(null);
-          }
-        } else {
-          updateSession(null);
-        }
-        
-        setIsLoading(false);
+        updateSession(session);
       } catch (error) {
         if (!mounted) return;
         console.error('Initial session error:', error);
@@ -93,33 +83,8 @@ export function useSession(): UseSessionReturn {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      
       console.log('Auth state change:', event, session ? 'session exists' : 'no session');
-      
-      if (session) {
-        setSession(session);
-        setUser(session?.user || null);
-        
-        // Sanitize user metadata to prevent XSS
-        const metadata = session?.user?.user_metadata;
-        if (metadata) {
-          const sanitizedMetadata: Record<string, any> = {};
-          Object.entries(metadata).forEach(([key, value]) => {
-            if (typeof value === 'string') {
-              sanitizedMetadata[key] = sanitizeHtml(value);
-            } else {
-              sanitizedMetadata[key] = value;
-            }
-          });
-          setUserMetadata(sanitizedMetadata);
-        } else {
-          setUserMetadata(null);
-        }
-      } else {
-        updateSession(null);
-      }
-      
-      setIsLoading(false);
+      updateSession(session);
     });
 
     getInitialSession();
@@ -128,7 +93,7 @@ export function useSession(): UseSessionReturn {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [updateSession, initialized]);
+  }, [updateSession]);
 
   return { session, user, userMetadata, isLoading, refetch };
 }

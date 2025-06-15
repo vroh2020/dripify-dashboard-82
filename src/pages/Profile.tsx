@@ -1,91 +1,36 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Crown, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useStatsStore } from "@/store/statsStore";
 import { ProUpgrade } from "@/components/subscription/ProUpgrade";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
+import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import { ProfileStats } from "@/components/profile/ProfileStats";
 
-interface Breakdown {
-  category: string;
-  score: number;
-  emoji?: string;
-  details?: string;
+interface Profile {
+  username: string;
+  avatar_url: string | null;
+  id: string;
 }
 
 const Profile = () => {
-  const [profile, setProfile] = useState<{ username: string; avatar_url: string | null, id: string } | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const { stats, isLoading, error, fetchUserStats } = useStatsStore();
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
-  const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { isPro } = useSubscription();
 
   useEffect(() => {
     fetchProfile();
-    
-    // DISABLED: Real-time subscriptions for performance optimization
-    // These were causing 94.8% of database load with duplicate subscriptions
-    /*
-    // Set up real-time subscription for profile updates
-    const profileChannel = supabase
-      .channel('profile_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'profiles' 
-        }, 
-        () => {
-          fetchProfile();
-        }
-      )
-      .subscribe();
-
-    // Set up real-time subscription for style analysis updates
-    const analysisChannel = supabase
-      .channel('style_analysis_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'style_analyses' 
-        }, 
-        async () => {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            fetchUserStats(user.id);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(profileChannel);
-      supabase.removeChannel(analysisChannel);
-    };
-    */
-  }, [fetchUserStats]);
-
-  useEffect(() => {
-    const initializeStats = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        fetchUserStats(user.id);
-      }
-    };
-    
     initializeStats();
-  }, [fetchUserStats]);
+  }, []);
 
   const fetchProfile = async () => {
     try {
@@ -103,8 +48,6 @@ const Profile = () => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
-        
         if (error.code === 'PGRST116') {
           // Create a profile if it doesn't exist
           const username = user.email?.split('@')[0] || 'User';
@@ -115,26 +58,13 @@ const Profile = () => {
               username
             });
 
-          if (insertError) {
-            console.error('Error creating profile:', insertError);
-            toast({
-              title: "Error creating profile",
-              description: "Could not create a profile for you",
-              variant: "destructive",
-            });
-          } else {
+          if (!insertError) {
             setProfile({
               username,
               avatar_url: null,
               id: user.id
             });
           }
-        } else {
-          toast({
-            title: "Error loading profile",
-            description: "Could not load profile information",
-            variant: "destructive",
-          });
         }
         return;
       }
@@ -150,6 +80,13 @@ const Profile = () => {
       console.error('Error in fetchProfile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const initializeStats = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      fetchUserStats(user.id);
     }
   };
 
@@ -201,36 +138,11 @@ const Profile = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl mx-auto space-y-6"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
-              onClick={() => navigate('/')}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-xl font-medium text-white/90 ml-2">Profile</h1>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {isPro && (
-              <div className="flex items-center gap-1 bg-gradient-to-r from-purple-600/20 to-pink-600/20 px-3 py-1 rounded-full">
-                <Crown className="h-4 w-4 text-purple-400" />
-                <span className="text-sm font-medium text-purple-300">Pro</span>
-              </div>
-            )}
-            
-            <Button 
-              variant="ghost" 
-              className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
-              onClick={handleLogout}
-              disabled={loggingOut}
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
+        <ProfileHeader 
+          isPro={isPro} 
+          onLogout={handleLogout} 
+          isLoggingOut={loggingOut} 
+        />
 
         <Card className="bg-black/20 backdrop-blur-lg border-white/10">
           <CardContent className="p-6">
@@ -247,50 +159,9 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Pro Upgrade Card */}
         <ProUpgrade />
 
-        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'} gap-4`}>
-          <Card className="bg-black/20 backdrop-blur-lg border-white/10">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4 text-white/90">Style Stats</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <p className="text-white/60">Total Scans:</p>
-                  <p className="text-white font-medium">{stats.totalScans || 0}</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-white/60">Average Score:</p>
-                  <p className="text-white font-medium">{stats.averageScore || 0}</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-white/60">Best Category:</p>
-                  <p className="text-white font-medium">{stats.bestCategory || 'N/A'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-black/20 backdrop-blur-lg border-white/10">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4 text-white/90">Recent Activity</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <p className="text-white/60">Last Scan:</p>
-                  <p className="text-white font-medium">{stats.lastScan || 'No scans yet'}</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-white/60">Improved Categories:</p>
-                  <p className="text-white font-medium">{stats.improvedCategories || 0}</p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <p className="text-white/60">Style Streak:</p>
-                  <p className="text-white font-medium">{stats.streak || 0} days</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <ProfileStats stats={stats} />
 
         {error && (
           <Card className="bg-red-500/10 backdrop-blur-lg border-red-500/30">
