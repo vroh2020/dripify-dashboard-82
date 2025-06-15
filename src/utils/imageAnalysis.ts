@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
@@ -77,8 +76,13 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
       const { data: { user } } = await supabase.auth.getUser();
       const userId = user?.id || 'anonymous';
       
-      if (!analysisRateLimiter.canMakeRequest(userId)) {
-        throw new Error('Too many analysis requests. Please wait a moment before trying again.');
+      // Fixed: Call analysisRateLimiter directly, not as a method
+      const rateLimitResult = analysisRateLimiter(userId);
+      if (!rateLimitResult.allowed) {
+        const retryMessage = rateLimitResult.retryAfter 
+          ? `Please wait ${rateLimitResult.retryAfter} seconds before trying again.`
+          : 'Please wait a moment before trying again.';
+        throw new Error(`Too many analysis requests. ${retryMessage}`);
       }
     }
 

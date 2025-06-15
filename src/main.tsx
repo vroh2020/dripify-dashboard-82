@@ -1,4 +1,3 @@
-
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
@@ -51,12 +50,11 @@ class SplashManager {
     try {
       console.log('🚀 Initializing Capacitor splash screen for iOS');
       
-      // Ensure splash stays visible with proper configuration
+      // Ensure splash stays visible with proper configuration (removed invalid showSpinner property)
       await SplashScreen.show({
         autoHide: false,
         fadeInDuration: 0,
-        fadeOutDuration: 500,
-        showSpinner: false
+        fadeOutDuration: 500
       });
       
       console.log('✅ Capacitor splash screen secured with enhanced config');
