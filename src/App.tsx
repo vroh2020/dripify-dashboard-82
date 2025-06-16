@@ -1,65 +1,110 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { supabase } from '@/integrations/supabase/client';
+import { useSession } from '@/hooks/useSession';
+import { ModernOnboarding } from '@/components/onboarding/ModernOnboarding';
+import { ProfilePage } from '@/pages/ProfilePage';
+import { HomePage } from '@/pages/HomePage';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { SimpleSubscriptionProvider } from '@/components/subscription/SimpleSubscriptionProvider';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import Profile from "./pages/Profile";
-import Auth from "./pages/Auth";
-import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
-import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
-import { useAuthState } from "./hooks/useAuthState";
-import { LoadingScreen } from "./components/LoadingScreen";
+function App() {
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const { session, user } = useSession();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-});
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .single();
 
-const AppRoutes = () => {
-  const { isLoading, isAuthenticated } = useAuthState();
+        if (error) {
+          console.error("Error fetching onboarding status:", error);
+          return;
+        }
 
-  if (isLoading) {
-    return <LoadingScreen message="Checking authentication..." />;
-  }
+        if (!data?.onboarding_completed) {
+          console.log('Onboarding not completed, showing onboarding');
+          setShowOnboarding(true);
+        } else {
+          console.log('Onboarding already completed');
+          setShowOnboarding(false);
+        }
+      } else {
+        console.log('No user session, hiding onboarding');
+        setShowOnboarding(false);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [session, user]);
+
+  const handleOnboardingComplete = (userData: any) => {
+    console.log('Onboarding completed with data:', userData);
+    setShowOnboarding(false);
+  };
 
   return (
-    <Routes>
-      <Route path="/auth" element={<Auth />} />
-      {isAuthenticated ? (
-        <>
-          <Route path="/*" element={<Index />} />
-          <Route path="/profile" element={<Profile />} />
-        </>
-      ) : (
-        <Route path="*" element={<Auth />} />
-      )}
-    </Routes>
-  );
-};
+    <QueryClientProvider client={new QueryClient()}>
+      <BrowserRouter>
+        <SimpleSubscriptionProvider>
+          <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
+            <Routes>
+              <Route path="/" element={<HomePage />} />
 
-const App = () => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AuthErrorBoundary>
-          <SubscriptionProvider>
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </SubscriptionProvider>
-        </AuthErrorBoundary>
-      </TooltipProvider>
+              <Route
+                path="/onboarding"
+                element={
+                  session ? (
+                    showOnboarding ? (
+                      <ModernOnboarding onComplete={handleOnboardingComplete} />
+                    ) : (
+                      <Navigate to="/profile" replace />
+                    )
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/login"
+                element={
+                  session ? (
+                    <Navigate to="/profile" replace />
+                  ) : (
+                    <div className="flex justify-center items-center min-h-screen">
+                      <Auth
+                        supabaseClient={supabase}
+                        appearance={{ theme: ThemeSupa }}
+                        providers={['google', 'github']}
+                        redirectTo={`${window.location.origin}/profile`}
+                      />
+                    </div>
+                  )
+                }
+              />
+            </Routes>
+          </div>
+        </SimpleSubscriptionProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
-};
+}
 
 export default App;
