@@ -33,7 +33,7 @@ export const useRevenueCatManager = () => {
     console.log(`🚀 RevenueCat Manager: ${message}`, data || '');
   }, []);
 
-  // Initialize RevenueCat with API key from Supabase
+  // Initialize RevenueCat with better error handling
   const initializeRevenueCat = useCallback(async () => {
     if (isRevenueCatInitialized || initializationPromise) {
       debugLog('RevenueCat already initialized');
@@ -91,8 +91,8 @@ export const useRevenueCatManager = () => {
         debugLog('RevenueCat configured successfully');
         isRevenueCatInitialized = true;
 
-        // Fetch initial data
-        await Promise.all([
+        // Fetch initial data with better error handling
+        await Promise.allSettled([
           fetchOfferings(),
           fetchSubscriptionStatus()
         ]);
@@ -100,14 +100,22 @@ export const useRevenueCatManager = () => {
       } catch (error) {
         debugLog('RevenueCat initialization failed', error);
         
-        // Check if it's a simulator-specific error
         const errorMessage = error?.message || '';
-        if (errorMessage.includes('No active account') || errorMessage.includes('StoreKit')) {
-          debugLog('iOS Simulator detected - providing helpful guidance');
+        
+        // Check for specific simulator errors and provide helpful guidance
+        if (errorMessage.includes('No active account')) {
+          debugLog('iOS Simulator needs Apple ID sign-in');
           toast({
             title: "iOS Simulator Setup Required",
-            description: "Sign in with Apple ID in iOS Simulator Settings to test purchases.",
-            duration: 5000
+            description: "Sign in with your Apple ID in iOS Simulator: Device → Sign In to Apple ID",
+            duration: 8000
+          });
+        } else if (errorMessage.includes('None of the products registered')) {
+          debugLog('StoreKit configuration issue detected');
+          toast({
+            title: "StoreKit Configuration Missing",
+            description: "Add DripMax.storekit to Xcode project and configure scheme settings.",
+            duration: 8000
           });
         }
         
@@ -127,7 +135,7 @@ export const useRevenueCatManager = () => {
     return initializationPromise;
   }, [user?.id, debugLog, toast]);
 
-  // Fetch offerings from RevenueCat
+  // Fetch offerings with improved error handling
   const fetchOfferings = useCallback(async () => {
     try {
       if (!isRevenueCatInitialized || !Capacitor.isNativePlatform()) {
@@ -158,13 +166,22 @@ export const useRevenueCatManager = () => {
         debugLog(`Target product '${REVENUECAT_CONFIG.products.monthly}' found: ${hasTargetProduct}`);
         
         if (!hasTargetProduct) {
-          debugLog('Target product not found in offerings - check StoreKit configuration');
+          debugLog('Target product not found - check configuration');
           toast({
-            title: "Product Configuration Issue",
-            description: "The subscription product is not properly configured in StoreKit.",
-            variant: "destructive"
+            title: "Product Not Found",
+            description: `Product ID "${REVENUECAT_CONFIG.products.monthly}" not found in StoreKit configuration.`,
+            variant: "destructive",
+            duration: 8000
           });
         }
+      } else {
+        debugLog('No current offering available');
+        toast({
+          title: "No Offerings Available",
+          description: "Could not load subscription options. Check StoreKit configuration.",
+          variant: "destructive",
+          duration: 6000
+        });
       }
 
       const allOfferings = Object.values(offeringsData.all || {});
@@ -174,25 +191,33 @@ export const useRevenueCatManager = () => {
     } catch (error) {
       debugLog('Failed to fetch offerings', error);
       
-      // Provide specific guidance for common errors
       const errorMessage = error?.message || '';
       if (errorMessage.includes('None of the products registered')) {
         toast({
           variant: "destructive",
-          title: "StoreKit Configuration Required",
-          description: "Add DripMax.storekit to your Xcode project and set it in scheme settings."
+          title: "StoreKit Setup Needed",
+          description: "Add DripMax.storekit to Xcode and set in scheme options.",
+          duration: 8000
+        });
+      } else if (errorMessage.includes('No active account')) {
+        toast({
+          variant: "destructive", 
+          title: "Apple ID Required",
+          description: "Sign in to Apple ID in iOS Simulator settings.",
+          duration: 6000
         });
       } else {
         toast({
           variant: "destructive",
-          title: "Could not load subscription options",
-          description: "Please check your connection and try again."
+          title: "Network Error",
+          description: "Could not load subscription options. Check connection.",
+          duration: 4000
         });
       }
     }
   }, [debugLog, toast]);
 
-  // Fetch current subscription status
+  // Fetch subscription status with better error handling
   const fetchSubscriptionStatus = useCallback(async () => {
     try {
       if (!isRevenueCatInitialized || !Capacitor.isNativePlatform()) {
@@ -242,16 +267,15 @@ export const useRevenueCatManager = () => {
     }
   }, [debugLog, subscription]);
 
-  // Purchase a product by identifier
+  // Purchase with better simulator handling
   const purchaseProduct = useCallback(async (productId: string) => {
     try {
       if (!Capacitor.isNativePlatform()) {
         debugLog('Web platform - simulating purchase for development');
         
-        // Simulate successful purchase on web for testing
         setSubscription({
           isActive: true,
-          expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           productId: productId,
           offeringId: 'web-simulation'
         });
@@ -281,7 +305,7 @@ export const useRevenueCatManager = () => {
         
         toast({
           title: "Welcome to Pro! 🎉",
-          description: "Your subscription is now active. Enjoy all premium features!"
+          description: "Your subscription is now active!"
         });
         
         await fetchSubscriptionStatus();
@@ -292,7 +316,7 @@ export const useRevenueCatManager = () => {
         toast({
           variant: "destructive",
           title: "Subscription Issue",
-          description: "Purchase processed but Pro access not activated. Contact support if this persists."
+          description: "Purchase processed but Pro access not activated."
         });
         return false;
       }
@@ -300,22 +324,30 @@ export const useRevenueCatManager = () => {
     } catch (error: any) {
       debugLog('Purchase failed', error);
       
-      if (error.message?.includes('cancelled')) {
+      const errorMessage = error.message || '';
+      
+      if (errorMessage.includes('cancelled')) {
         toast({
           title: "Purchase Cancelled",
           description: "You cancelled the purchase."
         });
-      } else if (error.message?.includes('No active account')) {
+      } else if (errorMessage.includes('No active account')) {
         toast({
           variant: "destructive",
           title: "Apple ID Required",
-          description: "Please sign in to your Apple ID in Settings to make purchases."
+          description: "Sign in to your Apple ID in iOS Simulator to make purchases."
+        });
+      } else if (errorMessage.includes('None of the products')) {
+        toast({
+          variant: "destructive", 
+          title: "Product Not Available",
+          description: "Add DripMax.storekit to Xcode project first."
         });
       } else {
         toast({
           variant: "destructive",
           title: "Purchase Failed",
-          description: "There was an error processing your purchase. Please try again."
+          description: "There was an error processing your purchase."
         });
       }
       
@@ -325,7 +357,7 @@ export const useRevenueCatManager = () => {
     }
   }, [debugLog, toast, fetchSubscriptionStatus]);
 
-  // Restore previous purchases
+  // Restore purchases with better error handling
   const restorePurchases = useCallback(async () => {
     try {
       if (!Capacitor.isNativePlatform()) {
@@ -351,7 +383,7 @@ export const useRevenueCatManager = () => {
       if (isPro) {
         toast({
           title: "Purchases Restored! 🎉",
-          description: "Your Pro subscription has been restored successfully."
+          description: "Your Pro subscription has been restored."
         });
         
         await fetchSubscriptionStatus();
@@ -359,7 +391,7 @@ export const useRevenueCatManager = () => {
       } else {
         toast({
           title: "No Purchases Found",
-          description: "We couldn't find any previous Pro subscriptions for your account."
+          description: "We couldn't find any previous Pro subscriptions."
         });
         return false;
       }
@@ -367,18 +399,35 @@ export const useRevenueCatManager = () => {
     } catch (error) {
       debugLog('Restore failed', error);
       
-      toast({
-        variant: "destructive",
-        title: "Restore Failed",
-        description: "Could not restore purchases. Please try again later."
-      });
+      const errorMessage = error?.message || '';
+      
+      if (errorMessage.includes('No active account')) {
+        toast({
+          variant: "destructive",
+          title: "Apple ID Required", 
+          description: "Sign in to Apple ID in iOS Simulator first."
+        });
+      } else if (errorMessage.includes('receipt')) {
+        toast({
+          variant: "destructive",
+          title: "No Receipt Available",
+          description: "No purchases to restore. StoreKit configuration may be missing."
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Restore Failed",
+          description: "Could not restore purchases. Try again later."
+        });
+      }
+      
       return false;
     } finally {
       setIsLoading(false);
     }
   }, [debugLog, toast, fetchSubscriptionStatus]);
 
-  // Initialize on mount, don't wait for user
+  // Initialize on mount
   useEffect(() => {
     debugLog('Initializing RevenueCat Manager...');
     initializeRevenueCat();
