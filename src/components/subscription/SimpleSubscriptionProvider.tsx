@@ -1,6 +1,6 @@
 
 import { createContext, useContext, ReactNode } from 'react';
-import { useRevenueCatSimple } from '@/hooks/useRevenueCatSimple';
+import { useRevenueCatSimple, SubscriptionStatus } from '@/hooks/useRevenueCatSimple';
 
 interface SimpleSubscriptionContextType {
   isPro: boolean;
@@ -31,56 +31,28 @@ interface SimpleSubscriptionProviderProps {
 export const SimpleSubscriptionProvider = ({ children }: SimpleSubscriptionProviderProps) => {
   const {
     isLoading,
-    customerInfo,
+    subscription,
     offerings,
-    getCustomerInfo,
-    purchasePackage,
-    restorePurchases,
-    hasActiveSubscription
+    fetchSubscriptionStatus,
+    purchaseProduct,
+    restorePurchases
   } = useRevenueCatSimple();
 
   const refreshSubscription = async (): Promise<void> => {
-    await getCustomerInfo();
+    await fetchSubscriptionStatus();
   };
-
-  const purchaseProduct = async (productId?: string): Promise<boolean> => {
-    const availablePackages = offerings?.availablePackages || [];
-    const packageToPurchase = availablePackages[0];
-    
-    if (!packageToPurchase) return false;
-    
-    try {
-      await purchasePackage(packageToPurchase);
-      return true;
-    } catch (error) {
-      console.error('Purchase failed:', error);
-      return false;
-    }
-  };
-
-  const handleRestorePurchases = async (): Promise<boolean> => {
-    try {
-      await restorePurchases();
-      return true;
-    } catch (error) {
-      console.error('Restore failed:', error);
-      return false;
-    }
-  };
-
-  const expirationDate = customerInfo?.entitlements?.active?.pro?.expirationDate 
-    ? new Date(customerInfo.entitlements.active.pro.expirationDate)
-    : null;
 
   const value = {
-    isPro: hasActiveSubscription(),
+    isPro: subscription.isActive,
     isLoading,
-    expirationDate,
+    expirationDate: subscription.expirationDate,
     purchaseProduct,
-    restorePurchases: handleRestorePurchases,
+    restorePurchases,
     refreshSubscription,
-    offerings: offerings?.availablePackages || []
+    offerings
   };
+
+  console.log('🔄 SimpleSubscriptionProvider: isPro =', value.isPro, 'isLoading =', value.isLoading);
 
   return (
     <SimpleSubscriptionContext.Provider value={value}>

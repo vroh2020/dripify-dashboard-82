@@ -8,7 +8,6 @@ import { useSession } from '@/hooks/useSession';
 import { ModernOnboarding } from '@/components/onboarding/ModernOnboarding';
 import Profile from '@/pages/Profile';
 import Index from '@/pages/Index';
-import RevenueCatSimpleTestPage from '@/pages/RevenueCatSimpleTest';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { SimpleSubscriptionProvider } from '@/components/subscription/SimpleSubscriptionProvider';
 
@@ -19,35 +18,23 @@ function App() {
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       if (user) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('onboarding_completed')
-            .eq('id', user.id)
-            .single();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .single();
 
-          if (error) {
-            console.error("Error fetching onboarding status:", error);
-            // If there's an error (like column doesn't exist), assume onboarding not completed
-            setShowOnboarding(true);
-            return;
-          }
+        if (error) {
+          console.error("Error fetching onboarding status:", error);
+          return;
+        }
 
-          // Check if onboarding_completed exists and is false
-          const onboardingCompleted = data && typeof data === 'object' && 'onboarding_completed' in data 
-            ? (data as any).onboarding_completed 
-            : false;
-
-          if (!onboardingCompleted) {
-            console.log('Onboarding not completed, showing onboarding');
-            setShowOnboarding(true);
-          } else {
-            console.log('Onboarding already completed');
-            setShowOnboarding(false);
-          }
-        } catch (error) {
-          console.error('Unexpected error checking onboarding status:', error);
+        if (!data?.onboarding_completed) {
+          console.log('Onboarding not completed, showing onboarding');
           setShowOnboarding(true);
+        } else {
+          console.log('Onboarding already completed');
+          setShowOnboarding(false);
         }
       } else {
         console.log('No user session, hiding onboarding');
@@ -93,11 +80,6 @@ function App() {
                     <Profile />
                   </ProtectedRoute>
                 }
-              />
-
-              <Route
-                path="/test-revenuecat"
-                element={<RevenueCatSimpleTestPage />}
               />
 
               <Route

@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Check, RefreshCw, Timer } from "lucide-react";
-import { useRevenueCatSimple } from "@/hooks/useRevenueCatSimple";
+import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { format } from "date-fns";
 
 interface ProUpgradeProps {
@@ -11,27 +10,29 @@ interface ProUpgradeProps {
 }
 
 export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
-  const { isLoading, customerInfo, offerings, purchasePackage, restorePurchases, hasActiveSubscription } = useRevenueCatSimple();
+  const { isLoading, subscription, offerings, purchaseProduct, restorePurchases } = useRevenueCat();
   const [restoring, setRestoring] = useState(false);
 
   // Determine if user has Pro access
-  const isPro = hasActiveSubscription();
+  const isPro = subscription.isActive;
 
   // Format the expiration date if available
-  const formattedExpirationDate = customerInfo?.entitlements?.active?.pro?.expirationDate
-    ? format(new Date(customerInfo.entitlements.active.pro.expirationDate), 'MMM dd, yyyy')
+  const formattedExpirationDate = subscription.expirationDate
+    ? format(subscription.expirationDate, 'MMM dd, yyyy')
     : null;
 
   // Find the Pro product
-  const proProduct = offerings?.availablePackages?.[0];
-  
+  const proProduct = offerings?.[0]?.availablePackages?.find(pkg => 
+    pkg.product.identifier.includes('pro') || pkg.product.title.toLowerCase().includes('pro')
+  );
+
   // Format the price
-  const formattedPrice = proProduct?.product.priceString || "$12.99";
+  const formattedPrice = proProduct?.product.priceString || "$4.99";
   
   // Handle purchase
   const handlePurchase = async () => {
     if (proProduct) {
-      await purchasePackage(proProduct);
+      await purchaseProduct(proProduct.product.identifier);
     }
   };
 
@@ -39,7 +40,10 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
   const handleRestore = async () => {
     setRestoring(true);
     try {
-      await restorePurchases();
+      const restored = await restorePurchases();
+      // Note: restorePurchases now handles all success/failure messaging
+      // We don't trigger any purchase flows from here
+      return restored;
     } catch (error) {
       console.error('Error in handleRestore:', error);
     } finally {
