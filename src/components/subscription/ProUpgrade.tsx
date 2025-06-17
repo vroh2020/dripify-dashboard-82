@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Check, RefreshCw, Timer } from "lucide-react";
-import { useRevenueCat } from "@/hooks/useRevenueCat";
+import { useRevenueCatSimple } from "@/hooks/useRevenueCatSimple";
 import { format } from "date-fns";
 
 interface ProUpgradeProps {
@@ -10,29 +10,27 @@ interface ProUpgradeProps {
 }
 
 export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
-  const { isLoading, subscription, offerings, purchaseProduct, restorePurchases } = useRevenueCat();
+  const { isLoading, customerInfo, offerings, purchasePackage, restorePurchases, hasActiveSubscription } = useRevenueCatSimple();
   const [restoring, setRestoring] = useState(false);
 
   // Determine if user has Pro access
-  const isPro = subscription.isActive;
+  const isPro = hasActiveSubscription('pro');
 
   // Format the expiration date if available
-  const formattedExpirationDate = subscription.expirationDate
-    ? format(subscription.expirationDate, 'MMM dd, yyyy')
+  const formattedExpirationDate = customerInfo?.latestExpirationDate
+    ? format(new Date(customerInfo.latestExpirationDate), 'MMM dd, yyyy')
     : null;
 
-  // Find the Pro product
-  const proProduct = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier.includes('pro') || pkg.product.title.toLowerCase().includes('pro')
-  );
-
+  // Find the Pro product from available packages
+  const proProduct = offerings?.availablePackages?.[0]; // Use first available package
+  
   // Format the price
-  const formattedPrice = proProduct?.product.priceString || "$4.99";
+  const formattedPrice = proProduct?.product?.priceString || "$12.99";
   
   // Handle purchase
   const handlePurchase = async () => {
     if (proProduct) {
-      await purchaseProduct(proProduct.product.identifier);
+      await purchasePackage(proProduct);
     }
   };
 
