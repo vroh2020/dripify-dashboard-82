@@ -1,5 +1,6 @@
+
 import { createContext, useContext, ReactNode } from 'react';
-import { useRevenueCatSimple } from '@/hooks/useRevenueCatSimple';
+import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -32,51 +33,33 @@ interface SubscriptionProviderProps {
 export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) => {
   const {
     isLoading,
-    hasActiveSubscription,
+    subscription,
     offerings,
-    purchasePackage,
-    restorePurchases,
-    customerInfo
-  } = useRevenueCatSimple();
+    fetchSubscriptionStatus,
+    purchaseProduct,
+    restorePurchases
+  } = useRevenueCatManager();
 
   // Check if user has Pro subscription
   const checkSubscription = async (): Promise<boolean> => {
-    return hasActiveSubscription('pro');
+    const status = await fetchSubscriptionStatus();
+    return status.isActive;
   };
 
-  // Force refresh the subscription status  
+  // Force refresh the subscription status
   const refreshSubscription = async (): Promise<void> => {
-    // The hook automatically refreshes, no manual action needed
-  };
-
-  // Purchase a product (adapting package purchase to product ID)
-  const purchaseProduct = async (productId: string): Promise<boolean> => {
-    try {
-      const availablePackages = offerings?.availablePackages || [];
-      const packageToPurchase = availablePackages[0]; // Use first available package
-      
-      if (!packageToPurchase) {
-        console.error('No packages available for purchase');
-        return false;
-      }
-
-      await purchasePackage(packageToPurchase);
-      return true;
-    } catch (error) {
-      console.error('Purchase failed:', error);
-      return false;
-    }
+    await fetchSubscriptionStatus();
   };
 
   const value = {
-    isPro: hasActiveSubscription('pro'),
+    isPro: subscription.isActive,
     isLoading,
-    expirationDate: customerInfo?.latestExpirationDate ? new Date(customerInfo.latestExpirationDate) : null,
+    expirationDate: subscription.expirationDate,
     checkSubscription,
     refreshSubscription,
     purchaseProduct,
     restorePurchases,
-    offerings: offerings?.availablePackages || []
+    offerings
   };
 
   console.log('🔄 SubscriptionProvider: isPro =', value.isPro, 'isLoading =', value.isLoading);

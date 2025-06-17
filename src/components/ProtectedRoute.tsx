@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { useSubscription } from './subscription/SubscriptionProvider';
+import { useSubscriptionStore } from '../store/subscriptionStore';
 import { Paywall } from './Paywall';
 
 interface ProtectedRouteProps {
@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
-  const { isPro, isLoading } = useSubscription();
+  const { isSubscribed, isLoading } = useSubscriptionStore();
 
   if (isLoading) {
     return (
@@ -18,7 +18,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!isPro) {
+  if (!isSubscribed) {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">Upgrade to Premium</h1>

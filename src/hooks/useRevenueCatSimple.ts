@@ -1,195 +1,345 @@
-import { useState, useEffect } from 'react'
-import { Purchases, LOG_LEVEL, type CustomerInfo, type PurchasesOffering } from '@revenuecat/purchases-capacitor'
-import { Capacitor } from '@capacitor/core'
 
-const API_KEY = 'appl_xeXwsXdzeTPLDObsCBanrDrxUWV'
+import { useState, useEffect, useCallback } from 'react';
+import { Purchases, PurchasesOffering, LOG_LEVEL, CustomerInfo } from '@revenuecat/purchases-capacitor';
+import { Capacitor } from '@capacitor/core';
+import { useToast } from '@/hooks/use-toast';
+import { useSession } from '@/hooks/useSession';
 
-export interface SubscriptionStatus {
+export type SubscriptionStatus = {
   isActive: boolean;
   expirationDate: Date | null;
-  productId?: string;
-}
+  productId: string | null;
+};
 
-export function useRevenueCatSimple() {
-  const [isConfigured, setIsConfigured] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null)
-  const [offerings, setOfferings] = useState<PurchasesOffering | null>(null)
+// Replace with your actual RevenueCat public API key
+const REVENUECAT_API_KEY = 'appl_YOUR_API_KEY_HERE'; // iOS public key
+const ENTITLEMENT_ID = 'pro';
+const PRODUCT_ID = 'gs_1299_1m';
 
-  // Check if we're on a supported platform
-  const isNativePlatform = Capacitor.isNativePlatform()
+let isInitialized = false;
 
-  // Configure RevenueCat
-  const configure = async () => {
-    // Skip RevenueCat configuration on web
-    if (!isNativePlatform) {
-      console.log('🌐 Web platform detected - RevenueCat skipped (mobile-only)');
-      setIsConfigured(false);
-      setIsLoading(false);
+export const useRevenueCatSimple = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [offerings, setOfferings] = useState<PurchasesOffering[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionStatus>({
+    isActive: false,
+    expirationDate: null,
+    productId: null,
+  });
+  const { toast } = useToast();
+  const { user } = useSession();
+
+  const debugLog = useCallback((message: string, data?: any) => {
+    console.log(`🚀 RevenueCat Simple: ${message}`, data || '');
+  }, []);
+
+  // Initialize RevenueCat
+  const initializeRevenueCat = useCallback(async () => {
+    if (isInitialized) {
+      debugLog('Already initialized');
       return;
     }
 
     try {
-      setIsLoading(true)
-      setError(null)
-
-      // Set debug logs for development
-      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG })
+      debugLog('🍎 Starting RevenueCat initialization...');
       
-      // Configure with API key
+      // Skip on web platform
+      if (!Capacitor.isNativePlatform()) {
+        debugLog('Web platform - using development mode');
+        setSubscription({
+          isActive: false, // Change to true for testing paywall
+          expirationDate: null,
+          productId: 'web-dev'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Configure RevenueCat
+      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
       await Purchases.configure({
-        apiKey: API_KEY,
-        appUserID: null // Let RevenueCat generate anonymous ID
-      })
+        apiKey: REVENUECAT_API_KEY,
+        appUserID: user?.id || null
+      });
 
-      setIsConfigured(true)
-      console.log('✅ RevenueCat configured successfully')
-    } catch (err: any) {
-      setError(`Configuration failed: ${err.message}`)
-      console.error('❌ RevenueCat configuration error:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      debugLog('✅ RevenueCat configured successfully');
+      isInitialized = true;
 
-  // Get customer info
-  const getCustomerInfo = async () => {
-    if (!isNativePlatform) return null;
+      // Fetch initial data
+      await Promise.all([
+        fetchOfferings(),
+        fetchSubscriptionStatus()
+      ]);
 
-    try {
-      setIsLoading(true)
-      const result = await Purchases.getCustomerInfo()
-      setCustomerInfo(result.customerInfo)
-      return result.customerInfo
-    } catch (err: any) {
-      setError(`Failed to get customer info: ${err.message}`)
-      console.error('❌ Customer info error:', err)
-      return null
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Get offerings
-  const getOfferings = async () => {
-    if (!isNativePlatform) return null;
-
-    try {
-      setIsLoading(true)
-      const result = await Purchases.getOfferings()
-      setOfferings(result.current)
-      return result
-    } catch (err: any) {
-      setError(`Failed to get offerings: ${err.message}`)
-      console.error('❌ Offerings error:', err)
-      return null
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Make a purchase
-  const purchasePackage = async (packageToPurchase: any) => {
-    if (!isNativePlatform) {
-      throw new Error('Purchases only available on mobile platforms');
-    }
-
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const result = await Purchases.purchasePackage({ 
-        offeringIdentifier: packageToPurchase.offeringIdentifier,
-        packageIdentifier: packageToPurchase.identifier
-      })
+    } catch (error) {
+      debugLog('❌ RevenueCat initialization failed', error);
       
-      // Update customer info after purchase
-      setCustomerInfo(result.customerInfo)
+      const errorMessage = error?.message || '';
       
-      console.log('✅ Purchase successful:', result)
-      return result
-    } catch (err: any) {
-      setError(`Purchase failed: ${err.message}`)
-      console.error('❌ Purchase error:', err)
-      throw err
+      if (errorMessage.includes('Invalid API key')) {
+        toast({
+          title: "RevenueCat API Key Error",
+          description: "Please check your RevenueCat API key configuration.",
+          variant: "destructive",
+          duration: 8000
+        });
+      } else if (errorMessage.includes('None of the products registered')) {
+        toast({
+          title: "Product Configuration Error",
+          description: "Product gs_1299_1m not found. Check App Store Connect and RevenueCat dashboard.",
+          variant: "destructive",
+          duration: 8000
+        });
+      }
+      
+      // Fallback to free mode
+      setSubscription({
+        isActive: false,
+        expirationDate: null,
+        productId: 'error-fallback'
+      });
+      
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  }, [user?.id, debugLog, toast]);
+
+  // Fetch offerings
+  const fetchOfferings = useCallback(async () => {
+    try {
+      if (!isInitialized || !Capacitor.isNativePlatform()) {
+        return;
+      }
+
+      debugLog('🛒 Fetching offerings...');
+      const offeringsData = await Purchases.getOfferings();
+      
+      debugLog('📦 Offerings received:', {
+        current: offeringsData.current?.identifier,
+        allCount: Object.keys(offeringsData.all || {}).length
+      });
+
+      if (offeringsData.current) {
+        const packages = offeringsData.current.availablePackages || [];
+        debugLog('📋 Available packages:', packages.map(pkg => ({
+          identifier: pkg.identifier,
+          productId: pkg.product.identifier,
+          price: pkg.product.priceString
+        })));
+
+        // Check for our specific product
+        const hasTargetProduct = packages.some(
+          pkg => pkg.product.identifier === PRODUCT_ID
+        );
+        debugLog(`🎯 Target product '${PRODUCT_ID}' found: ${hasTargetProduct}`);
+        
+        if (!hasTargetProduct) {
+          debugLog('❌ Target product not found in offerings');
+          toast({
+            title: "Product Not Available",
+            description: `Product ${PRODUCT_ID} not found in App Store Connect offerings.`,
+            variant: "destructive",
+            duration: 8000
+          });
+        }
+      }
+
+      const allOfferings = Object.values(offeringsData.all || {});
+      setOfferings(allOfferings);
+
+    } catch (error) {
+      debugLog('❌ Failed to fetch offerings', error);
+      toast({
+        variant: "destructive",
+        title: "Failed to Load Products",
+        description: "Could not load subscription options from App Store.",
+        duration: 6000
+      });
+    }
+  }, [debugLog, toast]);
+
+  // Fetch subscription status
+  const fetchSubscriptionStatus = useCallback(async () => {
+    try {
+      if (!isInitialized || !Capacitor.isNativePlatform()) {
+        return subscription;
+      }
+
+      debugLog('👤 Fetching customer info...');
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      
+      const isProActive = Boolean(customerInfo.entitlements.active?.[ENTITLEMENT_ID]?.isActive);
+      debugLog(`🎖️ Pro subscription status: ${isProActive ? 'Active' : 'Inactive'}`);
+
+      let expirationDate = null;
+      let productId = null;
+
+      if (isProActive && customerInfo.activeSubscriptions?.length > 0) {
+        const subId = customerInfo.activeSubscriptions[0];
+        
+        if (customerInfo.allExpirationDates?.[subId]) {
+          expirationDate = new Date(customerInfo.allExpirationDates[subId] * 1000);
+          debugLog('📅 Subscription expires:', expirationDate);
+        }
+        
+        productId = subId;
+      }
+
+      const newStatus = {
+        isActive: isProActive,
+        expirationDate,
+        productId
+      };
+
+      setSubscription(newStatus);
+      return newStatus;
+
+    } catch (error) {
+      debugLog('❌ Failed to fetch subscription status', error);
+      return subscription;
+    }
+  }, [debugLog, subscription]);
+
+  // Purchase product
+  const purchaseProduct = useCallback(async (productId: string = PRODUCT_ID) => {
+    try {
+      if (!Capacitor.isNativePlatform()) {
+        debugLog('🌐 Web purchase simulation');
+        setSubscription({
+          isActive: true,
+          expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          productId: productId
+        });
+        toast({
+          title: "Development Mode",
+          description: "Simulated successful purchase for web testing."
+        });
+        return true;
+      }
+
+      if (!isInitialized) {
+        throw new Error('RevenueCat not initialized');
+      }
+
+      debugLog(`💳 Starting purchase for: ${productId}`);
+      setIsLoading(true);
+
+      const result = await Purchases.purchaseStoreProduct({ 
+        productIdentifier: productId 
+      });
+      
+      const isProActive = result.customerInfo.entitlements.active?.[ENTITLEMENT_ID]?.isActive || false;
+      
+      if (isProActive) {
+        debugLog('✅ Purchase successful - Pro access activated');
+        toast({
+          title: "Welcome to Pro! 🎉",
+          description: "Your subscription is now active!"
+        });
+        
+        await fetchSubscriptionStatus();
+        return true;
+      } else {
+        debugLog('⚠️ Purchase completed but Pro access not activated');
+        toast({
+          variant: "destructive",
+          title: "Subscription Issue",
+          description: "Purchase processed but Pro access not activated."
+        });
+        return false;
+      }
+
+    } catch (error: any) {
+      debugLog('❌ Purchase failed', error);
+      
+      const errorMessage = error.message || '';
+      
+      if (errorMessage.includes('cancelled')) {
+        toast({
+          title: "Purchase Cancelled",
+          description: "You cancelled the purchase."
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Purchase Failed",
+          description: "There was an error processing your purchase."
+        });
+      }
+      
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debugLog, toast, fetchSubscriptionStatus]);
 
   // Restore purchases
-  const restorePurchases = async () => {
-    if (!isNativePlatform) {
-      throw new Error('Restore only available on mobile platforms');
-    }
-
+  const restorePurchases = useCallback(async () => {
     try {
-      setIsLoading(true)
-      setError(null)
+      if (!Capacitor.isNativePlatform()) {
+        toast({
+          title: "Web Development Mode",
+          description: "Restore purchases is simulated on web platform."
+        });
+        return false;
+      }
 
-      const result = await Purchases.restorePurchases()
-      setCustomerInfo(result.customerInfo)
+      if (!isInitialized) {
+        throw new Error('RevenueCat not initialized');
+      }
+
+      debugLog('🔄 Starting purchase restoration...');
+      setIsLoading(true);
+
+      const { customerInfo } = await Purchases.restorePurchases();
+      const isProActive = Boolean(customerInfo.entitlements.active?.[ENTITLEMENT_ID]?.isActive);
+
+      debugLog(`🔄 Restore completed - Pro status: ${isProActive}`);
+
+      if (isProActive) {
+        toast({
+          title: "Purchases Restored! 🎉",
+          description: "Your Pro subscription has been restored."
+        });
+        
+        await fetchSubscriptionStatus();
+        return true;
+      } else {
+        toast({
+          title: "No Purchases Found",
+          description: "We couldn't find any previous Pro subscriptions."
+        });
+        return false;
+      }
+
+    } catch (error) {
+      debugLog('❌ Restore failed', error);
       
-      console.log('✅ Purchases restored:', result)
-      return result
-    } catch (err: any) {
-      setError(`Restore failed: ${err.message}`)
-      console.error('❌ Restore error:', err)
-      throw err
+      toast({
+        variant: "destructive",
+        title: "Restore Failed",
+        description: "Could not restore purchases. Try again later."
+      });
+      
+      return false;
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
-  // Check if user has active subscription
-  const hasActiveSubscription = (entitlementId = 'pro') => {
-    if (!isNativePlatform || !customerInfo) return false
-    return customerInfo.entitlements.active[entitlementId]?.isActive || false
-  }
-
-  // Get subscription status in the format expected by the provider
-  const getSubscriptionStatus = (): SubscriptionStatus => {
-    const isActive = hasActiveSubscription('pro');
-    const expirationDate = customerInfo?.entitlements?.active?.pro?.expirationDate 
-      ? new Date(customerInfo.entitlements.active.pro.expirationDate) 
-      : null;
-    
-    return {
-      isActive,
-      expirationDate,
-      productId: customerInfo?.entitlements?.active?.pro?.productIdentifier
-    };
-  }
+  }, [debugLog, toast, fetchSubscriptionStatus]);
 
   // Initialize on mount
   useEffect(() => {
-    const init = async () => {
-      await configure()
-      if (isConfigured && isNativePlatform) {
-        await getCustomerInfo()
-        await getOfferings()
-      }
-    }
-    init()
-  }, [])
+    initializeRevenueCat();
+  }, [initializeRevenueCat]);
 
   return {
-    // State
-    isConfigured,
     isLoading,
-    error,
-    customerInfo,
+    subscription,
     offerings,
-    isNativePlatform,
-    
-    // Methods
-    configure,
-    getCustomerInfo,
-    getOfferings,
-    purchasePackage,
-    restorePurchases,
-    hasActiveSubscription,
-    getSubscriptionStatus
-  }
-}
+    initialized: isInitialized,
+    fetchOfferings,
+    fetchSubscriptionStatus,
+    purchaseProduct,
+    restorePurchases
+  };
+};

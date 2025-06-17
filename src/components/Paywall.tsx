@@ -1,20 +1,19 @@
 import { useState } from 'react';
-import { useRevenueCatSimple } from '../hooks/useRevenueCatSimple';
+import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
+import { useSubscription } from '../hooks/useSubscription';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Loader2 } from 'lucide-react';
+import { REVENUECAT_CONFIG } from '../config/revenueCat';
 
 interface PaywallProps {
   onPurchaseComplete?: () => void;
 }
 
 export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
-  const { offerings, isLoading, error, purchasePackage } = useRevenueCatSimple();
-  const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
+  const { packages, isLoading, error, purchasePackage } = useSubscription();
+  const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
-
-  // Get available packages
-  const packages = offerings?.availablePackages || [];
 
   const handlePurchase = async () => {
     if (!selectedPackage) return;
@@ -71,7 +70,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {pkg.product?.priceString || '$12.99'}
+                {pkg.product.priceString}
                 <span className="text-base font-normal text-muted-foreground">
                   {' '}
                   / month

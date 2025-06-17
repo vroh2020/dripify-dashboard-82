@@ -3,82 +3,392 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>DripMax</title>
+    <title>Drip Max</title>
+    <meta name="description" content="AI-Powered Style Analysis & Recommendations" />
+    <meta name="author" content="Lovable" />
+    <meta property="og:image" content="/og-image.png" />
     
+    <!-- CRITICAL: Preload essential resources -->
+    <link rel="preload" href="/src/main.tsx" as="script">
+    
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="//jjqwhxamjxsiotnhhqco.supabase.co">
+    <link rel="dns-prefetch" href="//api.studio.nebius.com">
+    
+    <!-- Prevent white flash and provide instant splash -->
     <style>
+      /* Reset and base styles */
       html, body {
         margin: 0;
         padding: 0;
         background: #1A1F2C;
         color: white;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        height: 100%;
+        overflow-x: hidden;
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
       
       #root {
         min-height: 100vh;
-        opacity: 0;
-        transition: opacity 0.5s ease;
-        background: #1A1F2C;
+        min-height: 100dvh;
       }
       
-      #root.app-ready {
-        opacity: 1;
-      }
-      
-      /* Ultra-simple splash */
-      #html-splash {
+      /* Enhanced Splash Screen System with Cool Animations */
+      .splash-screen {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: #1A1F2C;
+        height: 100dvh;
+        background: linear-gradient(135deg, #1A1F2C 0%, #2C1F3D 50%, #1A1F2C 100%);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 10000;
-        transition: opacity 0.3s ease;
+        opacity: 1;
+        transition: opacity 0.8s ease-out;
+        overflow: hidden;
       }
+
+      /* Animated Background Particles */
+      .particles {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: rgba(249, 115, 22, 0.6);
+        border-radius: 50%;
+        animation: float 6s ease-in-out infinite;
+      }
+
+      .particle:nth-child(1) { top: 20%; left: 20%; animation-delay: 0s; }
+      .particle:nth-child(2) { top: 40%; left: 80%; animation-delay: 1s; }
+      .particle:nth-child(3) { top: 70%; left: 30%; animation-delay: 2s; }
+      .particle:nth-child(4) { top: 80%; left: 70%; animation-delay: 3s; }
+      .particle:nth-child(5) { top: 30%; left: 60%; animation-delay: 4s; }
 
       .splash-content {
         text-align: center;
         color: white;
+        animation: contentFadeIn 1.2s ease-out;
+        position: relative;
+        z-index: 2;
+      }
+
+      .logo-container {
+        margin-bottom: 40px;
+        position: relative;
       }
 
       .logo {
-        width: 60px;
-        height: 60px;
-        background: #f97316;
-        border-radius: 15px;
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #dc2626 100%);
+        border-radius: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 15px;
-        font-size: 20px;
+        margin: 0 auto;
+        animation: logoFloat 3s ease-in-out infinite alternate, logoGlow 2s ease-in-out infinite alternate;
+        box-shadow: 
+          0 20px 40px rgba(249, 115, 22, 0.4),
+          0 0 0 0 rgba(249, 115, 22, 0.4);
+        position: relative;
+      }
+
+      .logo::before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        bottom: -4px;
+        background: linear-gradient(135deg, #f97316, #ea580c, #dc2626, #f97316);
+        border-radius: 28px;
+        z-index: -1;
+        animation: rotateBorder 4s linear infinite;
+        opacity: 0.8;
+      }
+
+      .logo-text {
+        font-size: 32px;
         font-weight: 900;
+        color: white;
+        letter-spacing: -2px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        animation: textPulse 2s ease-in-out infinite alternate;
       }
 
       .app-title {
-        font-size: 24px;
-        font-weight: 700;
-        color: #f97316;
-        margin: 0;
+        font-size: 36px;
+        font-weight: 800;
+        margin: 24px 0 12px 0;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #dc2626 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: titleShine 3s ease-in-out infinite;
+        position: relative;
+      }
+
+      .app-subtitle {
+        font-size: 18px;
+        color: rgba(255, 255, 255, 0.8);
+        margin: 0 0 40px 0;
+        font-weight: 400;
+        animation: subtitleFade 2s ease-in-out infinite alternate;
+      }
+
+      .loading-animation {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 32px;
+      }
+
+      .pulse-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #f97316, #ea580c);
+        animation: pulse 1.6s ease-in-out infinite both;
+        box-shadow: 0 0 20px rgba(249, 115, 22, 0.6);
+      }
+
+      .pulse-dot:nth-child(1) { animation-delay: -0.32s; }
+      .pulse-dot:nth-child(2) { animation-delay: -0.16s; }
+      .pulse-dot:nth-child(3) { animation-delay: 0s; }
+
+      .loading-progress {
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.7);
+        min-height: 24px;
+        font-weight: 500;
+        animation: progressTextGlow 2s ease-in-out infinite alternate;
+      }
+
+      .progress-bar {
+        width: 280px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 2px;
+        margin: 20px auto 0;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .progress-bar::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.4), transparent);
+        animation: progressShimmer 2s ease-in-out infinite;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #f97316 0%, #ea580c 50%, #dc2626 100%);
+        border-radius: 2px;
+        width: 0%;
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        box-shadow: 0 0 10px rgba(249, 115, 22, 0.8);
+      }
+
+      .progress-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 20px;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4));
+        animation: progressGlow 1s ease-in-out infinite alternate;
+      }
+
+      /* Enhanced Keyframe Animations */
+      @keyframes logoFloat {
+        0% { transform: translateY(0px) scale(1); }
+        100% { transform: translateY(-12px) scale(1.05); }
+      }
+
+      @keyframes logoGlow {
+        0% { box-shadow: 0 20px 40px rgba(249, 115, 22, 0.4), 0 0 0 0 rgba(249, 115, 22, 0.4); }
+        100% { box-shadow: 0 25px 50px rgba(249, 115, 22, 0.6), 0 0 30px 10px rgba(249, 115, 22, 0.2); }
+      }
+
+      @keyframes rotateBorder {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      @keyframes textPulse {
+        0% { transform: scale(1); }
+        100% { transform: scale(1.05); }
+      }
+
+      @keyframes titleShine {
+        0% { background-position: -200% center; }
+        100% { background-position: 200% center; }
+      }
+
+      @keyframes subtitleFade {
+        0% { opacity: 0.8; }
+        100% { opacity: 1; }
+      }
+
+      @keyframes progressTextGlow {
+        0% { text-shadow: 0 0 5px rgba(249, 115, 22, 0.5); }
+        100% { text-shadow: 0 0 15px rgba(249, 115, 22, 0.8), 0 0 25px rgba(249, 115, 22, 0.4); }
+      }
+
+      @keyframes progressShimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+      }
+
+      @keyframes progressGlow {
+        0% { opacity: 0.8; }
+        100% { opacity: 1; }
+      }
+
+      @keyframes pulse {
+        0%, 80%, 100% { 
+          transform: scale(0.8); 
+          opacity: 0.6; 
+        }
+        40% { 
+          transform: scale(1.2); 
+          opacity: 1; 
+        }
+      }
+
+      @keyframes float {
+        0%, 100% { 
+          transform: translateY(0px) translateX(0px); 
+          opacity: 0.6;
+        }
+        50% { 
+          transform: translateY(-20px) translateX(10px); 
+          opacity: 1;
+        }
+      }
+
+      @keyframes contentFadeIn {
+        0% {
+          opacity: 0;
+          transform: translateY(30px) scale(0.9);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .splash-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(1.1);
+        transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* App shell skeleton */
+      .app-shell {
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: linear-gradient(135deg, #1A1F2C 0%, #2C1F3D 50%, #1A1F2C 100%);
+        opacity: 0;
+        transition: opacity 0.6s ease-in;
+      }
+
+      .app-shell.ready {
+        opacity: 1;
+      }
+
+      /* Performance optimizations */
+      .gpu-accelerated {
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        will-change: transform, opacity;
+      }
+
+      /* iOS Safe Area Support */
+      @supports (padding: max(0px)) {
+        .splash-screen {
+          padding-top: max(44px, env(safe-area-inset-top));
+          padding-bottom: max(34px, env(safe-area-inset-bottom));
+        }
       }
     </style>
   </head>
+
   <body>
-    <!-- Simple splash screen -->
-    <div id="html-splash">
-      <div class="splash-content">
-        <div class="logo">D</div>
-        <h1 class="app-title">DripMax</h1>
+    <div id="root">
+      <!-- Enhanced Multi-Layer Splash Screen -->
+      <div id="html-splash" class="splash-screen gpu-accelerated">
+        <!-- Animated Background Particles -->
+        <div class="particles">
+          <div class="particle"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+          <div class="particle"></div>
+        </div>
+
+        <div class="splash-content">
+          <div class="logo-container">
+            <div class="logo">
+              <span class="logo-text">DM</span>
+            </div>
+          </div>
+          <h1 class="app-title">Drip Max</h1>
+          <p class="app-subtitle">AI-Powered Style Analysis</p>
+          <div class="loading-animation">
+            <div class="pulse-dot"></div>
+            <div class="pulse-dot"></div>
+            <div class="pulse-dot"></div>
+          </div>
+          <div class="loading-progress" id="loading-message">Initializing...</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Shell (hidden initially) -->
+      <div class="app-shell" id="app-shell">
+        <!-- React app will mount here -->
       </div>
     </div>
 
-    <!-- React app container -->
-    <div id="root"></div>
-    
+    <!-- Performance monitoring -->
+    <script>
+      // Performance timing
+      window.APP_PERFORMANCE = {
+        startTime: performance.now(),
+        metrics: {},
+        mark: function(label) {
+          this.metrics[label] = performance.now() - this.startTime;
+          console.log(`📊 ${label}: ${this.metrics[label].toFixed(2)}ms`);
+        }
+      };
+      
+      window.APP_PERFORMANCE.mark('html-parsed');
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
