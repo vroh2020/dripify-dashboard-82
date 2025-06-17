@@ -6,8 +6,8 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/hooks/useSession';
 import { ModernOnboarding } from '@/components/onboarding/ModernOnboarding';
-import { ProfilePage } from '@/pages/ProfilePage';
-import { HomePage } from '@/pages/HomePage';
+import Profile from '@/pages/Profile';
+import Index from '@/pages/Index';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { SimpleSubscriptionProvider } from '@/components/subscription/SimpleSubscriptionProvider';
 
@@ -56,7 +56,7 @@ function App() {
         <SimpleSubscriptionProvider>
           <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
             <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<Index />} />
 
               <Route
                 path="/onboarding"
@@ -77,7 +77,7 @@ function App() {
                 path="/profile"
                 element={
                   <ProtectedRoute>
-                    <ProfilePage />
+                    <Profile />
                   </ProtectedRoute>
                 }
               />
