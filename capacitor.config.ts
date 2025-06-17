@@ -10,14 +10,15 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
-      launchAutoHide: true,
-      backgroundColor: "#000000",
+      launchShowDuration: 0,        // We control timing manually
+      launchAutoHide: false,        // We hide it manually in code
+      backgroundColor: "#1A1F2C",   // Match your brand color
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
-      showSpinner: false,
+      showSpinner: false,           // We have custom loading animation
       splashFullScreen: true,
       splashImmersive: true,
+      launchFadeOutDuration: 500,   // Smooth fade out
     },
     PurchasesPlugin: {
       // RevenueCat Capacitor plugin configuration

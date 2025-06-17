@@ -305,18 +305,7 @@
         transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       }
 
-      /* App shell skeleton */
-      .app-shell {
-        min-height: 100vh;
-        min-height: 100dvh;
-        background: linear-gradient(135deg, #1A1F2C 0%, #2C1F3D 50%, #1A1F2C 100%);
-        opacity: 0;
-        transition: opacity 0.6s ease-in;
-      }
 
-      .app-shell.ready {
-        opacity: 1;
-      }
 
       /* Performance optimizations */
       .gpu-accelerated {
@@ -368,10 +357,7 @@
         </div>
       </div>
 
-      <!-- App Shell (hidden initially) -->
-      <div class="app-shell" id="app-shell">
-        <!-- React app will mount here -->
-      </div>
+      <!-- React app will mount directly to #root -->
     </div>
 
     <!-- Performance monitoring -->
