@@ -24,6 +24,11 @@ class SplashManager {
     this.isCapacitor = Capacitor.isNativePlatform();
 
     console.log('🚀 Splash Manager initialized for', Capacitor.getPlatform());
+    console.log('🔍 Splash elements found:', {
+      splashElement: !!this.splashElement,
+      progressFill: !!this.progressFill,
+      loadingMessage: !!this.loadingMessage
+    });
 
     // Handle Capacitor splash screen (disable auto-hide)
     if (this.isCapacitor) {
@@ -73,10 +78,20 @@ class SplashManager {
     this.updateProgress(100, 'Ready!');
     await new Promise(resolve => setTimeout(resolve, 300));
 
+    // Show React app first
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      rootElement.classList.add('app-ready');
+      console.log('✅ React app revealed');
+    }
+
+    // Small delay to ensure React app is visible
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     // Hide native Capacitor splash screen
     if (this.isCapacitor) {
       try {
-        await SplashScreen.hide({ fadeOutDuration: 500 });
+        await SplashScreen.hide({ fadeOutDuration: 300 });
         console.log('✅ Native splash hidden');
       } catch (error) {
         console.warn('❌ Failed to hide native splash:', error);
@@ -134,21 +149,23 @@ class AppLauncher {
   private async initializeReact(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        // FIXED: Mount React to the correct element (#root, not #app-shell)
         const rootElement = document.getElementById("root");
         if (!rootElement) {
-          throw new Error("Root element not found");
+          throw new Error("Root element #root not found");
         }
 
+        // Clear any existing content and ensure it's ready
+        rootElement.innerHTML = '';
+        
         const root = createRoot(rootElement);
         root.render(<App />);
         
-        console.log('✅ React app mounted successfully');
+        console.log('✅ React app mounted to #root successfully');
         
-        // Give React time to render
+        // Give React time to render properly
         setTimeout(() => {
           resolve();
-        }, 200);
+        }, 300);
         
       } catch (error) {
         console.error('💥 React mounting failed:', error);
@@ -176,8 +193,40 @@ class AppLauncher {
 function startApp() {
   console.log('🎯 DripMax starting with improved splash system...');
   
-  const launcher = new AppLauncher();
-  launcher.launch();
+  try {
+    const launcher = new AppLauncher();
+    launcher.launch();
+  } catch (error) {
+    console.error('💥 Failed to start app launcher:', error);
+    // Fallback: directly mount React app
+    fallbackLaunch();
+  }
+}
+
+// Fallback launch if splash system fails
+function fallbackLaunch() {
+  console.log('🔄 Using fallback launch...');
+  
+  try {
+    const rootElement = document.getElementById("root");
+    if (rootElement) {
+      rootElement.innerHTML = '';
+      const root = createRoot(rootElement);
+      root.render(<App />);
+      
+      // Hide splash elements
+      const splashElement = document.getElementById('html-splash');
+      if (splashElement) {
+        splashElement.style.display = 'none';
+      }
+      
+      // Show app
+      rootElement.classList.add('app-ready');
+      console.log('✅ Fallback launch successful');
+    }
+  } catch (error) {
+    console.error('💥 Fallback launch also failed:', error);
+  }
 }
 
 // Start when DOM is ready
