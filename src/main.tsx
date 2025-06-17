@@ -4,161 +4,119 @@ import './index.css'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { Capacitor } from '@capacitor/core'
 
-// Simplified Splash Manager
-class SplashManager {
-  private splashElement: HTMLElement | null;
-  private progressFill: HTMLElement | null;
-  private loadingMessage: HTMLElement | null;
-  private isCapacitor: boolean;
+// Simple splash screen manager
+let progress = 0;
+let currentMessage = 'Starting...';
 
-  constructor() {
-    this.splashElement = document.getElementById('html-splash');
-    this.progressFill = document.getElementById('progress-fill');
-    this.loadingMessage = document.getElementById('loading-message');
-    this.isCapacitor = Capacitor.isNativePlatform();
-
-    console.log('🚀 Splash Manager initialized for', Capacitor.getPlatform());
-    
-    // Disable auto-hide for native splash
-    if (this.isCapacitor) {
-      this.initCapacitorSplash();
-    }
+function updateProgress(newProgress: number, message?: string) {
+  progress = newProgress;
+  if (message) currentMessage = message;
+  
+  const progressFill = document.getElementById('progress-fill');
+  const loadingMessage = document.getElementById('loading-message');
+  
+  if (progressFill) {
+    progressFill.style.width = `${progress}%`;
   }
-
-  private async initCapacitorSplash() {
-    try {
-      await SplashScreen.show({ autoHide: false });
-      console.log('✅ Native splash controlled');
-    } catch (error) {
-      console.warn('⚠️ Native splash warning:', error);
-    }
+  
+  if (loadingMessage && message) {
+    loadingMessage.textContent = message;
   }
-
-  updateProgress(progress: number, message?: string) {
-    if (this.progressFill) {
-      this.progressFill.style.width = `${progress}%`;
-    }
-    
-    if (this.loadingMessage && message) {
-      this.loadingMessage.textContent = message;
-    }
-
-    console.log(`📊 ${progress}% - ${message}`);
-  }
-
-  async hide() {
-    // Show React app first
-    const rootElement = document.getElementById('root');
-    if (rootElement) {
-      rootElement.classList.add('app-ready');
-      console.log('✅ React app visible');
-    }
-
-    // Wait a moment for React to render
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // Hide native splash
-    if (this.isCapacitor) {
-      try {
-        await SplashScreen.hide({ fadeOutDuration: 300 });
-        console.log('✅ Native splash hidden');
-      } catch (error) {
-        console.warn('⚠️ Native splash hide warning:', error);
-      }
-    }
-
-    // Hide HTML splash
-    if (this.splashElement) {
-      this.splashElement.classList.add('fade-out');
-      setTimeout(() => {
-        if (this.splashElement && this.splashElement.parentNode) {
-          this.splashElement.parentNode.removeChild(this.splashElement);
-        }
-      }, 800);
-    }
-
-    console.log('🎉 App ready!');
-  }
+  
+  console.log(`${progress}% - ${currentMessage}`);
 }
 
-// Simple App Initialization
-async function initializeApp() {
-  console.log('🎯 Starting DripMax...');
+async function hideSplash() {
+  console.log('🎯 Hiding splash screen...');
   
-  const splash = new SplashManager();
+  // Show React app
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    rootElement.classList.add('app-ready');
+  }
+  
+  // Wait a moment
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  // Hide native splash if on mobile
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await SplashScreen.hide({ fadeOutDuration: 300 });
+      console.log('✅ Native splash hidden');
+    } catch (error) {
+      console.warn('Native splash warning:', error);
+    }
+  }
+  
+  // Hide HTML splash
+  const splashElement = document.getElementById('html-splash');
+  if (splashElement) {
+    splashElement.classList.add('fade-out');
+    setTimeout(() => {
+      if (splashElement.parentNode) {
+        splashElement.parentNode.removeChild(splashElement);
+      }
+    }, 800);
+  }
+  
+  console.log('✅ App ready!');
+}
+
+// Initialize app
+async function initApp() {
+  console.log('🚀 Starting DripMax...');
   
   try {
-    // Step 1: Setup
-    splash.updateProgress(25, 'Initializing...');
-    await delay(200);
+    // Update progress
+    updateProgress(25, 'Loading app...');
+    await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Step 2: Mount React App
-    splash.updateProgress(50, 'Loading interface...');
+    // Mount React
+    updateProgress(50, 'Starting interface...');
     const rootElement = document.getElementById("root");
     
     if (!rootElement) {
       throw new Error("Root element not found");
     }
 
-    // Clear root and mount React
-    rootElement.innerHTML = '';
     const root = createRoot(rootElement);
     root.render(<App />);
     
-    console.log('✅ React mounted successfully');
+    updateProgress(75, 'Almost ready...');
+    await new Promise(resolve => setTimeout(resolve, 300));
     
-    // Step 3: Finalize
-    splash.updateProgress(80, 'Almost ready...');
-    await delay(300);
-
-    // Step 4: Complete
-    splash.updateProgress(100, 'Ready!');
-    await delay(200);
-
-    // Step 5: Show app
-    await splash.hide();
+    updateProgress(100, 'Ready!');
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Hide splash
+    await hideSplash();
     
   } catch (error) {
-    console.error('💥 App init failed:', error);
+    console.error('App init failed:', error);
     
-    // Emergency fallback
-    splash.updateProgress(100, 'Loading...');
-    
+    // Emergency fallback - just show the app
     setTimeout(() => {
       const rootElement = document.getElementById("root");
       if (rootElement) {
-        try {
-          rootElement.innerHTML = '';
-          const root = createRoot(rootElement);
-          root.render(<App />);
-          rootElement.classList.add('app-ready');
-          
-          // Force hide splash
-          const splashEl = document.getElementById('html-splash');
-          if (splashEl) splashEl.style.display = 'none';
-          
-          // Force hide native splash
-          if (Capacitor.isNativePlatform()) {
-            SplashScreen.hide().catch(() => {});
-          }
-          
-          console.log('✅ Emergency fallback worked');
-        } catch (fallbackError) {
-          console.error('💥 Even fallback failed:', fallbackError);
+        const root = createRoot(rootElement);
+        root.render(<App />);
+        rootElement.classList.add('app-ready');
+        
+        // Force hide splash
+        const splashEl = document.getElementById('html-splash');
+        if (splashEl) splashEl.style.display = 'none';
+        
+        if (Capacitor.isNativePlatform()) {
+          SplashScreen.hide().catch(() => {});
         }
       }
-    }, 1000);
+    }, 500);
   }
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Start the app when DOM is ready
+// Start app when ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeApp);
+  document.addEventListener('DOMContentLoaded', initApp);
 } else {
-  // DOM already loaded
-  initializeApp();
+  initApp();
 }

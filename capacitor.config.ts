@@ -7,14 +7,6 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https'
   },
-  ios: {
-    // Fix for scene configuration warning in Capacitor apps
-    scheme: 'App',
-    // Disable scene delegate completely for Capacitor
-    contentInset: 'automatic',
-    // Use traditional AppDelegate approach
-    preferredContentMode: 'mobile'
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,        // Video recommendation: 0 for manual control
@@ -25,11 +17,11 @@ const config: CapacitorConfig = {
       showSpinner: false,           // Video recommendation: false (we have custom animation)
       splashFullScreen: false,      // Video recommendation: false for better compatibility
       splashImmersive: false,       // Video recommendation: false for better compatibility
-      launchFadeOutDuration: 500,   // Smooth fade out
+      launchFadeOutDuration: 300,   // Smooth fade out
     },
     PurchasesPlugin: {
-      // RevenueCat Capacitor plugin configuration
-      apiKey: "", // Will be set dynamically from Supabase
+      // RevenueCat configuration for your monthly subscription
+      apiKey: "appl_xeXwsXdzeTPLDObsCBanrDrxUWV", // Your iOS API key
       useAmazonSandbox: false,
       shouldShowInAppMessagesAutomatically: true
     }
