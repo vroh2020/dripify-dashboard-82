@@ -1,4 +1,3 @@
-
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -8,16 +7,24 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https'
   },
+  ios: {
+    // Fix for scene configuration warning in Capacitor apps
+    scheme: 'App',
+    // Disable scene delegate completely for Capacitor
+    contentInset: 'automatic',
+    // Use traditional AppDelegate approach
+    preferredContentMode: 'mobile'
+  },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 0,        // We control timing manually
-      launchAutoHide: false,        // We hide it manually in code
-      backgroundColor: "#1A1F2C",   // Match your brand color
+      launchShowDuration: 0,        // Video recommendation: 0 for manual control
+      launchAutoHide: false,        // Video recommendation: false for manual control
+      backgroundColor: "#1A1F2C",   // Match your brand dark color
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
-      showSpinner: false,           // We have custom loading animation
-      splashFullScreen: true,
-      splashImmersive: true,
+      showSpinner: false,           // Video recommendation: false (we have custom animation)
+      splashFullScreen: false,      // Video recommendation: false for better compatibility
+      splashImmersive: false,       // Video recommendation: false for better compatibility
       launchFadeOutDuration: 500,   // Smooth fade out
     },
     PurchasesPlugin: {
