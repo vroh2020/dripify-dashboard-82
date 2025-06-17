@@ -1,19 +1,15 @@
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/react'
+
 import { RevenueCatSimpleTest } from '../components/RevenueCatSimpleTest'
 
 const RevenueCatSimpleTestPage: React.FC = () => {
   return (
-    <IonPage>
-      <IonHeader>
-        <IonToolbar>
-          <IonTitle>RevenueCat Simple Test</IonTitle>
-        </IonToolbar>
-      </IonHeader>
-      <IonContent>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 p-4">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold text-white mb-6">RevenueCat Simple Test</h1>
         <RevenueCatSimpleTest />
-      </IonContent>
-    </IonPage>
+      </div>
+    </div>
   )
 }
 
-export default RevenueCatSimpleTestPage 
+export default RevenueCatSimpleTestPage

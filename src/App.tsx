@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,6 +8,7 @@ import { useSession } from '@/hooks/useSession';
 import { ModernOnboarding } from '@/components/onboarding/ModernOnboarding';
 import Profile from '@/pages/Profile';
 import Index from '@/pages/Index';
+import RevenueCatSimpleTestPage from '@/pages/RevenueCatSimpleTest';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { SimpleSubscriptionProvider } from '@/components/subscription/SimpleSubscriptionProvider';
 
@@ -81,6 +81,11 @@ function App() {
                     <Profile />
                   </ProtectedRoute>
                 }
+              />
+
+              <Route
+                path="/test-revenuecat"
+                element={<RevenueCatSimpleTestPage />}
               />
 
               <Route
