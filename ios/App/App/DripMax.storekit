@@ -1,11 +1,24 @@
-
 {
   "identifier" : "B6A95D58",
   "nonRenewingSubscriptions" : [
 
   ],
   "products" : [
-
+    {
+      "displayPrice" : "12.99",
+      "familyShareable" : false,
+      "internalID" : "6741270016",
+      "localizations" : [
+        {
+          "description" : "Unlock unlimited AI-powered style analysis and personalized fashion recommendations.",
+          "displayName" : "Drip Max Pro Monthly",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "gs_1299_1m",
+      "referenceName" : "Monthly Subscription",
+      "type" : "Consumable"
+    }
   ],
   "settings" : {
     "_applicationInternalID" : "6737845367",

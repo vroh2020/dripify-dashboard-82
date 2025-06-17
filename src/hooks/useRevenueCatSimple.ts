@@ -1,345 +1,149 @@
+import { useState, useEffect } from 'react'
+import { Purchases, LOG_LEVEL, type CustomerInfo, type PurchasesOffering } from '@revenuecat/purchases-capacitor'
 
-import { useState, useEffect, useCallback } from 'react';
-import { Purchases, PurchasesOffering, LOG_LEVEL, CustomerInfo } from '@revenuecat/purchases-capacitor';
-import { Capacitor } from '@capacitor/core';
-import { useToast } from '@/hooks/use-toast';
-import { useSession } from '@/hooks/useSession';
+const API_KEY = 'appl_xeXwsXdzeTPLDObsCBanrDrxUWV'
 
-export type SubscriptionStatus = {
-  isActive: boolean;
-  expirationDate: Date | null;
-  productId: string | null;
-};
+export function useRevenueCatSimple() {
+  const [isConfigured, setIsConfigured] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null)
+  const [offerings, setOfferings] = useState<PurchasesOffering | null>(null)
 
-// Replace with your actual RevenueCat public API key
-const REVENUECAT_API_KEY = 'appl_YOUR_API_KEY_HERE'; // iOS public key
-const ENTITLEMENT_ID = 'pro';
-const PRODUCT_ID = 'gs_1299_1m';
-
-let isInitialized = false;
-
-export const useRevenueCatSimple = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [offerings, setOfferings] = useState<PurchasesOffering[]>([]);
-  const [subscription, setSubscription] = useState<SubscriptionStatus>({
-    isActive: false,
-    expirationDate: null,
-    productId: null,
-  });
-  const { toast } = useToast();
-  const { user } = useSession();
-
-  const debugLog = useCallback((message: string, data?: any) => {
-    console.log(`🚀 RevenueCat Simple: ${message}`, data || '');
-  }, []);
-
-  // Initialize RevenueCat
-  const initializeRevenueCat = useCallback(async () => {
-    if (isInitialized) {
-      debugLog('Already initialized');
-      return;
-    }
-
+  // Configure RevenueCat
+  const configure = async () => {
     try {
-      debugLog('🍎 Starting RevenueCat initialization...');
-      
-      // Skip on web platform
-      if (!Capacitor.isNativePlatform()) {
-        debugLog('Web platform - using development mode');
-        setSubscription({
-          isActive: false, // Change to true for testing paywall
-          expirationDate: null,
-          productId: 'web-dev'
-        });
-        setIsLoading(false);
-        return;
-      }
+      setIsLoading(true)
+      setError(null)
 
-      // Configure RevenueCat
-      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+      // Set debug logs for development
+      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG })
+      
+      // Configure with API key
       await Purchases.configure({
-        apiKey: REVENUECAT_API_KEY,
-        appUserID: user?.id || null
-      });
+        apiKey: API_KEY,
+        appUserID: null // Let RevenueCat generate anonymous ID
+      })
 
-      debugLog('✅ RevenueCat configured successfully');
-      isInitialized = true;
-
-      // Fetch initial data
-      await Promise.all([
-        fetchOfferings(),
-        fetchSubscriptionStatus()
-      ]);
-
-    } catch (error) {
-      debugLog('❌ RevenueCat initialization failed', error);
-      
-      const errorMessage = error?.message || '';
-      
-      if (errorMessage.includes('Invalid API key')) {
-        toast({
-          title: "RevenueCat API Key Error",
-          description: "Please check your RevenueCat API key configuration.",
-          variant: "destructive",
-          duration: 8000
-        });
-      } else if (errorMessage.includes('None of the products registered')) {
-        toast({
-          title: "Product Configuration Error",
-          description: "Product gs_1299_1m not found. Check App Store Connect and RevenueCat dashboard.",
-          variant: "destructive",
-          duration: 8000
-        });
-      }
-      
-      // Fallback to free mode
-      setSubscription({
-        isActive: false,
-        expirationDate: null,
-        productId: 'error-fallback'
-      });
-      
+      setIsConfigured(true)
+      console.log('✅ RevenueCat configured successfully')
+    } catch (err: any) {
+      setError(`Configuration failed: ${err.message}`)
+      console.error('❌ RevenueCat configuration error:', err)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [user?.id, debugLog, toast]);
+  }
 
-  // Fetch offerings
-  const fetchOfferings = useCallback(async () => {
+  // Get customer info
+  const getCustomerInfo = async () => {
     try {
-      if (!isInitialized || !Capacitor.isNativePlatform()) {
-        return;
-      }
-
-      debugLog('🛒 Fetching offerings...');
-      const offeringsData = await Purchases.getOfferings();
-      
-      debugLog('📦 Offerings received:', {
-        current: offeringsData.current?.identifier,
-        allCount: Object.keys(offeringsData.all || {}).length
-      });
-
-      if (offeringsData.current) {
-        const packages = offeringsData.current.availablePackages || [];
-        debugLog('📋 Available packages:', packages.map(pkg => ({
-          identifier: pkg.identifier,
-          productId: pkg.product.identifier,
-          price: pkg.product.priceString
-        })));
-
-        // Check for our specific product
-        const hasTargetProduct = packages.some(
-          pkg => pkg.product.identifier === PRODUCT_ID
-        );
-        debugLog(`🎯 Target product '${PRODUCT_ID}' found: ${hasTargetProduct}`);
-        
-        if (!hasTargetProduct) {
-          debugLog('❌ Target product not found in offerings');
-          toast({
-            title: "Product Not Available",
-            description: `Product ${PRODUCT_ID} not found in App Store Connect offerings.`,
-            variant: "destructive",
-            duration: 8000
-          });
-        }
-      }
-
-      const allOfferings = Object.values(offeringsData.all || {});
-      setOfferings(allOfferings);
-
-    } catch (error) {
-      debugLog('❌ Failed to fetch offerings', error);
-      toast({
-        variant: "destructive",
-        title: "Failed to Load Products",
-        description: "Could not load subscription options from App Store.",
-        duration: 6000
-      });
-    }
-  }, [debugLog, toast]);
-
-  // Fetch subscription status
-  const fetchSubscriptionStatus = useCallback(async () => {
-    try {
-      if (!isInitialized || !Capacitor.isNativePlatform()) {
-        return subscription;
-      }
-
-      debugLog('👤 Fetching customer info...');
-      const { customerInfo } = await Purchases.getCustomerInfo();
-      
-      const isProActive = Boolean(customerInfo.entitlements.active?.[ENTITLEMENT_ID]?.isActive);
-      debugLog(`🎖️ Pro subscription status: ${isProActive ? 'Active' : 'Inactive'}`);
-
-      let expirationDate = null;
-      let productId = null;
-
-      if (isProActive && customerInfo.activeSubscriptions?.length > 0) {
-        const subId = customerInfo.activeSubscriptions[0];
-        
-        if (customerInfo.allExpirationDates?.[subId]) {
-          expirationDate = new Date(customerInfo.allExpirationDates[subId] * 1000);
-          debugLog('📅 Subscription expires:', expirationDate);
-        }
-        
-        productId = subId;
-      }
-
-      const newStatus = {
-        isActive: isProActive,
-        expirationDate,
-        productId
-      };
-
-      setSubscription(newStatus);
-      return newStatus;
-
-    } catch (error) {
-      debugLog('❌ Failed to fetch subscription status', error);
-      return subscription;
-    }
-  }, [debugLog, subscription]);
-
-  // Purchase product
-  const purchaseProduct = useCallback(async (productId: string = PRODUCT_ID) => {
-    try {
-      if (!Capacitor.isNativePlatform()) {
-        debugLog('🌐 Web purchase simulation');
-        setSubscription({
-          isActive: true,
-          expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          productId: productId
-        });
-        toast({
-          title: "Development Mode",
-          description: "Simulated successful purchase for web testing."
-        });
-        return true;
-      }
-
-      if (!isInitialized) {
-        throw new Error('RevenueCat not initialized');
-      }
-
-      debugLog(`💳 Starting purchase for: ${productId}`);
-      setIsLoading(true);
-
-      const result = await Purchases.purchaseStoreProduct({ 
-        productIdentifier: productId 
-      });
-      
-      const isProActive = result.customerInfo.entitlements.active?.[ENTITLEMENT_ID]?.isActive || false;
-      
-      if (isProActive) {
-        debugLog('✅ Purchase successful - Pro access activated');
-        toast({
-          title: "Welcome to Pro! 🎉",
-          description: "Your subscription is now active!"
-        });
-        
-        await fetchSubscriptionStatus();
-        return true;
-      } else {
-        debugLog('⚠️ Purchase completed but Pro access not activated');
-        toast({
-          variant: "destructive",
-          title: "Subscription Issue",
-          description: "Purchase processed but Pro access not activated."
-        });
-        return false;
-      }
-
-    } catch (error: any) {
-      debugLog('❌ Purchase failed', error);
-      
-      const errorMessage = error.message || '';
-      
-      if (errorMessage.includes('cancelled')) {
-        toast({
-          title: "Purchase Cancelled",
-          description: "You cancelled the purchase."
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Purchase Failed",
-          description: "There was an error processing your purchase."
-        });
-      }
-      
-      return false;
+      setIsLoading(true)
+      const result = await Purchases.getCustomerInfo()
+      setCustomerInfo(result.customerInfo)
+      return result.customerInfo
+    } catch (err: any) {
+      setError(`Failed to get customer info: ${err.message}`)
+      console.error('❌ Customer info error:', err)
+      return null
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [debugLog, toast, fetchSubscriptionStatus]);
+  }
+
+  // Get offerings
+  const getOfferings = async () => {
+    try {
+      setIsLoading(true)
+      const result = await Purchases.getOfferings()
+      setOfferings(result.current)
+      return result
+    } catch (err: any) {
+      setError(`Failed to get offerings: ${err.message}`)
+      console.error('❌ Offerings error:', err)
+      return null
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Make a purchase
+  const purchasePackage = async (packageToPurchase: any) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const result = await Purchases.purchasePackage({ 
+        offeringIdentifier: packageToPurchase.offeringIdentifier,
+        packageIdentifier: packageToPurchase.identifier
+      })
+      
+      // Update customer info after purchase
+      setCustomerInfo(result.customerInfo)
+      
+      console.log('✅ Purchase successful:', result)
+      return result
+    } catch (err: any) {
+      setError(`Purchase failed: ${err.message}`)
+      console.error('❌ Purchase error:', err)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Restore purchases
-  const restorePurchases = useCallback(async () => {
+  const restorePurchases = async () => {
     try {
-      if (!Capacitor.isNativePlatform()) {
-        toast({
-          title: "Web Development Mode",
-          description: "Restore purchases is simulated on web platform."
-        });
-        return false;
-      }
+      setIsLoading(true)
+      setError(null)
 
-      if (!isInitialized) {
-        throw new Error('RevenueCat not initialized');
-      }
-
-      debugLog('🔄 Starting purchase restoration...');
-      setIsLoading(true);
-
-      const { customerInfo } = await Purchases.restorePurchases();
-      const isProActive = Boolean(customerInfo.entitlements.active?.[ENTITLEMENT_ID]?.isActive);
-
-      debugLog(`🔄 Restore completed - Pro status: ${isProActive}`);
-
-      if (isProActive) {
-        toast({
-          title: "Purchases Restored! 🎉",
-          description: "Your Pro subscription has been restored."
-        });
-        
-        await fetchSubscriptionStatus();
-        return true;
-      } else {
-        toast({
-          title: "No Purchases Found",
-          description: "We couldn't find any previous Pro subscriptions."
-        });
-        return false;
-      }
-
-    } catch (error) {
-      debugLog('❌ Restore failed', error);
+      const result = await Purchases.restorePurchases()
+      setCustomerInfo(result.customerInfo)
       
-      toast({
-        variant: "destructive",
-        title: "Restore Failed",
-        description: "Could not restore purchases. Try again later."
-      });
-      
-      return false;
+      console.log('✅ Purchases restored:', result)
+      return result
+    } catch (err: any) {
+      setError(`Restore failed: ${err.message}`)
+      console.error('❌ Restore error:', err)
+      throw err
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [debugLog, toast, fetchSubscriptionStatus]);
+  }
+
+  // Check if user has active subscription
+  const hasActiveSubscription = (entitlementId = 'pro') => {
+    if (!customerInfo) return false
+    return customerInfo.entitlements.active[entitlementId]?.isActive || false
+  }
 
   // Initialize on mount
   useEffect(() => {
-    initializeRevenueCat();
-  }, [initializeRevenueCat]);
+    const init = async () => {
+      await configure()
+      if (isConfigured) {
+        await getCustomerInfo()
+        await getOfferings()
+      }
+    }
+    init()
+  }, [])
 
   return {
+    // State
+    isConfigured,
     isLoading,
-    subscription,
+    error,
+    customerInfo,
     offerings,
-    initialized: isInitialized,
-    fetchOfferings,
-    fetchSubscriptionStatus,
-    purchaseProduct,
-    restorePurchases
-  };
-};
+    
+    // Methods
+    configure,
+    getCustomerInfo,
+    getOfferings,
+    purchasePackage,
+    restorePurchases,
+    hasActiveSubscription
+  }
+}
