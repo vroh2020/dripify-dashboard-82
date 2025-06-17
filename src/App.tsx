@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -19,25 +20,35 @@ function App() {
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       if (user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('onboarding_completed')
-          .eq('id', user.id)
-          .single();
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', user.id)
+            .single();
 
-        if (error) {
-          console.error("Error fetching onboarding status:", error);
-          // If column doesn't exist yet, assume onboarding not completed
-          setShowOnboarding(true);
-          return;
-        }
+          if (error) {
+            console.error("Error fetching onboarding status:", error);
+            // If there's an error (like column doesn't exist), assume onboarding not completed
+            setShowOnboarding(true);
+            return;
+          }
 
-        if (!data?.onboarding_completed) {
-          console.log('Onboarding not completed, showing onboarding');
+          // Check if onboarding_completed exists and is false
+          const onboardingCompleted = data && typeof data === 'object' && 'onboarding_completed' in data 
+            ? (data as any).onboarding_completed 
+            : false;
+
+          if (!onboardingCompleted) {
+            console.log('Onboarding not completed, showing onboarding');
+            setShowOnboarding(true);
+          } else {
+            console.log('Onboarding already completed');
+            setShowOnboarding(false);
+          }
+        } catch (error) {
+          console.error('Unexpected error checking onboarding status:', error);
           setShowOnboarding(true);
-        } else {
-          console.log('Onboarding already completed');
-          setShowOnboarding(false);
         }
       } else {
         console.log('No user session, hiding onboarding');
