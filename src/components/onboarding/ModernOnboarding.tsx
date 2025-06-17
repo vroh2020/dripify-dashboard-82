@@ -7,7 +7,7 @@ import { ProOfferCard } from "@/components/onboarding/ProOfferCard";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useSimpleSubscription } from '@/components/subscription/SimpleSubscriptionProvider';
+import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { InAppReview } from '@capacitor-community/in-app-review';
 
 // Import step components
@@ -35,7 +35,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
-  const { isPro } = useSimpleSubscription();
+  const { isPro } = useSubscription();
 
   // Progress calculation
   const progress = (stepMap[currentStep] / totalSteps) * 100;
