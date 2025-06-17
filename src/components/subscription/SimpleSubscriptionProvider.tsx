@@ -1,6 +1,5 @@
-
 import { createContext, useContext, ReactNode } from 'react';
-import { useRevenueCatSimple, SubscriptionStatus } from '@/hooks/useRevenueCatSimple';
+import { useRevenueCatSimple } from '@/hooks/useRevenueCatSimple';
 
 interface SimpleSubscriptionContextType {
   isPro: boolean;
@@ -31,25 +30,68 @@ interface SimpleSubscriptionProviderProps {
 export const SimpleSubscriptionProvider = ({ children }: SimpleSubscriptionProviderProps) => {
   const {
     isLoading,
-    subscription,
+    customerInfo,
     offerings,
-    fetchSubscriptionStatus,
-    purchaseProduct,
-    restorePurchases
+    getCustomerInfo,
+    purchasePackage,
+    restorePurchases,
+    hasActiveSubscription
   } = useRevenueCatSimple();
 
   const refreshSubscription = async (): Promise<void> => {
-    await fetchSubscriptionStatus();
+    await getCustomerInfo();
   };
 
+  // Simple purchase function that works with the monthly subscription
+  const purchaseProduct = async (productId?: string): Promise<boolean> => {
+    try {
+      if (!offerings || !offerings.availablePackages) {
+        console.log('No offerings available');
+        return false;
+      }
+
+      // Find the monthly package or use the first available
+      const packageToPurchase = offerings.availablePackages[0];
+      if (!packageToPurchase) {
+        console.log('No packages available');
+        return false;
+      }
+
+      await purchasePackage(packageToPurchase);
+      return true;
+    } catch (error) {
+      console.error('Purchase failed:', error);
+      return false;
+    }
+  };
+
+  // Simple restore function
+  const handleRestorePurchases = async (): Promise<boolean> => {
+    try {
+      await restorePurchases();
+      return true;
+    } catch (error) {
+      console.error('Restore failed:', error);
+      return false;
+    }
+  };
+
+  // Check if user has active subscription
+  const isPro = hasActiveSubscription('pro');
+
+  // Get expiration date if available
+  const expirationDate = customerInfo?.entitlements?.active?.pro?.expirationDate 
+    ? new Date(customerInfo.entitlements.active.pro.expirationDate) 
+    : null;
+
   const value = {
-    isPro: subscription.isActive,
+    isPro,
     isLoading,
-    expirationDate: subscription.expirationDate,
+    expirationDate,
     purchaseProduct,
-    restorePurchases,
+    restorePurchases: handleRestorePurchases,
     refreshSubscription,
-    offerings
+    offerings: offerings?.availablePackages || []
   };
 
   console.log('🔄 SimpleSubscriptionProvider: isPro =', value.isPro, 'isLoading =', value.isLoading);

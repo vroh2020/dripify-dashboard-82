@@ -3,10 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>Drip Max</title>
-    <meta name="description" content="AI-Powered Style Analysis & Recommendations" />
+    <title>DripMax</title>
     
-    <!-- Simple, working splash screen styles -->
     <style>
       html, body {
         margin: 0;
@@ -14,19 +12,21 @@
         background: #1A1F2C;
         color: white;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        height: 100%;
       }
       
       #root {
         min-height: 100vh;
         opacity: 0;
-        transition: opacity 0.3s ease-in;
+        transition: opacity 0.5s ease;
+        background: #1A1F2C;
       }
       
       #root.app-ready {
         opacity: 1;
       }
       
-      /* Simple splash screen */
+      /* Ultra-simple splash */
       #html-splash {
         position: fixed;
         top: 0;
@@ -38,11 +38,7 @@
         align-items: center;
         justify-content: center;
         z-index: 10000;
-        transition: opacity 0.8s ease-out;
-      }
-
-      #html-splash.fade-out {
-        opacity: 0;
+        transition: opacity 0.3s ease;
       }
 
       .splash-content {
@@ -51,64 +47,32 @@
       }
 
       .logo {
-        width: 80px;
-        height: 80px;
-        background: linear-gradient(135deg, #f97316, #ea580c);
-        border-radius: 20px;
+        width: 60px;
+        height: 60px;
+        background: #f97316;
+        border-radius: 15px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 20px;
-      }
-
-      .logo-text {
-        font-size: 24px;
+        margin: 0 auto 15px;
+        font-size: 20px;
         font-weight: 900;
-        color: white;
       }
 
       .app-title {
-        font-size: 28px;
-        font-weight: 800;
-        margin: 20px 0 10px 0;
+        font-size: 24px;
+        font-weight: 700;
         color: #f97316;
-      }
-
-      .loading-message {
-        font-size: 14px;
-        color: #888;
-        margin: 20px 0;
-      }
-
-      .progress-container {
-        width: 200px;
-        height: 4px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 2px;
-        margin: 20px auto;
-        overflow: hidden;
-      }
-
-      .progress-fill {
-        height: 100%;
-        background: #f97316;
-        width: 0%;
-        transition: width 0.3s ease;
+        margin: 0;
       }
     </style>
   </head>
   <body>
-    <!-- Simple HTML splash screen -->
+    <!-- Simple splash screen -->
     <div id="html-splash">
       <div class="splash-content">
-        <div class="logo">
-          <div class="logo-text">D</div>
-        </div>
+        <div class="logo">D</div>
         <h1 class="app-title">DripMax</h1>
-        <div id="loading-message" class="loading-message">Starting...</div>
-        <div class="progress-container">
-          <div id="progress-fill" class="progress-fill"></div>
-        </div>
       </div>
     </div>
 

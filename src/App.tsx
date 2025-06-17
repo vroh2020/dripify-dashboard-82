@@ -10,6 +10,7 @@ import Profile from '@/pages/Profile';
 import Index from '@/pages/Index';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { SimpleSubscriptionProvider } from '@/components/subscription/SimpleSubscriptionProvider';
+import { DashboardView } from '@/components/DashboardView';
 
 function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -20,7 +21,7 @@ function App() {
       if (user) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('onboarding_completed')
+          .select('*')
           .eq('id', user.id)
           .single();
 
@@ -29,7 +30,10 @@ function App() {
           return;
         }
 
-        if (!data?.onboarding_completed) {
+        // Check if onboarding is completed (adjust field name based on your schema)
+        const onboardingCompleted = data?.completed_onboarding || data?.onboarding_completed || false;
+        
+        if (!onboardingCompleted) {
           console.log('Onboarding not completed, showing onboarding');
           setShowOnboarding(true);
         } else {
@@ -56,8 +60,50 @@ function App() {
         <SimpleSubscriptionProvider>
           <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900">
             <Routes>
-              <Route path="/" element={<Index />} />
+              {/* Main app routes */}
+              <Route path="/*" element={<Index />} />
+              <Route path="/dashboard" element={<Index />} />
+              <Route path="/scan" element={<Index />} />
+              <Route path="/tips" element={<Index />} />
 
+              {/* Auth route - FIXED! */}
+              <Route
+                path="/auth"
+                element={
+                  session ? (
+                    showOnboarding ? (
+                      <Navigate to="/onboarding" replace />
+                    ) : (
+                      <Navigate to="/dashboard" replace />
+                    )
+                  ) : (
+                    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex justify-center items-center">
+                      <div className="w-full max-w-md mx-auto p-6">
+                        <div className="text-center mb-8">
+                          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text mb-2">
+                            Welcome to DripMax
+                          </h1>
+                          <p className="text-white/70">Sign in to start your style journey</p>
+                        </div>
+                        <Auth
+                          supabaseClient={supabase}
+                          appearance={{ 
+                            theme: ThemeSupa,
+                            style: {
+                              button: { background: '#f97316', color: 'white', borderRadius: '8px' },
+                              anchor: { color: '#f97316' },
+                            }
+                          }}
+                          providers={['google', 'github']}
+                          redirectTo={`${window.location.origin}/dashboard`}
+                        />
+                      </div>
+                    </div>
+                  )
+                }
+              />
+
+              {/* Onboarding route */}
               <Route
                 path="/onboarding"
                 element={
@@ -65,14 +111,15 @@ function App() {
                     showOnboarding ? (
                       <ModernOnboarding onComplete={handleOnboardingComplete} />
                     ) : (
-                      <Navigate to="/profile" replace />
+                      <Navigate to="/dashboard" replace />
                     )
                   ) : (
-                    <Navigate to="/login" replace />
+                    <Navigate to="/auth" replace />
                   )
                 }
               />
 
+              {/* Profile route */}
               <Route
                 path="/profile"
                 element={
@@ -82,22 +129,10 @@ function App() {
                 }
               />
 
+              {/* Legacy login route - redirect to auth */}
               <Route
                 path="/login"
-                element={
-                  session ? (
-                    <Navigate to="/profile" replace />
-                  ) : (
-                    <div className="flex justify-center items-center min-h-screen">
-                      <Auth
-                        supabaseClient={supabase}
-                        appearance={{ theme: ThemeSupa }}
-                        providers={['google', 'github']}
-                        redirectTo={`${window.location.origin}/profile`}
-                      />
-                    </div>
-                  )
-                }
+                element={<Navigate to="/auth" replace />}
               />
             </Routes>
           </div>

@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Purchases, LOG_LEVEL, type CustomerInfo, type PurchasesOffering } from '@revenuecat/purchases-capacitor'
+import { Capacitor } from '@capacitor/core'
 
 const API_KEY = 'appl_xeXwsXdzeTPLDObsCBanrDrxUWV'
+
+export interface SubscriptionStatus {
+  isActive: boolean;
+  expirationDate: Date | null;
+  productId?: string;
+}
 
 export function useRevenueCatSimple() {
   const [isConfigured, setIsConfigured] = useState(false)
@@ -10,8 +17,19 @@ export function useRevenueCatSimple() {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null)
   const [offerings, setOfferings] = useState<PurchasesOffering | null>(null)
 
+  // Check if we're on a supported platform
+  const isNativePlatform = Capacitor.isNativePlatform()
+
   // Configure RevenueCat
   const configure = async () => {
+    // Skip RevenueCat configuration on web
+    if (!isNativePlatform) {
+      console.log('🌐 Web platform detected - RevenueCat skipped (mobile-only)');
+      setIsConfigured(false);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -37,6 +55,8 @@ export function useRevenueCatSimple() {
 
   // Get customer info
   const getCustomerInfo = async () => {
+    if (!isNativePlatform) return null;
+
     try {
       setIsLoading(true)
       const result = await Purchases.getCustomerInfo()
@@ -53,6 +73,8 @@ export function useRevenueCatSimple() {
 
   // Get offerings
   const getOfferings = async () => {
+    if (!isNativePlatform) return null;
+
     try {
       setIsLoading(true)
       const result = await Purchases.getOfferings()
@@ -69,6 +91,10 @@ export function useRevenueCatSimple() {
 
   // Make a purchase
   const purchasePackage = async (packageToPurchase: any) => {
+    if (!isNativePlatform) {
+      throw new Error('Purchases only available on mobile platforms');
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -94,6 +120,10 @@ export function useRevenueCatSimple() {
 
   // Restore purchases
   const restorePurchases = async () => {
+    if (!isNativePlatform) {
+      throw new Error('Restore only available on mobile platforms');
+    }
+
     try {
       setIsLoading(true)
       setError(null)
@@ -114,15 +144,29 @@ export function useRevenueCatSimple() {
 
   // Check if user has active subscription
   const hasActiveSubscription = (entitlementId = 'pro') => {
-    if (!customerInfo) return false
+    if (!isNativePlatform || !customerInfo) return false
     return customerInfo.entitlements.active[entitlementId]?.isActive || false
+  }
+
+  // Get subscription status in the format expected by the provider
+  const getSubscriptionStatus = (): SubscriptionStatus => {
+    const isActive = hasActiveSubscription('pro');
+    const expirationDate = customerInfo?.entitlements?.active?.pro?.expirationDate 
+      ? new Date(customerInfo.entitlements.active.pro.expirationDate) 
+      : null;
+    
+    return {
+      isActive,
+      expirationDate,
+      productId: customerInfo?.entitlements?.active?.pro?.productIdentifier
+    };
   }
 
   // Initialize on mount
   useEffect(() => {
     const init = async () => {
       await configure()
-      if (isConfigured) {
+      if (isConfigured && isNativePlatform) {
         await getCustomerInfo()
         await getOfferings()
       }
@@ -137,6 +181,7 @@ export function useRevenueCatSimple() {
     error,
     customerInfo,
     offerings,
+    isNativePlatform,
     
     // Methods
     configure,
@@ -144,6 +189,7 @@ export function useRevenueCatSimple() {
     getOfferings,
     purchasePackage,
     restorePurchases,
-    hasActiveSubscription
+    hasActiveSubscription,
+    getSubscriptionStatus
   }
 }

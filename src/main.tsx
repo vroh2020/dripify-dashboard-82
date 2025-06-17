@@ -4,119 +4,86 @@ import './index.css'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { Capacitor } from '@capacitor/core'
 
-// Simple splash screen manager
-let progress = 0;
-let currentMessage = 'Starting...';
-
-function updateProgress(newProgress: number, message?: string) {
-  progress = newProgress;
-  if (message) currentMessage = message;
-  
-  const progressFill = document.getElementById('progress-fill');
-  const loadingMessage = document.getElementById('loading-message');
-  
-  if (progressFill) {
-    progressFill.style.width = `${progress}%`;
-  }
-  
-  if (loadingMessage && message) {
-    loadingMessage.textContent = message;
-  }
-  
-  console.log(`${progress}% - ${currentMessage}`);
-}
-
-async function hideSplash() {
-  console.log('🎯 Hiding splash screen...');
-  
-  // Show React app
-  const rootElement = document.getElementById('root');
-  if (rootElement) {
-    rootElement.classList.add('app-ready');
-  }
-  
-  // Wait a moment
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // Hide native splash if on mobile
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await SplashScreen.hide({ fadeOutDuration: 300 });
-      console.log('✅ Native splash hidden');
-    } catch (error) {
-      console.warn('Native splash warning:', error);
-    }
-  }
-  
-  // Hide HTML splash
-  const splashElement = document.getElementById('html-splash');
-  if (splashElement) {
-    splashElement.classList.add('fade-out');
-    setTimeout(() => {
-      if (splashElement.parentNode) {
-        splashElement.parentNode.removeChild(splashElement);
-      }
-    }, 800);
-  }
-  
-  console.log('✅ App ready!');
-}
-
-// Initialize app
-async function initApp() {
+// Bulletproof app initialization
+function startApp() {
   console.log('🚀 Starting DripMax...');
   
+  const rootElement = document.getElementById("root");
+  if (!rootElement) {
+    console.error('❌ Root element not found!');
+    return;
+  }
+
+  // Mount React app immediately
   try {
-    // Update progress
-    updateProgress(25, 'Loading app...');
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // Mount React
-    updateProgress(50, 'Starting interface...');
-    const rootElement = document.getElementById("root");
-    
-    if (!rootElement) {
-      throw new Error("Root element not found");
-    }
-
     const root = createRoot(rootElement);
     root.render(<App />);
+    console.log('✅ React app mounted');
     
-    updateProgress(75, 'Almost ready...');
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Show the app
+    rootElement.style.opacity = '1';
+    rootElement.classList.add('app-ready');
     
-    updateProgress(100, 'Ready!');
-    await new Promise(resolve => setTimeout(resolve, 200));
-    
-    // Hide splash
-    await hideSplash();
+    // Hide splash screens after a short delay
+    setTimeout(() => {
+      // Hide HTML splash
+      const splash = document.getElementById('html-splash');
+      if (splash) {
+        splash.style.opacity = '0';
+        setTimeout(() => {
+          if (splash.parentNode) {
+            splash.parentNode.removeChild(splash);
+          }
+        }, 300);
+      }
+      
+      // Hide native splash on mobile
+      if (Capacitor.isNativePlatform()) {
+        SplashScreen.hide({ fadeOutDuration: 500 }).catch(() => {
+          console.log('Native splash already hidden');
+        });
+      }
+      
+      console.log('✅ App ready!');
+    }, 1000);
     
   } catch (error) {
-    console.error('App init failed:', error);
+    console.error('❌ Failed to mount React:', error);
     
-    // Emergency fallback - just show the app
-    setTimeout(() => {
-      const rootElement = document.getElementById("root");
-      if (rootElement) {
-        const root = createRoot(rootElement);
-        root.render(<App />);
-        rootElement.classList.add('app-ready');
-        
-        // Force hide splash
-        const splashEl = document.getElementById('html-splash');
-        if (splashEl) splashEl.style.display = 'none';
-        
-        if (Capacitor.isNativePlatform()) {
-          SplashScreen.hide().catch(() => {});
-        }
-      }
-    }, 500);
+    // Emergency fallback - show basic content
+    rootElement.innerHTML = `
+      <div style="
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        min-height: 100vh; 
+        background: #1A1F2C; 
+        color: white; 
+        text-align: center;
+        font-family: sans-serif;
+      ">
+        <div>
+          <h1 style="color: #f97316; margin-bottom: 20px;">DripMax</h1>
+          <p>Loading failed. Please refresh the page.</p>
+          <button onclick="location.reload()" style="
+            background: #f97316; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            margin-top: 20px;
+            cursor: pointer;
+          ">Refresh</button>
+        </div>
+      </div>
+    `;
+    rootElement.style.opacity = '1';
   }
 }
 
-// Start app when ready
+// Start immediately when DOM is ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
+  document.addEventListener('DOMContentLoaded', startApp);
 } else {
-  initApp();
+  startApp();
 }

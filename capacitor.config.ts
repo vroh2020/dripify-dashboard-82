@@ -9,15 +9,15 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 0,        // Video recommendation: 0 for manual control
-      launchAutoHide: false,        // Video recommendation: false for manual control
+      launchShowDuration: 0,        // Manual control for smooth transitions
+      launchAutoHide: false,        // Manual control for better timing
       backgroundColor: "#1A1F2C",   // Match your brand dark color
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
-      showSpinner: false,           // Video recommendation: false (we have custom animation)
-      splashFullScreen: false,      // Video recommendation: false for better compatibility
-      splashImmersive: false,       // Video recommendation: false for better compatibility
-      launchFadeOutDuration: 300,   // Smooth fade out
+      showSpinner: false,           // Custom animation instead
+      splashFullScreen: true,       // Full screen immersive experience
+      splashImmersive: true,        // Immersive mode for better UX
+      launchFadeOutDuration: 500,   // Smooth 500ms fade out
     },
     PurchasesPlugin: {
       // RevenueCat configuration for your monthly subscription
