@@ -1,5 +1,5 @@
 
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useRef } from 'react';
 import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
 
 interface SubscriptionContextType {
@@ -62,7 +62,14 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     offerings
   };
 
-  console.log('🔄 SubscriptionProvider: isPro =', value.isPro, 'isLoading =', value.isLoading);
+  // Only log when subscription state changes
+  const prevStateRef = useRef<any>();
+  const currentState = { isPro: value.isPro, isLoading: value.isLoading };
+  
+  if (JSON.stringify(prevStateRef.current) !== JSON.stringify(currentState)) {
+    console.log('🔄 SubscriptionProvider state changed:', currentState);
+    prevStateRef.current = currentState;
+  }
 
   return (
     <SubscriptionContext.Provider value={value}>

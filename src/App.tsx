@@ -1,15 +1,16 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useRef } from "react";
 import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { useAuthState } from "./hooks/useAuthState";
+import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { LoadingScreen } from "./components/LoadingScreen";
 
 const queryClient = new QueryClient({
@@ -23,21 +24,58 @@ const queryClient = new QueryClient({
 });
 
 const AppRoutes = () => {
-  const { isLoading, isAuthenticated } = useAuthState();
+  const { isLoading: authLoading, isAuthenticated } = useAuthState();
+  const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
 
-  if (isLoading) {
+  // Debug logging (only when state actually changes)
+  const prevStateRef = useRef<any>();
+  const currentState = {
+    authLoading,
+    isAuthenticated,
+    onboardingLoading,
+    hasCompletedOnboarding,
+    shouldShowOnboarding: isAuthenticated && !hasCompletedOnboarding
+  };
+  
+  if (JSON.stringify(prevStateRef.current) !== JSON.stringify(currentState)) {
+    console.log('🔍 AppRoutes State Change:', currentState);
+    prevStateRef.current = currentState;
+  }
+
+  if (authLoading || (isAuthenticated && onboardingLoading)) {
+    console.log('🔍 AppRoutes: Showing loading screen');
     return <LoadingScreen message="Checking authentication..." />;
+  }
+
+  // Additional routing debug logs
+  if (isAuthenticated && hasCompletedOnboarding) {
+    console.log('🔍 AppRoutes: Routing to main app');
+  } else if (isAuthenticated && !hasCompletedOnboarding) {
+    console.log('🔍 AppRoutes: Routing authenticated user to onboarding');
+  } else {
+    console.log('🔍 AppRoutes: Routing unauthenticated user to auth');
   }
 
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
       {isAuthenticated ? (
-        <>
-          <Route path="/*" element={<Index />} />
-          <Route path="/profile" element={<Profile />} />
-        </>
+        hasCompletedOnboarding ? (
+          // User is authenticated and has completed onboarding
+          <>
+            <Route path="/dashboard" element={<Index />} />
+            <Route path="/scan" element={<Index />} />
+            <Route path="/tips" element={<Index />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/" element={<Index />} />
+            <Route path="*" element={<Index />} />
+          </>
+        ) : (
+          // User is authenticated but needs onboarding
+          <Route path="*" element={<Auth />} />
+        )
       ) : (
+        // User is not authenticated
         <Route path="*" element={<Auth />} />
       )}
     </Routes>
@@ -52,7 +90,12 @@ const App = () => {
         <Sonner />
         <AuthErrorBoundary>
           <SubscriptionProvider>
-            <BrowserRouter>
+            <BrowserRouter
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true
+              }}
+            >
               <AppRoutes />
             </BrowserRouter>
           </SubscriptionProvider>

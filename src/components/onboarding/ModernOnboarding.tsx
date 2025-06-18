@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { StyleLoadingOverlay } from "@/components/StyleLoadingOverlay";
@@ -40,7 +40,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   // Progress calculation
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
-  console.log('🎯 ModernOnboarding: Current step:', currentStep, 'Progress:', progress);
+  // Only log when step actually changes
+  const prevStepRef = useRef<string>();
+  if (prevStepRef.current !== currentStep) {
+    console.log('🎯 ModernOnboarding: Step changed to:', currentStep, 'Progress:', progress);
+    prevStepRef.current = currentStep;
+  }
 
   // Step handlers
   const handleAgeSelect = (age: string) => {
@@ -245,7 +250,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C]">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C]">
       {/* Progress Bar */}
       <div className="w-full px-6 pt-safe-area-top pt-12 pb-4">
         <div className="h-0.5 bg-white/10 rounded-full overflow-hidden">
@@ -265,7 +270,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
       {/* Main Content - Scrollable Container */}
       <div className="flex-1 px-4 pb-safe-area-bottom pb-4">
-        <Card className="min-h-[calc(100vh-140px)] min-h-[calc(100dvh-140px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
+        <Card className="min-h-[calc(100dvh-140px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
           <CardContent className="p-0 h-full relative">
             {/* Style Loading Overlay with timeout */}
             <StyleLoadingOverlay 

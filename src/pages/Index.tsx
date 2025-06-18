@@ -7,22 +7,12 @@ import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { useAuthState } from "@/hooks/useAuthState";
-import { LoadingScreen } from "@/components/LoadingScreen";
+
 
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname.split('/')[1] || 'dashboard';
-  const { isLoading, isAuthenticated } = useAuthState();
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      navigate('/auth', { replace: true });
-      return;
-    }
-  }, [isLoading, isAuthenticated, navigate]);
 
   // Sync tab value with URL
   useEffect(() => {
@@ -34,16 +24,6 @@ const Index = () => {
   const handleTabChange = (value: string) => {
     navigate(`/${value}`);
   };
-
-  // Show loading while checking authentication
-  if (isLoading) {
-    return <LoadingScreen message="Loading your style profile..." />;
-  }
-
-  // Don't render if not authenticated
-  if (!isAuthenticated) {
-    return null;
-  }
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] relative overflow-x-hidden">

@@ -1,11 +1,12 @@
 
 import { motion } from "framer-motion";
+import { memo } from "react";
 
 interface LoadingScreenProps {
   message?: string;
 }
 
-export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) => {
+export const LoadingScreen = memo(({ message = "Loading..." }: LoadingScreenProps) => {
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] flex items-center justify-center">
       <motion.div 
@@ -29,4 +30,4 @@ export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) =>
       </motion.div>
     </div>
   );
-};
+});

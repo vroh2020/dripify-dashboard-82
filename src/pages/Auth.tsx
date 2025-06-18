@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef, memo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
 import { Button } from "@/components/ui/button";
@@ -11,22 +11,27 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuthState } from "@/hooks/useAuthState";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
-export const Auth = () => {
+export const Auth = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isOnboarding, setIsOnboarding] = useState(true);
   const { toast } = useToast();
   const { isLoading, isAuthenticated } = useAuthState();
+
+  // Debug logging (only when state actually changes)
+  const debugInfo = useMemo(() => ({ isAuthenticated, isOnboarding }), [isAuthenticated, isOnboarding]);
+  const prevDebugRef = useRef<any>();
+  
+  if (JSON.stringify(prevDebugRef.current) !== JSON.stringify(debugInfo)) {
+    console.log('🔍 Auth component state changed:', debugInfo);
+    prevDebugRef.current = debugInfo;
+  }
   
   // Handle pending onboarding data after auth
   usePendingOnboarding();
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate("/dashboard", { replace: true });
-    }
-  }, [isLoading, isAuthenticated, navigate]);
+  // Note: Removed automatic redirect - now handled by App.tsx routing logic
+  // This allows authenticated users who need onboarding to stay here
 
   // Handle OAuth callbacks and errors
   useEffect(() => {
@@ -73,10 +78,8 @@ export const Auth = () => {
     return <LoadingScreen message="Checking authentication..." />;
   }
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    return null;
-  }
+  // Show onboarding for authenticated users who haven't completed it
+  // or auth form for unauthenticated users
 
   if (isOnboarding) {
     return <ModernOnboarding onComplete={handleOnboardingComplete} />;
@@ -113,6 +116,6 @@ export const Auth = () => {
       </motion.div>
     </div>
   );
-};
+});
 
 export default Auth;
