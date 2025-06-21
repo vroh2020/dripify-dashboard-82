@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +11,7 @@ export const DashboardHeader = ({ hasScans, totalScans }: DashboardHeaderProps) 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="py-6 flex justify-between items-center"
+      className="py-8 flex justify-between items-start"
     >
       <div>
         <h1 className="text-3xl font-bold bg-gradient-to-r from-[#9b87f5] to-[#D6BCFA] text-transparent bg-clip-text">

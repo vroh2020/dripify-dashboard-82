@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { Purchases, PurchasesOffering, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
+import { Purchases, PurchasesOffering, LOG_LEVEL, PurchasesPackage } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -268,7 +267,7 @@ export const useRevenueCatManager = () => {
   }, [debugLog, subscription]);
 
   // Purchase with better simulator handling
-  const purchaseProduct = useCallback(async (productId: string) => {
+  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
     try {
       if (!Capacitor.isNativePlatform()) {
         debugLog('Web platform - simulating purchase for development');
@@ -276,7 +275,7 @@ export const useRevenueCatManager = () => {
         setSubscription({
           isActive: true,
           expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          productId: productId,
+          productId: product.identifier,
           offeringId: 'web-simulation'
         });
         
@@ -291,12 +290,10 @@ export const useRevenueCatManager = () => {
         throw new Error('RevenueCat not initialized');
       }
 
-      debugLog(`Starting purchase for product: ${productId}`);
+      debugLog(`Starting purchase for product: ${product.identifier}`);
       setIsLoading(true);
 
-      const result = await Purchases.purchaseStoreProduct({ 
-        productIdentifier: productId 
-      });
+      const result = await Purchases.purchaseStoreProduct(product);
       
       const isProActive = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false;
       

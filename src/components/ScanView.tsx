@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleSelector } from "@/components/StyleSelector";
@@ -75,6 +74,12 @@ export const ScanView = () => {
       
     } catch (error) {
       console.error("Analysis error:", error);
+      console.error('🔍 MAIN SCAN ERROR DETAILS:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        name: error instanceof Error ? error.name : 'Unknown',
+        fullError: error
+      });
       setAnalyzing(false);
       
       toast({

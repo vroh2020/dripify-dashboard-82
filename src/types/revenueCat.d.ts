@@ -1,4 +1,3 @@
-
 declare module '@revenuecat/purchases-capacitor' {
   export interface CustomerInfo {
     entitlements: {
@@ -71,7 +70,7 @@ declare module '@revenuecat/purchases-capacitor' {
     static configure({ apiKey, appUserID }: { apiKey: string; appUserID: string | null }): Promise<void>;
     static getOfferings(): Promise<Offerings>;
     static purchasePackage({ offeringIdentifier, packageIdentifier }: { offeringIdentifier: string; packageIdentifier: string }): Promise<{ customerInfo: CustomerInfo }>;
-    static purchaseStoreProduct({ productIdentifier }: PurchaseStoreProductOptions): Promise<{ customerInfo: CustomerInfo }>;
+    static purchaseStoreProduct(product: PurchasesPackage['product']): Promise<{ customerInfo: CustomerInfo }>;
     static restorePurchases(): Promise<{ customerInfo: CustomerInfo }>;
     static getCustomerInfo(): Promise<{ customerInfo: CustomerInfo }>;
     static logIn({ appUserID }: { appUserID: string }): Promise<void>;

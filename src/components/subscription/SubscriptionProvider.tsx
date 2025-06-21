@@ -1,6 +1,6 @@
-
 import { createContext, useContext, ReactNode, useRef } from 'react';
 import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
+import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -8,7 +8,7 @@ interface SubscriptionContextType {
   expirationDate: Date | null;
   checkSubscription: () => Promise<boolean>;
   refreshSubscription: () => Promise<void>;
-  purchaseProduct: (productId: string) => Promise<boolean>;
+  purchaseProduct: (product: PurchasesPackage['product']) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
   offerings: any[];
 }

@@ -1,4 +1,3 @@
-
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardView } from "@/components/DashboardView";
 import { ScanView } from "@/components/ScanView";
@@ -23,6 +22,19 @@ const Index = () => {
 
   const handleTabChange = (value: string) => {
     navigate(`/${value}`);
+  };
+
+  // Simple conditional rendering instead of nested Routes
+  const renderContent = () => {
+    switch (currentPath) {
+      case 'scan':
+        return <ScanView />;
+      case 'tips':
+        return <TipsView />;
+      case 'dashboard':
+      default:
+        return <DashboardView />;
+    }
   };
 
   return (
@@ -52,12 +64,7 @@ const Index = () => {
       <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-80px)]">
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <Routes>
-            <Route path="/dashboard" element={<DashboardView />} />
-            <Route path="/scan" element={<ScanView />} />
-            <Route path="/tips" element={<TipsView />} />
-            <Route path="/" element={<DashboardView />} />
-          </Routes>
+          {renderContent()}
         </div>
 
         {/* Bottom Navigation - Fixed */}

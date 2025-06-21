@@ -101,6 +101,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       
     } catch (error) {
       console.error('🎯 ModernOnboarding: Analysis error:', error);
+      console.error('🔍 ERROR DETAILS:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        name: error instanceof Error ? error.name : 'Unknown',
+        fullError: error
+      });
       
       // Fallback to demo result if analysis fails
       const demoResult: StyleAnalysisResult = {

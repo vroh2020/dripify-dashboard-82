@@ -78,7 +78,9 @@ SCORING GUIDELINES (out of 100):
 **Style Tips:**
 • [Specific actionable tip for color coordination]
 • [Specific actionable tip for fit and proportion]
-• [Specific actionable tip for style coherence]`;
+• [Specific actionable tip for style coherence]
+• [Specific actionable tip for accessories]
+• [Specific actionable tip for overall styling]`;
 
   if (style) {
     return basePrompt + `\n\nSPECIAL FOCUS: Pay particular attention to how well this outfit aligns with "${style}" style elements.`;

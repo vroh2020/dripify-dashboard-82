@@ -27,6 +27,8 @@ const categoryEmojis: Record<string, string> = {
 
 export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
   console.log('Parsing analysis...');
+  console.log('🔍 DEBUG: Raw AI response (first 500 chars):', rawAnalysis.substring(0, 500));
+  console.log('🔍 DEBUG: Looking for tips in response...');
   
   try {
     const breakdown: ScoreBreakdown[] = [];
@@ -102,16 +104,17 @@ export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
     
     // Extract tips from the analysis
     extractAllTips(rawAnalysis, tips);
+    console.log('🔍 DEBUG: Tips extracted:', tips.length, tips);
     
     // Sort categories by score (highest first)
     breakdown.sort((a, b) => b.score - a.score);
     
-    // Make sure we have a valid overall score
+    // Make sure we have a valid overall score (now on /100 scale)
     const validOverallScore = (overallScore !== undefined && !isNaN(overallScore)) 
       ? overallScore 
       : breakdown.length > 0 
         ? Math.round(breakdown.reduce((sum, item) => sum + item.score, 0) / breakdown.length) 
-        : 5; // Use 5 only as absolute fallback
+        : 75; // Use 75 as absolute fallback for /100 scale
     
     return { 
       breakdown, 
@@ -126,7 +129,7 @@ export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
     return {
       breakdown: [],
       tips: [],
-      overallScore: 5, // Fallback score
+      overallScore: 75, // Fallback score for /100 scale
       summary: "We encountered an error analyzing your outfit. Please try again with a different image."
     };
   }
@@ -134,10 +137,11 @@ export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
 
 // Fallback score extraction for when the standard regex fails
 function extractFallbackScore(text: string): number | undefined {
-  // Try different formats that might appear in the text
+  // Try different formats that might appear in the text - updated for /100 scale
   const patterns = [
     /overall score.*?(\d+)/i,
     /total score.*?(\d+)/i,
+    /score.*?(\d+).*?100/i,
     /score.*?(\d+).*?10/i,
     /rating.*?(\d+)/i
   ];
@@ -146,8 +150,12 @@ function extractFallbackScore(text: string): number | undefined {
     const match = text.match(pattern);
     if (match && match[1]) {
       const score = parseInt(match[1], 10);
-      if (!isNaN(score) && score >= 0 && score <= 10) {
+      if (!isNaN(score) && score >= 0 && score <= 100) {
         return score;
+      }
+      // Also handle legacy /10 scores by converting them
+      if (!isNaN(score) && score >= 0 && score <= 10) {
+        return score * 10; // Convert /10 to /100
       }
     }
   }
@@ -204,10 +212,11 @@ function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): v
 
 // Extract all tips from analysis
 function extractAllTips(text: string, tips: StyleTip[]): void {
+  console.log('🔍 DEBUG: Starting tip extraction from text...');
   const lines = text.split('\n');
   
   let inTipsSection = false;
-  let currentCategory = '';
+  let currentCategory = 'General';
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -215,42 +224,50 @@ function extractAllTips(text: string, tips: StyleTip[]): void {
     // Skip empty lines
     if (!line) continue;
     
-    // Check if we're entering a tips section
-    const tipsSectionMatch = line.match(/(?:\*\*|#)?\s*([A-Za-z\s&]+)\s+Tips(?:\*\*|#)?:?/i);
+    // Check if we're entering a tips section - improved regex
+    const tipsSectionMatch = line.match(/\*\*\s*Style\s+Tips\s*:?\s*\*\*/i) || 
+                            line.match(/\*\*\s*([A-Za-z\s&]+)\s+Tips\s*:?\s*\*\*/i);
     
     if (tipsSectionMatch) {
       inTipsSection = true;
-      currentCategory = tipsSectionMatch[1].trim();
+      currentCategory = tipsSectionMatch[1] ? tipsSectionMatch[1].trim() : 'General';
+      console.log('🔍 DEBUG: Found tips section:', currentCategory);
       continue;
     }
     
     // Special case for "Next Level Tips" section
-    if (line.match(/(?:\*\*|#)?\s*Next\s+Level\s+Tips(?:\*\*|#)?:?/i)) {
+    if (line.match(/\*\*\s*Next\s+Level\s+Tips\s*:?\s*\*\*/i)) {
       inTipsSection = true;
       currentCategory = "Advanced";
+      console.log('🔍 DEBUG: Found advanced tips section');
       continue;
     }
     
-    // If we're in a tips section, look for bullet points or numbered items
-    if (inTipsSection && (line.startsWith('*') || line.startsWith('-') || line.match(/^\d+\./))) {
+    // If we're in a tips section, look for bullet points (•, *, -) or numbered items
+    if (inTipsSection && (line.startsWith('•') || line.startsWith('*') || line.startsWith('-') || line.match(/^\d+\./))) {
       // Extract the tip content (remove the bullet/number)
-      const tipContent = line.replace(/^(?:\*|-|\d+\.)\s*/, '').trim();
+      const tipContent = line.replace(/^(?:•|\*|-|\d+\.)\s*/, '').trim();
       
-      if (tipContent) {
-        tips.push({
+      if (tipContent && tipContent.length > 10) { // Filter out very short tips
+        const tip = {
           category: currentCategory,
           tip: tipContent,
           level: currentCategory.toLowerCase() === "advanced" ? "advanced" : determineLevel(tipContent)
-        });
+        };
+        tips.push(tip);
+        console.log('🔍 DEBUG: Extracted tip:', tip);
       }
     }
     
-    // If we hit a new section header, exit the tips section
-    if (inTipsSection && line.match(/(?:\*\*|#)\s*[A-Za-z\s&]+(?:\*\*|#):?/) && !line.includes('Tips')) {
+    // If we hit a new major section header (not tips related), exit the tips section
+    if (inTipsSection && line.match(/\*\*[^*]+\*\*/) && !line.toLowerCase().includes('tips')) {
+      console.log('🔍 DEBUG: Exiting tips section, found new header:', line);
       inTipsSection = false;
-      currentCategory = '';
+      currentCategory = 'General';
     }
   }
+  
+  console.log('🔍 DEBUG: Final tips extracted:', tips.length);
 }
 
 // Helper function to determine the level of a tip

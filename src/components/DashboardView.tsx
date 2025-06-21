@@ -225,20 +225,11 @@ export const DashboardView = () => {
               <StyleStats hasScans={hasScans} stats={stats} />
             </motion.div>
 
-            {/* Quick Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-            >
-              <QuickStartSection />
-            </motion.div>
-
             {/* Recent Analyses */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
             >
               <StyleAnalysesList analyses={analyses} />
             </motion.div>

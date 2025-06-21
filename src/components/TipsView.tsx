@@ -1,49 +1,24 @@
-
 import React, { useState } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Camera, 
-  Lightbulb,
-  ChevronDown,
-  ChevronUp,
-  Sparkles
+  MapPin
 } from "lucide-react";
 import { useScanStore } from "@/store/scanStore";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
-import { StyleTips } from "./analysis/StyleTips";
 import { StyleTip } from "@/types/styleTypes";
 
 export const TipsView = () => {
   const latestScan = useScanStore((state) => state.latestScan);
   const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [expandedTips, setExpandedTips] = useState<string[]>([]);
 
-  const toggleCategory = (category: string) => {
-    if (selectedCategory === category) {
-      setSelectedCategory(null);
-    } else {
-      setSelectedCategory(category);
-    }
-  };
-
-  const toggleTipExpand = (tipId: string) => {
-    if (expandedTips.includes(tipId)) {
-      setExpandedTips(expandedTips.filter(id => id !== tipId));
-    } else {
-      setExpandedTips([...expandedTips, tipId]);
-    }
-  };
-
-  if (!latestScan) {
+  if (!latestScan || !latestScan.tips || latestScan.tips.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-4">
         <div className="text-center space-y-4">
           <Camera className="w-12 h-12 text-purple-400 mx-auto" />
-          <h2 className="text-xl font-semibold text-white">No Style Analysis Yet</h2>
+          <h2 className="text-xl font-semibold text-white">No Style Tips Yet</h2>
           <p className="text-white/60 max-w-sm">
             Take your first style scan to get personalized tips and insights about your outfit
           </p>
@@ -58,76 +33,105 @@ export const TipsView = () => {
     );
   }
 
-  // Get unique categories from tips
-  const categories = latestScan.tips ? 
-    Array.from(new Set(latestScan.tips.map(tip => tip.category))) : [];
-
-  // Filter tips by selected category if there is one
-  const filteredTips = selectedCategory && latestScan.tips ? 
-    latestScan.tips.filter(tip => tip.category === selectedCategory) : 
-    latestScan.tips || [];
+  const tips = latestScan.tips;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="space-y-6 px-4 pb-20"
-    >
-      <Card className="bg-gradient-to-br from-[#1A1F2C]/80 to-[#2C1F3D]/80 backdrop-blur-lg border-white/10 shadow-xl">
-        <CardContent className="p-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white/90 tracking-tight mb-2">Style Tips</h2>
-            <p className="text-white/80">
-              Based on your style score of <span className="font-bold text-purple-400">{latestScan.overallScore}/10</span>, 
-              here are personalized tips to improve your outfit.
-            </p>
-          </div>
-          
-          {/* Show the new StyleTips component for a cleaner, more organized view */}
-          <div className="mb-8">
-            <StyleTips tips={filteredTips} />
-          </div>
-          
-          {categories.length > 0 && (
-            <div className="flex gap-2 flex-wrap mt-8">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className={`text-xs rounded-full px-3 py-1 ${
-                  selectedCategory === null 
-                    ? 'bg-purple-500 text-white' 
-                    : 'bg-white/10 text-white/70 hover:bg-white/20'
-                }`}
-              >
-                All
-              </button>
-              {categories.map(category => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`text-xs rounded-full px-3 py-1 ${
-                    selectedCategory === category 
-                      ? 'bg-purple-500 text-white' 
-                      : 'bg-white/10 text-white/70 hover:bg-white/20'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
+    <div className="min-h-screen bg-black px-4 py-6 pb-24">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-bold text-white leading-tight">
+          Get tips to become<br />
+          more attractive
+        </h1>
+      </div>
+
+      {/* Score Card */}
+      <div className="bg-[#1a1a1a] rounded-2xl p-6 mb-6 border border-[#333333] shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-4xl font-bold text-white mb-1">
+              {latestScan.overallScore}
             </div>
-          )}
-          
-          <div className="flex justify-center mt-6">
-            <Button 
-              onClick={() => navigate('/scan')}
-              className="bg-purple-500 hover:bg-purple-600"
-            >
-              Analyze Another Outfit
-            </Button>
+            <div className="text-[#888888] text-sm">
+              You're getting there!
+            </div>
           </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+          <div className="relative w-16 h-16">
+            <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
+              {/* Background circle */}
+              <path
+                d="M18 2.0845
+                  a 15.9155 15.9155 0 0 1 0 31.831
+                  a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="#333333"
+                strokeWidth="2"
+              />
+              {/* Progress circle */}
+              <path
+                d="M18 2.0845
+                  a 15.9155 15.9155 0 0 1 0 31.831
+                  a 15.9155 15.9155 0 0 1 0 -31.831"
+                fill="none"
+                stroke="#ff6b35"
+                strokeWidth="2"
+                strokeDasharray={`${latestScan.overallScore}, 100`}
+                className="transition-all duration-300"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 bg-[#ff6b35] rounded-full"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recommendations Header */}
+      <div className="flex items-center space-x-2 mb-4">
+        <MapPin className="w-5 h-5 text-[#ff6b35]" />
+        <h2 className="text-white font-semibold text-lg">Recommendations</h2>
+      </div>
+
+      {/* Recommendation Cards */}
+      <div className="space-y-4">
+        {tips.map((tip, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="bg-[#1a1a1a] rounded-2xl p-4 border border-[#333333] shadow-lg hover:bg-[#222222] transition-colors duration-200"
+          >
+            <div className="flex items-start space-x-3">
+              {/* Orange bullet point */}
+              <div className="flex-shrink-0 mt-2">
+                <div className="w-2 h-2 bg-[#ff6b35] rounded-full"></div>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1">
+                <h3 className="text-white font-semibold text-base mb-2 leading-snug">
+                  {tip.category}
+                </h3>
+                <p className="text-[#aaaaaa] text-sm leading-relaxed">
+                  {tip.tip}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Action Button */}
+      <div className="flex justify-center mt-8">
+        <Button 
+          onClick={() => navigate('/scan')}
+          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8 py-3 rounded-xl font-medium transition-all duration-200"
+        >
+          Analyze Another Outfit
+        </Button>
+      </div>
+    </div>
   );
 };
 

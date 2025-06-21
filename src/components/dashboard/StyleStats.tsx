@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,7 +84,7 @@ export const StyleStats = ({ hasScans, stats }: StyleStatsProps) => {
   }];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-3 gap-3">
       {styleStatsData.map((stat, index) => (
         <motion.div
           key={stat.title}

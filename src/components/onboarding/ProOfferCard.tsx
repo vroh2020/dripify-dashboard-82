@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Crown, Check, RefreshCw } from "lucide-react";
@@ -30,7 +29,17 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       // Use the specific product ID we know exists
       setIsProcessing(true);
       try {
-        const success = await purchaseProduct('gs_1299_1m');
+        // Create a minimal product object for fallback
+        const fallbackProduct = {
+          identifier: 'gs_1299_1m',
+          title: 'Pro Monthly',
+          description: 'Pro subscription',
+          price: 12.99,
+          priceString: '$12.99',
+          currencyCode: 'USD',
+          subscriptionPeriod: 'P1M'
+        };
+        const success = await purchaseProduct(fallbackProduct);
         if (success) {
           setTimeout(onContinue, 1000);
         }
@@ -44,7 +53,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
 
     setIsProcessing(true);
     try {
-      const success = await purchaseProduct(proProduct.product.identifier);
+      const success = await purchaseProduct(proProduct.product);
       if (success) {
         setTimeout(onContinue, 1000);
       }
