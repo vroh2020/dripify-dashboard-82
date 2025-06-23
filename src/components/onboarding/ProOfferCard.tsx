@@ -9,15 +9,17 @@ interface ProOfferCardProps {
 }
 
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
-  const { offerings, purchaseProduct, restorePurchases, isPro, isLoading } = useSubscription();
+  const { offerings, purchaseProduct, restorePurchases, isPro, isLoading } =
+    useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
   // Find the Pro product - look for gs_1299_1m specifically
-  const proProduct = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier === 'gs_1299_1m' || 
-    pkg.product.identifier.includes('pro') || 
-    pkg.product.title.toLowerCase().includes('pro')
+  const proProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) =>
+      pkg.product.identifier === "gs_1299_1m" ||
+      pkg.product.identifier.includes("pro") ||
+      pkg.product.title.toLowerCase().includes("pro")
   );
 
   // Format the price
@@ -25,19 +27,19 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
 
   const handleUpgrade = async () => {
     if (!proProduct) {
-      console.log('🚫 No pro product found, using fallback product ID');
+      console.log("🚫 No pro product found, using fallback product ID");
       // Use the specific product ID we know exists
       setIsProcessing(true);
       try {
         // Create a minimal product object for fallback
         const fallbackProduct = {
-          identifier: 'gs_1299_1m',
-          title: 'Pro Monthly',
-          description: 'Pro subscription',
+          identifier: "gs_1299_1m",
+          title: "Pro Monthly",
+          description: "Pro subscription",
           price: 12.99,
-          priceString: '$12.99',
-          currencyCode: 'USD',
-          subscriptionPeriod: 'P1M'
+          priceString: "$12.99",
+          currencyCode: "USD",
+          subscriptionPeriod: "P1M",
         };
         const success = await purchaseProduct(fallbackProduct);
         if (success) {
@@ -53,7 +55,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
 
     setIsProcessing(true);
     try {
-      const success = await purchaseProduct(proProduct.product);
+      const success = await purchaseProduct(proProduct);
       if (success) {
         setTimeout(onContinue, 1000);
       }
@@ -87,13 +89,15 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
               <Crown className="h-12 w-12 text-purple-400" />
             </div>
           </div>
-          <h3 className="text-2xl font-semibold text-white mb-4">You're Already Pro! 🎉</h3>
+          <h3 className="text-2xl font-semibold text-white mb-4">
+            You're Already Pro! 🎉
+          </h3>
           <p className="text-white/70 text-lg mb-6">
             You have full access to all premium features and benefits.
           </p>
         </CardContent>
         <CardFooter className="p-8 pt-0">
-          <Button 
+          <Button
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white h-14 text-lg font-bold rounded-2xl"
             onClick={onContinue}
           >
@@ -107,7 +111,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   return (
     <Card className="bg-black/30 backdrop-blur-lg border-white/10 overflow-hidden max-w-sm w-full">
       <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 py-3 px-6 text-center">
-        <span className="text-sm font-medium text-purple-300">Special Launch Offer</span>
+        <span className="text-sm font-medium text-purple-300">
+          Special Launch Offer
+        </span>
       </div>
 
       <CardContent className="p-8">
@@ -116,18 +122,24 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             <Sparkles className="h-12 w-12 text-purple-400" />
           </div>
         </div>
-        
-        <h3 className="text-2xl font-semibold text-white text-center mb-4">Upgrade to Pro</h3>
+
+        <h3 className="text-2xl font-semibold text-white text-center mb-4">
+          Upgrade to Pro
+        </h3>
         <p className="text-white/70 text-center mb-6 text-lg">
           Get the most out of your style journey with premium features
         </p>
-        
+
         <div className="text-center mb-6">
-          <span className="text-3xl font-bold text-white">{formattedPrice}</span>
+          <span className="text-3xl font-bold text-white">
+            {formattedPrice}
+          </span>
           <span className="text-base text-white/70 ml-1">/ month</span>
-          <div className="text-sm text-purple-300 mt-1">7-day free trial included</div>
+          <div className="text-sm text-purple-300 mt-1">
+            7-day free trial included
+          </div>
         </div>
-        
+
         <div className="space-y-4 mb-6">
           <div className="flex items-center gap-3">
             <Check className="h-5 w-5 text-purple-400 flex-shrink-0" />
@@ -147,9 +159,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           </div>
         </div>
       </CardContent>
-      
+
       <CardFooter className="flex flex-col gap-3 p-8 pt-0">
-        <Button 
+        <Button
           className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white h-14 text-lg font-bold rounded-2xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300"
           onClick={handleUpgrade}
           disabled={isProcessing || isRestoring || isLoading}
@@ -163,9 +175,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             `Start Free Trial - ${formattedPrice}/month`
           )}
         </Button>
-        
-        <Button 
-          variant="ghost" 
+
+        <Button
+          variant="ghost"
           className="w-full text-purple-300 hover:text-purple-200 hover:bg-purple-500/10"
           onClick={handleRestore}
           disabled={isProcessing || isRestoring || isLoading}
@@ -182,9 +194,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             </>
           )}
         </Button>
-        
-        <Button 
-          variant="ghost" 
+
+        <Button
+          variant="ghost"
           className="w-full text-white/70 hover:text-white hover:bg-white/5"
           onClick={onContinue}
           disabled={isProcessing || isRestoring}

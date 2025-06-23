@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Crown } from "lucide-react";
@@ -10,7 +9,7 @@ interface TrialOfferStepProps {
 }
 
 export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
-  const { purchaseProduct, isPro, isLoading } = useSubscription();
+  const { purchaseProduct, isPro, isLoading, offerings } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleStartTrial = async () => {
@@ -21,8 +20,11 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
 
     setIsProcessing(true);
     try {
+      const proProduct = offerings?.[0]?.availablePackages?.find(
+        (pkg) => pkg.product.identifier === "gs_1299_1m"
+      );
       // Use the specific product ID we know exists
-      const success = await purchaseProduct('gs_1299_1m');
+      const success = await purchaseProduct(proProduct);
       if (success) {
         setTimeout(onNext, 1000);
       } else {
@@ -50,37 +52,43 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       {/* Content Area - Centered */}
       <div className="flex-1 flex flex-col justify-center items-center px-8 py-12">
         <motion.div
-          animate={{ 
+          animate={{
             scale: [1, 1.1, 1],
-            rotate: [0, 5, -5, 0]
+            rotate: [0, 5, -5, 0],
           }}
-          transition={{ 
-            duration: 3, 
+          transition={{
+            duration: 3,
             repeat: Infinity,
-            ease: "easeInOut"
+            ease: "easeInOut",
           }}
           className="mb-8"
         >
           <Crown className="w-24 h-24 text-orange-400 mx-auto" />
         </motion.div>
-        
+
         <div className="text-center space-y-6">
           <h1 className="text-4xl font-bold text-white leading-tight">
-            We offer<br />
-            <span className="text-orange-400 text-5xl">7 days free</span><br />
-            so everyone can<br />
-            max their drip with<br />
+            We offer
+            <br />
+            <span className="text-orange-400 text-5xl">7 days free</span>
+            <br />
+            so everyone can
+            <br />
+            max their drip with
+            <br />
             <span className="text-orange-400">Drip Max</span>
           </h1>
-          
+
           {isPro && (
             <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4 mt-6">
-              <p className="text-green-300 font-medium">✨ You already have Pro access!</p>
+              <p className="text-green-300 font-medium">
+                ✨ You already have Pro access!
+              </p>
             </div>
           )}
         </div>
       </div>
-      
+
       {/* Button Area - Fixed bottom */}
       <div className="px-8 pb-8">
         <Button
