@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { Capacitor } from '@capacitor/core';
@@ -23,103 +22,113 @@ const generateSecureRandom = (length: number = 16): string => {
   return result;
 };
 
-// Helper function to determine if we're on mobile
+// Mobile detection utility
 const isMobile = (): boolean => {
   return Capacitor.isNativePlatform();
 };
 
-export const handleGoogleSignIn = async (): Promise<boolean> => {
-  try {
-    console.log('Starting Google Sign In...');
-    console.log('Platform:', isMobile() ? 'Mobile' : 'Web');
-    
-    // Use web redirect URL for both web and mobile
-    // The mobile app will capture the tokens from the callback URL
-    const redirectUrl = `${window.location.origin}/auth`;
-    
-    console.log('Using redirect URL:', redirectUrl);
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      }
-    });
-    
-    if (error) {
-      console.error('Google Sign In error:', error);
-      return false;
-    }
-    
-    console.log('Google OAuth initiated successfully');
-    return true;
-  } catch (error) {
-    console.error('Google Sign In error:', error);
-    return false;
-  }
-};
-
 export const handleAppleSignIn = async (): Promise<boolean> => {
   try {
-    console.log('Starting Apple Sign In...');
-    console.log('Platform:', isMobile() ? 'Mobile' : 'Web');
+    console.log('🍎 Starting Apple Sign In...');
+    console.log('🍎 Platform:', isMobile() ? 'Mobile' : 'Web');
+    console.log('🍎 User Agent:', navigator.userAgent);
     
     if (isMobile()) {
       // Native Apple Sign In for mobile
+      const nonce = generateSecureRandom(10);
+      const state = generateSecureRandom(10);
+      
       const options = {
-        clientId: 'com.genstyle.app',
-        redirectURI: 'com.genstyle.app://auth/callback',
+        clientId: 'service.com.genstyle.app', // Use Services ID, not App ID
+        redirectURI: 'https://jjqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback', // Supabase callback URL
         scopes: 'email name',
-        state: generateSecureRandom(10),
-        nonce: generateSecureRandom(10),
+        state: state,
+        nonce: nonce,
       };
 
+      console.log('🍎 Apple Sign In options:', options);
       const result = await SignInWithApple.authorize(options);
+      console.log('🍎 Apple Sign In result:', result);
       
       if (result.response.identityToken) {
-        const { error } = await supabase.auth.signInWithIdToken({
+        console.log('🍎 Identity token received, sending to Supabase...');
+        const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: result.response.identityToken,
+          nonce: nonce, // Include the nonce for security
         });
         
-        if (error) throw error;
+        if (error) {
+          console.error('🍎 Supabase auth error:', error);
+          // Log more details for debugging
+          console.error('🍎 Error details:', {
+            message: error.message,
+            status: error.status,
+            code: error.code
+          });
+          throw error;
+        }
+        
+        console.log('🍎 Apple Sign In successful - User:', data.user?.email);
         return true;
+      } else {
+        console.error('🍎 No identity token received from Apple');
+        console.error('🍎 Full response:', result.response);
+        return false;
       }
     } else {
-      // Web Apple Sign In
-      const redirectUrl = `${window.location.origin}/auth`;
-      console.log('Apple redirect URL set to:', redirectUrl);
+      // Web Apple Sign In - uses Supabase OAuth flow
+      console.log('🍎 Starting web Apple Sign In flow...');
+      console.log('🍎 Current URL:', window.location.href);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: redirectUrl
+          redirectTo: `${window.location.origin}/auth`,
+          queryParams: {
+            // Add some additional parameters for better debugging
+            platform: 'web',
+            timestamp: Date.now().toString()
+          }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('🍎 Web Apple Sign In error:', error);
+        console.error('🍎 Error details:', {
+          message: error.message,
+          status: error.status,
+          code: error.code
+        });
+        throw error;
+      }
+      console.log('🍎 Web Apple Sign In initiated - redirecting to Apple...');
       return true;
     }
+  } catch (error: any) {
+    console.error('🍎 Apple Sign In error:', error);
     
-    return true;
-  } catch (error) {
-    console.error('Apple Sign In error:', error);
+    // Enhanced error logging
+    if (error.message) {
+      console.error('🍎 Error message:', error.message);
+    }
+    if (error.code) {
+      console.error('🍎 Error code:', error.code);
+    }
+    if (error.status) {
+      console.error('🍎 HTTP status:', error.status);
+    }
+    
+    // Check for specific Apple Sign In errors
+    if (error.message?.includes('popup_closed')) {
+      console.log('🍎 User closed the popup - this is normal behavior');
+    } else if (error.message?.includes('network')) {
+      console.log('🍎 Network error - check internet connection');
+    } else if (error.message?.includes('409')) {
+      console.log('🍎 Apple returned 409 Conflict - this may be due to repeated attempts or configuration issues');
+    }
+    
     return false;
-  }
-};
-
-export const handleContinueWithEmail = async (): Promise<boolean> => {
-  try {
-    // Simply return true to continue with onboarding without auth
-    // User will be prompted to authenticate later if needed
-    return true;
-  } catch (error) {
-    console.error('Error in continue with email:', error);
-    return true;
   }
 };
 

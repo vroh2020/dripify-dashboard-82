@@ -1,4 +1,3 @@
-
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -24,6 +23,14 @@ const config: CapacitorConfig = {
       apiKey: "", // Will be set dynamically from Supabase
       useAmazonSandbox: false,
       shouldShowInAppMessagesAutomatically: true
+    },
+    SignInWithApple: {
+      // Apple Sign In plugin configuration
+      clientId: 'service.com.genstyle.app',
+      redirectURI: 'https://jjqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback',
+      scopes: 'email name',
+      state: 'state',
+      nonce: 'nonce'
     }
   }
 };
