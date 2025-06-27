@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
+          age_range: string | null
           avatar_url: string | null
           body_type: string | null
           budget_range: string | null
@@ -19,6 +20,8 @@ export type Database = {
           favorite_brands: string[] | null
           gender: string | null
           id: string
+          main_goal: string | null
+          onboarding_completed: boolean | null
           referral_source: string | null
           size_info: Json | null
           style_preference: string | null
@@ -27,6 +30,7 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          age_range?: string | null
           avatar_url?: string | null
           body_type?: string | null
           budget_range?: string | null
@@ -35,6 +39,8 @@ export type Database = {
           favorite_brands?: string[] | null
           gender?: string | null
           id: string
+          main_goal?: string | null
+          onboarding_completed?: boolean | null
           referral_source?: string | null
           size_info?: Json | null
           style_preference?: string | null
@@ -43,6 +49,7 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          age_range?: string | null
           avatar_url?: string | null
           body_type?: string | null
           budget_range?: string | null
@@ -51,6 +58,8 @@ export type Database = {
           favorite_brands?: string[] | null
           gender?: string | null
           id?: string
+          main_goal?: string | null
+          onboarding_completed?: boolean | null
           referral_source?: string | null
           size_info?: Json | null
           style_preference?: string | null
