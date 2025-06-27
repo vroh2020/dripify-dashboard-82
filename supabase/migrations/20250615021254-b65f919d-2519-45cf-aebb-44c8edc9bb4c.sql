@@ -5,6 +5,12 @@ DROP POLICY IF EXISTS "Users can upload their own style images" ON storage.objec
 DROP POLICY IF EXISTS "Users can view their own style images" ON storage.objects;
 DROP POLICY IF EXISTS "Public can view style images" ON storage.objects;
 
+-- Also drop the conflicting policy names from the other migration
+DROP POLICY IF EXISTS "profiles_select_own" ON profiles;
+DROP POLICY IF EXISTS "profiles_insert_own" ON profiles;
+DROP POLICY IF EXISTS "profiles_update_own" ON profiles;
+DROP POLICY IF EXISTS "profiles_delete_own" ON profiles;
+
 -- Create storage policies for style images
 CREATE POLICY "Users can upload their own style images"
 ON storage.objects FOR INSERT
@@ -27,6 +33,7 @@ USING (bucket_id = 'style_images');
 -- Drop existing policies to avoid conflicts
 DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can view their own analyses" ON style_analyses;
 DROP POLICY IF EXISTS "Users can insert their own analyses" ON style_analyses;
 DROP POLICY IF EXISTS "Users can view their own outfits" ON saved_outfits;
@@ -34,9 +41,12 @@ DROP POLICY IF EXISTS "Users can insert their own outfits" ON saved_outfits;
 DROP POLICY IF EXISTS "Users can view their own achievements" ON user_achievements;
 DROP POLICY IF EXISTS "Users can insert their own achievements" ON user_achievements;
 
--- Create user-scoped policies for profiles
+-- Create user-scoped policies for profiles (including INSERT for UPSERT)
 CREATE POLICY "Users can view their own profile" ON profiles
 FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can insert their own profile" ON profiles
+FOR INSERT WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "Users can update their own profile" ON profiles  
 FOR UPDATE USING (auth.uid() = id);
