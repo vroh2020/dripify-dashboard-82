@@ -35,20 +35,22 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [analysisResult, setAnalysisResult] = useState<StyleAnalysisResult | null>(null);
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [hasAutoAdvanced, setHasAutoAdvanced] = useState(false);
   const { toast } = useToast();
   const { isPro } = useSubscription();
   const { isAuthenticated } = useAuthState();
 
   // Auto-advance from welcome step when user is already authenticated (from Apple callback)
   useEffect(() => {
-    if (isAuthenticated && currentStep === 'welcome') {
+    if (isAuthenticated && currentStep === 'welcome' && !hasAutoAdvanced) {
       console.log('🎯 ModernOnboarding: User already authenticated on welcome step, auto-advancing to age');
+      setHasAutoAdvanced(true);
       // Small delay to ensure UI is ready
       setTimeout(() => {
         setCurrentStep('age');
       }, 1000);
     }
-  }, [isAuthenticated, currentStep]);
+  }, [isAuthenticated, currentStep, hasAutoAdvanced]);
 
   // Progress calculation
   const progress = (stepMap[currentStep] / totalSteps) * 100;

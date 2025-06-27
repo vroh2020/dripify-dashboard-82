@@ -22,7 +22,7 @@ export const Auth = memo(() => {
   }
   
   // Handle pending onboarding data after auth
-  usePendingOnboarding();
+  // DISABLED: usePendingOnboarding(); // Causing infinite loops due to RLS errors
 
   // Handle OAuth callbacks and errors
   useEffect(() => {
