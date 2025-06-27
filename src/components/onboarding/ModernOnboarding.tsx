@@ -39,7 +39,16 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const { isPro } = useSubscription();
   const { isAuthenticated } = useAuthState();
 
-  // Note: Auto-advance is now handled directly in WelcomeStep after successful Apple Sign-In
+  // Auto-advance from welcome step when user is already authenticated (from Apple callback)
+  useEffect(() => {
+    if (isAuthenticated && currentStep === 'welcome') {
+      console.log('🎯 ModernOnboarding: User already authenticated on welcome step, auto-advancing to age');
+      // Small delay to ensure UI is ready
+      setTimeout(() => {
+        setCurrentStep('age');
+      }, 1000);
+    }
+  }, [isAuthenticated, currentStep]);
 
   // Progress calculation
   const progress = (stepMap[currentStep] / totalSteps) * 100;
