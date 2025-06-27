@@ -22,40 +22,20 @@ export function useOnboardingStatus(): OnboardingStatus {
 
     try {
       setIsLoading(true);
-      console.log('🔍 Starting onboarding status check for user:', user.id);
       
-      // Check profile for onboarding completion
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle(); // Use maybeSingle to avoid errors when no profile exists
+        .maybeSingle();
 
-      console.log('🔍 Database response:', { profile, error });
-
-      if (error) {
-        console.error('🚨 Database error checking onboarding status:', error);
-        console.error('🚨 Error details:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        setHasCompletedOnboarding(false);
-      } else if (!profile) {
-        // If no profile exists, user hasn't completed onboarding
-        console.log('🔍 No profile found, onboarding not completed');
+      if (error || !profile) {
         setHasCompletedOnboarding(false);
       } else {
-        // Check if profile has onboarding completion flag
-        const isComplete = (profile as any).onboarding_completed === true;
-        setHasCompletedOnboarding(isComplete);
-        console.log('🔍 Onboarding status determined:', isComplete);
-        console.log('🔍 Profile data:', {
-          onboarding_completed: (profile as any).onboarding_completed,
-          age_range: (profile as any).age_range,
-          main_goal: (profile as any).main_goal
-        });
+        // Check if user has completed onboarding (either explicit flag or has data)
+        const hasFlag = (profile as any).onboarding_completed === true;
+        const hasData = (profile as any).age_range && (profile as any).main_goal;
+        setHasCompletedOnboarding(hasFlag || hasData);
       }
     } catch (error) {
       console.error('🚨 Exception in checkOnboardingStatus:', error);

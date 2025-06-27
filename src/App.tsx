@@ -27,62 +27,27 @@ const AppRoutes = () => {
   const { isLoading: authLoading, isAuthenticated } = useAuthState();
   const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
 
-  // Debug logging (only when state actually changes)
-  const prevStateRef = useRef<any>();
-  const currentState = {
-    authLoading,
-    isAuthenticated,
-    onboardingLoading,
-    hasCompletedOnboarding,
-    shouldShowOnboarding: isAuthenticated && !hasCompletedOnboarding
-  };
-  
-  if (JSON.stringify(prevStateRef.current) !== JSON.stringify(currentState)) {
-    console.log('🔍 AppRoutes State Change:', currentState);
-    prevStateRef.current = currentState;
-  }
-
   if (authLoading || (isAuthenticated && onboardingLoading)) {
-    console.log('🔍 AppRoutes: Showing loading screen');
-    return <LoadingScreen message="Checking authentication..." />;
+    return <LoadingScreen message="Loading..." />;
   }
 
-  // Additional routing debug logs
-  if (isAuthenticated && hasCompletedOnboarding) {
-    console.log('🔍 AppRoutes: Routing to main app');
-  } else if (isAuthenticated && !hasCompletedOnboarding) {
-    console.log('🔍 AppRoutes: Routing authenticated user to onboarding');
-  } else {
-    console.log('🔍 AppRoutes: Routing unauthenticated user to auth');
-  }
+  const showApp = isAuthenticated && hasCompletedOnboarding;
+  const showOnboarding = !isAuthenticated || !hasCompletedOnboarding;
 
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
-      {isAuthenticated ? (
-        hasCompletedOnboarding ? (
-          // User is authenticated and has completed onboarding
-          <>
-            <Route path="/dashboard" element={<Index />} />
-            <Route path="/scan" element={<Index />} />
-            <Route path="/tips" element={<Index />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/" element={<Index />} />
-            <Route path="*" element={<Index />} />
-          </>
-        ) : (
-          // User is authenticated but needs onboarding - ALWAYS send to /auth
-          <>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<Auth />} />
-          </>
-        )
-      ) : (
-        // User is not authenticated
+      {showApp ? (
         <>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="*" element={<Auth />} />
+          <Route path="/dashboard" element={<Index />} />
+          <Route path="/scan" element={<Index />} />
+          <Route path="/tips" element={<Index />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/" element={<Index />} />
+          <Route path="*" element={<Index />} />
         </>
+      ) : (
+        <Route path="*" element={<Auth />} />
       )}
     </Routes>
   );

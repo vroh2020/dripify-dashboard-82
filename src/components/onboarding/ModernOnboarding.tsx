@@ -35,42 +35,25 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [analysisResult, setAnalysisResult] = useState<StyleAnalysisResult | null>(null);
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
-  const [hasAutoAdvanced, setHasAutoAdvanced] = useState(false);
   const { toast } = useToast();
   const { isPro } = useSubscription();
   const { isAuthenticated } = useAuthState();
 
-  // Auto-advance from welcome step when user is already authenticated (from Apple callback)
+  // Auto-advance from welcome step when user is authenticated
   useEffect(() => {
-    if (isAuthenticated && currentStep === 'welcome' && !hasAutoAdvanced) {
-      console.log('🎯 ModernOnboarding: User already authenticated on welcome step, auto-advancing to age');
-      setHasAutoAdvanced(true);
-      // Small delay to ensure UI is ready
-      setTimeout(() => {
-        setCurrentStep('age');
-      }, 1000);
+    if (isAuthenticated && currentStep === 'welcome') {
+      setTimeout(() => setCurrentStep('age'), 1000);
     }
-  }, [isAuthenticated, currentStep, hasAutoAdvanced]);
+  }, [isAuthenticated, currentStep]);
 
-  // Progress calculation
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
-  // Only log when step actually changes
-  const prevStepRef = useRef<string>();
-  if (prevStepRef.current !== currentStep) {
-    console.log('🎯 ModernOnboarding: Step changed to:', currentStep, 'Progress:', progress);
-    prevStepRef.current = currentStep;
-  }
-
-  // Step handlers
   const handleAgeSelect = (age: string) => {
-    console.log('🎯 ModernOnboarding: Age selected:', age);
     setOnboardingData(prev => ({ ...prev, age }));
     setCurrentStep('goal');
   };
 
   const handleGoalSelect = (goal: string) => {
-    console.log('🎯 ModernOnboarding: Goal selected:', goal);
     setOnboardingData(prev => ({ ...prev, mainGoal: goal }));
     setCurrentStep('test-photo');
   };
@@ -123,11 +106,33 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         fullError: error
       });
       
-      // Fallback to demo result if analysis fails
+      // Fallback to demo result if analysis fails - but still try to upload image
+      let fallbackImageUrl = URL.createObjectURL(selectedImage);
+      try {
+        // Still try to upload the image to Supabase even if analysis failed
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const timestamp = new Date().getTime();
+          const filePath = `outfit_${timestamp}_${selectedImage.name.replace(/\s+/g, '_')}`;
+          const { error: uploadError } = await supabase.storage
+            .from('style_images')
+            .upload(filePath, selectedImage);
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('style_images')
+              .getPublicUrl(filePath);
+            fallbackImageUrl = publicUrl;
+          }
+        }
+      } catch (uploadError) {
+        console.warn('Failed to upload image in fallback:', uploadError);
+      }
+
       const demoResult: StyleAnalysisResult = {
         overallScore: 86,
         rawAnalysis: "Demo analysis for onboarding - analysis service unavailable",
-        imageUrl: URL.createObjectURL(selectedImage),
+        imageUrl: fallbackImageUrl,
         summary: "Looking great! Your style shows good attention to detail and coordination.",
         breakdown: [
           { category: "Overall Style", score: 86, emoji: "✨" }
@@ -166,37 +171,16 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   const handleCompleteOnboarding = async () => {
     if (isCompleting) return;
-    
-    console.log('🎯 ModernOnboarding: Starting completion process...');
     setIsCompleting(true);
     
     try {
-      console.log('🎯 Completing onboarding with data:', onboardingData);
-      
-      // Check if user is authenticated
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
-        console.log('🎯 No authenticated user, storing data for later auth');
-        
-        // Store onboarding data in localStorage for after auth
-        const pendingData = {
-          ...onboardingData,
-          analysisResult
-        };
-        localStorage.setItem('pendingOnboardingData', JSON.stringify(pendingData));
-        
-        onComplete({
-          ...onboardingData,
-          analysisResult,
-          requiresAuth: true
-        });
-        return;
+        throw new Error('User not authenticated');
       }
 
-      // User is authenticated, save onboarding data to profile
-      console.log('🎯 Saving onboarding data for user:', user.id);
-      
+      // Save onboarding data to Supabase
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -208,34 +192,33 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         });
 
       if (profileError) {
-        console.error('🎯 Error saving profile data:', profileError);
-        toast({
-          title: "Profile Save Error",
-          description: "Your preferences were saved locally. You can update them later in settings.",
-          variant: "default"
-        });
-      } else {
-        console.log('🎯 Profile data saved successfully');
+        throw new Error(`Profile save failed: ${profileError.message}`);
+      }
+      
+      // Save style analysis if we have results
+      if (analysisResult && analysisResult.overallScore) {
+        const { error: analysisError } = await supabase
+          .from('style_analyses')
+          .insert({
+            user_id: user.id,
+            total_score: analysisResult.overallScore,
+            breakdown: JSON.stringify(analysisResult.breakdown || []),
+            feedback: analysisResult.summary || "Great style analysis!",
+            tips: JSON.stringify(analysisResult.tips || []),
+            raw_analysis: analysisResult.rawAnalysis || "Onboarding analysis",
+            image_url: analysisResult.imageUrl || null,
+            thumbnail_url: analysisResult.imageUrl || null,
+            scan_date: new Date().toISOString()
+          });
         
-        // Save style analysis if we have results
-        if (analysisResult && analysisResult.overallScore) {
-          const { error: analysisError } = await supabase
-            .from('style_analyses')
-            .insert({
-              user_id: user.id,
-              total_score: analysisResult.overallScore,
-              breakdown: JSON.stringify(analysisResult.breakdown || []),
-              feedback: analysisResult.summary || "Great style analysis!",
-              tips: JSON.stringify(analysisResult.tips || []),
-              raw_analysis: analysisResult.rawAnalysis || "Onboarding analysis",
-              image_url: null // Don't store the blob URL
-            });
-          
-          if (analysisError) {
-            console.error('🎯 Error saving analysis:', analysisError);
-          } else {
-            console.log('🎯 Analysis data saved successfully');
-          }
+        if (analysisError) {
+          console.error('🎯 Error saving analysis:', analysisError);
+          // Don't fail the entire onboarding for analysis save errors
+          toast({
+            title: "Analysis saved locally",
+            description: "Your style analysis will sync later.",
+            variant: "default"
+          });
         }
       }
       

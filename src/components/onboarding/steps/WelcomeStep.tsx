@@ -10,23 +10,10 @@ interface WelcomeStepProps {
 
 export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
   const handleAppleClick = async () => {
-    console.log('🍎 WelcomeStep: Starting Apple Sign-In...');
-    const success = await handleAppleSignIn();
-    
-    // If Apple Sign-In succeeds, wait a moment then advance
-    if (success) {
-      console.log('🍎 WelcomeStep: Apple Sign-In completed successfully, advancing to next step');
-      // Small delay to ensure auth state is properly set
-      setTimeout(() => {
-        onNext();
-      }, 500);
-    } else {
-      console.log('🍎 WelcomeStep: Apple Sign-In failed');
-    }
+    await handleAppleSignIn();
   };
 
   const handleSignOut = async () => {
-    console.log('🚪 Signing out...');
     await supabase.auth.signOut();
   };
 
