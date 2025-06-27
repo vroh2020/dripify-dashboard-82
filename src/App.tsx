@@ -71,12 +71,18 @@ const AppRoutes = () => {
             <Route path="*" element={<Index />} />
           </>
         ) : (
-          // User is authenticated but needs onboarding
-          <Route path="*" element={<Auth />} />
+          // User is authenticated but needs onboarding - ALWAYS send to /auth
+          <>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="*" element={<Auth />} />
+          </>
         )
       ) : (
         // User is not authenticated
-        <Route path="*" element={<Auth />} />
+        <>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="*" element={<Auth />} />
+        </>
       )}
     </Routes>
   );

@@ -22,43 +22,44 @@ export function useOnboardingStatus(): OnboardingStatus {
 
     try {
       setIsLoading(true);
+      console.log('🔍 Starting onboarding status check for user:', user.id);
       
-      // First check if user has any style analyses (indicates completed onboarding)
-      const { data: analyses, error: analysisError } = await supabase
-        .from('style_analyses')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1);
-
-      if (!analysisError && analyses && analyses.length > 0) {
-        setHasCompletedOnboarding(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // Fallback: check profile for onboarding completion
+      // Check profile for onboarding completion
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid errors when no profile exists
+
+      console.log('🔍 Database response:', { profile, error });
 
       if (error) {
-        console.error('Error checking onboarding status:', error);
+        console.error('🚨 Database error checking onboarding status:', error);
+        console.error('🚨 Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        setHasCompletedOnboarding(false);
+      } else if (!profile) {
         // If no profile exists, user hasn't completed onboarding
+        console.log('🔍 No profile found, onboarding not completed');
         setHasCompletedOnboarding(false);
       } else {
-        // Check if profile has onboarding data (indicates completion)
-        const hasOnboardingData = profile && (
-          (profile as any).onboarding_completed === true ||
-          (profile as any).age_range ||
-          (profile as any).main_goal
-        );
-        setHasCompletedOnboarding(hasOnboardingData || false);
-        console.log('🔍 Onboarding status determined:', hasOnboardingData || false);
+        // Check if profile has onboarding completion flag
+        const isComplete = (profile as any).onboarding_completed === true;
+        setHasCompletedOnboarding(isComplete);
+        console.log('🔍 Onboarding status determined:', isComplete);
+        console.log('🔍 Profile data:', {
+          onboarding_completed: (profile as any).onboarding_completed,
+          age_range: (profile as any).age_range,
+          main_goal: (profile as any).main_goal
+        });
       }
     } catch (error) {
-      console.error('Error in checkOnboardingStatus:', error);
+      console.error('🚨 Exception in checkOnboardingStatus:', error);
+      console.error('🚨 Full error object:', JSON.stringify(error, null, 2));
       setHasCompletedOnboarding(false);
     } finally {
       setIsLoading(false);

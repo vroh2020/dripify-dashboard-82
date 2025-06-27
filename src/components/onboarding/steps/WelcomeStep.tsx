@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Apple, Star } from "lucide-react";
+import { Apple, Star, LogOut } from "lucide-react";
 import { handleAppleSignIn } from "../utils/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface WelcomeStepProps {
   onNext: () => void;
@@ -9,11 +10,24 @@ interface WelcomeStepProps {
 
 export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
   const handleAppleClick = async () => {
+    console.log('🍎 WelcomeStep: Starting Apple Sign-In...');
     const success = await handleAppleSignIn();
+    
+    // If Apple Sign-In succeeds, wait a moment then advance
     if (success) {
-      // Apple auth succeeded, continue with onboarding
-      onNext();
+      console.log('🍎 WelcomeStep: Apple Sign-In completed successfully, advancing to next step');
+      // Small delay to ensure auth state is properly set
+      setTimeout(() => {
+        onNext();
+      }, 500);
+    } else {
+      console.log('🍎 WelcomeStep: Apple Sign-In failed');
     }
+  };
+
+  const handleSignOut = async () => {
+    console.log('🚪 Signing out...');
+    await supabase.auth.signOut();
   };
 
   return (
@@ -81,7 +95,7 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
         </div>
       </div>
 
-      {/* Button Area - Only Apple Sign In */}
+      {/* Button Area - Apple Sign In + Debug */}
       <div className="flex-shrink-0 space-y-4 px-6 pb-6">
         <Button
           onClick={handleAppleClick}
@@ -89,6 +103,16 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
         >
           <Apple className="mr-3 h-6 w-6" />
           Continue with Apple
+        </Button>
+        
+        {/* Debug: Sign Out Button */}
+        <Button
+          onClick={handleSignOut}
+          variant="outline"
+          className="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-400/30 h-12 text-sm rounded-xl"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out (Debug)
         </Button>
         
         <p className="text-white/60 text-sm text-center leading-relaxed">

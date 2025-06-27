@@ -28,6 +28,7 @@ export const Auth = memo(() => {
   useEffect(() => {
     const urlHash = window.location.hash;
     const urlParams = new URLSearchParams(location.search);
+    const isAppleCallback = urlParams.get('apple_callback') === 'true';
     
     // Handle OAuth errors
     const authError = urlParams.get('error');
@@ -44,13 +45,20 @@ export const Auth = memo(() => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
+    // Handle successful Apple callback
+    if (isAppleCallback && isAuthenticated) {
+      console.log('🍎 Apple callback detected, user is authenticated - staying on onboarding');
+      // Clean up URL but stay on onboarding
+      window.history.replaceState({}, document.title, '/auth');
+    }
+
     // Clear hash after processing
     if (urlHash && urlHash.includes('access_token')) {
       setTimeout(() => {
         window.history.replaceState({}, document.title, window.location.pathname);
       }, 1000);
     }
-  }, [location.search, toast]);
+  }, [location.search, toast, isAuthenticated]);
 
   const handleOnboardingComplete = (userData: any) => {
     console.log('🎯 Onboarding completed, navigating to dashboard');

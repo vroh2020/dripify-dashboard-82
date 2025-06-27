@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { StyleLoadingOverlay } from "@/components/StyleLoadingOverlay";
@@ -8,6 +8,7 @@ import { analyzeStyle } from "@/utils/imageAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
+import { useAuthState } from "@/hooks/useAuthState";
 import { InAppReview } from '@capacitor-community/in-app-review';
 
 // Import step components
@@ -36,6 +37,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
   const { isPro } = useSubscription();
+  const { isAuthenticated } = useAuthState();
+
+  // Note: Auto-advance is now handled directly in WelcomeStep after successful Apple Sign-In
 
   // Progress calculation
   const progress = (stepMap[currentStep] / totalSteps) * 100;

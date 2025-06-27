@@ -84,7 +84,7 @@ export const handleAppleSignIn = async (): Promise<boolean> => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: `${window.location.origin}/auth`,
+          redirectTo: `${window.location.origin}/auth?apple_callback=true`,
           queryParams: {
             // Add some additional parameters for better debugging
             platform: 'web',
