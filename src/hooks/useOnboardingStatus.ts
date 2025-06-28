@@ -38,8 +38,6 @@ export function useOnboardingStatus(): OnboardingStatus {
         setHasCompletedOnboarding(hasFlag || hasData);
       }
     } catch (error) {
-      console.error('🚨 Exception in checkOnboardingStatus:', error);
-      console.error('🚨 Full error object:', JSON.stringify(error, null, 2));
       setHasCompletedOnboarding(false);
     } finally {
       setIsLoading(false);
@@ -47,7 +45,6 @@ export function useOnboardingStatus(): OnboardingStatus {
   }, [isAuthenticated, user]);
 
   useEffect(() => {
-    console.log('🔍 useOnboardingStatus - isAuthenticated:', isAuthenticated, 'user:', user?.id);
     checkOnboardingStatus();
   }, [isAuthenticated, user?.id, checkOnboardingStatus]);
 
