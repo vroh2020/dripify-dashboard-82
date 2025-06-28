@@ -29,7 +29,7 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
     // Simple options as per the official documentation
     const options = {
       clientId: 'service.com.genstyle.app',
-      redirectURI: 'https://dripify-dashboard-82.lovable.app/auth',
+      redirectURI: 'com.genstyle.app://auth/callback',
       scopes: 'email name',
       state: '12345',
       nonce: 'nonce'

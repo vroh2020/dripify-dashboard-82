@@ -27,7 +27,7 @@ const config: CapacitorConfig = {
     SignInWithApple: {
       // Apple Sign In plugin configuration - runtime values will override these defaults
       clientId: 'service.com.genstyle.app',
-      redirectURI: 'https://dripify-dashboard-82.lovable.app/auth',
+      redirectURI: 'com.genstyle.app://auth/callback',
       scopes: 'email name'
     }
   }
