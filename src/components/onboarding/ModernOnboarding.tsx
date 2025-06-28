@@ -41,8 +41,13 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   // Auto-advance from welcome step when user is authenticated
   useEffect(() => {
+    console.log('🔄 ModernOnboarding: Auth state change', { isAuthenticated, currentStep });
     if (isAuthenticated && currentStep === 'welcome') {
-      setTimeout(() => setCurrentStep('age'), 1000);
+      console.log('✅ ModernOnboarding: User authenticated, advancing to age step');
+      setTimeout(() => {
+        console.log('🚀 ModernOnboarding: Setting step to age');
+        setCurrentStep('age');
+      }, 1000);
     }
   }, [isAuthenticated, currentStep]);
 
