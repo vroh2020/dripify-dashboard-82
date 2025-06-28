@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 export const handleAppleSignIn = async (): Promise<boolean> => {
   try {
@@ -66,34 +67,59 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
 
 const handleWebAppleSignIn = async (): Promise<boolean> => {
   try {
-    console.log('Using web Apple Sign-In OAuth flow with deep linking');
+    console.log('Using Browser plugin for Apple Sign-In with proper redirect');
     
-    // Use deep link for native, web URL for web
-    const redirectTo = Capacitor.isNativePlatform() 
-      ? 'com.genstyle.app://auth/callback'
-      : `${window.location.origin}/`;
-    
-    console.log('Redirect URL:', redirectTo);
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo: redirectTo,
-        queryParams: {
-          scope: 'name email'
+    if (Capacitor.isNativePlatform()) {
+      // For native: use Browser plugin that handles the redirect better
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: 'com.genstyle.app://auth/callback',
+          queryParams: {
+            scope: 'name email'
+          },
+          skipBrowserRedirect: true // Don't auto-redirect, we'll handle it
         }
+      });
+
+      if (error || !data.url) {
+        console.error('Error getting auth URL:', error);
+        return false;
       }
-    });
 
-    if (error) {
-      console.error('Web Apple Sign-In error:', error);
-      return false;
+      console.log('Opening auth URL in browser:', data.url);
+      
+      // Open in browser with ability to redirect back
+      await Browser.open({
+        url: data.url,
+        windowName: '_self',
+        // This should help with the redirect
+        toolbarColor: '#000000',
+        presentationStyle: 'popover'
+      });
+
+      return true;
+    } else {
+      // For web: regular OAuth
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            scope: 'name email'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Web Apple Sign-In error:', error);
+        return false;
+      }
+
+      return true;
     }
-
-    console.log('Web Apple Sign-In initiated successfully');
-    return true;
   } catch (error) {
-    console.error('Web Apple Sign-In failed:', error);
+    console.error('Apple Sign-In failed:', error);
     return false;
   }
 };
