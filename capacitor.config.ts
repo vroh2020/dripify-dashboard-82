@@ -25,12 +25,10 @@ const config: CapacitorConfig = {
       shouldShowInAppMessagesAutomatically: true
     },
     SignInWithApple: {
-      // Apple Sign In plugin configuration
+      // Apple Sign In plugin configuration - runtime values will override these defaults
       clientId: 'service.com.genstyle.app',
-      redirectURI: 'https://jjqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback',
-      scopes: 'email name',
-      state: 'state',
-      nonce: 'nonce'
+      redirectURI: 'https://dripify-dashboard-82.lovable.app/auth',
+      scopes: 'email name'
     }
   }
 };
