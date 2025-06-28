@@ -61,6 +61,7 @@
     "cookie": "1.0.2",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
+    "expo-apple-authentication": "7.2.4",
     "framer-motion": "11.18.2",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
