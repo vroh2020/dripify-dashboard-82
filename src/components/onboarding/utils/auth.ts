@@ -66,12 +66,19 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
 
 const handleWebAppleSignIn = async (): Promise<boolean> => {
   try {
-    console.log('Using web Apple Sign-In OAuth flow');
+    console.log('Using web Apple Sign-In OAuth flow with deep linking');
+    
+    // Use deep link for native, web URL for web
+    const redirectTo = Capacitor.isNativePlatform() 
+      ? 'com.genstyle.app://auth/callback'
+      : `${window.location.origin}/`;
+    
+    console.log('Redirect URL:', redirectTo);
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: redirectTo,
         queryParams: {
           scope: 'name email'
         }

@@ -11,6 +11,7 @@ import { SubscriptionProvider } from "./components/subscription/SubscriptionProv
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { useAuthState } from "./hooks/useAuthState";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
+import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
 
 const queryClient = new QueryClient({
@@ -26,6 +27,9 @@ const queryClient = new QueryClient({
 const AppRoutes = () => {
   const { isLoading: authLoading, isAuthenticated } = useAuthState();
   const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
+  
+  // Handle deep link auth callbacks
+  useAppUrlHandler();
 
   if (authLoading || (isAuthenticated && onboardingLoading)) {
     return <LoadingScreen message="Loading..." />;
