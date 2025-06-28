@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useAppUrlHandler = () => {
@@ -39,6 +40,14 @@ export const useAppUrlHandler = () => {
               console.error('❌ Error setting session:', error);
             } else {
               console.log('🎉 Authentication successful!', sessionData);
+              
+              // Close the browser to prevent users from seeing the error message
+              try {
+                await Browser.close();
+                console.log('🚪 Browser closed successfully');
+              } catch (closeError) {
+                console.log('ℹ️ Browser close failed (might already be closed):', closeError);
+              }
             }
           } else {
             console.error('❌ Missing tokens in callback');
