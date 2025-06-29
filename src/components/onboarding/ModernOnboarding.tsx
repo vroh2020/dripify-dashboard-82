@@ -41,25 +41,53 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   // Auto-advance from welcome step when user is authenticated
   useEffect(() => {
-    console.log('🔄 ModernOnboarding: Auth state change', { isAuthenticated, currentStep });
     if (isAuthenticated && currentStep === 'welcome') {
-      console.log('✅ ModernOnboarding: User authenticated, advancing to age step');
-      setTimeout(() => {
-        console.log('🚀 ModernOnboarding: Setting step to age');
-        setCurrentStep('age');
-      }, 1000);
+      // Skip welcome screen for authenticated users
+      setCurrentStep('age');
     }
   }, [isAuthenticated, currentStep]);
 
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
-  const handleAgeSelect = (age: string) => {
-    setOnboardingData(prev => ({ ...prev, age }));
+  const handleAgeSelect = async (age: string) => {
+    const newData = { ...onboardingData, age };
+    setOnboardingData(newData);
+    
+    // Save to Supabase immediately
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          age_range: age,
+          updated_at: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.log('Could not save age, will try again later');
+    }
+    
     setCurrentStep('goal');
   };
 
-  const handleGoalSelect = (goal: string) => {
-    setOnboardingData(prev => ({ ...prev, mainGoal: goal }));
+  const handleGoalSelect = async (goal: string) => {
+    const newData = { ...onboardingData, mainGoal: goal };
+    setOnboardingData(newData);
+    
+    // Save to Supabase immediately
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          main_goal: goal,
+          updated_at: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.log('Could not save goal, will try again later');
+    }
+    
     setCurrentStep('test-photo');
   };
 
@@ -185,19 +213,33 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         throw new Error('User not authenticated');
       }
 
-      // Save onboarding data to Supabase
-      const { error: profileError } = await supabase
+      // Save onboarding completion to Supabase - try UPDATE first, then INSERT
+      const { error: updateError } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
+        .update({
           age_range: onboardingData.age,
           main_goal: onboardingData.mainGoal,
           onboarding_completed: true,
           updated_at: new Date().toISOString()
-        });
+        })
+        .eq('id', user.id);
 
-      if (profileError) {
-        throw new Error(`Profile save failed: ${profileError.message}`);
+      if (updateError) {
+        // Profile doesn't exist, try to create it
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            age_range: onboardingData.age,
+            main_goal: onboardingData.mainGoal,
+            onboarding_completed: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        
+        if (insertError) {
+          console.log('Could not save to database, but continuing anyway');
+        }
       }
       
       // Save style analysis if we have results
@@ -227,18 +269,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         }
       }
       
-      // Clear any pending onboarding data
-      localStorage.removeItem('pendingOnboardingData');
-      
       toast({
         title: "Welcome to DripMax! 🎉",
         description: "Your style journey begins now!"
       });
       
-      onComplete({
-        ...onboardingData,
-        analysisResult
-      });
+      onComplete(onboardingData);
       
     } catch (error) {
       console.error('🎯 Error in handleCompleteOnboarding:', error);

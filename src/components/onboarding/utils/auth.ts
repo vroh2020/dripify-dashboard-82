@@ -12,8 +12,9 @@ export const handleAppleSignIn = async (): Promise<boolean> => {
       console.log('Using native iOS Apple Sign-In');
       return await handleNativeAppleSignIn();
     } else {
-      console.log('Using web Apple Sign-In');
-      return await handleWebAppleSignIn();
+      console.log('Apple Sign-In not available on this platform');
+      // For web or Android, you could redirect to regular email auth
+      return false;
     }
   } catch (error) {
     console.error('Apple Sign-In flow error:', error);
@@ -25,10 +26,10 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
   try {
     const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
     
-    // Fixed: Use web URL for redirectURI as per Capacitor documentation
+    // Native iOS Apple Sign-In - no redirect URLs needed!
     const options = {
       clientId: 'service.com.genstyle.app',
-      redirectURI: 'https://dripify-dashboard-82.lovable.app/auth/callback',
+      redirectURI: 'com.genstyle.app://auth/callback', // This is ignored for native
       scopes: 'email name',
       state: '12345',
       nonce: 'nonce'
@@ -44,6 +45,7 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
       return false;
     }
 
+    // Send token directly to Supabase - no redirects needed!
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: result.response.identityToken,
@@ -60,69 +62,11 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
     
   } catch (error) {
     console.error('Native Apple Sign-In error:', error);
-    // If native Apple Sign-In fails (like in simulator), fall back to web
-    return await handleWebAppleSignIn();
-  }
-};
-
-const handleWebAppleSignIn = async (): Promise<boolean> => {
-  try {
-    console.log('Using Browser plugin for Apple Sign-In with proper redirect');
-    
-    if (Capacitor.isNativePlatform()) {
-      // For native: use Browser plugin that handles the redirect better
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: 'com.genstyle.app://auth/callback',
-          queryParams: {
-            scope: 'name email'
-          },
-          skipBrowserRedirect: true // Don't auto-redirect, we'll handle it
-        }
-      });
-
-      if (error || !data.url) {
-        console.error('Error getting auth URL:', error);
-        return false;
-      }
-
-      console.log('Opening auth URL in browser:', data.url);
-      
-      // Open in browser with ability to redirect back
-      await Browser.open({
-        url: data.url,
-        windowName: '_self',
-        // This should help with the redirect
-        toolbarColor: '#000000',
-        presentationStyle: 'popover'
-      });
-
-      return true;
-    } else {
-      // For web: regular OAuth
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-          queryParams: {
-            scope: 'name email'
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Web Apple Sign-In error:', error);
-        return false;
-      }
-
-      return true;
-    }
-  } catch (error) {
-    console.error('Apple Sign-In failed:', error);
     return false;
   }
 };
+
+
 
 export const isAuthenticated = async (): Promise<boolean> => {
   try {

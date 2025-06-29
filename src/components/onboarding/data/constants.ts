@@ -1,4 +1,3 @@
-
 export const ageOptions = [
   "16-20", "21-25", "26-30", "31-35", 
   "36-40", "41-45", "46-50", "50+"
@@ -11,17 +10,15 @@ export const goalOptions = [
   { id: "drip-max", title: "Drip Max", description: "Become a style icon", emoji: "🏆" }
 ];
 
-export const totalSteps = 9;
+export const totalSteps = 8;
 
 export const stepMap = {
-  'welcome': 1,
-  'age': 2,
-  'goal': 3,
+  welcome: 1,
+  age: 2,
+  goal: 3,
   'test-photo': 4,
-  'rating': 5,
-  'celebration': 6,
+  rating: 5,
+  celebration: 6,
   'trial-offer': 7,
-  'trial-reminder': 8,
-  'pricing': 9,
-  'paywall': 10
+  paywall: 8
 } as const;

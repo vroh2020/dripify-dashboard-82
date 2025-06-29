@@ -14,7 +14,7 @@ export function useOnboardingStatus(): OnboardingStatus {
   const { isAuthenticated, user } = useAuthState();
 
   const checkOnboardingStatus = useCallback(async () => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user?.id) {
       setIsLoading(false);
       setHasCompletedOnboarding(false);
       return;
@@ -23,30 +23,25 @@ export function useOnboardingStatus(): OnboardingStatus {
     try {
       setIsLoading(true);
       
-      const { data: profile, error } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('*')
+        .select('onboarding_completed')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (error || !profile) {
-        setHasCompletedOnboarding(false);
-      } else {
-        // Check if user has completed onboarding (either explicit flag or has data)
-        const hasFlag = (profile as any).onboarding_completed === true;
-        const hasData = (profile as any).age_range && (profile as any).main_goal;
-        setHasCompletedOnboarding(hasFlag || hasData);
-      }
+      // SIMPLE: Only check the explicit flag
+      setHasCompletedOnboarding(profile?.onboarding_completed === true);
     } catch (error) {
+      console.error('Error checking onboarding status:', error);
       setHasCompletedOnboarding(false);
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id, checkOnboardingStatus]);
+  }, [checkOnboardingStatus]);
 
   return {
     isLoading,
