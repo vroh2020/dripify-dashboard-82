@@ -23,6 +23,13 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       const proProduct = offerings?.[0]?.availablePackages?.find(
         (pkg) => pkg.product.identifier === "gs_1299_1m"
       );
+      
+      if (!proProduct) {
+        console.log('🚫 No pro product found, proceeding without purchase');
+        setTimeout(onNext, 500);
+        return;
+      }
+      
       // Use the specific product ID we know exists
       const success = await purchaseProduct(proProduct);
       if (success) {

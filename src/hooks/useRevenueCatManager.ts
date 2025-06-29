@@ -269,6 +269,11 @@ export const useRevenueCatManager = () => {
   // Purchase with better simulator handling
   const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
     try {
+      if (!product) {
+        debugLog('Purchase failed: No product provided');
+        throw new Error('No product provided for purchase');
+      }
+
       if (!Capacitor.isNativePlatform()) {
         debugLog('Web platform - simulating purchase for development');
         

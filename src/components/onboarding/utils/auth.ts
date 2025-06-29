@@ -8,60 +8,72 @@ export const handleAppleSignIn = async (): Promise<boolean> => {
     console.log('Platform:', Capacitor.getPlatform());
     console.log('Is native:', Capacitor.isNativePlatform());
     
-    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
-      console.log('Using native iOS Apple Sign-In');
-      return await handleNativeAppleSignIn();
-    } else {
-      console.log('Apple Sign-In not available on this platform');
-      // For web or Android, you could redirect to regular email auth
-      return false;
-    }
+    // Always use web-based Apple Sign-In for reliability
+    console.log('Using web-based Apple Sign-In');
+    return await handleWebAppleSignIn();
   } catch (error) {
     console.error('Apple Sign-In flow error:', error);
     return false;
   }
 };
 
-const handleNativeAppleSignIn = async (): Promise<boolean> => {
+const handleWebAppleSignIn = async (): Promise<boolean> => {
   try {
-    const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
+    console.log('Using web-based Apple Sign-In with Supabase OAuth');
     
-    // Native iOS Apple Sign-In - no redirect URLs needed!
-    const options = {
-      clientId: 'service.com.genstyle.app',
-      redirectURI: 'com.genstyle.app://auth/callback', // This is ignored for native
-      scopes: 'email name',
-      state: '12345',
-      nonce: 'nonce'
-    };
+    if (Capacitor.isNativePlatform()) {
+      // For native: use Browser plugin with proper redirect handling
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: 'https://ijqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback',
+          queryParams: {
+            scope: 'name email'
+          },
+          skipBrowserRedirect: false // Let Supabase handle the redirect
+        }
+      });
 
-    console.log('Starting Apple Sign-In with options:', options);
-    
-    const result = await SignInWithApple.authorize(options);
-    console.log('Apple Sign-In result received');
+      if (error || !data.url) {
+        console.error('Error getting auth URL:', error);
+        return false;
+      }
 
-    if (!result.response.identityToken) {
-      console.error('No identity token received from Apple');
-      return false;
+      console.log('Opening auth URL in browser:', data.url);
+      
+      // Open in browser - Supabase will handle the callback
+      await Browser.open({
+        url: data.url,
+        windowName: '_self'
+      });
+
+      return true;
+    } else {
+      // For web: regular OAuth - force localhost for development
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const redirectUrl = isLocalhost ? 'http://localhost:8000/' : `${window.location.origin}/`;
+      
+      console.log('🔄 Using redirect URL:', redirectUrl);
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            scope: 'name email'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Web Apple Sign-In error:', error);
+        return false;
+      }
+
+      return true;
     }
-
-    // Send token directly to Supabase - no redirects needed!
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'apple',
-      token: result.response.identityToken,
-      nonce: 'nonce'
-    });
-
-    if (error) {
-      console.error('Supabase auth error:', error);
-      return false;
-    }
-
-    console.log('Successfully authenticated with Supabase!');
-    return true;
-    
   } catch (error) {
-    console.error('Native Apple Sign-In error:', error);
+    console.error('Apple Sign-In failed:', error);
     return false;
   }
 };

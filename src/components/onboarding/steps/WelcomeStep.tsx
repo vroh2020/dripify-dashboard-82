@@ -10,7 +10,20 @@ interface WelcomeStepProps {
 
 export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
   const handleAppleClick = async () => {
-    await handleAppleSignIn();
+    try {
+      console.log('🍎 Starting Apple Sign-In...');
+      const success = await handleAppleSignIn();
+      
+      if (success) {
+        console.log('✅ Apple Sign-In initiated successfully');
+        // For web OAuth, the success handling will happen via auth state change
+        // No need to call onNext() here as the redirect will handle it
+      } else {
+        console.error('❌ Apple Sign-In failed to initiate');
+      }
+    } catch (error) {
+      console.error('💥 Apple Sign-In error:', error);
+    }
   };
 
   const handleSignOut = async () => {

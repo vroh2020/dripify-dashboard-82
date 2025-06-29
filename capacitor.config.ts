@@ -25,8 +25,9 @@ const config: CapacitorConfig = {
       shouldShowInAppMessagesAutomatically: true
     },
     SignInWithApple: {
-      // Apple Sign In plugin configuration - native only
+      // Apple Sign In plugin configuration - web OAuth
       clientId: 'service.com.genstyle.app',
+      redirectURI: 'https://ijqwhxamjxsiotnhhqco.supabase.co/auth/v1/callback',
       scopes: 'email name'
     }
   }
