@@ -2,7 +2,7 @@ variables:
   BUNDLE_ID: "com.genstyle.app"
   PROVISIONING_PROFILE_SPECIFIER: "Gen Style"
   TEAM_ID: "TN748MMP9M"
-  CODE_SIGN_IDENTITY: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)"
+  CODE_SIGN_IDENTITY: "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)"
   FASTLANE_USER: "ramvelpuri2020"
   FASTLANE_PASSWORD: "$FASTLANE_PASSWORD"
   MATCH_PASSWORD: "$MATCH_PASSWORD"

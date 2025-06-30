@@ -76,7 +76,7 @@ xcodebuild archive -workspace App.xcworkspace -scheme App \
   -archivePath build/App.xcarchive \
   DEVELOPMENT_TEAM=TN748MMP9M \
   PROVISIONING_PROFILE_SPECIFIER="Gen Style" \
-  CODE_SIGN_IDENTITY="Apple Distribution: Rohini Mallavarapu (TN748MMP9M)" \
+  CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" \
   CODE_SIGN_STYLE=Manual
 xcodebuild -exportArchive \
   -archivePath build/App.xcarchive \
@@ -94,7 +94,7 @@ xcodebuild -exportArchive \
 
 ### Code Signing Failures
 - Run `security find-identity -v -p codesigning` to list available certificates
-- Ensure certificate "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)" is installed
+- Ensure certificate "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" is installed
 - Check keychain access for any permission issues
 
 ### Configuration File Not Applied

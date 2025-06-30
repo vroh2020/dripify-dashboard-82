@@ -106,7 +106,7 @@
   },
   "ios": {
     "debug": {
-      "codeSignIdentity": "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
+      "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
       "provisioningProfile": "Gen Style",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
@@ -114,7 +114,7 @@
       "bundleIdentifier": "com.genstyle.app"
     },
     "release": {
-      "codeSignIdentity": "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
+      "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
       "provisioningProfile": "Gen Style",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",

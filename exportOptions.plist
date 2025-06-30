@@ -10,7 +10,7 @@
     <key>signingStyle</key>
     <string>manual</string>
     <key>signingCertificate</key>
-    <string>Apple Distribution: Rohini Mallavarapu (TN748MMP9M)</string>
+    		<string>Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>com.genstyle.app</key>

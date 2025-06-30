@@ -15,7 +15,7 @@ if (fs.existsSync(buildConfigPath)) {
   const requiredSettings = [
     'PROVISIONING_PROFILE_SPECIFIER = Gen Style',
     'DEVELOPMENT_TEAM = TN748MMP9M',
-    'CODE_SIGN_IDENTITY = Apple Distribution: Rohini Mallavarapu (TN748MMP9M)',
+    'CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)',
     'CODE_SIGN_STYLE = Manual',
     'PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app'
   ];
@@ -34,7 +34,7 @@ if (fs.existsSync(buildConfigPath)) {
 `// Provisioning profile configuration
 PROVISIONING_PROFILE_SPECIFIER = Gen Style
 DEVELOPMENT_TEAM = TN748MMP9M
-CODE_SIGN_IDENTITY = Apple Distribution: Rohini Mallavarapu (TN748MMP9M)
+CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
 
 // Bundle identifier should match what's in capacitor.config.ts
@@ -51,7 +51,7 @@ PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app
 `// Provisioning profile configuration
 PROVISIONING_PROFILE_SPECIFIER = Gen Style
 DEVELOPMENT_TEAM = TN748MMP9M
-CODE_SIGN_IDENTITY = Apple Distribution: Rohini Mallavarapu (TN748MMP9M)
+CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
 
 // Bundle identifier should match what's in capacitor.config.ts
@@ -73,8 +73,8 @@ console.log('Applying build settings via command line...');
 try {
   // Set provisioning profile specifier for both Debug and Release configurations
   execSync(`/usr/libexec/PlistBuddy -c "Add :buildSettings:PROVISIONING_PROFILE_SPECIFIER string Gen Style" ${projectPath}/project.pbxproj || true`, { stdio: 'inherit' });
-  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Debug PROVISIONING_PROFILE_SPECIFIER="Gen Style" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Rohini Mallavarapu (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
-  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Release PROVISIONING_PROFILE_SPECIFIER="Gen Style" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Rohini Mallavarapu (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
+  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Debug PROVISIONING_PROFILE_SPECIFIER="Gen Style" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
+  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Release PROVISIONING_PROFILE_SPECIFIER="Gen Style" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
 } catch (error) {
   console.error('Warning: Command failed, but continuing:', error.message);
 }

@@ -10,7 +10,7 @@ platform :ios do
       team_id: "TN748MMP9M",
       targets: ["App"],
       build_configurations: ["Debug", "Release"],
-      code_sign_identity: "Apple Distribution: Rohini Mallavarapu (TN748MMP9M)",
+      code_sign_identity: "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
       profile_name: "Gen Style",
       bundle_identifier: "com.genstyle.app"
     )
