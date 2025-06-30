@@ -15,11 +15,11 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
       const success = await handleAppleSignIn();
       
       if (success) {
-        console.log('✅ Apple Sign-In successful, proceeding to next step');
-        onNext(); // Proceed to next onboarding step
+        console.log('✅ Apple Sign-In initiated successfully');
+        // For web OAuth, the success handling will happen via auth state change
+        // No need to call onNext() here as the redirect will handle it
       } else {
-        console.error('❌ Apple Sign-In failed');
-        // Could add toast notification here
+        console.error('❌ Apple Sign-In failed to initiate');
       }
     } catch (error) {
       console.error('💥 Apple Sign-In error:', error);
