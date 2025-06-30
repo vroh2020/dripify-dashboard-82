@@ -4,16 +4,108 @@ import { Browser } from '@capacitor/browser';
 
 export const handleAppleSignIn = async (): Promise<boolean> => {
   try {
-    console.log('Starting Apple Sign-In flow...');
-    console.log('Platform:', Capacitor.getPlatform());
-    console.log('Is native:', Capacitor.isNativePlatform());
+    console.log('🚀 Starting Apple Sign-In flow...');
+    console.log('📱 Platform:', Capacitor.getPlatform());
+    console.log('🔧 Is native:', Capacitor.isNativePlatform());
     
-    // Always use web-based Apple Sign-In for reliability
-    console.log('Using web-based Apple Sign-In');
-    return await handleWebAppleSignIn();
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+      console.log('✅ Using NATIVE iOS Apple Sign-In - STAYS IN APP');
+      console.log('🚫 Will NOT open Safari or external browser');
+      
+      try {
+        return await handleNativeAppleSignIn();
+      } catch (nativeError) {
+        console.error('💥 Native Apple Sign-In failed completely:', nativeError);
+        console.log('🚫 NOT falling back to web OAuth to avoid Safari redirect');
+        return false;
+      }
+    } else {
+      console.log('🌐 Using web-based Apple Sign-In for non-iOS platforms');
+      return await handleWebAppleSignIn();
+    }
   } catch (error) {
-    console.error('Apple Sign-In flow error:', error);
+    console.error('💥 Apple Sign-In flow error:', error);
     return false;
+  }
+};
+
+const handleNativeAppleSignIn = async (): Promise<boolean> => {
+  try {
+    console.log('🔍 Checking if native Apple Sign-In plugin is available...');
+    
+    // Check if the plugin is available
+    const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
+    
+    if (!SignInWithApple) {
+      console.error('❌ Apple Sign-In plugin not available');
+      throw new Error('Apple Sign-In plugin not available');
+    }
+    
+    console.log('✅ Apple Sign-In plugin loaded successfully');
+    
+    // Generate secure random nonce
+    const nonce = crypto.randomUUID();
+    
+    // Native iOS Apple Sign-In - stays in the app!
+    const options = {
+      clientId: 'service.com.genstyle.app',
+      redirectURI: 'com.genstyle.app://auth/callback', // This is ignored for native
+      scopes: 'email name',
+      state: '12345',
+      nonce: nonce
+    };
+
+    console.log('🍎 Starting NATIVE Apple Sign-In with options:', { 
+      clientId: options.clientId,
+      scopes: options.scopes,
+      state: options.state,
+      nonce: '[REDACTED]'
+    });
+    
+    console.log('📱 This should open Apple Sign-In popup INSIDE the app (not Safari)');
+    
+    const result = await SignInWithApple.authorize(options);
+    console.log('✅ Apple Sign-In result received from native plugin');
+    console.log('🔍 Result structure:', {
+      hasResponse: !!result.response,
+      hasIdentityToken: !!result.response?.identityToken,
+      hasEmail: !!result.response?.email,
+      hasUser: !!result.response?.user
+    });
+
+    if (!result.response.identityToken) {
+      console.error('❌ No identity token received from Apple');
+      return false;
+    }
+
+    console.log('🔐 Sending identity token to Supabase...');
+    
+    // Send token directly to Supabase - no redirects needed!
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'apple',
+      token: result.response.identityToken,
+      nonce: nonce
+    });
+
+    if (error) {
+      console.error('❌ Supabase auth error:', error);
+      return false;
+    }
+
+    console.log('🎉 Successfully authenticated with Supabase via NATIVE Apple Sign-In!');
+    console.log('👤 User authenticated:', !!data.user);
+    return true;
+    
+  } catch (error) {
+    console.error('💥 Native Apple Sign-In failed:', error);
+    console.error('📝 Error details:', {
+      message: error.message,
+      code: error.code,
+      name: error.name
+    });
+    
+    // Don't fall back to web - let the user know native failed
+    throw error;
   }
 };
 
