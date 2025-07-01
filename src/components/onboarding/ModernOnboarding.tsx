@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { analyzeStyle } from '@/utils/imageAnalysis';
 import { toast } from '@/hooks/use-toast';
 import { stepMap } from './data/constants';
+import { requestInAppReview } from '@/utils/inAppReview';
 import type { OnboardingStep, OnboardingData } from './types';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 
@@ -139,6 +140,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
        const result = await analyzeStyle(selectedImage, true);
        setAnalysisResult(result);
        
+       // Request in-app review after user sees their results (4 seconds)
+       setTimeout(() => {
+         requestInAppReview();
+       }, 4000);
+       
+       // Show continue button after review prompt has time to appear (8 seconds)
        setTimeout(() => setShowNextButton(true), 8000);
      } catch (error) {
        console.error('Analysis failed:', error);
@@ -151,6 +158,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
          breakdown: [],
          tips: []
        });
+       
+       // Request in-app review for demo result too (1.5 seconds)
+       setTimeout(() => {
+         requestInAppReview();
+       }, 1500);
+       
        setTimeout(() => setShowNextButton(true), 3000);
      } finally {
        // CRITICAL: Turn off loading screen when analysis completes
