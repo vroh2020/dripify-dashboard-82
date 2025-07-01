@@ -74,6 +74,7 @@ export const useRevenueCatManager = () => {
         userId: user?.id,
         entitlementId: REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER,
         hasActiveEntitlements: Object.keys(customerInfo.entitlements.active || {}).length > 0,
+        activeEntitlements: customerInfo.entitlements.active,
         isPro
       });
 
@@ -126,7 +127,7 @@ export const useRevenueCatManager = () => {
       setSubscription(fallbackStatus);
       return fallbackStatus;
     }
-  }, [subscription]);
+  }, []);
 
   const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
     if (!Capacitor.isNativePlatform()) {
