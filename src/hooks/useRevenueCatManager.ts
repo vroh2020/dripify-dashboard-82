@@ -32,6 +32,23 @@ export const useRevenueCatManager = () => {
     console.log(`🚀 RevenueCat Manager: ${message}`, data || '');
   }, []);
 
+  // Debug log subscription state changes with detailed tracking
+  useEffect(() => {
+    debugLog('📊 Subscription state updated:', {
+      isActive: subscription.isActive,
+      productId: subscription.productId,
+      expirationDate: subscription.expirationDate?.toISOString() || 'none',
+      offeringId: subscription.offeringId
+    });
+    
+    // Track the source of subscription changes
+    console.log('🔍 SUBSCRIPTION STATE CHANGE:', {
+      isPro: subscription.isActive,
+      source: subscription.offeringId,
+      timestamp: new Date().toISOString()
+    });
+  }, [subscription, debugLog]);
+
   // Initialize RevenueCat with better error handling
   const initializeRevenueCat = useCallback(async () => {
     if (isRevenueCatInitialized || initializationPromise) {
@@ -43,16 +60,12 @@ export const useRevenueCatManager = () => {
       try {
         debugLog('Starting RevenueCat initialization...');
         
-        // Skip on web platform - use development mode
+        // Skip on web platform - use development mode with NEUTRAL state
         if (!Capacitor.isNativePlatform()) {
-          debugLog('Web platform detected - using development mode');
-          setSubscription({
-            isActive: false, // For paywall testing
-            expirationDate: null,
-            productId: 'web-dev',
-            offeringId: 'web-dev'
-          });
+          debugLog('Web platform detected - using development mode with NEUTRAL subscription state');
+          // Don't set isActive immediately - let onboarding/payment flow handle it
           setIsLoading(false);
+          debugLog('Web platform initialized - subscription state will be managed by payment flow');
           return;
         }
 
@@ -66,12 +79,6 @@ export const useRevenueCatManager = () => {
 
         if (!data?.publicKey) {
           debugLog('API key not available - using development mode');
-          setSubscription({
-            isActive: false,
-            expirationDate: null,
-            productId: 'dev-mode',
-            offeringId: 'dev-mode'
-          });
           setIsLoading(false);
           return;
         }
@@ -118,13 +125,8 @@ export const useRevenueCatManager = () => {
           });
         }
         
-        // Fallback to development mode for testing
-        setSubscription({
-          isActive: false,
-          expirationDate: null,
-          productId: 'fallback',
-          offeringId: 'fallback'
-        });
+        // Fallback to development mode for testing - don't force isActive state
+        debugLog('Fallback mode - subscription state managed by payment flow');
         
       } finally {
         setIsLoading(false);
@@ -220,7 +222,8 @@ export const useRevenueCatManager = () => {
   const fetchSubscriptionStatus = useCallback(async () => {
     try {
       if (!isRevenueCatInitialized || !Capacitor.isNativePlatform()) {
-        debugLog('Skipping subscription status fetch');
+        debugLog('Skipping subscription status fetch - web platform or not initialized');
+        // On web platform, return current subscription state (don't override it)
         return subscription;
       }
 
@@ -274,19 +277,27 @@ export const useRevenueCatManager = () => {
         throw new Error('No product provided for purchase');
       }
 
+      debugLog('🛒 PURCHASE ATTEMPT STARTED:', { 
+        productId: product.identifier, 
+        isNative: Capacitor.isNativePlatform() 
+      });
+
       if (!Capacitor.isNativePlatform()) {
-        debugLog('Web platform - simulating purchase for development');
+        debugLog('🛒 Web platform purchase simulation - explicitly setting Pro status to TRUE');
         
-        setSubscription({
+        const newSubscription = {
           isActive: true,
           expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           productId: product.identifier,
           offeringId: 'web-simulation'
-        });
+        };
+        
+        setSubscription(newSubscription);
+        debugLog('🎉 Web platform purchase simulation completed - Pro status activated:', newSubscription);
         
         toast({
-          title: "Development Mode Purchase",
-          description: "Simulated successful purchase for web testing."
+          title: "Development Mode Purchase ✅",
+          description: "Simulated successful purchase - Pro access activated!"
         });
         return true;
       }
@@ -435,6 +446,49 @@ export const useRevenueCatManager = () => {
     initializeRevenueCat();
   }, [initializeRevenueCat, debugLog]);
 
+  // Development helper to reset subscription state
+  const resetSubscriptionForTesting = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      debugLog('🔄 DEVELOPMENT: Resetting subscription state for testing');
+      setSubscription({
+        isActive: false,
+        expirationDate: null,
+        productId: null,
+        offeringId: null,
+      });
+      console.log('✅ Subscription state reset to false for testing');
+      console.log('🔄 You may need to refresh the page for onboarding to restart properly');
+    }
+  }, [debugLog]);
+
+  // Development helper to manually activate Pro (for testing)
+  const activateProForTesting = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      debugLog('🔄 DEVELOPMENT: Manually activating Pro status for testing');
+      const testSubscription = {
+        isActive: true,
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        productId: 'test-pro',
+        offeringId: 'test-pro'
+      };
+      setSubscription(testSubscription);
+      console.log('✅ Pro status activated for testing:', testSubscription);
+    }
+  }, [debugLog]);
+
+  // Expose development functions
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // @ts-ignore - Development only
+      window.resetSubscription = resetSubscriptionForTesting;
+      // @ts-ignore - Development only  
+      window.activatePro = activateProForTesting;
+      console.log('🛠️  Development helpers available:');
+      console.log('   - window.resetSubscription() - Reset Pro status to false');
+      console.log('   - window.activatePro() - Activate Pro status for testing');
+    }
+  }, [resetSubscriptionForTesting, activateProForTesting]);
+
   return {
     isLoading,
     subscription,
@@ -443,6 +497,8 @@ export const useRevenueCatManager = () => {
     fetchOfferings,
     fetchSubscriptionStatus,
     purchaseProduct,
-    restorePurchases
+    restorePurchases,
+    resetSubscriptionForTesting, // Include in return for development
+    activateProForTesting // Include in return for development
   };
 };

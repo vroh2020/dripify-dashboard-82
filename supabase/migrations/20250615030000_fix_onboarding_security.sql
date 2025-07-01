@@ -1,4 +1,3 @@
-
 -- Fix onboarding security and data storage issues
 -- This migration adds proper RLS policies and fixes data integrity
 
@@ -98,9 +97,40 @@ ADD COLUMN IF NOT EXISTS age_range TEXT;
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS main_goal TEXT;
 
--- Add onboarding_completed flag
+-- Add comprehensive onboarding tracking fields
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS onboarding_step TEXT DEFAULT 'welcome';
+
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS payment_completed BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS test_photo_uploaded BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS test_photo_url TEXT;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS analysis_completed BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS last_analysis_score INTEGER;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS onboarding_started_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMP WITH TIME ZONE;
+
+-- Add subscription tracking
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free';
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP WITH TIME ZONE;
 
 -- ============================================================================
 -- PART 3: Fix the handle_new_user function to be more secure

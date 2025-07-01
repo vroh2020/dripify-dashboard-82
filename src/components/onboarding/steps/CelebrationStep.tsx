@@ -1,4 +1,3 @@
-
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { PartyPopper } from "lucide-react";
@@ -11,12 +10,15 @@ interface CelebrationStepProps {
 
 export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepProps) => {
   const handleClick = () => {
-    console.log('Celebration button clicked:', { isPro });
+    console.log('🎉 Celebration button clicked:', { isPro });
+    console.log('🔍 ONBOARDING DEBUG: CelebrationStep received isPro =', isPro);
+    
     if (isPro) {
-      console.log('Going to handleCompleteOnboarding');
+      console.log('❌ PROBLEM: Going to handleCompleteOnboarding because isPro is TRUE');
+      console.log('🚨 This should only happen for existing Pro users, not new users!');
       onComplete();
     } else {
-      console.log('Going to trial-offer');
+      console.log('✅ CORRECT: Going to trial-offer because isPro is FALSE');
       onNext();
     }
   };

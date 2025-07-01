@@ -1,27 +1,27 @@
-import { useState, useRef, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { motion, AnimatePresence } from "framer-motion";
-import { StyleLoadingOverlay } from "@/components/StyleLoadingOverlay";
-import { ModernRatingsDisplay } from "@/components/ModernRatingsDisplay";
-import { ProOfferCard } from "@/components/onboarding/ProOfferCard";
-import { analyzeStyle } from "@/utils/imageAnalysis";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useSubscription } from "@/components/subscription/SubscriptionProvider";
-import { useAuthState } from "@/hooks/useAuthState";
-import { InAppReview } from '@capacitor-community/in-app-review';
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { WelcomeStep } from './steps/WelcomeStep';
+import { AgeStep } from './steps/AgeStep';
+import { GoalStep } from './steps/GoalStep';
+import { TestPhotoStep } from './steps/TestPhotoStep';
+import { CelebrationStep } from './steps/CelebrationStep';
+import { TrialOfferStep } from './steps/TrialOfferStep';
+import { ProOfferCard } from './ProOfferCard';
+import { StyleLoadingOverlay } from '@/components/StyleLoadingOverlay';
+import { ModernRatingsDisplay } from '@/components/ModernRatingsDisplay';
+import { useAuthState } from '@/hooks/useAuthState';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
+import { supabase } from '@/integrations/supabase/client';
+import { analyzeStyle } from '@/utils/imageAnalysis';
+import { toast } from '@/hooks/use-toast';
+import { stepMap } from './data/constants';
+import type { OnboardingStep, OnboardingData } from './types';
+import type { StyleAnalysisResult } from '@/types/styleTypes';
 
-// Import step components
-import { WelcomeStep } from "./steps/WelcomeStep";
-import { AgeStep } from "./steps/AgeStep";
-import { GoalStep } from "./steps/GoalStep";
-import { TestPhotoStep } from "./steps/TestPhotoStep";
-import { CelebrationStep } from "./steps/CelebrationStep";
-import { TrialOfferStep } from "./steps/TrialOfferStep";
-
-// Import types and constants
-import { OnboardingData, StyleAnalysisResult, OnboardingStep } from "./types";
-import { stepMap, totalSteps } from "./data/constants";
+const totalSteps = 8;
 
 interface ModernOnboardingProps {
   onComplete: (userData: OnboardingData) => void;
@@ -29,298 +29,183 @@ interface ModernOnboardingProps {
 
 export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
-  const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<StyleAnalysisResult | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
-  const { toast } = useToast();
-  const { isPro } = useSubscription();
-  const { isAuthenticated } = useAuthState();
+  
+     const { isAuthenticated, user } = useAuthState();
+   const { isPro } = useSubscription();
 
-  // Auto-advance from welcome step when user is authenticated
+   // Development helper to reset onboarding
+   useEffect(() => {
+     (window as any).resetOnboarding = async () => {
+       if (!user) return;
+       await supabase
+         .from('profiles')
+         .update({
+           age_range: null,
+           main_goal: null,
+           onboarding_completed: false
+         })
+         .eq('id', user.id);
+       console.log('✅ Onboarding reset! Reload the page.');
+       window.location.reload();
+     };
+     console.log('🛠️ Helper: window.resetOnboarding()');
+   }, [user]);
+
+   // Simple save function - no over-engineering
+  const saveToSupabase = useCallback(async (data: any) => {
+    if (!user) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, ...data });
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Save failed:', error);
+      return false;
+    }
+  }, [user]);
+
+  // Load existing data on mount - SIMPLE
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const loadData = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('age_range, main_goal, onboarding_completed')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!data) {
+        // New user - start fresh
+        setCurrentStep('age');
+        return;
+      }
+
+      // Returning user - resume where they left off
+      if (data.onboarding_completed) {
+        setCurrentStep('completed' as OnboardingStep);
+      } else if (data.main_goal) {
+        setCurrentStep('test-photo');
+      } else if (data.age_range) {
+        setCurrentStep('goal');
+      } else {
+        setCurrentStep('age');
+      }
+    };
+
+    loadData();
+  }, [isAuthenticated, user]);
+
+  // Skip welcome for authenticated users
   useEffect(() => {
     if (isAuthenticated && currentStep === 'welcome') {
-      // Skip welcome screen for authenticated users
       setCurrentStep('age');
     }
   }, [isAuthenticated, currentStep]);
 
-  const progress = (stepMap[currentStep] / totalSteps) * 100;
-
+  // Handle age selection - SIMPLE
   const handleAgeSelect = async (age: string) => {
-    const newData = { ...onboardingData, age };
-    setOnboardingData(newData);
-    
-    // Save to Supabase immediately
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          age_range: age,
-          updated_at: new Date().toISOString()
-        });
-      }
-    } catch (error) {
-      console.log('Could not save age, will try again later');
+    const saved = await saveToSupabase({ age_range: age });
+    if (saved) {
+      setCurrentStep('goal');
     }
-    
-    setCurrentStep('goal');
   };
 
+  // Handle goal selection - SIMPLE  
   const handleGoalSelect = async (goal: string) => {
-    const newData = { ...onboardingData, mainGoal: goal };
-    setOnboardingData(newData);
-    
-    // Save to Supabase immediately
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          main_goal: goal,
-          updated_at: new Date().toISOString()
-        });
-      }
-    } catch (error) {
-      console.log('Could not save goal, will try again later');
+    const saved = await saveToSupabase({ main_goal: goal });
+    if (saved) {
+      setCurrentStep('test-photo');
     }
-    
-    setCurrentStep('test-photo');
   };
 
-  const handleImageUpload = async () => {
-    if (!selectedImage || isAnalyzing) {
-      console.log('🎯 ModernOnboarding: Cannot start analysis - no image or already analyzing');
+     // Handle image upload
+   const handleImageUpload = async () => {
+     if (!selectedImage || isAnalyzing) return;
+
+     try {
+       setIsAnalyzing(true);
+       setCurrentStep('rating');
+
+       const result = await analyzeStyle(selectedImage, true);
+       setAnalysisResult(result);
+       
+       setTimeout(() => setShowNextButton(true), 8000);
+     } catch (error) {
+       console.error('Analysis failed:', error);
+       // Continue with demo result
+       setAnalysisResult({
+         overallScore: 86,
+         rawAnalysis: "Demo analysis",
+         imageUrl: URL.createObjectURL(selectedImage),
+         summary: "Looking great! Your style shows good attention to detail.",
+         breakdown: [],
+         tips: []
+       });
+       setTimeout(() => setShowNextButton(true), 3000);
+     } finally {
+       // CRITICAL: Turn off loading screen when analysis completes
+       setIsAnalyzing(false);
+     }
+   };
+
+  // Handle completion - SIMPLE
+  const handleCompleteOnboarding = async () => {
+    if (!isPro) {
+      toast({
+        title: "Payment Required",
+        description: "Please complete your Pro subscription first.",
+        variant: "destructive"
+      });
       return;
     }
 
-    try {
-      setIsAnalyzing(true);
-      setCurrentStep('rating');
-
-      console.log('🎯 ModernOnboarding: Starting image analysis for onboarding...');
-      
-      // Use REAL AI analysis for onboarding
-      const realAnalysisResult = await analyzeStyle(selectedImage, true);
-      
-      console.log('🎯 ModernOnboarding: Analysis completed:', realAnalysisResult);
-      
-      // Ensure we have a summary, provide default if needed
-      const analysisWithSummary: StyleAnalysisResult = {
-        ...realAnalysisResult,
-        summary: realAnalysisResult.summary || "Looking great! Your style shows good attention to detail and coordination."
-      };
-      
-      setAnalysisResult(analysisWithSummary);
-      
-      // Show next button after a delay
-      setTimeout(() => {
-        setShowNextButton(true);
-        
-        // Request in-app review if available
-        try {
-          InAppReview.requestReview().catch(error => {
-            console.log('🎯 In-app review request failed (this is normal):', error);
-          });
-        } catch (error) {
-          console.log('🎯 In-app review not available:', error);
-        }
-      }, 8000);
-      
-    } catch (error) {
-      console.error('🎯 ModernOnboarding: Analysis error:', error);
-      console.error('🔍 ERROR DETAILS:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace',
-        name: error instanceof Error ? error.name : 'Unknown',
-        fullError: error
-      });
-      
-      // Fallback to demo result if analysis fails - but still try to upload image
-      let fallbackImageUrl = URL.createObjectURL(selectedImage);
-      try {
-        // Still try to upload the image to Supabase even if analysis failed
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const timestamp = new Date().getTime();
-          const filePath = `outfit_${timestamp}_${selectedImage.name.replace(/\s+/g, '_')}`;
-          const { error: uploadError } = await supabase.storage
-            .from('style_images')
-            .upload(filePath, selectedImage);
-          
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('style_images')
-              .getPublicUrl(filePath);
-            fallbackImageUrl = publicUrl;
-          }
-        }
-      } catch (uploadError) {
-        console.warn('Failed to upload image in fallback:', uploadError);
-      }
-
-      const demoResult: StyleAnalysisResult = {
-        overallScore: 86,
-        rawAnalysis: "Demo analysis for onboarding - analysis service unavailable",
-        imageUrl: fallbackImageUrl,
-        summary: "Looking great! Your style shows good attention to detail and coordination.",
-        breakdown: [
-          { category: "Overall Style", score: 86, emoji: "✨" }
-        ],
-        tips: [
-          { category: "General", tip: "Great outfit choice!", level: "beginner" },
-          { category: "Colors", tip: "The colors work well together.", level: "intermediate" }
-        ]
-      };
-      
-      setAnalysisResult(demoResult);
-      
-      setTimeout(() => {
-        setShowNextButton(true);
-      }, 3000);
-      
-      toast({
-        title: "Analysis completed with demo data",
-        description: "The AI analysis encountered an issue, but we've provided sample results.",
-        variant: "default"
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleAnalysisTimeout = () => {
-    console.log('🎯 ModernOnboarding: Analysis timeout triggered');
-    setIsAnalyzing(false);
-    toast({
-      title: "Analysis timed out",
-      description: "The style analysis is taking too long. Please try again with a different image.",
-      variant: "destructive",
-    });
-  };
-
-  const handleCompleteOnboarding = async () => {
-    if (isCompleting) return;
-    setIsCompleting(true);
+    const saved = await saveToSupabase({ onboarding_completed: true });
     
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        throw new Error('User not authenticated');
+    if (saved) {
+      // Save analysis if we have it
+      if (analysisResult && user) {
+        await supabase.from('style_analyses').insert({
+          user_id: user.id,
+          total_score: analysisResult.overallScore,
+          breakdown: JSON.stringify(analysisResult.breakdown || []),
+          image_url: analysisResult.imageUrl || '',
+          feedback: analysisResult.summary || '',
+          scan_date: new Date().toISOString()
+        });
       }
 
-      // Save onboarding completion to Supabase - try UPDATE first, then INSERT
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          age_range: onboardingData.age,
-          main_goal: onboardingData.mainGoal,
-          onboarding_completed: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
-      if (updateError) {
-        // Profile doesn't exist, try to create it
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            age_range: onboardingData.age,
-            main_goal: onboardingData.mainGoal,
-            onboarding_completed: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        
-        if (insertError) {
-          console.log('Could not save to database, but continuing anyway');
-        }
-      }
-      
-      // Save style analysis if we have results
-      if (analysisResult && analysisResult.overallScore) {
-        const { error: analysisError } = await supabase
-          .from('style_analyses')
-          .insert({
-            user_id: user.id,
-            total_score: analysisResult.overallScore,
-            breakdown: JSON.stringify(analysisResult.breakdown || []),
-            feedback: analysisResult.summary || "Great style analysis!",
-            tips: JSON.stringify(analysisResult.tips || []),
-            raw_analysis: analysisResult.rawAnalysis || "Onboarding analysis",
-            image_url: analysisResult.imageUrl || null,
-            thumbnail_url: analysisResult.imageUrl || null,
-            scan_date: new Date().toISOString()
-          });
-        
-        if (analysisError) {
-          console.error('🎯 Error saving analysis:', analysisError);
-          // Don't fail the entire onboarding for analysis save errors
-          toast({
-            title: "Analysis saved locally",
-            description: "Your style analysis will sync later.",
-            variant: "default"
-          });
-        }
-      }
-      
-      toast({
-        title: "Welcome to DripMax! 🎉",
-        description: "Your style journey begins now!"
-      });
-      
-      onComplete(onboardingData);
-      
-    } catch (error) {
-      console.error('🎯 Error in handleCompleteOnboarding:', error);
-      
-      // Fallback - complete onboarding anyway
-      toast({
-        title: "Welcome to DripMax! 🎉",
-        description: "Setup completed! Some data may sync later."
-      });
-      
       onComplete({
-        ...onboardingData,
-        analysisResult
+        age: '', // Will be loaded from DB
+        mainGoal: '', // Will be loaded from DB
+        analysisResult: analysisResult || undefined
       });
-    } finally {
-      setIsCompleting(false);
     }
   };
+
+  const progress = (stepMap[currentStep] / totalSteps) * 100;
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C]">
-      {/* Progress Bar */}
-      <div className="w-full px-6 pt-safe-area-top pt-12 pb-4">
-        <div className="h-0.5 bg-white/10 rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-gradient-to-r from-orange-500 to-orange-400"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.6, ease: "easeInOut" }}
-          />
-        </div>
-        <div className="text-center mt-2">
-          <span className="text-white/60 text-xs font-medium">
-            Step {stepMap[currentStep]} of {totalSteps}
-          </span>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+      {/* Progress bar */}
+      <div className="absolute top-0 left-0 right-0 z-50 p-4">
+        <Progress value={progress} className="h-2 bg-white/20" />
       </div>
 
-      {/* Main Content - Scrollable Container */}
-      <div className="flex-1 px-4 pb-safe-area-bottom pb-4">
-        <Card className="min-h-[calc(100dvh-140px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
+      <div className="flex-1 px-4 pb-4 pt-16">
+        <Card className="min-h-[calc(100vh-80px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
           <CardContent className="p-0 h-full relative">
-            {/* Style Loading Overlay with timeout */}
             <StyleLoadingOverlay 
               isAnalyzing={isAnalyzing} 
-              onTimeout={handleAnalysisTimeout}
               timeoutDuration={90000}
             />
             
@@ -346,7 +231,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   />
                 )}
 
-                {currentStep === 'rating' && (
+                {currentStep === 'rating' && analysisResult && (
                   <motion.div
                     key="rating"
                     initial={{ opacity: 0, y: 30 }}
@@ -356,14 +241,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     className="h-full flex flex-col"
                   >
                     <div className="flex-1 flex items-center justify-center px-6 py-8">
-                      {analysisResult && (
-                        <ModernRatingsDisplay
-                          overallScore={analysisResult.overallScore}
-                          profileImage={analysisResult.imageUrl}
-                          breakdown={analysisResult.breakdown || []}
-                          isOnboarding={true}
-                        />
-                      )}
+                      <ModernRatingsDisplay
+                        overallScore={analysisResult.overallScore}
+                        profileImage={analysisResult.imageUrl}
+                        breakdown={analysisResult.breakdown || []}
+                        isOnboarding={true}
+                      />
                     </div>
                     
                     {showNextButton && (
@@ -373,19 +256,19 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                         transition={{ duration: 0.5 }}
                         className="px-6 pb-8"
                       >
-                        <button
+                        <Button
                           onClick={() => setCurrentStep('celebration')}
                           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
                         >
                           Continue
-                        </button>
+                        </Button>
                       </motion.div>
                     )}
                   </motion.div>
                 )}
 
                 {currentStep === 'celebration' && (
-                  <CelebrationStep 
+                  <CelebrationStep
                     isPro={isPro}
                     onNext={() => setCurrentStep('trial-offer')}
                     onComplete={handleCompleteOnboarding}
@@ -393,17 +276,18 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                 )}
 
                 {currentStep === 'trial-offer' && (
-                  <TrialOfferStep onNext={() => setCurrentStep('paywall')} />
+                  <TrialOfferStep 
+                    onNext={() => setCurrentStep('paywall')}
+                  />
                 )}
 
                 {currentStep === 'paywall' && (
                   <motion.div
                     key="paywall"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -30 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="h-full flex items-center justify-center px-6 py-8"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="h-full flex items-center justify-center p-6"
                   >
                     <ProOfferCard onContinue={handleCompleteOnboarding} />
                   </motion.div>

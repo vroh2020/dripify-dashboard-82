@@ -1,13 +1,18 @@
-
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ageOptions } from "../data/constants";
+import { useEffect } from "react";
 
 interface AgeStepProps {
   onAgeSelect: (age: string) => void;
 }
 
 export const AgeStep = ({ onAgeSelect }: AgeStepProps) => {
+  useEffect(() => {
+    console.log('🎂 AgeStep RENDERED at:', new Date().toISOString());
+    console.log('🎂 AgeStep onAgeSelect function:', typeof onAgeSelect);
+  }, [onAgeSelect]);
+
   return (
     <motion.div
       key="age"
@@ -43,7 +48,10 @@ export const AgeStep = ({ onAgeSelect }: AgeStepProps) => {
             transition={{ delay: index * 0.1, duration: 0.4 }}
           >
             <Button
-              onClick={() => onAgeSelect(age)}
+              onClick={() => {
+                console.log('🎂 AgeStep Button CLICKED:', age, 'at:', new Date().toISOString());
+                onAgeSelect(age);
+              }}
               className="w-full h-16 text-lg font-bold bg-white/10 border-2 border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:scale-105 transition-all duration-300 rounded-2xl backdrop-blur-sm"
             >
               {age}

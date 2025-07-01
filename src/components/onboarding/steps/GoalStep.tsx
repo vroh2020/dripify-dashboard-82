@@ -1,13 +1,18 @@
-
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { goalOptions } from "../data/constants";
+import { useEffect } from "react";
 
 interface GoalStepProps {
   onGoalSelect: (goal: string) => void;
 }
 
 export const GoalStep = ({ onGoalSelect }: GoalStepProps) => {
+  useEffect(() => {
+    console.log('🎯 GoalStep RENDERED at:', new Date().toISOString());
+    console.log('🎯 GoalStep onGoalSelect function:', typeof onGoalSelect);
+  }, [onGoalSelect]);
+
   return (
     <motion.div
       key="goal"
@@ -43,7 +48,10 @@ export const GoalStep = ({ onGoalSelect }: GoalStepProps) => {
             transition={{ delay: index * 0.15, duration: 0.5 }}
           >
             <Button
-              onClick={() => onGoalSelect(goal.id)}
+              onClick={() => {
+                console.log('🎯 GoalStep Button CLICKED:', goal.id, 'at:', new Date().toISOString());
+                onGoalSelect(goal.id);
+              }}
               className="w-full h-18 bg-white/10 border-2 border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:scale-105 transition-all duration-300 rounded-2xl backdrop-blur-sm flex items-center justify-start p-6"
             >
               <span className="text-3xl mr-4">{goal.emoji}</span>

@@ -68,7 +68,20 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
   
   if (JSON.stringify(prevStateRef.current) !== JSON.stringify(currentState)) {
     console.log('🔄 SubscriptionProvider state changed:', currentState);
+    console.log('🔍 Full subscription object:', subscription);
+    console.log('📊 isPro derived from subscription.isActive:', subscription.isActive);
     prevStateRef.current = currentState;
+  }
+
+  // Debug log for onboarding issues
+  if (value.isPro && !value.isLoading) {
+    console.log('⚠️  DEBUGGING: isPro is TRUE - checking if this should be false for new user');
+    console.log('📋 Subscription details:', {
+      isActive: subscription.isActive,
+      productId: subscription.productId,
+      offeringId: subscription.offeringId,
+      expirationDate: subscription.expirationDate
+    });
   }
 
   return (

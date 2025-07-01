@@ -13,6 +13,7 @@ import { useAuthState } from "./hooks/useAuthState";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { OnboardingInspector } from "./components/OnboardingInspector";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,8 @@ const AppRoutes = () => {
       ) : (
         <Route path="*" element={<Auth />} />
       )}
+      {/* Development Route for Onboarding Inspector */}
+      <Route path="/inspector" element={<OnboardingInspector />} />
     </Routes>
   );
 };

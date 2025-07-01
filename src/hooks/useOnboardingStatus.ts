@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthState } from './useAuthState';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 
 interface OnboardingStatus {
   isLoading: boolean;
@@ -12,6 +13,7 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const { isAuthenticated, user } = useAuthState();
+  const { isPro } = useSubscription();
 
   const checkOnboardingStatus = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
@@ -29,15 +31,17 @@ export function useOnboardingStatus(): OnboardingStatus {
         .eq('id', user.id)
         .maybeSingle();
 
-      // SIMPLE: Only check the explicit flag
-      setHasCompletedOnboarding(profile?.onboarding_completed === true);
+      // Simple logic: Must have onboarding flag AND Pro access
+      const completed = profile?.onboarding_completed === true && isPro === true;
+      setHasCompletedOnboarding(completed);
+      
     } catch (error) {
-      console.error('Error checking onboarding status:', error);
+      console.error('Error checking onboarding:', error);
       setHasCompletedOnboarding(false);
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, isPro]);
 
   useEffect(() => {
     checkOnboardingStatus();
