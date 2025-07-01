@@ -25,16 +25,16 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
   try {
     const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
     
-    // Fixed: Use web URL for redirectURI as per Capacitor documentation
+    // SIMPLIFIED: Use standard options without complex redirects
     const options = {
       clientId: 'service.com.genstyle.app',
       redirectURI: 'https://dripify-dashboard-82.lovable.app/auth/callback',
       scopes: 'email name',
-      state: '12345',
+      state: 'native-ios',
       nonce: 'nonce'
     };
 
-    console.log('Starting Apple Sign-In with options:', options);
+    console.log('Starting native Apple Sign-In...');
     
     const result = await SignInWithApple.authorize(options);
     console.log('Apple Sign-In result received');
@@ -60,26 +60,25 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
     
   } catch (error) {
     console.error('Native Apple Sign-In error:', error);
-    // If native Apple Sign-In fails (like in simulator), fall back to web
-    return await handleWebAppleSignIn();
+    // REMOVED fallback to web - keep flows separate
+    return false;
   }
 };
 
 const handleWebAppleSignIn = async (): Promise<boolean> => {
   try {
-    console.log('Using web Apple Sign-In OAuth flow with deep linking');
-    console.log('Using Browser plugin for Apple Sign-In with proper redirect');
+    console.log('Using web Apple Sign-In OAuth flow');
     
     if (Capacitor.isNativePlatform()) {
-      // For native: use Browser plugin that handles the redirect better
+      // SIMPLIFIED native web auth: use standard OAuth with proper deep linking
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
           redirectTo: 'com.genstyle.app://auth/callback',
           queryParams: {
             scope: 'name email'
-          },
-          skipBrowserRedirect: true // Don't auto-redirect, we'll handle it
+          }
+          // REMOVED skipBrowserRedirect - let Supabase handle it
         }
       });
 
@@ -90,18 +89,15 @@ const handleWebAppleSignIn = async (): Promise<boolean> => {
 
       console.log('Opening auth URL in browser:', data.url);
       
-      // Open in browser with ability to redirect back
+      // SIMPLIFIED browser opening
       await Browser.open({
         url: data.url,
-        windowName: '_self',
-        // This should help with the redirect
-        toolbarColor: '#000000',
-        presentationStyle: 'popover'
+        windowName: '_self'
       });
 
       return true;
     } else {
-      // For web: regular OAuth
+      // SIMPLIFIED web OAuth
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
@@ -124,8 +120,6 @@ const handleWebAppleSignIn = async (): Promise<boolean> => {
     return false;
   }
 };
-
-
 
 export const isAuthenticated = async (): Promise<boolean> => {
   try {

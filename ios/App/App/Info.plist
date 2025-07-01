@@ -57,5 +57,9 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to analyze your outfit photos and provide style ratings.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app accesses your photo library to analyze outfit photos and provide style feedback.</string>
 </dict>
 </plist>

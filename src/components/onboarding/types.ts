@@ -1,4 +1,3 @@
-
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 
 // Re-export the type for other files to use

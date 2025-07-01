@@ -3,7 +3,7 @@ import { Purchases, PurchasesOffering, LOG_LEVEL, PurchasesPackage } from '@reve
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useSession } from '@/hooks/useSession';
+import { useAuthState } from '@/hooks/useAuthState';
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
 
 export type SubscriptionStatus = {
@@ -25,7 +25,7 @@ export const useRevenueCatManager = () => {
     offeringId: null,
   });
   const { toast } = useToast();
-  const { user } = useSession();
+  const { user } = useAuthState();
 
   const initializeRevenueCat = useCallback(async () => {
     if (isInitialized) return;
@@ -34,7 +34,6 @@ export const useRevenueCatManager = () => {
     try {
       // Web fallback - always free for testing
       if (!Capacitor.isNativePlatform()) {
-        console.log('🌐 Web platform - setting subscription to false');
         setSubscription({
           isActive: false,
           expirationDate: null,

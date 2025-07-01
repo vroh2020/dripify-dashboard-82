@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "./ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { Capacitor } from '@capacitor/core';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 interface ImageUploadProps {
   onImageSelect: (file: File) => void;
@@ -70,41 +72,141 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
     }, 1000);
   };
 
+  // Convert base64 to File object with better error handling
+  const base64ToFile = (base64: string, filename: string): File => {
+    try {
+      const arr = base64.split(',');
+      const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, { type: mime });
+    } catch (error) {
+      console.error('Error converting base64 to file:', error);
+      throw new Error('Failed to process image data');
+    }
+  };
+
+  const openCamera = async () => {
+    if (isProcessing) return;
+    setError("");
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Request permissions first
+        const permissions = await CapacitorCamera.checkPermissions();
+        if (permissions.camera !== 'granted') {
+          const requested = await CapacitorCamera.requestPermissions();
+          if (requested.camera !== 'granted') {
+            setError("Camera permission required to take photos.");
+            return;
+          }
+        }
+
+        // Use native camera with proper settings
+        const photo = await CapacitorCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Camera,
+          correctOrientation: true,
+          width: 1920,
+          height: 1920,
+        });
+
+        if (photo.dataUrl) {
+          const file = base64ToFile(photo.dataUrl, `camera-photo-${Date.now()}.jpg`);
+          handleFile(file);
+        } else {
+          setError("Failed to capture photo. Please try again.");
+        }
+      } else {
+        // Web fallback with proper constraints
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment';
+        input.onchange = (e) => {
+          const target = e.target as HTMLInputElement;
+          if (target.files && target.files[0]) {
+            handleFile(target.files[0]);
+          }
+        };
+        input.click();
+      }
+    } catch (error: any) {
+      console.error('Camera error:', error);
+      if (error.message?.includes('User cancelled')) {
+        // User cancelled, don't show error
+        return;
+      }
+      setError("Camera not available. Please use photo library instead.");
+    }
+  };
+
+  const openGallery = async () => {
+    if (isProcessing) return;
+    setError("");
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Request permissions first
+        const permissions = await CapacitorCamera.checkPermissions();
+        if (permissions.photos !== 'granted') {
+          const requested = await CapacitorCamera.requestPermissions();
+          if (requested.photos !== 'granted') {
+            setError("Photo library permission required to select photos.");
+            return;
+          }
+        }
+
+        // Use native photo library with proper settings
+        const photo = await CapacitorCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Photos,
+          correctOrientation: true,
+          width: 1920,
+          height: 1920,
+        });
+
+        if (photo.dataUrl) {
+          const file = base64ToFile(photo.dataUrl, `gallery-photo-${Date.now()}.jpg`);
+          handleFile(file);
+        } else {
+          setError("Failed to select photo. Please try again.");
+        }
+      } else {
+        // Web fallback
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+          const target = e.target as HTMLInputElement;
+          if (target.files && target.files[0]) {
+            handleFile(target.files[0]);
+          }
+        };
+        input.click();
+      }
+    } catch (error: any) {
+      console.error('Gallery error:', error);
+      if (error.message?.includes('User cancelled')) {
+        // User cancelled, don't show error
+        return;
+      }
+      setError("Could not access photo library. Please try again.");
+    }
+  };
+
   const clearImage = () => {
     setPreview(null);
     setFileName("");
     setIsProcessing(false);
-  };
-
-  const openCamera = () => {
-    if (isProcessing) return;
-    
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.capture = 'environment';
-    input.onchange = (e) => {
-      const target = e.target as HTMLInputElement;
-      if (target.files && target.files[0]) {
-        handleFile(target.files[0]);
-      }
-    };
-    input.click();
-  };
-
-  const openGallery = () => {
-    if (isProcessing) return;
-    
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const target = e.target as HTMLInputElement;
-      if (target.files && target.files[0]) {
-        handleFile(target.files[0]);
-      }
-    };
-    input.click();
   };
 
   return (
@@ -200,33 +302,23 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
             </div>
 
             {/* Action buttons row */}
-            <div className="flex justify-center items-center space-x-4 mt-6">
+            <div className="flex flex-col items-center space-y-4 mt-6">
+              {/* Primary Gallery Button - Larger */}
               <Button
                 onClick={openGallery}
                 disabled={isProcessing}
-                variant="outline"
-                className="flex-1 max-w-[140px] bg-white/10 border-white/20 text-white hover:bg-white/20 h-12 rounded-xl backdrop-blur-md"
+                className="w-full max-w-[280px] bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 h-14 text-lg font-semibold rounded-xl shadow-lg"
               >
-                <ImageIcon className="w-5 h-5 mr-2" />
-                Gallery
+                <ImageIcon className="w-6 h-6 mr-3" />
+                Choose from Gallery
               </Button>
               
-              {/* Main camera button */}
-              <motion.button
-                onClick={openCamera}
-                disabled={isProcessing}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-16 h-16 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Camera className="w-8 h-8 text-white" />
-              </motion.button>
-              
+              {/* Secondary Camera Button - Smaller */}
               <Button
                 onClick={openCamera}
                 disabled={isProcessing}
                 variant="outline"
-                className="flex-1 max-w-[140px] bg-white/10 border-white/20 text-white hover:bg-white/20 h-12 rounded-xl backdrop-blur-md"
+                className="w-full max-w-[200px] bg-white/10 border-white/20 text-white hover:bg-white/20 h-12 rounded-xl backdrop-blur-md"
               >
                 <Camera className="w-5 h-5 mr-2" />
                 Take Photo

@@ -62,24 +62,6 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     offerings
   };
 
-  // Only log when subscription state changes
-  const prevStateRef = useRef<any>();
-  const currentState = { isPro: value.isPro, isLoading: value.isLoading };
-  
-  if (JSON.stringify(prevStateRef.current) !== JSON.stringify(currentState)) {
-    console.log('🔄 SubscriptionProvider state changed:', currentState);
-    console.log('🔍 Full subscription object:', subscription);
-    console.log('📊 isPro derived from subscription.isActive:', subscription.isActive);
-    prevStateRef.current = currentState;
-  }
-
-  // Debug log for subscription state
-  console.log('🔍 SUBSCRIPTION PROVIDER STATE:', {
-    isPro: value.isPro,
-    isLoading: value.isLoading,
-    subscriptionIsActive: subscription.isActive,
-  });
-
   return (
     <SubscriptionContext.Provider value={value}>
       {children}

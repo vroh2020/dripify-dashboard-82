@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Crown } from "lucide-react";
-import { useState } from "react";
+import { Crown, AlertCircle, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 
 interface TrialOfferStepProps {
@@ -11,39 +11,71 @@ interface TrialOfferStepProps {
 export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
   const { purchaseProduct, isPro, isLoading, offerings } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Automatically proceed for Pro users without showing UI
+  useEffect(() => {
+    if (isPro) {
+      console.log('✅ User is already Pro - auto-proceeding to completion');
+      // Small delay to prevent jarring instant navigation
+      setTimeout(() => {
+        onNext();
+      }, 500);
+    }
+  }, [isPro, onNext]);
 
   const handleStartTrial = async () => {
+    // If user is already Pro, continue to completion
     if (isPro) {
       onNext();
       return;
     }
 
     setIsProcessing(true);
+    setHasError(false);
+    
     try {
       const proProduct = offerings?.[0]?.availablePackages?.find(
         (pkg) => pkg.product.identifier === "gs_1299_1m"
       );
       
+      // CRITICAL FIX: Don't bypass payment if products fail to load
       if (!proProduct) {
-        console.log('🚫 No pro product found, proceeding without purchase');
-        setTimeout(onNext, 500);
+        console.log('🚫 No pro product found - showing error instead of bypassing');
+        setHasError(true);
+        setIsProcessing(false);
         return;
       }
       
-      // Use the specific product ID we know exists
       const success = await purchaseProduct(proProduct);
       if (success) {
+        // Only proceed if payment actually succeeded
         setTimeout(onNext, 1000);
       } else {
-        // If purchase fails, still allow user to continue
-        setTimeout(onNext, 500);
+        // Payment failed - show error, don't proceed
+        setHasError(true);
       }
     } catch (error) {
       console.error("Trial start error:", error);
-      // Allow user to continue even if purchase fails
-      setTimeout(onNext, 500);
+      setHasError(true);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    setRetryCount(prev => prev + 1);
+    setHasError(false);
+    
+    // Refresh subscription state and retry
+    try {
+      // Give RevenueCat time to load
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await handleStartTrial();
+    } catch (error) {
+      console.error("Retry failed:", error);
+      setHasError(true);
     }
   };
 
@@ -86,10 +118,19 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
             <span className="text-orange-400">Drip Max</span>
           </h1>
 
-          {isPro && (
-            <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-4 mt-6">
-              <p className="text-green-300 font-medium">
-                ✨ You already have Pro access!
+
+
+          {hasError && (
+            <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mt-6">
+              <div className="flex items-center gap-2 text-red-300 font-medium mb-2">
+                <AlertCircle className="w-5 h-5" />
+                Connection Issue
+              </div>
+              <p className="text-red-200 text-sm">
+                {retryCount < 2 
+                  ? "Having trouble loading subscription options. Let's try again!"
+                  : "Still having trouble? Please check your internet connection and try again."
+                }
               </p>
             </div>
           )}
@@ -97,23 +138,47 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       </div>
 
       {/* Button Area - Fixed bottom */}
-      <div className="px-8 pb-8">
-        <Button
-          onClick={handleStartTrial}
-          disabled={isProcessing || isLoading}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
-        >
-          {isProcessing ? (
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Starting Trial...
-            </div>
-          ) : isPro ? (
-            "Continue to App"
-          ) : (
-            "Try for Free"
-          )}
-        </Button>
+      <div className="px-8 pb-8 space-y-3">
+        {hasError ? (
+          <Button
+            onClick={handleRetry}
+            disabled={isProcessing}
+            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+          >
+            {isProcessing ? (
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                Retrying...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5" />
+                Try Again
+              </div>
+            )}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleStartTrial}
+            disabled={isProcessing || isLoading}
+            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+          >
+            {isProcessing ? (
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Starting Trial...
+              </div>
+            ) : (
+              "Try for Free"
+            )}
+          </Button>
+        )}
+
+        {retryCount >= 2 && hasError && (
+          <p className="text-center text-white/60 text-sm">
+            Need help? Email support@dripmax.com
+          </p>
+        )}
       </div>
     </motion.div>
   );

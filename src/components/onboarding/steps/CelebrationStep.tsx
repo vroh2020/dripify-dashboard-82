@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { PartyPopper } from "lucide-react";
+import { useEffect } from "react";
 
 interface CelebrationStepProps {
   isPro: boolean;
@@ -9,16 +10,26 @@ interface CelebrationStepProps {
 }
 
 export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepProps) => {
+  // Automatically complete onboarding for Pro users without showing UI
+  useEffect(() => {
+    if (isPro) {
+      console.log('✅ User is already Pro - auto-completing onboarding directly');
+      // Small delay to prevent jarring instant navigation
+      setTimeout(() => {
+        onComplete();
+      }, 500);
+    }
+  }, [isPro, onComplete]);
+
   const handleClick = () => {
     console.log('🎉 Celebration button clicked:', { isPro });
-    console.log('🔍 ONBOARDING DEBUG: CelebrationStep received isPro =', isPro);
     
+    // IMPROVED LOGIC: More precise handling
     if (isPro) {
-      console.log('❌ PROBLEM: Going to handleCompleteOnboarding because isPro is TRUE');
-      console.log('🚨 This should only happen for existing Pro users, not new users!');
+      console.log('✅ User is already Pro - completing onboarding directly');
       onComplete();
     } else {
-      console.log('✅ CORRECT: Going to trial-offer because isPro is FALSE');
+      console.log('💳 User needs Pro subscription - proceeding to trial offer');
       onNext();
     }
   };
@@ -50,16 +61,23 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
         </motion.div>
         
         <div className="text-center space-y-6">
-          <h2 className="text-4xl font-bold text-white leading-tight">Congratulations!</h2>
+          <h2 className="text-4xl font-bold text-white leading-tight">
+            Congratulations!
+          </h2>
           <p className="text-white/80 text-xl leading-relaxed max-w-md">
             You've just experienced the power of Drip Max!
           </p>
-          <p className="text-white/70 text-lg leading-relaxed max-w-sm">
-            {isPro ? 
-              "You already have Pro access - enjoy unlimited style analyses!" :
-              "Ready to unlock your full style potential?"
-            }
-          </p>
+          
+          <div className="space-y-4">
+            <p className="text-white/70 text-lg leading-relaxed max-w-sm">
+              Ready to unlock unlimited style analyses and premium features?
+            </p>
+            <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
+              <p className="text-orange-300 font-medium">
+                🔥 7-day free trial available
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -69,7 +87,7 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
           onClick={handleClick}
           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
         >
-          {isPro ? "Continue to App" : "Next"}
+          {isPro ? "Continue to Dashboard" : "Unlock Pro Features"}
         </Button>
       </div>
     </motion.div>

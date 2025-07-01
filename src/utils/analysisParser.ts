@@ -8,21 +8,17 @@ interface AnalysisResult {
 }
 
 const categoryEmojis: Record<string, string> = {
+  "Aura": "✨",
+  "Drip Quality": "💎", 
+  "Potential": "🚀",
   "Color Coordination": "🎨",
+  "Attractiveness": "🔥",
+  // Keep some traditional ones as fallback
   "Fit & Proportion": "📏",
   "Style Coherence": "✨",
   "Accessories": "💍",
   "Outfit Creativity": "🌟",
   "Trend Awareness": "📱",
-  "Balance": "⚖️",
-  "Contrast": "🔄",
-  "Texture": "👕",
-  "Occasion Appropriateness": "🎭",
-  "Material Quality": "🧵",
-  "Layering": "🧥",
-  "Pattern Mixing": "📊",
-  "Adaptability": "🔄",
-  "Uniqueness": "🦄",
 };
 
 export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
@@ -166,12 +162,11 @@ function extractFallbackScore(text: string): number | undefined {
 // More flexible category extraction for different AI response formats
 function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): void {
   const categories = [
+    "Aura", 
+    "Drip Quality", 
+    "Potential", 
     "Color Coordination", 
-    "Fit & Proportion", 
-    "Style Coherence", 
-    "Accessories", 
-    "Outfit Creativity", 
-    "Trend Awareness"
+    "Attractiveness"
   ];
   
   for (const category of categories) {
@@ -202,8 +197,7 @@ function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): v
             emoji,
             details
           });
-          
-          break; // Found a match for this category, move to next one
+          break; // Found the category, move to next one
         }
       }
     }

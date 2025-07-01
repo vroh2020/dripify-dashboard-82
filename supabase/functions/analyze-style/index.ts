@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -40,50 +39,59 @@ function checkRateLimit(clientId: string, maxRequests = 10, windowMs = 60000): b
 
 // Enhanced prompt for better scoring
 function createAnalysisPrompt(style?: string): string {
-  const basePrompt = `You are an expert fashion stylist with 15+ years of experience. Analyze this outfit photo and provide specific scores out of 100 for each category.
+  const basePrompt = `You are a Gen Z fashion expert and style consultant who understands modern drip culture. Analyze this outfit photo and rate it using contemporary style categories that resonate with young people.
 
 CRITICAL: Your response MUST follow this EXACT format with scores out of 100:
 
 **Overall Score:** [number 1-100]
 
+**Aura:** [number 1-100]
+Rate the overall vibe, confidence projection, and how much presence this outfit commands. Does it give main character energy? Does it radiate confidence and swagger?
+
+**Drip Quality:** [number 1-100] 
+Evaluate the overall freshness, how clean the fit looks, and the quality of styling execution. Is this outfit fire? Does it have that effortless cool factor?
+
+**Potential:** [number 1-100]
+Assess how much this outfit could be elevated with small changes. Rate the foundation and room for improvement. What's the ceiling for this look?
+
 **Color Coordination:** [number 1-100]
-Analyze color harmony, seasonal appropriateness, and how colors work together.
+Analyze color harmony, how well the colors work together, and the overall color story. Do the colors enhance each other and create visual impact?
 
-**Fit & Proportion:** [number 1-100]
-Evaluate garment fit, silhouette, and how well clothes complement the body shape.
+**Attractiveness:** [number 1-100]
+Rate how appealing and eye-catching this outfit is. Does it turn heads? Would people compliment this look? Overall aesthetic appeal and magnetism.
 
-**Style Coherence:** [number 1-100]
-Assess how well different pieces work together and overall aesthetic harmony.
+ENHANCED SCORING GUIDELINES (out of 100):
+- 95-100: Absolutely iconic, viral-worthy drip, perfect execution
+- 85-94: Fire outfit with serious drip, minimal flaws
+- 75-84: Really solid fit with good style choices
+- 65-74: Decent outfit with good foundation, some improvements needed
+- 55-64: Mid-tier fit with potential but several areas to work on
+- 45-54: Below average outfit with noticeable styling issues
+- 35-44: Poor styling choices that need major fixes
+- 25-34: Bad outfit with fundamental problems
+- Below 25: Serious style disasters requiring complete redo
 
-**Accessories:** [number 1-100]
-Review accessory choices and how they enhance the overall look.
-
-**Outfit Creativity:** [number 1-100]
-Rate originality, personal expression, and creative styling choices.
-
-**Trend Awareness:** [number 1-100]
-Evaluate current trend incorporation and fashion-forward elements.
-
-SCORING GUIDELINES (out of 100):
-- 90-100: Exceptional, runway-worthy styling
-- 80-89: Very well-styled with great choices
-- 70-79: Good outfit with minor improvements needed
-- 60-69: Decent outfit with several areas for enhancement
-- 50-59: Average outfit with significant room for improvement
-- Below 50: Major styling issues that need addressing
+ANALYSIS FOCUS:
+- Modern street style and contemporary trends
+- Confidence and swagger projection
+- Visual impact and head-turning potential
+- Overall freshness and coolness factor
+- Gen Z aesthetic preferences and style codes
 
 **Summary:**
-[Provide 2-3 sentences highlighting the outfit's strongest elements and gentle suggestions]
+[Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]
 
 **Style Tips:**
-• [Specific actionable tip for color coordination]
-• [Specific actionable tip for fit and proportion]
-• [Specific actionable tip for style coherence]
-• [Specific actionable tip for accessories]
-• [Specific actionable tip for overall styling]`;
+• Aura: [Specific tip about boosting confidence and presence through styling]
+• Drip: [Specific tip about elevating the overall freshness and coolness]
+• Colors: [Specific tip about color choices and coordination]
+• Potential: [Specific tip about small changes that would level up the look]
+• Overall: [Specific tip for maximizing the outfit's impact and appeal]
+
+Be honest but encouraging. Use contemporary style language that Gen Z understands.`;
 
   if (style) {
-    return basePrompt + `\n\nSPECIAL FOCUS: Pay particular attention to how well this outfit aligns with "${style}" style elements.`;
+    return basePrompt + `\n\nSPECIAL STYLE FOCUS: Analyze how well this outfit represents "${style}" aesthetic. Consider the key elements, proportions, and styling techniques that define this style, and provide specific feedback on authenticity and execution within this style category.`;
   }
   
   return basePrompt;

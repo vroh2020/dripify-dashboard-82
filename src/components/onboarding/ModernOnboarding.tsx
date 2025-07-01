@@ -54,7 +54,29 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
        console.log('✅ Onboarding reset! Reload the page.');
        window.location.reload();
      };
-     console.log('🛠️ Helper: window.resetOnboarding()');
+
+     // ADDED: Complete fresh start function
+     (window as any).freshStart = async () => {
+       console.log('🔄 Starting complete fresh reset...');
+       
+       // Clear all local storage
+       localStorage.clear();
+       sessionStorage.clear();
+       
+       // Sign out from Supabase
+       await supabase.auth.signOut();
+       
+       // Clear any cached data
+       if ('caches' in window) {
+         const cacheNames = await caches.keys();
+         await Promise.all(cacheNames.map(name => caches.delete(name)));
+       }
+       
+       console.log('✅ All data cleared! Redirecting to fresh start...');
+       
+       // Force reload to completely fresh state
+       window.location.href = '/auth';
+     };
    }, [user]);
 
    // Simple save function - no over-engineering
@@ -74,44 +96,70 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   }, [user]);
 
-  // Load existing data on mount - SIMPLE
+  // Load existing data on mount - FASTER
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user) {
+      // For unauthenticated users, start with welcome step
+      setCurrentStep('welcome');
+      return;
+    }
 
     const loadData = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('age_range, main_goal, onboarding_completed')
-        .eq('id', user.id)
-        .maybeSingle();
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('age_range, main_goal, onboarding_completed')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      if (!data) {
-        // New user - start fresh
-        setCurrentStep('age');
-        return;
-      }
+        if (!data) {
+          // New user - start fresh
+          setCurrentStep('age');
+          return;
+        }
 
-      // Returning user - resume where they left off
-      if (data.onboarding_completed) {
-        setCurrentStep('completed' as OnboardingStep);
-      } else if (data.main_goal) {
-        setCurrentStep('test-photo');
-      } else if (data.age_range) {
-        setCurrentStep('goal');
-      } else {
+        // FIXED: Handle completed onboarding users properly
+        if (data.onboarding_completed) {
+          if (isPro) {
+            // User has completed onboarding AND has subscription - complete flow
+            onComplete({
+              age: data.age_range || '',
+              mainGoal: data.main_goal || '',
+              analysisResult: undefined
+            });
+          } else {
+            // User completed onboarding but NO subscription - go to payment
+            console.log('🔄 User completed onboarding but needs subscription - redirecting to payment');
+            setCurrentStep('trial-offer');
+          }
+          return;
+        }
+
+        // Returning user - resume where they left off
+        if (data.main_goal) {
+          setCurrentStep('test-photo');
+        } else if (data.age_range) {
+          setCurrentStep('goal');
+        } else {
+          setCurrentStep('age');
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        // Fallback to age step on error
         setCurrentStep('age');
       }
     };
 
+    // FASTER: No artificial delay - load immediately
     loadData();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, isPro, onComplete]);
 
-  // Skip welcome for authenticated users
+  // Skip welcome for authenticated users ONLY if they have user data
   useEffect(() => {
-    if (isAuthenticated && currentStep === 'welcome') {
+    if (isAuthenticated && user && currentStep === 'welcome') {
       setCurrentStep('age');
     }
-  }, [isAuthenticated, currentStep]);
+  }, [isAuthenticated, user, currentStep]);
 
   // Handle age selection - SIMPLE
   const handleAgeSelect = async (age: string) => {
@@ -171,39 +219,165 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
      }
    };
 
-  // Handle completion - SIMPLE
+  // Handle completion - ENHANCED WITH VALIDATION
   const handleCompleteOnboarding = async () => {
-    if (!isPro) {
-      toast({
-        title: "Payment Required",
-        description: "Please complete your Pro subscription first.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const saved = await saveToSupabase({ onboarding_completed: true });
+    if (isCompleting) return; // Prevent double-execution
     
-    if (saved) {
-      // Save analysis if we have it
-      if (analysisResult && user) {
-        await supabase.from('style_analyses').insert({
-          user_id: user.id,
-          total_score: analysisResult.overallScore,
-          breakdown: JSON.stringify(analysisResult.breakdown || []),
-          image_url: analysisResult.imageUrl || '',
-          feedback: analysisResult.summary || '',
-          scan_date: new Date().toISOString()
+    setIsCompleting(true);
+    
+    try {
+      // Enhanced validation before completion
+      if (!isPro) {
+        console.log('❌ Completion blocked: User is not Pro');
+        toast({
+          title: "Subscription Required",
+          description: "Please complete your Pro subscription to continue.",
+          variant: "destructive"
         });
+        
+        // Redirect back to payment flow
+        setCurrentStep('trial-offer');
+        return;
       }
 
+      // Validate required onboarding data
+      if (!user) {
+        console.log('❌ Completion blocked: No user found');
+        toast({
+          title: "Authentication Issue",
+          description: "Please sign in again to continue.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if user has completed required steps
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('age_range, main_goal')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.age_range || !profile?.main_goal) {
+        console.log('❌ Completion blocked: Missing required profile data');
+        toast({
+          title: "Missing Information",
+          description: "Please complete all onboarding steps first.",
+          variant: "destructive"
+        });
+        
+        // Redirect to missing step
+        if (!profile?.age_range) {
+          setCurrentStep('age');
+        } else if (!profile?.main_goal) {
+          setCurrentStep('goal');
+        }
+        return;
+      }
+
+      console.log('✅ All validation passed - completing onboarding');
+      
+      // Save completion flag
+      const saved = await saveToSupabase({ onboarding_completed: true });
+      
+      if (!saved) {
+        toast({
+          title: "Save Failed",
+          description: "Failed to save progress. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Save analysis if we have it
+      if (analysisResult && user) {
+        try {
+          await supabase.from('style_analyses').insert({
+            user_id: user.id,
+            total_score: analysisResult.overallScore,
+            breakdown: JSON.stringify(analysisResult.breakdown || []),
+            image_url: analysisResult.imageUrl || '',
+            feedback: analysisResult.summary || '',
+            scan_date: new Date().toISOString()
+          });
+        } catch (error) {
+          console.log('Analysis save failed (non-critical):', error);
+        }
+      }
+
+      // Success - complete the onboarding
       onComplete({
-        age: '', // Will be loaded from DB
-        mainGoal: '', // Will be loaded from DB
+        age: profile.age_range,
+        mainGoal: profile.main_goal,
         analysisResult: analysisResult || undefined
       });
+      
+    } catch (error) {
+      console.error('Completion error:', error);
+      toast({
+        title: "Completion Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCompleting(false);
     }
   };
+
+  // Enhanced recovery function for stuck users
+  const handleStuckUserRecovery = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('age_range, main_goal, onboarding_completed')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile) {
+        // New user - start fresh
+        setCurrentStep('age');
+        return;
+      }
+
+      // FIXED: Proper handling of completed onboarding
+      if (profile.onboarding_completed) {
+        if (isPro) {
+          // Has both onboarding and subscription - complete immediately
+          onComplete({
+            age: profile.age_range || '',
+            mainGoal: profile.main_goal || '',
+            analysisResult: undefined
+          });
+        } else {
+          // Completed onboarding but no subscription - needs payment
+          console.log('🔄 Recovery: Directing completed user to payment');
+          setCurrentStep('trial-offer');
+        }
+        return;
+      }
+
+      // Resume from correct step
+      if (!profile.age_range) {
+        setCurrentStep('age');
+      } else if (!profile.main_goal) {
+        setCurrentStep('goal');
+      } else {
+        // Has data but not completed - go to photo step
+        setCurrentStep('test-photo');
+      }
+    } catch (error) {
+      console.error('Recovery failed:', error);
+      // Fallback to age step
+      setCurrentStep('age');
+    }
+  }, [user, isPro, onComplete]);
+
+  // Add recovery button for development/debugging
+  useEffect(() => {
+    (window as any).recoverOnboarding = handleStuckUserRecovery;
+  }, [handleStuckUserRecovery]);
 
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
@@ -303,6 +477,42 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                     className="h-full flex items-center justify-center p-6"
                   >
                     <ProOfferCard onContinue={handleCompleteOnboarding} />
+                  </motion.div>
+                )}
+                
+                {/* Enhanced fallback with recovery options */}
+                {!['welcome', 'age', 'goal', 'test-photo', 'rating', 'celebration', 'trial-offer', 'paywall'].includes(currentStep) && (
+                  <motion.div
+                    key="fallback"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="h-full flex items-center justify-center p-6"
+                  >
+                    <div className="text-center text-white space-y-4">
+                      <p className="mb-4 text-lg">Something went wrong with the onboarding flow.</p>
+                      <p className="mb-6 text-white/70">Current step: {currentStep}</p>
+                      
+                      <div className="space-y-3">
+                        <Button 
+                          onClick={handleStuckUserRecovery}
+                          className="w-full bg-orange-500 hover:bg-orange-600"
+                        >
+                          Smart Recovery
+                        </Button>
+                        
+                        <Button 
+                          onClick={() => setCurrentStep('age')}
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                        >
+                          Start Over
+                        </Button>
+                      </div>
+                      
+                      <p className="text-xs text-white/50 mt-4">
+                        If this keeps happening, email support@dripmax.com
+                      </p>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
