@@ -31,9 +31,15 @@ export function useOnboardingStatus(): OnboardingStatus {
         .eq('id', user.id)
         .maybeSingle();
 
-      // Simple logic: Must have onboarding flag AND Pro access
+      // Correct logic: Must have BOTH onboarding completed AND active subscription
       const completed = profile?.onboarding_completed === true && isPro === true;
       setHasCompletedOnboarding(completed);
+      
+      console.log('🔍 ONBOARDING STATUS:', {
+        onboardingCompleted: profile?.onboarding_completed,
+        isPro,
+        canAccessDashboard: completed
+      });
       
     } catch (error) {
       console.error('Error checking onboarding:', error);

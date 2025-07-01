@@ -16,7 +16,7 @@ export type SubscriptionStatus = {
 let isInitialized = false;
 
 export const useRevenueCatManager = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [offerings, setOfferings] = useState<PurchasesOffering[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionStatus>({
     isActive: false,
@@ -29,26 +29,32 @@ export const useRevenueCatManager = () => {
 
   const initializeRevenueCat = useCallback(async () => {
     if (isInitialized) return;
+    setIsLoading(true);
 
     try {
-      // Web fallback
+      // Web fallback - always free for testing
       if (!Capacitor.isNativePlatform()) {
+        console.log('🌐 Web platform - setting subscription to false');
         setSubscription({
           isActive: false,
           expirationDate: null,
-          productId: 'web-dev',
-          offeringId: 'web-dev'
+          productId: null,
+          offeringId: null
         });
         setIsLoading(false);
         return;
       }
 
+      console.log('📱 Native platform - initializing RevenueCat...');
+
       // Get API key
-      const { data } = await supabase.functions.invoke('revenuecat-config');
-      if (!data?.publicKey) {
-        setIsLoading(false);
-        return;
+      const { data, error } = await supabase.functions.invoke('revenuecat-config');
+      if (error || !data?.publicKey) {
+        console.log('❌ RevenueCat API key not available');
+        throw new Error('No API key');
       }
+
+      console.log('🔑 API key received, configuring RevenueCat...');
 
       // Configure RevenueCat
       await Purchases.configure({
@@ -58,43 +64,33 @@ export const useRevenueCatManager = () => {
 
       isInitialized = true;
 
-      // Load data
-      const [offeringsData, customerInfo] = await Promise.all([
-        Purchases.getOfferings(),
-        Purchases.getCustomerInfo()
-      ]);
-
-      // Set offerings
-      setOfferings(Object.values(offeringsData.all || {}));
-
-      // Set subscription status
-      const isPro = Boolean(customerInfo.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+      // Load customer info
+      const { customerInfo } = await Purchases.getCustomerInfo();
       
-      console.log('🔍 SUBSCRIPTION DEBUG:', {
+      // Check subscription status
+      const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+      
+      console.log('💳 REVENUECAT STATUS:', {
+        userId: user?.id,
         entitlementId: REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER,
-        entitlements: customerInfo.customerInfo.entitlements,
-        activeEntitlements: customerInfo.customerInfo.entitlements.active,
+        hasActiveEntitlements: Object.keys(customerInfo.entitlements.active || {}).length > 0,
         isPro
       });
-      
-      let expirationDate = null;
-      if (isPro && customerInfo.customerInfo.activeSubscriptions?.length > 0) {
-        const subId = customerInfo.customerInfo.activeSubscriptions[0];
-        if (customerInfo.customerInfo.allExpirationDates?.[subId]) {
-          expirationDate = new Date(customerInfo.customerInfo.allExpirationDates[subId] * 1000);
-        }
-      }
 
       setSubscription({
         isActive: isPro,
-        expirationDate,
-        productId: customerInfo.customerInfo.activeSubscriptions?.[0] || null,
-        offeringId: customerInfo.customerInfo.allPurchasedProductIdentifiers?.[0] || null
+        expirationDate: null,
+        productId: null,
+        offeringId: null
       });
 
+      // Load offerings
+      const offeringsData = await Purchases.getOfferings();
+      setOfferings(Object.values(offeringsData.all || {}));
+
     } catch (error) {
-      console.log('RevenueCat init failed:', error);
-      // Ensure subscription is false on error
+      console.log('❌ RevenueCat initialization failed:', error);
+      // Default to free user
       setSubscription({
         isActive: false,
         expirationDate: null,
