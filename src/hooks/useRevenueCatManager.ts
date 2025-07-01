@@ -32,23 +32,6 @@ export const useRevenueCatManager = () => {
     console.log(`🚀 RevenueCat Manager: ${message}`, data || '');
   }, []);
 
-  // Debug log subscription state changes with detailed tracking
-  useEffect(() => {
-    debugLog('📊 Subscription state updated:', {
-      isActive: subscription.isActive,
-      productId: subscription.productId,
-      expirationDate: subscription.expirationDate?.toISOString() || 'none',
-      offeringId: subscription.offeringId
-    });
-    
-    // Track the source of subscription changes
-    console.log('🔍 SUBSCRIPTION STATE CHANGE:', {
-      isPro: subscription.isActive,
-      source: subscription.offeringId,
-      timestamp: new Date().toISOString()
-    });
-  }, [subscription, debugLog]);
-
   // Initialize RevenueCat with better error handling
   const initializeRevenueCat = useCallback(async () => {
     if (isRevenueCatInitialized || initializationPromise) {
@@ -59,26 +42,36 @@ export const useRevenueCatManager = () => {
     initializationPromise = (async () => {
       try {
         debugLog('Starting RevenueCat initialization...');
-        
-        // Skip on web platform - use development mode with NEUTRAL state
+
+        // Skip on web platform - use development mode
         if (!Capacitor.isNativePlatform()) {
-          debugLog('Web platform detected - using development mode with NEUTRAL subscription state');
-          // Don't set isActive immediately - let onboarding/payment flow handle it
+          debugLog('Web platform detected - using development mode');
+          setSubscription({
+            isActive: false, // For paywall testing
+            expirationDate: null,
+            productId: 'web-dev',
+            offeringId: 'web-dev'
+          });
           setIsLoading(false);
-          debugLog('Web platform initialized - subscription state will be managed by payment flow');
           return;
         }
 
         // Fetch API key from Supabase Edge Function
         debugLog('Fetching RevenueCat config from Supabase...');
         const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        
+
         if (error) {
           throw new Error(`Failed to fetch RevenueCat config: ${error.message}`);
         }
 
         if (!data?.publicKey) {
           debugLog('API key not available - using development mode');
+          setSubscription({
+            isActive: false,
+            expirationDate: null,
+            productId: 'dev-mode',
+            offeringId: 'dev-mode'
+          });
           setIsLoading(false);
           return;
         }
@@ -86,7 +79,7 @@ export const useRevenueCatManager = () => {
         debugLog('API key received, configuring RevenueCat...', {
           keyPrefix: data.publicKey.substring(0, 8) + '...'
         });
-        
+
         // Configure RevenueCat with the API key
         await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
         await Purchases.configure({
@@ -105,9 +98,9 @@ export const useRevenueCatManager = () => {
 
       } catch (error) {
         debugLog('RevenueCat initialization failed', error);
-        
+
         const errorMessage = error?.message || '';
-        
+
         // Check for specific simulator errors and provide helpful guidance
         if (errorMessage.includes('No active account')) {
           debugLog('iOS Simulator needs Apple ID sign-in');
@@ -124,10 +117,15 @@ export const useRevenueCatManager = () => {
             duration: 8000
           });
         }
-        
-        // Fallback to development mode for testing - don't force isActive state
-        debugLog('Fallback mode - subscription state managed by payment flow');
-        
+
+        // Fallback to development mode for testing
+        setSubscription({
+          isActive: false,
+          expirationDate: null,
+          productId: 'fallback',
+          offeringId: 'fallback'
+        });
+
       } finally {
         setIsLoading(false);
       }
@@ -146,7 +144,7 @@ export const useRevenueCatManager = () => {
 
       debugLog('Fetching offerings...');
       const offeringsData = await Purchases.getOfferings();
-      
+
       debugLog('Offerings received:', {
         current: offeringsData.current?.identifier,
         allCount: Object.keys(offeringsData.all || {}).length
@@ -165,7 +163,7 @@ export const useRevenueCatManager = () => {
           pkg => pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
         );
         debugLog(`Target product '${REVENUECAT_CONFIG.products.monthly}' found: ${hasTargetProduct}`);
-        
+
         if (!hasTargetProduct) {
           debugLog('Target product not found - check configuration');
           toast({
@@ -191,7 +189,7 @@ export const useRevenueCatManager = () => {
 
     } catch (error) {
       debugLog('Failed to fetch offerings', error);
-      
+
       const errorMessage = error?.message || '';
       if (errorMessage.includes('None of the products registered')) {
         toast({
@@ -202,7 +200,7 @@ export const useRevenueCatManager = () => {
         });
       } else if (errorMessage.includes('No active account')) {
         toast({
-          variant: "destructive", 
+          variant: "destructive",
           title: "Apple ID Required",
           description: "Sign in to Apple ID in iOS Simulator settings.",
           duration: 6000
@@ -222,14 +220,13 @@ export const useRevenueCatManager = () => {
   const fetchSubscriptionStatus = useCallback(async () => {
     try {
       if (!isRevenueCatInitialized || !Capacitor.isNativePlatform()) {
-        debugLog('Skipping subscription status fetch - web platform or not initialized');
-        // On web platform, return current subscription state (don't override it)
+        debugLog('Skipping subscription status fetch');
         return subscription;
       }
 
       debugLog('Fetching customer info...');
       const { customerInfo } = await Purchases.getCustomerInfo();
-      
+
       const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
       debugLog(`Subscription status: ${isPro ? 'Active' : 'Inactive'}`);
 
@@ -243,12 +240,12 @@ export const useRevenueCatManager = () => {
 
       if (isPro && customerInfo.activeSubscriptions?.length > 0) {
         const subId = customerInfo.activeSubscriptions[0];
-        
+
         if (customerInfo.allExpirationDates?.[subId]) {
           expirationDate = new Date(customerInfo.allExpirationDates[subId] * 1000);
           debugLog('Subscription expires:', expirationDate);
         }
-        
+
         productId = subId;
         offeringId = customerInfo.allPurchasedProductIdentifiers?.[0] || null;
       }
@@ -272,32 +269,19 @@ export const useRevenueCatManager = () => {
   // Purchase with better simulator handling
   const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
     try {
-      if (!product) {
-        debugLog('Purchase failed: No product provided');
-        throw new Error('No product provided for purchase');
-      }
-
-      debugLog('🛒 PURCHASE ATTEMPT STARTED:', { 
-        productId: product.identifier, 
-        isNative: Capacitor.isNativePlatform() 
-      });
-
       if (!Capacitor.isNativePlatform()) {
-        debugLog('🛒 Web platform purchase simulation - explicitly setting Pro status to TRUE');
-        
-        const newSubscription = {
+        debugLog('Web platform - simulating purchase for development');
+
+        setSubscription({
           isActive: true,
           expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           productId: product.identifier,
           offeringId: 'web-simulation'
-        };
-        
-        setSubscription(newSubscription);
-        debugLog('🎉 Web platform purchase simulation completed - Pro status activated:', newSubscription);
-        
+        });
+
         toast({
-          title: "Development Mode Purchase ✅",
-          description: "Simulated successful purchase - Pro access activated!"
+          title: "Development Mode Purchase",
+          description: "Simulated successful purchase for web testing."
         });
         return true;
       }
@@ -310,22 +294,22 @@ export const useRevenueCatManager = () => {
       setIsLoading(true);
 
       const result = await Purchases.purchaseStoreProduct(product);
-      
+
       const isProActive = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false;
-      
+
       if (isProActive) {
         debugLog('Purchase successful - Pro access activated');
-        
+
         toast({
           title: "Welcome to Pro! 🎉",
           description: "Your subscription is now active!"
         });
-        
+
         await fetchSubscriptionStatus();
         return true;
       } else {
         debugLog('Purchase completed but Pro access not activated');
-        
+
         toast({
           variant: "destructive",
           title: "Subscription Issue",
@@ -336,9 +320,9 @@ export const useRevenueCatManager = () => {
 
     } catch (error: any) {
       debugLog('Purchase failed', error);
-      
+
       const errorMessage = error.message || '';
-      
+
       if (errorMessage.includes('cancelled')) {
         toast({
           title: "Purchase Cancelled",
@@ -352,7 +336,7 @@ export const useRevenueCatManager = () => {
         });
       } else if (errorMessage.includes('None of the products')) {
         toast({
-          variant: "destructive", 
+          variant: "destructive",
           title: "Product Not Available",
           description: "Add DripMax.storekit to Xcode project first."
         });
@@ -363,7 +347,7 @@ export const useRevenueCatManager = () => {
           description: "There was an error processing your purchase."
         });
       }
-      
+
       return false;
     } finally {
       setIsLoading(false);
@@ -398,7 +382,7 @@ export const useRevenueCatManager = () => {
           title: "Purchases Restored! 🎉",
           description: "Your Pro subscription has been restored."
         });
-        
+
         await fetchSubscriptionStatus();
         return true;
       } else {
@@ -411,13 +395,13 @@ export const useRevenueCatManager = () => {
 
     } catch (error) {
       debugLog('Restore failed', error);
-      
+
       const errorMessage = error?.message || '';
-      
+
       if (errorMessage.includes('No active account')) {
         toast({
           variant: "destructive",
-          title: "Apple ID Required", 
+          title: "Apple ID Required",
           description: "Sign in to Apple ID in iOS Simulator first."
         });
       } else if (errorMessage.includes('receipt')) {
@@ -433,7 +417,7 @@ export const useRevenueCatManager = () => {
           description: "Could not restore purchases. Try again later."
         });
       }
-      
+
       return false;
     } finally {
       setIsLoading(false);
@@ -446,49 +430,6 @@ export const useRevenueCatManager = () => {
     initializeRevenueCat();
   }, [initializeRevenueCat, debugLog]);
 
-  // Development helper to reset subscription state
-  const resetSubscriptionForTesting = useCallback(() => {
-    if (process.env.NODE_ENV === 'development') {
-      debugLog('🔄 DEVELOPMENT: Resetting subscription state for testing');
-      setSubscription({
-        isActive: false,
-        expirationDate: null,
-        productId: null,
-        offeringId: null,
-      });
-      console.log('✅ Subscription state reset to false for testing');
-      console.log('🔄 You may need to refresh the page for onboarding to restart properly');
-    }
-  }, [debugLog]);
-
-  // Development helper to manually activate Pro (for testing)
-  const activateProForTesting = useCallback(() => {
-    if (process.env.NODE_ENV === 'development') {
-      debugLog('🔄 DEVELOPMENT: Manually activating Pro status for testing');
-      const testSubscription = {
-        isActive: true,
-        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        productId: 'test-pro',
-        offeringId: 'test-pro'
-      };
-      setSubscription(testSubscription);
-      console.log('✅ Pro status activated for testing:', testSubscription);
-    }
-  }, [debugLog]);
-
-  // Expose development functions
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      // @ts-ignore - Development only
-      window.resetSubscription = resetSubscriptionForTesting;
-      // @ts-ignore - Development only  
-      window.activatePro = activateProForTesting;
-      console.log('🛠️  Development helpers available:');
-      console.log('   - window.resetSubscription() - Reset Pro status to false');
-      console.log('   - window.activatePro() - Activate Pro status for testing');
-    }
-  }, [resetSubscriptionForTesting, activateProForTesting]);
-
   return {
     isLoading,
     subscription,
@@ -497,8 +438,6 @@ export const useRevenueCatManager = () => {
     fetchOfferings,
     fetchSubscriptionStatus,
     purchaseProduct,
-    restorePurchases,
-    resetSubscriptionForTesting, // Include in return for development
-    activateProForTesting // Include in return for development
+    restorePurchases
   };
 };
