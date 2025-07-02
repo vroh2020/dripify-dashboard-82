@@ -1,8 +1,7 @@
-
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import { ImageUpload } from "@/components/ImageUpload";
+import { OnboardingPhotoPicker } from "../OnboardingPhotoPicker";
 
 interface TestPhotoStepProps {
   selectedImage: File | null;
@@ -21,7 +20,7 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
       className="h-full flex flex-col"
     >
       {/* Content Area - Centered */}
-      <div className="flex-1 flex flex-col justify-center items-center px-8 py-12">
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
         <motion.div
           animate={{ 
             rotate: [0, 10, -10, 0],
@@ -32,20 +31,24 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="mb-8"
+          className="mb-6"
         >
-          <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
+          <Sparkles className="w-12 h-12 text-orange-400 mx-auto" />
         </motion.div>
         
-        <div className="space-y-6 text-center">
-          <h2 className="text-3xl font-bold text-white">Let's test it out!</h2>
-          <p className="text-white/70 text-lg leading-relaxed max-w-md">
+        <div className="space-y-4 text-center mb-8">
+          <h2 className="text-2xl font-bold text-white">Let's test it out!</h2>
+          <p className="text-white/70 text-base leading-relaxed max-w-sm">
             Upload a photo to get your first style rating and see the magic in action
           </p>
         </div>
 
-        <div className="w-full max-w-sm mt-8">
-          <ImageUpload onImageSelect={onImageSelect} />
+        {/* Use the new simplified photo picker */}
+        <div className="w-full max-w-sm">
+          <OnboardingPhotoPicker 
+            selectedImage={selectedImage}
+            onImageSelect={onImageSelect} 
+          />
         </div>
       </div>
 
@@ -55,7 +58,7 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
-          className="px-8 pb-8"
+          className="px-6 pb-8"
         >
           <Button
             onClick={onImageUpload}
