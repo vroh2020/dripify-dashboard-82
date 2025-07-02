@@ -10,6 +10,13 @@ interface TestPhotoStepProps {
 }
 
 export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: TestPhotoStepProps) => {
+  console.log('🎯 TestPhotoStep render - selectedImage:', selectedImage ? 'FILE PRESENT' : 'NULL');
+  console.log('🎯 selectedImage details:', selectedImage ? {
+    name: selectedImage.name,
+    size: selectedImage.size,
+    type: selectedImage.type
+  } : 'No file selected');
+
   return (
     <motion.div
       key="test-photo"

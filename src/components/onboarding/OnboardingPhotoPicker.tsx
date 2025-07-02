@@ -20,11 +20,13 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
   // Convert base64 to File object
   const base64ToFile = (base64: string, filename: string): File => {
     try {
-      console.log('🔄 Converting base64 to file...');
+      console.log('🔄 Converting base64 to file...', base64.substring(0, 50) + '...');
       
       const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
       const mimeMatch = base64.match(/data:([^;]+);base64,/);
       const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      
+      console.log('📋 Detected MIME type:', mime);
       
       const binaryString = atob(base64Data);
       const bytes = new Uint8Array(binaryString.length);
@@ -34,7 +36,11 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       }
       
       const file = new File([bytes], filename, { type: mime });
-      console.log('✅ File conversion successful:', file.name, file.size);
+      console.log('✅ File created successfully:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
       
       return file;
     } catch (error) {
@@ -47,7 +53,11 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
     if (isProcessing) return;
     setError("");
     
-    console.log('📁 Processing file:', file.name, file.size);
+    console.log('📁 Processing file:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
 
     // Validate file type
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -73,10 +83,18 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       const previewUrl = URL.createObjectURL(file);
       previewUrlRef.current = previewUrl;
       
+      console.log('🖼️ Preview URL created:', previewUrl);
+      
       setPreview(previewUrl);
       onImageSelect(file);
       
-      console.log('✅ File processing complete');
+      console.log('✅ File processing complete - notifying parent component');
+      console.log('🔗 Callback executed - parent should update selectedImage state');
+      console.log('📊 Current component state:', { 
+        hasPreview: !!previewUrl, 
+        fileSize: file.size, 
+        fileName: file.name 
+      });
     } catch (error) {
       console.error('❌ Error processing file:', error);
       setError("Failed to process image. Please try again.");
@@ -88,17 +106,20 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
     setError("");
     setIsProcessing(true);
 
+    console.log('📱 Starting photo library selection...');
+
     try {
       if (Capacitor.isNativePlatform()) {
-        console.log('📱 Opening native photo library...');
+        console.log('📱 Using native photo library...');
         
-        // Check permissions
+        // Check permissions first
         const permissions = await CapacitorCamera.checkPermissions();
-        console.log('📷 Photo permissions:', permissions);
+        console.log('📷 Current permissions:', permissions);
         
         if (permissions.photos !== 'granted') {
           console.log('🔐 Requesting photo library permission...');
           const requested = await CapacitorCamera.requestPermissions({ permissions: ['photos'] });
+          console.log('📝 Permission request result:', requested);
           
           if (requested.photos !== 'granted') {
             setError("Photo library permission is required. Please enable it in Settings and try again.");
@@ -107,7 +128,9 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
           }
         }
 
-        // Select photo from gallery
+        console.log('📸 Opening photo library with getPhoto...');
+        
+        // Use native photo library with simple settings
         const photo = await CapacitorCamera.getPhoto({
           quality: 85,
           allowEditing: false,
@@ -119,13 +142,23 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
           presentationStyle: 'popover'
         });
 
+        console.log('📸 Photo library result:', {
+          hasDataUrl: !!photo.dataUrl,
+          hasPath: !!photo.path,
+          hasWebPath: !!photo.webPath,
+          format: photo.format
+        });
+
         if (photo.dataUrl) {
+          console.log('✅ Photo selected successfully, converting to file...');
           const file = base64ToFile(photo.dataUrl, `outfit-photo-${Date.now()}.jpg`);
           handleFile(file);
         } else {
-          setError("Failed to select photo. Please try again.");
+          console.error('❌ No photo data received from native picker');
+          setError("No photo was selected. Please try again.");
         }
       } else {
+        console.log('🌐 Using web file picker...');
         // Web fallback
         const input = document.createElement('input');
         input.type = 'file';
@@ -133,19 +166,24 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
         input.onchange = (e) => {
           const target = e.target as HTMLInputElement;
           if (target.files && target.files[0]) {
+            console.log('📁 File selected from web picker:', target.files[0].name);
             handleFile(target.files[0]);
           }
         };
         input.click();
       }
     } catch (error: any) {
-      console.error('📷 Gallery error:', error);
+      console.error('📷 Photo library error:', error);
+      
       if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
         console.log('👤 User cancelled photo selection');
+        // Don't show error for user cancellation
       } else {
+        console.error('📷 Actual error occurred:', error.message);
         setError(`Failed to select photo: ${error.message || 'Please try again.'}`);
       }
     } finally {
+      console.log('🏁 Photo selection process finished');
       setIsProcessing(false);
     }
   };
@@ -159,7 +197,7 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       if (Capacitor.isNativePlatform()) {
         console.log('📱 Opening native camera...');
         
-        // Check permissions
+        // Check camera permissions
         const permissions = await CapacitorCamera.checkPermissions();
         
         if (permissions.camera !== 'granted') {
@@ -217,6 +255,8 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
   };
 
   const clearImage = () => {
+    console.log('🗑️ Clearing selected image...');
+    
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = null;

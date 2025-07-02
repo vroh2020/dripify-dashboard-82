@@ -422,6 +422,18 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
+  // Add debugging for selectedImage changes
+  useEffect(() => {
+    console.log('🎯 ModernOnboarding selectedImage changed:', selectedImage ? 'FILE PRESENT' : 'NULL');
+    if (selectedImage) {
+      console.log('🎯 Selected image details:', {
+        name: selectedImage.name,
+        size: selectedImage.size,
+        type: selectedImage.type
+      });
+    }
+  }, [selectedImage]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
       <div className="absolute inset-0 bg-black/20" />
