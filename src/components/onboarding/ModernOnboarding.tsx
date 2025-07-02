@@ -12,17 +12,17 @@ import { TrialOfferStep } from './steps/TrialOfferStep';
 import { ProOfferCard } from './ProOfferCard';
 import { StyleLoadingOverlay } from '@/components/StyleLoadingOverlay';
 import { ModernRatingsDisplay } from '@/components/ModernRatingsDisplay';
-import { useAuthState } from '@/hooks/useAuthState';
+import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { analyzeStyle } from '@/utils/imageAnalysis';
 import { toast } from '@/hooks/use-toast';
-import { stepMap } from './data/constants';
+import { stepMap, totalSteps } from './data/constants';
 import { requestInAppReview } from '@/utils/inAppReview';
 import type { OnboardingStep, OnboardingData } from './types';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
-
-const totalSteps = 8;
+import { useToast } from '@/components/ui/use-toast';
+import { useRevenueCatManager } from '@/hooks/useRevenueCatManager';
 
 interface ModernOnboardingProps {
   onComplete: (userData: OnboardingData) => void;
@@ -35,53 +35,27 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const { toast } = useToast();
+
+  // CRITICAL FIX: Add error state management
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   
-     const { isAuthenticated, user } = useAuthState();
-   const { isPro } = useSubscription();
+  const { isAuthenticated, user } = useAuth();
+  const { subscription, isLoading: isRevenueCatLoading } = useRevenueCatManager();
+  const isPro = subscription.isActive;
 
-   // Development helper to reset onboarding
-   useEffect(() => {
-     (window as any).resetOnboarding = async () => {
-       if (!user) return;
-       await supabase
-         .from('profiles')
-         .update({
-           age_range: null,
-           main_goal: null,
-           onboarding_completed: false
-         })
-         .eq('id', user.id);
-       console.log('✅ Onboarding reset! Reload the page.');
-       window.location.reload();
-     };
+  // Helper function to get current step number
+  const getCurrentStepNumber = useCallback(() => {
+    return stepMap[currentStep] || 1;
+  }, [currentStep]);
 
-     // ADDED: Complete fresh start function
-     (window as any).freshStart = async () => {
-       console.log('🔄 Starting complete fresh reset...');
-       
-       // Clear all local storage
-       localStorage.clear();
-       sessionStorage.clear();
-       
-       // Sign out from Supabase
-       await supabase.auth.signOut();
-       
-       // Clear any cached data
-       if ('caches' in window) {
-         const cacheNames = await caches.keys();
-         await Promise.all(cacheNames.map(name => caches.delete(name)));
-       }
-       
-       console.log('✅ All data cleared! Redirecting to fresh start...');
-       
-       // Force reload to completely fresh state
-       window.location.href = '/auth';
-     };
-   }, [user]);
-
-   // Simple save function - no over-engineering
-  const saveToSupabase = useCallback(async (data: any) => {
+  // Simple save function - ENHANCED with better error handling
+  const saveToSupabase = useCallback(async (data: any, retryCount = 0) => {
     if (!user) return false;
+    
+    const maxRetries = 3;
+    setSaveError(null);
     
     try {
       const { error } = await supabase
@@ -89,12 +63,48 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         .upsert({ id: user.id, ...data });
       
       if (error) throw error;
+      console.log('✅ Save successful:', data);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save failed:', error);
+      
+      // Determine if this is a retryable error
+      const isRetryable = error.code === 'PGRST301' || // RLS policy violation (might be temporary)
+                         error.message?.includes('timeout') ||
+                         error.message?.includes('network') ||
+                         error.status >= 500; // Server errors
+      
+      if (isRetryable && retryCount < maxRetries) {
+        console.log(`🔄 Retrying save (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+        setIsRetrying(true);
+        
+        // Exponential backoff: 1s, 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+        
+        setIsRetrying(false);
+        return saveToSupabase(data, retryCount + 1);
+      }
+      
+      // Show user-friendly error message
+      const errorMessage = error.message?.includes('RLS') 
+        ? 'Permission error. Please try signing out and back in.'
+        : error.status >= 500
+        ? 'Server temporarily unavailable. Please try again.'
+        : error.message?.includes('network')
+        ? 'Network connection issue. Please check your internet.'
+        : 'Failed to save progress. Please try again.';
+      
+      setSaveError(errorMessage);
+      
+      toast({
+        title: "Save Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+      
       return false;
     }
-  }, [user]);
+  }, [user, toast]);
 
   // Load existing data on mount - FASTER
   useEffect(() => {
@@ -105,12 +115,36 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
 
     const loadData = async () => {
+      setSaveError(null); // Clear any previous errors
+      
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('profiles')
           .select('age_range, main_goal, onboarding_completed')
           .eq('id', user.id)
           .maybeSingle();
+
+        if (error) {
+          console.error('Error loading user data:', error);
+          
+          // Show user-friendly error message
+          const errorMessage = error.code === 'PGRST116' 
+            ? 'Profile not found. Starting fresh onboarding.'
+            : error.message?.includes('RLS')
+            ? 'Permission error loading your data. Please try signing out and back in.'
+            : 'Failed to load your progress. Starting from the beginning.';
+            
+          setSaveError(errorMessage);
+          toast({
+            title: "Loading Issue",
+            description: errorMessage,
+            variant: "destructive"
+          });
+          
+          // Fallback to fresh start
+          setCurrentStep('age');
+          return;
+        }
 
         if (!data) {
           // New user - start fresh
@@ -144,7 +178,13 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           setCurrentStep('age');
         }
       } catch (error) {
-        console.error('Error loading user data:', error);
+        console.error('Critical error loading user data:', error);
+        setSaveError('Unable to load your data. Please check your connection and try again.');
+        toast({
+          title: "Connection Error",
+          description: "Unable to load your data. Please check your connection and try again.",
+          variant: "destructive"
+        });
         // Fallback to age step on error
         setCurrentStep('age');
       }
@@ -152,7 +192,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
     // FASTER: No artificial delay - load immediately
     loadData();
-  }, [isAuthenticated, user, isPro, onComplete]);
+  }, [isAuthenticated, user, isPro, onComplete, toast]);
 
   // Skip welcome for authenticated users ONLY if they have user data
   useEffect(() => {
@@ -161,20 +201,24 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   }, [isAuthenticated, user, currentStep]);
 
-  // Handle age selection - SIMPLE
+  // Handle age selection - ENHANCED with error handling
   const handleAgeSelect = async (age: string) => {
+    setSaveError(null); // Clear previous errors
     const saved = await saveToSupabase({ age_range: age });
     if (saved) {
       setCurrentStep('goal');
     }
+    // Error handling is done in saveToSupabase function
   };
 
-  // Handle goal selection - SIMPLE  
+  // Handle goal selection - ENHANCED with error handling  
   const handleGoalSelect = async (goal: string) => {
+    setSaveError(null); // Clear previous errors
     const saved = await saveToSupabase({ main_goal: goal });
     if (saved) {
       setCurrentStep('test-photo');
     }
+    // Error handling is done in saveToSupabase function
   };
 
      // Handle image upload
@@ -374,151 +418,220 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   }, [user, isPro, onComplete]);
 
-  // Add recovery button for development/debugging
-  useEffect(() => {
-    (window as any).recoverOnboarding = handleStuckUserRecovery;
-  }, [handleStuckUserRecovery]);
+  // Recovery function available for internal use only
 
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
-      {/* Progress bar */}
-      <div className="absolute top-0 left-0 right-0 z-50 p-4">
-        <Progress value={progress} className="h-2 bg-white/20" />
-      </div>
-
-      <div className="flex-1 px-4 pb-4 pt-16">
-        <Card className="min-h-[calc(100vh-80px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
-          <CardContent className="p-0 h-full relative">
-            <StyleLoadingOverlay 
-              isAnalyzing={isAnalyzing} 
-              timeoutDuration={90000}
-            />
-            
-            <div className="h-full overflow-y-auto">
-              <AnimatePresence mode="wait">
-                {currentStep === 'welcome' && (
-                  <WelcomeStep onNext={() => setCurrentStep('age')} />
-                )}
-
-                {currentStep === 'age' && (
-                  <AgeStep onAgeSelect={handleAgeSelect} />
-                )}
-
-                {currentStep === 'goal' && (
-                  <GoalStep onGoalSelect={handleGoalSelect} />
-                )}
-
-                {currentStep === 'test-photo' && (
-                  <TestPhotoStep 
-                    selectedImage={selectedImage}
-                    onImageSelect={setSelectedImage}
-                    onImageUpload={handleImageUpload}
-                  />
-                )}
-
-                {currentStep === 'rating' && analysisResult && (
-                  <motion.div
-                    key="rating"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -30 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="h-full flex flex-col"
-                  >
-                    <div className="flex-1 flex items-center justify-center px-6 py-8">
-                      <ModernRatingsDisplay
-                        overallScore={analysisResult.overallScore}
-                        profileImage={analysisResult.imageUrl}
-                        breakdown={analysisResult.breakdown || []}
-                        isOnboarding={true}
-                      />
+      <div className="absolute inset-0 bg-black/20" />
+      
+      <div className="relative z-10 h-full">
+        {/* Header with progress and error state */}
+        <div className="relative px-8 pt-12 pb-4">
+          {/* Error Banner - CRITICAL FIX: Show error state to users */}
+          {(saveError || isRetrying) && (
+            <div className="mb-4 p-4 rounded-xl border-2 bg-red-500/10 border-red-500/30 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                {isRetrying ? (
+                  <>
+                    <div className="animate-spin w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full" />
+                    <div className="text-orange-300">
+                      <p className="font-medium">Retrying...</p>
+                      <p className="text-sm text-orange-300/70">Please wait while we save your progress</p>
                     </div>
-                    
-                    {showNextButton && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="px-6 pb-8"
-                      >
-                        <Button
-                          onClick={() => setCurrentStep('celebration')}
-                          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
-                        >
-                          Continue
-                        </Button>
-                      </motion.div>
-                    )}
-                  </motion.div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-red-400 text-xl">⚠️</div>
+                    <div className="text-red-300">
+                      <p className="font-medium">Something went wrong</p>
+                      <p className="text-sm text-red-300/70">{saveError}</p>
+                    </div>
+                  </>
                 )}
+              </div>
+              
+              {saveError && !isRetrying && (
+                <button
+                  onClick={() => {
+                    setSaveError(null);
+                    // Retry the last action based on current step
+                    if (currentStep === 'age') {
+                      // No retry needed for age step
+                    } else if (currentStep === 'goal') {
+                      toast({
+                        title: "Please select your age again",
+                        description: "Your previous selection didn't save properly."
+                      });
+                      setCurrentStep('age');
+                    }
+                  }}
+                  className="mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Try Again
+                </button>
+              )}
+            </div>
+          )}
+          
+          {/* Progress Bar */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-white/60 text-sm">Step {getCurrentStepNumber()} of {totalSteps}</span>
+              <span className="text-white/60 text-sm">{Math.round((getCurrentStepNumber() / totalSteps) * 100)}%</span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2 backdrop-blur-sm">
+              <div 
+                className="bg-gradient-to-r from-orange-500 to-orange-400 h-2 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${(getCurrentStepNumber() / totalSteps) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
 
-                {currentStep === 'celebration' && (
-                  <CelebrationStep
-                    isPro={isPro}
-                    onNext={() => setCurrentStep('trial-offer')}
-                    onComplete={handleCompleteOnboarding}
-                  />
-                )}
+        {/* Progress bar */}
+        <div className="absolute top-0 left-0 right-0 z-50 p-4">
+          <div className="w-full bg-white/10 rounded-full h-2 backdrop-blur-sm">
+            <div 
+              className="bg-gradient-to-r from-orange-500 to-orange-400 h-2 rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${(getCurrentStepNumber() / totalSteps) * 100}%` }}
+            />
+          </div>
+        </div>
 
-                {currentStep === 'trial-offer' && (
-                  <TrialOfferStep 
-                    onNext={() => setCurrentStep('paywall')}
-                  />
-                )}
+        <div className="flex-1 px-4 pb-4 pt-16">
+          <Card className="min-h-[calc(100vh-80px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
+            <CardContent className="p-0 h-full relative">
+              <StyleLoadingOverlay 
+                isAnalyzing={isAnalyzing} 
+                timeoutDuration={90000}
+              />
+              
+              <div className="h-full overflow-y-auto">
+                <AnimatePresence mode="wait">
+                  {currentStep === 'welcome' && (
+                    <WelcomeStep onNext={() => setCurrentStep('age')} />
+                  )}
 
-                {currentStep === 'paywall' && (
-                  <motion.div
-                    key="paywall"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="h-full flex items-center justify-center p-6"
-                  >
-                    <ProOfferCard onContinue={handleCompleteOnboarding} />
-                  </motion.div>
-                )}
-                
-                {/* Enhanced fallback with recovery options */}
-                {!['welcome', 'age', 'goal', 'test-photo', 'rating', 'celebration', 'trial-offer', 'paywall'].includes(currentStep) && (
-                  <motion.div
-                    key="fallback"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="h-full flex items-center justify-center p-6"
-                  >
-                    <div className="text-center text-white space-y-4">
-                      <p className="mb-4 text-lg">Something went wrong with the onboarding flow.</p>
-                      <p className="mb-6 text-white/70">Current step: {currentStep}</p>
-                      
-                      <div className="space-y-3">
-                        <Button 
-                          onClick={handleStuckUserRecovery}
-                          className="w-full bg-orange-500 hover:bg-orange-600"
-                        >
-                          Smart Recovery
-                        </Button>
-                        
-                        <Button 
-                          onClick={() => setCurrentStep('age')}
-                          variant="outline"
-                          className="w-full border-white/20 text-white hover:bg-white/10"
-                        >
-                          Start Over
-                        </Button>
+                  {currentStep === 'age' && (
+                    <AgeStep onAgeSelect={handleAgeSelect} />
+                  )}
+
+                  {currentStep === 'goal' && (
+                    <GoalStep onGoalSelect={handleGoalSelect} />
+                  )}
+
+                  {currentStep === 'test-photo' && (
+                    <TestPhotoStep 
+                      selectedImage={selectedImage}
+                      onImageSelect={setSelectedImage}
+                      onImageUpload={handleImageUpload}
+                    />
+                  )}
+
+                  {currentStep === 'rating' && analysisResult && (
+                    <motion.div
+                      key="rating"
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -30 }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                      className="h-full flex flex-col"
+                    >
+                      <div className="flex-1 flex items-center justify-center px-6 py-8">
+                        <ModernRatingsDisplay
+                          overallScore={analysisResult.overallScore}
+                          profileImage={analysisResult.imageUrl}
+                          breakdown={analysisResult.breakdown || []}
+                          isOnboarding={true}
+                        />
                       </div>
                       
-                      <p className="text-xs text-white/50 mt-4">
-                        If this keeps happening, email support@dripmax.com
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </CardContent>
-        </Card>
+                      {showNextButton && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5 }}
+                          className="px-6 pb-8"
+                        >
+                          <Button
+                            onClick={() => setCurrentStep('celebration')}
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white"
+                          >
+                            Continue
+                          </Button>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {currentStep === 'celebration' && (
+                    <CelebrationStep
+                      isPro={isPro}
+                      onNext={() => setCurrentStep('trial-offer')}
+                      onComplete={handleCompleteOnboarding}
+                    />
+                  )}
+
+                  {currentStep === 'trial-offer' && (
+                    <TrialOfferStep 
+                      onNext={() => setCurrentStep('paywall')}
+                    />
+                  )}
+
+                  {currentStep === 'paywall' && (
+                    <motion.div
+                      key="paywall"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="h-full flex items-center justify-center p-6"
+                    >
+                      <ProOfferCard onContinue={handleCompleteOnboarding} />
+                    </motion.div>
+                  )}
+                  
+                  {/* Enhanced fallback with recovery options */}
+                  {!['welcome', 'age', 'goal', 'test-photo', 'rating', 'celebration', 'trial-offer', 'paywall'].includes(currentStep) && (
+                    <motion.div
+                      key="fallback"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="h-full flex items-center justify-center p-6"
+                    >
+                      <div className="text-center text-white space-y-4">
+                        <p className="mb-4 text-lg">Something went wrong with the onboarding flow.</p>
+                        <p className="mb-6 text-white/70">Current step: {currentStep}</p>
+                        
+                        <div className="space-y-3">
+                          <Button 
+                            onClick={handleStuckUserRecovery}
+                            className="w-full bg-orange-500 hover:bg-orange-600"
+                          >
+                            Smart Recovery
+                          </Button>
+                          
+                          <Button 
+                            onClick={() => setCurrentStep('age')}
+                            variant="outline"
+                            className="w-full border-white/20 text-white hover:bg-white/10"
+                          >
+                            Start Over
+                          </Button>
+                        </div>
+                        
+                        <p className="text-xs text-white/50 mt-4">
+                          If this keeps happening, email support@dripmax.com
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,36 +1,37 @@
+import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useSubscriptionStore } from '../store/subscriptionStore';
-import { Paywall } from './Paywall';
+import { useAuth } from '@/hooks/useAuth';
+import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
+import { LoadingScreen } from './LoadingScreen';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
+  requiresOnboarding?: boolean;
 }
 
-export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ 
+  children, 
+  requiresOnboarding = true 
+}: ProtectedRouteProps) => {
+  const { isLoading: authLoading, isAuthenticated, user } = useAuth();
+  const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
   const location = useLocation();
-  const { isSubscribed, isLoading } = useSubscriptionStore();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
+  // Show loading while auth or onboarding status is being determined
+  if (authLoading || onboardingLoading) {
+    return <LoadingScreen message="Checking authentication..." />;
   }
 
-  if (!isSubscribed) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Upgrade to Premium</h1>
-        <Paywall
-          onPurchaseComplete={() => {
-            // The subscription state will be updated automatically
-            // through the RevenueCat listener
-          }}
-        />
-      </div>
-    );
+  // Redirect to auth if not authenticated
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
+  // If onboarding is required and not completed, redirect to onboarding
+  if (requiresOnboarding && !hasCompletedOnboarding) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // User is authenticated and (if required) has completed onboarding
   return <>{children}</>;
 }; 

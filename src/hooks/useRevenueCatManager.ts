@@ -3,7 +3,7 @@ import { Purchases, PurchasesOffering, LOG_LEVEL, PurchasesPackage } from '@reve
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthState } from '@/hooks/useAuthState';
+import { useAuth } from '@/hooks/useAuth';
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
 
 export type SubscriptionStatus = {
@@ -25,7 +25,7 @@ export const useRevenueCatManager = () => {
     offeringId: null,
   });
   const { toast } = useToast();
-  const { user } = useAuthState();
+  const { user } = useAuth();
 
   const initializeRevenueCat = useCallback(async () => {
     if (isInitialized) return;
@@ -126,7 +126,7 @@ export const useRevenueCatManager = () => {
       setSubscription(fallbackStatus);
       return fallbackStatus;
     }
-  }, []);
+  }, [subscription.expirationDate, subscription.productId, subscription.offeringId]);
 
   const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
     if (!Capacitor.isNativePlatform()) {
@@ -190,18 +190,22 @@ export const useRevenueCatManager = () => {
     }
   }, [toast, fetchSubscriptionStatus]);
 
+  const refreshSubscription = useCallback(async () => {
+    await fetchSubscriptionStatus();
+  }, [fetchSubscriptionStatus]);
+
   useEffect(() => {
-    initializeRevenueCat();
-  }, [initializeRevenueCat]);
+    if (user) {
+      initializeRevenueCat();
+    }
+  }, [user, initializeRevenueCat]);
 
   return {
-    isLoading,
     subscription,
+    isLoading,
     offerings,
-    initialized: isInitialized,
-    fetchOfferings: () => {},
-    fetchSubscriptionStatus,
     purchaseProduct,
-    restorePurchases
+    restorePurchases,
+    refreshSubscription
   };
 };

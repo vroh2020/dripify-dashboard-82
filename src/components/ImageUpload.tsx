@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Upload, Camera, Image as ImageIcon, X, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -18,6 +18,9 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>("");
   const isMobile = useIsMobile();
+  
+  // Track object URLs for cleanup
+  const previewUrlRef = useRef<string | null>(null);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -46,9 +49,47 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
     }
   };
 
+  // Convert base64 to File object with better error handling
+  const base64ToFile = (base64: string, filename: string): File => {
+    try {
+      console.log('🔄 Converting base64 to file...');
+      
+      // Handle both data URL and plain base64
+      const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+      const mimeMatch = base64.match(/data:([^;]+);base64,/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      
+      // Convert base64 to binary
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const file = new File([bytes], filename, { type: mime });
+      console.log('✅ File conversion successful:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+      
+      return file;
+    } catch (error) {
+      console.error('❌ Error converting base64 to file:', error);
+      throw new Error('Failed to process image data');
+    }
+  };
+
   const handleFile = (file: File) => {
     if (isProcessing) return;
     setError("");
+    
+    console.log('📁 Processing file:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
 
     // Validate file type (no GIFs, only PNG, JPG, JPEG, WEBP)
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -64,61 +105,78 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
     }
 
     setIsProcessing(true);
-    setPreview(URL.createObjectURL(file));
-    setFileName(file.name);
-    onImageSelect(file);
-    setTimeout(() => {
-      setIsProcessing(false);
-    }, 1000);
-  };
-
-  // Convert base64 to File object with better error handling
-  const base64ToFile = (base64: string, filename: string): File => {
+    
     try {
-      const arr = base64.split(',');
-      const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
+      // Clean up previous preview URL
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
       }
-      return new File([u8arr], filename, { type: mime });
+      
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      previewUrlRef.current = previewUrl;
+      console.log('🖼️ Preview URL created:', previewUrl);
+      
+      setPreview(previewUrl);
+      setFileName(file.name);
+      
+      // Call the parent callback
+      onImageSelect(file);
+      
+      console.log('✅ File processing complete');
     } catch (error) {
-      console.error('Error converting base64 to file:', error);
-      throw new Error('Failed to process image data');
+      console.error('❌ Error processing file:', error);
+      setError("Failed to process image. Please try again.");
+    } finally {
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 1000);
     }
   };
 
   const openCamera = async () => {
     if (isProcessing) return;
     setError("");
+    setIsProcessing(true);
 
     try {
       if (Capacitor.isNativePlatform()) {
-        // Request permissions first
+        console.log('📱 Opening native camera...');
+        
+        // Check permissions first - more comprehensive check
         const permissions = await CapacitorCamera.checkPermissions();
+        console.log('📷 Camera permissions:', permissions);
+        
         if (permissions.camera !== 'granted') {
-          const requested = await CapacitorCamera.requestPermissions();
+          console.log('🔐 Requesting camera permission...');
+          const requested = await CapacitorCamera.requestPermissions({ permissions: ['camera'] });
+          console.log('📝 Permission result:', requested);
+          
           if (requested.camera !== 'granted') {
-            setError("Camera permission required to take photos.");
+            setError("Camera permission is required to take photos. Please enable it in Settings.");
+            setIsProcessing(false);
             return;
           }
         }
 
-        // Use native camera with proper settings
+        // Use native camera with improved settings
         const photo = await CapacitorCamera.getPhoto({
-          quality: 90,
+          quality: 85, // Slightly lower quality for better performance
           allowEditing: false,
           resultType: CameraResultType.DataUrl,
           source: CameraSource.Camera,
           correctOrientation: true,
-          width: 1920,
-          height: 1920,
+          width: 1024, // Reduced size for better performance  
+          height: 1024,
+          presentationStyle: 'popover' // Better iOS presentation
         });
+
+        console.log('📸 Photo captured:', photo.dataUrl ? 'Success' : 'Failed');
 
         if (photo.dataUrl) {
           const file = base64ToFile(photo.dataUrl, `camera-photo-${Date.now()}.jpg`);
+          console.log('📁 File created:', file.name, file.size);
           handleFile(file);
         } else {
           setError("Failed to capture photo. Please try again.");
@@ -138,44 +196,60 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
         input.click();
       }
     } catch (error: any) {
-      console.error('Camera error:', error);
-      if (error.message?.includes('User cancelled')) {
+      console.error('📷 Camera error:', error);
+      if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+        console.log('👤 User cancelled camera');
         // User cancelled, don't show error
-        return;
+      } else {
+        setError(`Camera error: ${error.message || 'Please use photo library instead.'}`);
       }
-      setError("Camera not available. Please use photo library instead.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const openGallery = async () => {
     if (isProcessing) return;
     setError("");
+    setIsProcessing(true);
 
     try {
       if (Capacitor.isNativePlatform()) {
-        // Request permissions first
+        console.log('📱 Opening native photo library...');
+        
+        // Check permissions first - more comprehensive check
         const permissions = await CapacitorCamera.checkPermissions();
+        console.log('📷 Photo permissions:', permissions);
+        
         if (permissions.photos !== 'granted') {
-          const requested = await CapacitorCamera.requestPermissions();
+          console.log('🔐 Requesting photo library permission...');
+          const requested = await CapacitorCamera.requestPermissions({ permissions: ['photos'] });
+          console.log('📝 Permission result:', requested);
+          
           if (requested.photos !== 'granted') {
-            setError("Photo library permission required to select photos.");
+            setError("Photo library permission is required to select photos. Please enable it in Settings.");
+            setIsProcessing(false);
             return;
           }
         }
 
-        // Use native photo library with proper settings
+        // Use native photo library with improved settings
         const photo = await CapacitorCamera.getPhoto({
-          quality: 90,
+          quality: 85, // Slightly lower quality for better performance
           allowEditing: false,
           resultType: CameraResultType.DataUrl,
           source: CameraSource.Photos,
           correctOrientation: true,
-          width: 1920,
-          height: 1920,
+          width: 1024, // Reduced size for better performance
+          height: 1024,
+          presentationStyle: 'popover' // Better iOS presentation
         });
+
+        console.log('📸 Photo selected:', photo.dataUrl ? 'Success' : 'Failed');
 
         if (photo.dataUrl) {
           const file = base64ToFile(photo.dataUrl, `gallery-photo-${Date.now()}.jpg`);
+          console.log('📁 File created:', file.name, file.size);
           handleFile(file);
         } else {
           setError("Failed to select photo. Please try again.");
@@ -194,20 +268,39 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
         input.click();
       }
     } catch (error: any) {
-      console.error('Gallery error:', error);
-      if (error.message?.includes('User cancelled')) {
+      console.error('📷 Gallery error:', error);
+      if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+        console.log('👤 User cancelled photo selection');
         // User cancelled, don't show error
-        return;
+      } else {
+        setError(`Photo selection error: ${error.message || 'Please try again.'}`);
       }
-      setError("Could not access photo library. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const clearImage = () => {
+    // Clean up object URL
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    
     setPreview(null);
     setFileName("");
     setIsProcessing(false);
   };
+
+  // Cleanup on unmount or when user changes
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-6">

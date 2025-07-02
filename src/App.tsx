@@ -9,11 +9,11 @@ import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
-import { useAuthState } from "./hooks/useAuthState";
+import { useAuth } from "./hooks/useAuth";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
-import { OnboardingInspector } from "./components/OnboardingInspector";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
 
 const AppRoutes = () => {
   // CRITICAL FIX: All hooks must be called at the top, in the same order every time
-  const { isLoading: authLoading, isAuthenticated, user, error: authError } = useAuthState();
+  const { isLoading: authLoading, isAuthenticated, user, error: authError } = useAuth();
   const { isLoading: onboardingLoading, hasCompletedOnboarding, retryCount } = useOnboardingStatus();
   const [hasTimedOut, setHasTimedOut] = useState(false);
   
@@ -139,8 +139,7 @@ const AppRoutes = () => {
         </>
       )}
       
-      {/* Development Route for Onboarding Inspector */}
-      <Route path="/inspector" element={<OnboardingInspector />} />
+
       
       {/* Enhanced fallback routing */}
       <Route path="*" element={

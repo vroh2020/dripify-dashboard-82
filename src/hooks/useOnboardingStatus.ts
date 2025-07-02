@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuthState } from './useAuthState';
+import { useAuth } from './useAuth';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 
 interface OnboardingStatus {
@@ -14,7 +14,7 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const { isAuthenticated, user } = useAuthState();
+  const { isAuthenticated, user } = useAuth();
   const { isPro } = useSubscription();
 
   const checkOnboardingStatus = useCallback(async () => {

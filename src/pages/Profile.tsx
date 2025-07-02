@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { useNavigate } from "react-router-dom";
 import { useStatsStore } from "@/store/statsStore";
@@ -26,6 +27,7 @@ const Profile = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { isPro } = useSubscription();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     fetchProfile();
@@ -102,15 +104,17 @@ const Profile = () => {
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
       
       toast({
-        title: "Logged out successfully",
-        description: "You have been signed out of your account.",
+        title: "Signing out...",
+        description: "Clearing all data and signing out.",
       });
       
-      navigate('/auth');
+      // Use the comprehensive sign-out function that clears ALL storage
+      await signOut();
+      
+      // The signOut function handles navigation, but just in case:
+      // navigate('/auth'); - not needed, signOut handles this
     } catch (error) {
       console.error('Error logging out:', error);
       toast({
@@ -118,7 +122,6 @@ const Profile = () => {
         description: "There was an error signing out. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setLoggingOut(false);
     }
   };
