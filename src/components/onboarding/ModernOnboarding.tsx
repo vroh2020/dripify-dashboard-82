@@ -221,6 +221,19 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     // Error handling is done in saveToSupabase function
   };
 
+  // Debug wrapper for setSelectedImage
+  const handleImageSelect = (file: File | null) => {
+    console.log('🎯 ModernOnboarding - handleImageSelect called with:', file ? {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    } : 'NULL');
+    console.log('🔄 ModernOnboarding - About to call setSelectedImage...');
+    setSelectedImage(file);
+    console.log('✅ ModernOnboarding - setSelectedImage completed');
+    console.log('📊 ModernOnboarding - selectedImage state should now be:', file ? 'FILE PRESENT' : 'NULL');
+  };
+
      // Handle image upload
    const handleImageUpload = async () => {
      if (!selectedImage || isAnalyzing) return;
@@ -537,7 +550,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   {currentStep === 'test-photo' && (
                     <TestPhotoStep 
                       selectedImage={selectedImage}
-                      onImageSelect={setSelectedImage}
+                      onImageSelect={handleImageSelect}
                       onImageUpload={handleImageUpload}
                     />
                   )}

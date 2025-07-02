@@ -85,7 +85,7 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
     if (isProcessing) return;
     setError("");
     
-    console.log('📁 Processing file:', {
+    console.log('📁 ImageUpload - Processing file:', {
       name: file.name,
       size: file.size,
       type: file.type
@@ -116,17 +116,24 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
       // Create preview URL
       const previewUrl = URL.createObjectURL(file);
       previewUrlRef.current = previewUrl;
-      console.log('🖼️ Preview URL created:', previewUrl);
+      console.log('🖼️ ImageUpload - Preview URL created:', previewUrl);
       
       setPreview(previewUrl);
       setFileName(file.name);
       
+      console.log('🔄 ImageUpload - About to call onImageSelect callback with file:', {
+        fileName: file.name,
+        fileSize: file.size,
+        callbackExists: typeof onImageSelect === 'function'
+      });
+      
       // Call the parent callback
       onImageSelect(file);
       
-      console.log('✅ File processing complete');
+      console.log('✅ ImageUpload - onImageSelect callback executed successfully');
+      console.log('🔗 ImageUpload - Parent should now update selectedImage state');
     } catch (error) {
-      console.error('❌ Error processing file:', error);
+      console.error('❌ ImageUpload - Error processing file:', error);
       setError("Failed to process image. Please try again.");
     } finally {
       setTimeout(() => {

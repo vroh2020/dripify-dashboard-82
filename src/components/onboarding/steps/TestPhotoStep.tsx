@@ -17,6 +17,18 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
     type: selectedImage.type
   } : 'No file selected');
 
+  // Wrapper function to debug the callback
+  const handleImageSelect = (file: File | null) => {
+    console.log('🎯 TestPhotoStep - handleImageSelect called with:', file ? {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    } : 'NULL');
+    console.log('🔄 TestPhotoStep - Calling parent onImageSelect...');
+    onImageSelect(file);
+    console.log('✅ TestPhotoStep - Parent onImageSelect callback completed');
+  };
+
   return (
     <motion.div
       key="test-photo"
@@ -54,7 +66,7 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
         <div className="w-full max-w-sm">
           <OnboardingPhotoPicker 
             selectedImage={selectedImage}
-            onImageSelect={onImageSelect} 
+            onImageSelect={handleImageSelect} 
           />
         </div>
       </div>
