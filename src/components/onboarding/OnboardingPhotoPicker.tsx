@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Image as ImageIcon, X, AlertCircle, Sparkles } from "lucide-react";
+import { Camera, Image as ImageIcon, X, AlertCircle, Sparkles, RefreshCw, Settings } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { cn } from "@/lib/utils";
@@ -15,9 +15,11 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
   const [preview, setPreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string>("");
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const previewUrlRef = useRef<string | null>(null);
 
-  // Convert base64 to File object
+  // Convert base64 to File object with enhanced error handling
   const base64ToFile = (base64: string, filename: string): File => {
     try {
       console.log('🔄 Converting base64 to file...', base64.substring(0, 50) + '...');
@@ -28,6 +30,11 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       
       console.log('📋 Detected MIME type:', mime);
       
+      // Validate base64 string
+      if (!base64Data || base64Data.length === 0) {
+        throw new Error('Invalid base64 data received');
+      }
+
       const binaryString = atob(base64Data);
       const bytes = new Uint8Array(binaryString.length);
       
@@ -36,6 +43,12 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       }
       
       const file = new File([bytes], filename, { type: mime });
+      
+      // Validate created file
+      if (file.size === 0) {
+        throw new Error('Generated file is empty');
+      }
+      
       console.log('✅ File created successfully:', {
         name: file.name,
         size: file.size,
@@ -45,13 +58,14 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       return file;
     } catch (error) {
       console.error('❌ Error converting base64 to file:', error);
-      throw new Error('Failed to process image data');
+      throw new Error('Failed to process photo data. Please try again.');
     }
   };
 
   const handleFile = (file: File) => {
     if (isProcessing) return;
     setError("");
+    setPermissionDenied(false);
     
     console.log('📁 Processing file:', {
       name: file.name,
@@ -59,20 +73,28 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       type: file.type
     });
 
-    // Validate file type
+    // Enhanced file validation
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
-      setError("Only PNG, JPG, JPEG, or WEBP files are allowed.");
+      setError("Please select a PNG, JPG, JPEG, or WEBP image file.");
       return;
     }
 
-    // Validate file size (10MB max)
+    // Check file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-      setError("File size should be less than 10MB");
+      setError("Image size must be less than 10MB. Please choose a smaller image.");
+      return;
+    }
+
+    // Check for minimum file size (avoid corrupted files)
+    if (file.size < 1024) {
+      setError("Image appears to be corrupted. Please try a different photo.");
       return;
     }
 
     try {
+      setIsProcessing(true);
+      
       // Clean up previous preview URL
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
@@ -87,23 +109,21 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       
       setPreview(previewUrl);
       onImageSelect(file);
+      setRetryCount(0); // Reset retry count on success
       
       console.log('✅ File processing complete - notifying parent component');
-      console.log('🔗 Callback executed - parent should update selectedImage state');
-      console.log('📊 Current component state:', { 
-        hasPreview: !!previewUrl, 
-        fileSize: file.size, 
-        fileName: file.name 
-      });
     } catch (error) {
       console.error('❌ Error processing file:', error);
-      setError("Failed to process image. Please try again.");
+      setError("Failed to process photo. Please try again.");
+    } finally {
+      setTimeout(() => setIsProcessing(false), 500);
     }
   };
 
   const selectFromGallery = async () => {
     if (isProcessing) return;
     setError("");
+    setPermissionDenied(false);
     setIsProcessing(true);
 
     console.log('📱 Starting photo library selection...');
@@ -122,7 +142,8 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
           console.log('📝 Permission request result:', requested);
           
           if (requested.photos !== 'granted') {
-            setError("Photo library permission is required. Please enable it in Settings and try again.");
+            setPermissionDenied(true);
+            setError("Photo library access is required to select photos. Please grant permission in your device Settings and try again.");
             setIsProcessing(false);
             return;
           }
@@ -130,15 +151,15 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
 
         console.log('📸 Opening photo library with getPhoto...');
         
-        // Use native photo library with simple settings
+        // Use native photo library with optimized settings
         const photo = await CapacitorCamera.getPhoto({
-          quality: 85,
+          quality: 90, // Higher quality for better analysis
           allowEditing: false,
           resultType: CameraResultType.DataUrl,
           source: CameraSource.Photos,
           correctOrientation: true,
-          width: 1024,
-          height: 1024,
+          width: 1200, // Increased for better quality
+          height: 1200,
           presentationStyle: 'popover'
         });
 
@@ -155,7 +176,7 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
           handleFile(file);
         } else {
           console.error('❌ No photo data received from native picker');
-          setError("No photo was selected. Please try again.");
+          setError("Unable to load the selected photo. Please try again or choose a different image.");
         }
       } else {
         console.log('🌐 Using web file picker...');
@@ -180,7 +201,20 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
         // Don't show error for user cancellation
       } else {
         console.error('📷 Actual error occurred:', error.message);
-        setError(`Failed to select photo: ${error.message || 'Please try again.'}`);
+        
+        // Provide specific error messages based on error type
+        let errorMessage = "Failed to access photo library. ";
+        
+        if (error.message?.includes('permission')) {
+          setPermissionDenied(true);
+          errorMessage = "Photo library permission is required. Please enable it in Settings and try again.";
+        } else if (error.message?.includes('not available')) {
+          errorMessage = "Photo library is not available on this device. Please try taking a new photo instead.";
+        } else {
+          errorMessage += "Please try again or take a new photo.";
+        }
+        
+        setError(errorMessage);
       }
     } finally {
       console.log('🏁 Photo selection process finished');
@@ -191,6 +225,7 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
   const takePhoto = async () => {
     if (isProcessing) return;
     setError("");
+    setPermissionDenied(false);
     setIsProcessing(true);
 
     try {
@@ -204,21 +239,22 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
           const requested = await CapacitorCamera.requestPermissions({ permissions: ['camera'] });
           
           if (requested.camera !== 'granted') {
-            setError("Camera permission is required. Please enable it in Settings and try again.");
+            setPermissionDenied(true);
+            setError("Camera access is required to take photos. Please grant permission in your device Settings and try again.");
             setIsProcessing(false);
             return;
           }
         }
 
-        // Take photo
+        // Take photo with optimized settings
         const photo = await CapacitorCamera.getPhoto({
-          quality: 85,
+          quality: 90,
           allowEditing: false,
           resultType: CameraResultType.DataUrl,
           source: CameraSource.Camera,
           correctOrientation: true,
-          width: 1024,
-          height: 1024,
+          width: 1200,
+          height: 1200,
           presentationStyle: 'popover'
         });
 
@@ -226,7 +262,7 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
           const file = base64ToFile(photo.dataUrl, `camera-photo-${Date.now()}.jpg`);
           handleFile(file);
         } else {
-          setError("Failed to capture photo. Please try again.");
+          setError("Unable to capture photo. Please try again or select from gallery.");
         }
       } else {
         // Web fallback
@@ -247,7 +283,18 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
         console.log('👤 User cancelled camera');
       } else {
-        setError(`Camera error: ${error.message || 'Please try photo library instead.'}`);
+        let errorMessage = "Camera error occurred. ";
+        
+        if (error.message?.includes('permission')) {
+          setPermissionDenied(true);
+          errorMessage = "Camera permission is required. Please enable it in Settings and try again.";
+        } else if (error.message?.includes('not available')) {
+          errorMessage = "Camera is not available on this device. Please select a photo from your gallery instead.";
+        } else {
+          errorMessage += "Please try selecting from gallery instead.";
+        }
+        
+        setError(errorMessage);
       }
     } finally {
       setIsProcessing(false);
@@ -265,6 +312,18 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
     setPreview(null);
     onImageSelect(null);
     setError("");
+    setPermissionDenied(false);
+    setRetryCount(0);
+  };
+
+  const retryAction = () => {
+    if (retryCount < 3) {
+      setRetryCount(prev => prev + 1);
+      setError("");
+      setPermissionDenied(false);
+      // Automatically retry gallery selection
+      selectFromGallery();
+    }
   };
 
   // Cleanup on unmount
@@ -305,6 +364,13 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
               >
                 <X className="w-4 h-4 text-white" />
               </Button>
+              
+              {/* Photo quality indicator */}
+              <div className="absolute top-5 left-5">
+                <div className="bg-green-500/20 border border-green-500/30 rounded-full px-3 py-1">
+                  <span className="text-green-300 text-xs font-medium">✓ Ready</span>
+                </div>
+              </div>
             </div>
             
             <motion.div
@@ -314,7 +380,7 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
               className="text-center mt-4"
             >
               <p className="text-white/80 text-sm">
-                Looking good! Ready to see your style rating?
+                Perfect! This photo looks great for analysis.
               </p>
             </motion.div>
           </motion.div>
@@ -347,11 +413,18 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
                 
                 <div className="space-y-2">
                   <h3 className="text-white/80 font-medium text-lg">
-                    Choose your outfit photo
+                    Upload your outfit photo
                   </h3>
-                  <p className="text-white/50 text-sm max-w-xs">
-                    Select a clear, full-body photo to get the most accurate style analysis
+                  <p className="text-white/50 text-sm max-w-xs mx-auto">
+                    For best results, use a clear, full-body photo with good lighting
                   </p>
+                </div>
+                
+                {/* Tips */}
+                <div className="text-xs text-white/40 space-y-1">
+                  <div>📱 Stand in good lighting</div>
+                  <div>👕 Show your full outfit</div>
+                  <div>📸 Keep the camera steady</div>
                 </div>
               </div>
             </div>
@@ -371,8 +444,8 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
               >
                 {isProcessing ? (
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 animate-pulse" />
-                    <span>Processing...</span>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Loading...</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
@@ -397,28 +470,67 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
             {/* Helper text */}
             <div className="text-center">
               <p className="text-white/40 text-xs">
-                PNG, JPG, WEBP • Max 10MB
+                PNG, JPG, WEBP • Max 10MB • For best results use good lighting
               </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Error message */}
+      {/* Enhanced Error message */}
       {error && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl backdrop-blur-sm"
+          className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl backdrop-blur-sm"
         >
-          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-red-400 text-sm font-medium">
-              {error}
-            </p>
-            <p className="text-red-400/70 text-xs mt-1">
-              Make sure the app has permission to access your photos in Settings.
-            </p>
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-400 text-sm font-medium">
+                {error}
+              </p>
+              
+              {permissionDenied && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-red-400/70 text-xs">
+                    To enable permissions:
+                  </p>
+                  <ul className="text-red-400/70 text-xs space-y-1 ml-4">
+                    <li>• Go to device Settings</li>
+                    <li>• Find this app</li>
+                    <li>• Enable Camera and Photo permissions</li>
+                    <li>• Return and try again</li>
+                  </ul>
+                </div>
+              )}
+              
+              {!permissionDenied && retryCount < 3 && (
+                <Button
+                  onClick={retryAction}
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 h-8 px-3 bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Try Again
+                </Button>
+              )}
+            </div>
+            
+            {permissionDenied && (
+              <Button
+                onClick={() => {
+                  // This would open settings if we had that capability
+                  setError("Please manually enable permissions in your device Settings.");
+                }}
+                variant="outline"
+                size="sm"
+                className="bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
+              >
+                <Settings className="w-3 h-3" />
+              </Button>
+            )}
           </div>
         </motion.div>
       )}

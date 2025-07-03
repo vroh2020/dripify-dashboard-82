@@ -221,60 +221,91 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     // Error handling is done in saveToSupabase function
   };
 
-  // Debug wrapper for setSelectedImage
+  // Enhanced image selection handler
   const handleImageSelect = (file: File | null) => {
     console.log('🎯 ModernOnboarding - handleImageSelect called with:', file ? {
       name: file.name,
       size: file.size,
       type: file.type
     } : 'NULL');
-    console.log('🔄 ModernOnboarding - About to call setSelectedImage...');
+    
+    // Clear any previous errors when a new image is selected
+    setSaveError(null);
     setSelectedImage(file);
+    
     console.log('✅ ModernOnboarding - setSelectedImage completed');
-    console.log('📊 ModernOnboarding - selectedImage state should now be:', file ? 'FILE PRESENT' : 'NULL');
   };
 
-     // Handle image upload
-   const handleImageUpload = async () => {
-     if (!selectedImage || isAnalyzing) return;
+  // Enhanced image upload handler with better error handling
+  const handleImageUpload = async () => {
+    if (!selectedImage || isAnalyzing) return;
 
-     try {
-       setIsAnalyzing(true);
-       setCurrentStep('rating');
+    try {
+      setIsAnalyzing(true);
+      setSaveError(null);
+      setCurrentStep('rating');
 
-       const result = await analyzeStyle(selectedImage, true);
-       setAnalysisResult(result);
-       
-       // Request in-app review after user sees their results (4 seconds)
-       setTimeout(() => {
-         requestInAppReview();
-       }, 4000);
-       
-       // Show continue button after review prompt has time to appear (8 seconds)
-       setTimeout(() => setShowNextButton(true), 8000);
-     } catch (error) {
-       console.error('Analysis failed:', error);
-       // Continue with demo result
-       setAnalysisResult({
-         overallScore: 86,
-         rawAnalysis: "Demo analysis",
-         imageUrl: URL.createObjectURL(selectedImage),
-         summary: "Looking great! Your style shows good attention to detail.",
-         breakdown: [],
-         tips: []
-       });
-       
-       // Request in-app review for demo result too (1.5 seconds)
-       setTimeout(() => {
-         requestInAppReview();
-       }, 1500);
-       
-       setTimeout(() => setShowNextButton(true), 3000);
-     } finally {
-       // CRITICAL: Turn off loading screen when analysis completes
-       setIsAnalyzing(false);
-     }
-   };
+      console.log('🔄 Starting image analysis for onboarding...');
+      const result = await analyzeStyle(selectedImage, true);
+      setAnalysisResult(result);
+      
+      console.log('✅ Image analysis completed successfully');
+      
+      // Request in-app review after user sees their results (4 seconds)
+      setTimeout(() => {
+        requestInAppReview();
+      }, 4000);
+      
+      // Show continue button after review prompt has time to appear (8 seconds)
+      setTimeout(() => setShowNextButton(true), 8000);
+    } catch (error) {
+      console.error('❌ Analysis failed:', error);
+      
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
+      
+      if (errorMessage.includes('auth') || errorMessage.includes('permission')) {
+        setSaveError('Authentication issue. Please sign out and back in.');
+        toast({
+          title: "Authentication Error",
+          description: "Please sign out and back in to continue.",
+          variant: "destructive"
+        });
+        // Don't proceed with demo result for auth errors
+        setCurrentStep('test-photo');
+        return;
+      }
+      
+      // For other errors, continue with demo result but show warning
+      console.log('🔄 Using demo result due to analysis failure');
+      setSaveError('Analysis service unavailable. Using demo result.');
+      
+      setAnalysisResult({
+        overallScore: 86,
+        rawAnalysis: "Demo analysis - real analysis temporarily unavailable",
+        imageUrl: URL.createObjectURL(selectedImage),
+        summary: "Looking great! Your style shows good attention to detail. (Demo result)",
+        breakdown: [],
+        tips: []
+      });
+      
+      toast({
+        title: "Analysis Issue",
+        description: "Using demo result. Full analysis will be available soon.",
+        variant: "destructive"
+      });
+      
+      // Request in-app review for demo result too (1.5 seconds)
+      setTimeout(() => {
+        requestInAppReview();
+      }, 1500);
+      
+      setTimeout(() => setShowNextButton(true), 3000);
+    } finally {
+      // CRITICAL: Turn off loading screen when analysis completes
+      setIsAnalyzing(false);
+    }
+  };
 
   // Handle completion - ENHANCED WITH VALIDATION
   const handleCompleteOnboarding = async () => {
