@@ -58,8 +58,31 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
         <div className="space-y-4 text-center mb-8">
           <h2 className="text-2xl font-bold text-white">Let's test it out!</h2>
           <p className="text-white/70 text-base leading-relaxed max-w-sm">
-            Upload a photo to get your first style rating and see the magic in action
+            Upload a clear photo of your outfit to get your first AI style rating
           </p>
+          
+          {/* Photo tips */}
+          <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
+            <h3 className="text-white/80 font-medium text-sm mb-3">📸 For the best results:</h3>
+            <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                <span>Good lighting</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                <span>Full outfit visible</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                <span>Clear photo</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                <span>No filters</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Use the new simplified photo picker */}
