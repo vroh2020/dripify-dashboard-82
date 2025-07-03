@@ -10,24 +10,6 @@ interface TestPhotoStepProps {
 }
 
 export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: TestPhotoStepProps) => {
-  console.log('🎯 TestPhotoStep render - selectedImage:', selectedImage ? 'FILE PRESENT' : 'NULL');
-  console.log('🎯 selectedImage details:', selectedImage ? {
-    name: selectedImage.name,
-    size: selectedImage.size,
-    type: selectedImage.type
-  } : 'No file selected');
-
-  // Wrapper function to debug the callback
-  const handleImageSelect = (file: File | null) => {
-    console.log('🎯 TestPhotoStep - handleImageSelect called with:', file ? {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    } : 'NULL');
-    console.log('🔄 TestPhotoStep - Calling parent onImageSelect...');
-    onImageSelect(file);
-    console.log('✅ TestPhotoStep - Parent onImageSelect callback completed');
-  };
 
   return (
     <motion.div
@@ -66,7 +48,7 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
         <div className="w-full max-w-sm">
           <OnboardingPhotoPicker 
             selectedImage={selectedImage}
-            onImageSelect={handleImageSelect} 
+            onImageSelect={onImageSelect} 
           />
         </div>
       </div>

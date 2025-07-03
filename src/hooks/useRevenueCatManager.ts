@@ -13,6 +13,8 @@ export type SubscriptionStatus = {
   offeringId: string | null;
 };
 
+// Use Promise-based initialization to prevent race conditions
+let initializationPromise: Promise<void> | null = null;
 let isInitialized = false;
 
 export const useRevenueCatManager = () => {
@@ -28,78 +30,91 @@ export const useRevenueCatManager = () => {
   const { user } = useAuth();
 
   const initializeRevenueCat = useCallback(async () => {
+    // If already initialized, return immediately
     if (isInitialized) return;
-    setIsLoading(true);
+    
+    // If initialization is in progress, wait for it to complete
+    if (initializationPromise) {
+      await initializationPromise;
+      return;
+    }
+    
+    // Create new initialization promise to prevent race conditions
+    initializationPromise = (async () => {
+      try {
+        setIsLoading(true);
 
-    try {
-      // Web fallback - always free for testing
-      if (!Capacitor.isNativePlatform()) {
+        // Web fallback - always free for testing
+        if (!Capacitor.isNativePlatform()) {
+          console.log('🌐 Web platform - setting subscription to false');
+          setSubscription({
+            isActive: false,
+            expirationDate: null,
+            productId: null,
+            offeringId: null
+          });
+          return;
+        }
+
+        console.log('📱 Native platform - initializing RevenueCat...');
+
+        // Get API key
+        const { data, error } = await supabase.functions.invoke('revenuecat-config');
+        if (error || !data?.publicKey) {
+          console.log('❌ RevenueCat API key not available');
+          throw new Error('No API key');
+        }
+
+        console.log('🔑 API key received, configuring RevenueCat...');
+
+        // Configure RevenueCat
+        await Purchases.configure({
+          apiKey: data.publicKey,
+          appUserID: user?.id || null
+        });
+
+        isInitialized = true;
+
+        // Load customer info
+        const { customerInfo } = await Purchases.getCustomerInfo();
+        
+        // Check subscription status
+        const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+        
+        console.log('💳 REVENUECAT STATUS:', {
+          userId: user?.id,
+          entitlementId: REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER,
+          hasActiveEntitlements: Object.keys(customerInfo.entitlements.active || {}).length > 0,
+          activeEntitlements: customerInfo.entitlements.active,
+          isPro
+        });
+
+        setSubscription({
+          isActive: isPro,
+          expirationDate: null,
+          productId: null,
+          offeringId: null
+        });
+
+        // Load offerings
+        const offeringsData = await Purchases.getOfferings();
+        setOfferings(Object.values(offeringsData.all || {}));
+
+      } catch (error) {
+        console.log('❌ RevenueCat initialization failed:', error);
+        // Default to free user
         setSubscription({
           isActive: false,
           expirationDate: null,
           productId: null,
           offeringId: null
         });
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      console.log('📱 Native platform - initializing RevenueCat...');
-
-      // Get API key
-      const { data, error } = await supabase.functions.invoke('revenuecat-config');
-      if (error || !data?.publicKey) {
-        console.log('❌ RevenueCat API key not available');
-        throw new Error('No API key');
-      }
-
-      console.log('🔑 API key received, configuring RevenueCat...');
-
-      // Configure RevenueCat
-      await Purchases.configure({
-        apiKey: data.publicKey,
-        appUserID: user?.id || null
-      });
-
-      isInitialized = true;
-
-      // Load customer info
-      const { customerInfo } = await Purchases.getCustomerInfo();
-      
-      // Check subscription status
-      const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
-      
-      console.log('💳 REVENUECAT STATUS:', {
-        userId: user?.id,
-        entitlementId: REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER,
-        hasActiveEntitlements: Object.keys(customerInfo.entitlements.active || {}).length > 0,
-        activeEntitlements: customerInfo.entitlements.active,
-        isPro
-      });
-
-      setSubscription({
-        isActive: isPro,
-        expirationDate: null,
-        productId: null,
-        offeringId: null
-      });
-
-      // Load offerings
-      const offeringsData = await Purchases.getOfferings();
-      setOfferings(Object.values(offeringsData.all || {}));
-
-    } catch (error) {
-      console.log('❌ RevenueCat initialization failed:', error);
-      // Default to free user
-      setSubscription({
-        isActive: false,
-        expirationDate: null,
-        productId: null,
-        offeringId: null
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    })();
+    
+    await initializationPromise;
   }, [user?.id]);
 
   const fetchSubscriptionStatus = useCallback(async () => {

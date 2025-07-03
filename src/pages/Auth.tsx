@@ -2,14 +2,15 @@ import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthState } from "@/hooks/useAuthState";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import type { OnboardingData } from "@/components/onboarding/types";
 
 export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { isLoading } = useAuth();
+  const { isLoading } = useAuthState();
 
   // Handle OAuth errors
   useEffect(() => {
@@ -27,7 +28,13 @@ export const Auth = () => {
     }
   }, [location.search, toast]);
 
-  const handleComplete = () => {
+  // FIXED: Handle complete user data from onboarding
+  const handleComplete = (userData: OnboardingData) => {
+    console.log('✅ Onboarding completed with user data:', {
+      age: userData.age,
+      mainGoal: userData.mainGoal,
+      hasAnalysis: !!userData.analysisResult
+    });
     navigate("/dashboard", { replace: true });
   };
 
