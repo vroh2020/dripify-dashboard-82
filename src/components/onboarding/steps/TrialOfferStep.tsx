@@ -17,16 +17,13 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
   // Automatically proceed for Pro users without showing UI
   useEffect(() => {
     if (isPro) {
-      console.log('✅ User is already Pro - auto-proceeding to completion');
-      // Small delay to prevent jarring instant navigation
-      setTimeout(() => {
-        onNext();
-      }, 500);
+      console.log('✅ User is already Pro - auto-proceeding');
+      onNext();
     }
   }, [isPro, onNext]);
 
   const handleStartTrial = async () => {
-    // If user is already Pro, continue to completion
+    // If user is already Pro, continue immediately
     if (isPro) {
       onNext();
       return;
@@ -40,9 +37,8 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
         (pkg) => pkg.product.identifier === "gs_1299_1m"
       );
       
-      // CRITICAL FIX: Don't bypass payment if products fail to load
       if (!proProduct) {
-        console.log('🚫 No pro product found - showing error instead of bypassing');
+        console.log('🚫 No pro product found');
         setHasError(true);
         setIsProcessing(false);
         return;
@@ -50,10 +46,8 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       
       const success = await purchaseProduct(proProduct);
       if (success) {
-        // Only proceed if payment actually succeeded
-        setTimeout(onNext, 1000);
+        onNext();
       } else {
-        // Payment failed - show error, don't proceed
         setHasError(true);
       }
     } catch (error) {
