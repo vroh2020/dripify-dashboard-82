@@ -6,10 +6,11 @@ import { useSubscription } from "@/components/subscription/SubscriptionProvider"
 
 interface TrialOfferStepProps {
   onNext: () => void;
+  onComplete?: () => void;
 }
 
-export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
-  const { purchaseProduct, isPro, isLoading, offerings } = useSubscription();
+export const TrialOfferStep = ({ onNext, onComplete }: TrialOfferStepProps) => {
+  const { purchaseProduct, isPro, isLoading, offerings, refreshSubscription } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -17,19 +18,19 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
 
   // Automatically proceed for Pro users without showing UI
   useEffect(() => {
-    if (isPro && !isPaymentStarted) {
-      console.log('✅ User is already Pro - auto-proceeding to completion');
+    if (isPro && !isPaymentStarted && onComplete) {
+      console.log('✅ User is already Pro - auto-completing onboarding');
       // Small delay to prevent jarring instant navigation
       setTimeout(() => {
-        onNext();
+        onComplete();
       }, 500);
     }
-  }, [isPro, onNext, isPaymentStarted]);
+  }, [isPro, onComplete, isPaymentStarted]);
 
   const handleStartTrial = async () => {
-    // If user is already Pro and payment not started, continue to completion
-    if (isPro && !isPaymentStarted) {
-      onNext();
+    // If user is already Pro and payment not started, complete onboarding
+    if (isPro && !isPaymentStarted && onComplete) {
+      onComplete();
       return;
     }
 
@@ -52,8 +53,23 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       
       const success = await purchaseProduct(proProduct);
       if (success) {
-        // Only proceed if payment actually succeeded
-        setTimeout(onNext, 1000);
+        // FIXED: Refresh subscription state after successful payment
+        console.log('✅ Payment successful - refreshing subscription state');
+        
+        try {
+          await refreshSubscription();
+          // Small delay to ensure state propagates
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          console.error('Failed to refresh subscription:', error);
+        }
+        
+        if (onComplete) {
+          setTimeout(onComplete, 500);
+        } else {
+          // Fallback to next step if no completion handler
+          setTimeout(onNext, 500);
+        }
       } else {
         // Payment failed - show error, don't proceed
         setHasError(true);

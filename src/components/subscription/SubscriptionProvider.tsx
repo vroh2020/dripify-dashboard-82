@@ -35,20 +35,20 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     isLoading,
     subscription,
     offerings,
-    fetchSubscriptionStatus,
     purchaseProduct,
-    restorePurchases
+    restorePurchases,
+    refreshSubscription
   } = useRevenueCatManager();
 
   // Check if user has Pro subscription
   const checkSubscription = async (): Promise<boolean> => {
-    const status = await fetchSubscriptionStatus();
-    return status.isActive;
+    await refreshSubscription();
+    return subscription.isActive;
   };
 
   // Force refresh the subscription status
-  const refreshSubscription = async (): Promise<void> => {
-    await fetchSubscriptionStatus();
+  const refreshSubscriptionStatus = async (): Promise<void> => {
+    await refreshSubscription();
   };
 
   const value = {
@@ -56,7 +56,7 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     isLoading,
     expirationDate: subscription.expirationDate,
     checkSubscription,
-    refreshSubscription,
+    refreshSubscription: refreshSubscriptionStatus,
     purchaseProduct,
     restorePurchases,
     offerings

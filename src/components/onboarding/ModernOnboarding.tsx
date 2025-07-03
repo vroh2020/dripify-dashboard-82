@@ -43,7 +43,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [isRetrying, setIsRetrying] = useState(false);
   
   const { isAuthenticated, user } = useAuth();
-  const { subscription, isLoading: isRevenueCatLoading } = useRevenueCatManager();
+  const { subscription, isLoading: isRevenueCatLoading, refreshSubscription } = useRevenueCatManager();
   const isPro = subscription.isActive;
 
   // Helper function to get current step number
@@ -195,7 +195,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
     // FASTER: No artificial delay - load immediately
     loadData();
-  }, [isAuthenticated, user, isPro, onComplete, toast, isInPaymentFlow]);
+  }, [isAuthenticated, user, isPro, onComplete, toast]);
 
   // Skip welcome for authenticated users ONLY if they have user data
   useEffect(() => {
@@ -279,27 +279,13 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
      }
    };
 
-  // Handle completion - ENHANCED WITH VALIDATION
+  // Handle completion - FIXED: Remove Pro check for celebration step
   const handleCompleteOnboarding = async () => {
     if (isCompleting) return; // Prevent double-execution
     
     setIsCompleting(true);
     
     try {
-      // Enhanced validation before completion
-      if (!isPro) {
-        console.log('❌ Completion blocked: User is not Pro');
-        toast({
-          title: "Subscription Required",
-          description: "Please complete your Pro subscription to continue.",
-          variant: "destructive"
-        });
-        
-        // Redirect back to payment flow
-        setCurrentStep('trial-offer');
-        return;
-      }
-
       // Validate required onboarding data
       if (!user) {
         console.log('❌ Completion blocked: No user found');
@@ -374,6 +360,63 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       
     } catch (error) {
       console.error('Completion error:', error);
+      toast({
+        title: "Completion Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  // NEW: Handle completion specifically after payment
+  const handlePaymentComplete = async () => {
+    if (isCompleting) return;
+    
+    setIsCompleting(true);
+    
+    try {
+      // Wait a bit for subscription state to propagate
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // SAFETY CHECK: Only complete if user is actually Pro now
+      if (!isPro) {
+        console.log('❌ Payment completion blocked: User is not Pro after payment');
+        
+        // Try to refresh subscription state
+        try {
+          await refreshSubscription();
+          
+          // Wait a bit more and check again
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          if (!isPro) {
+            toast({
+              title: "Payment Verification",
+              description: "Please wait while we verify your payment...",
+              variant: "default"
+            });
+            setCurrentStep('trial-offer');
+            return;
+          }
+        } catch (error) {
+          console.error('Failed to refresh subscription:', error);
+          toast({
+            title: "Payment Required",
+            description: "Please complete your payment to continue.",
+            variant: "destructive"
+          });
+          setCurrentStep('trial-offer');
+          return;
+        }
+      }
+
+      // Call the regular completion function
+      await handleCompleteOnboarding();
+      
+    } catch (error) {
+      console.error('Payment completion error:', error);
       toast({
         title: "Completion Failed",
         description: "Something went wrong. Please try again.",
@@ -605,6 +648,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                   {currentStep === 'trial-offer' && (
                     <TrialOfferStep 
                       onNext={() => setCurrentStep('paywall')}
+                      onComplete={handlePaymentComplete}
                     />
                   )}
 
@@ -616,7 +660,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                       exit={{ opacity: 0 }}
                       className="h-full flex items-center justify-center p-6"
                     >
-                      <ProOfferCard onContinue={handleCompleteOnboarding} />
+                      <ProOfferCard onContinue={handlePaymentComplete} />
                     </motion.div>
                   )}
                   

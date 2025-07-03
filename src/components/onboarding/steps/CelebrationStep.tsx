@@ -10,28 +10,15 @@ interface CelebrationStepProps {
 }
 
 export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepProps) => {
-  // Automatically complete onboarding for Pro users without showing UI
-  useEffect(() => {
-    if (isPro) {
-      console.log('✅ User is already Pro - auto-completing onboarding directly');
-      // Small delay to prevent jarring instant navigation
-      setTimeout(() => {
-        onComplete();
-      }, 500);
-    }
-  }, [isPro, onComplete]);
-
+  // FIXED: Never auto-complete here - always go to trial offer to handle payment flow
+  // This prevents the "Subscription Required" loop issue
+  
   const handleClick = () => {
-    console.log('🎉 Celebration button clicked:', { isPro });
+    console.log('🎉 Celebration button clicked - proceeding to trial offer');
     
-    // IMPROVED LOGIC: More precise handling
-    if (isPro) {
-      console.log('✅ User is already Pro - completing onboarding directly');
-      onComplete();
-    } else {
-      console.log('💳 User needs Pro subscription - proceeding to trial offer');
-      onNext();
-    }
+    // FIXED: Always proceed to trial offer step
+    // The trial offer step will handle Pro users appropriately
+    onNext();
   };
 
   return (
@@ -87,7 +74,7 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
           onClick={handleClick}
           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
         >
-          {isPro ? "Continue to Dashboard" : "Unlock Pro Features"}
+          Continue
         </Button>
       </div>
     </motion.div>
