@@ -35,6 +35,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isInPaymentFlow, setIsInPaymentFlow] = useState(false);
   const { toast } = useToast();
 
   // CRITICAL FIX: Add error state management
@@ -161,9 +162,11 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               mainGoal: data.main_goal || '',
               analysisResult: undefined
             });
-          } else {
+          } else if (!isInPaymentFlow) {
             // User completed onboarding but NO subscription - go to payment
+            // Only redirect if not already in payment flow to prevent loops
             console.log('🔄 User completed onboarding but needs subscription - redirecting to payment');
+            setIsInPaymentFlow(true);
             setCurrentStep('trial-offer');
           }
           return;
@@ -192,7 +195,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
     // FASTER: No artificial delay - load immediately
     loadData();
-  }, [isAuthenticated, user, isPro, onComplete, toast]);
+  }, [isAuthenticated, user, isPro, onComplete, toast, isInPaymentFlow]);
 
   // Skip welcome for authenticated users ONLY if they have user data
   useEffect(() => {

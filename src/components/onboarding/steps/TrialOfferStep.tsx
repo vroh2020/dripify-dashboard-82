@@ -13,27 +13,29 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [isPaymentStarted, setIsPaymentStarted] = useState(false);
 
   // Automatically proceed for Pro users without showing UI
   useEffect(() => {
-    if (isPro) {
+    if (isPro && !isPaymentStarted) {
       console.log('✅ User is already Pro - auto-proceeding to completion');
       // Small delay to prevent jarring instant navigation
       setTimeout(() => {
         onNext();
       }, 500);
     }
-  }, [isPro, onNext]);
+  }, [isPro, onNext, isPaymentStarted]);
 
   const handleStartTrial = async () => {
-    // If user is already Pro, continue to completion
-    if (isPro) {
+    // If user is already Pro and payment not started, continue to completion
+    if (isPro && !isPaymentStarted) {
       onNext();
       return;
     }
 
     setIsProcessing(true);
     setHasError(false);
+    setIsPaymentStarted(true);
     
     try {
       const proProduct = offerings?.[0]?.availablePackages?.find(
@@ -55,10 +57,12 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
       } else {
         // Payment failed - show error, don't proceed
         setHasError(true);
+        setIsPaymentStarted(false);
       }
     } catch (error) {
       console.error("Trial start error:", error);
       setHasError(true);
+      setIsPaymentStarted(false);
     } finally {
       setIsProcessing(false);
     }
@@ -67,6 +71,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
   const handleRetry = async () => {
     setRetryCount(prev => prev + 1);
     setHasError(false);
+    setIsPaymentStarted(false);
     
     // Refresh subscription state and retry
     try {
@@ -76,6 +81,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
     } catch (error) {
       console.error("Retry failed:", error);
       setHasError(true);
+      setIsPaymentStarted(false);
     }
   };
 
