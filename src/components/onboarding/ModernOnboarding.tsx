@@ -39,26 +39,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const { isAuthenticated, user } = useAuthState();
   const { isPro } = useSubscription();
 
-  // Development helper to reset onboarding
-  useEffect(() => {
-    (window as any).resetOnboarding = async () => {
-      if (!user) return;
-      await supabase
-        .from('profiles')
-        .update({
-          age_range: null,
-          main_goal: null,
-          onboarding_completed: false
-        })
-        .eq('id', user.id);
-      console.log('✅ Onboarding reset! Reload the page.');
-      window.location.reload();
-    };
-    console.log('🛠️ Helper: window.resetOnboarding()');
-  }, [user]);
+  // No debug helpers in production
 
   // Simple save function - no over-engineering
-  const saveToSupabase = useCallback(async (data: any) => {
+  const saveToSupabase = useCallback(async (data: Record<string, any>) => {
     if (!user) return false;
     
     try {
@@ -74,7 +58,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   }, [user]);
 
-  // Load existing data on mount - SIMPLE
+  // Load existing data on mount - FIXED
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
@@ -91,10 +75,25 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         return;
       }
 
-      // Returning user - resume where they left off
+      // FIXED: Handle completed onboarding users properly
       if (data.onboarding_completed) {
-        setCurrentStep('completed' as OnboardingStep);
-      } else if (data.main_goal) {
+        if (isPro) {
+          // User has completed onboarding AND has subscription - complete flow immediately
+          onComplete({
+            age: data.age_range || '',
+            mainGoal: data.main_goal || '',
+            analysisResult: undefined
+          });
+        } else {
+          // User completed onboarding but NO subscription - direct to trial
+          console.log('🔄 User completed onboarding but needs subscription - redirecting to trial');
+          setCurrentStep('trial-offer');
+        }
+        return;
+      }
+
+      // Returning user - resume where they left off
+      if (data.main_goal) {
         setCurrentStep('test-photo');
       } else if (data.age_range) {
         setCurrentStep('goal');
@@ -104,7 +103,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     };
 
     loadData();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, isPro, onComplete]);
 
   // Skip welcome for authenticated users
   useEffect(() => {
@@ -171,7 +170,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   };
 
-  // Handle completion - SIMPLE
+  // Handle completion - FIXED: Actually load user data from DB
   const handleCompleteOnboarding = async () => {
     if (!isPro) {
       toast({
@@ -182,25 +181,89 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       return;
     }
 
-    const saved = await saveToSupabase({ onboarding_completed: true });
-    
-    if (saved) {
-      // Save analysis if we have it
-      if (analysisResult && user) {
-        await supabase.from('style_analyses').insert({
-          user_id: user.id,
-          total_score: analysisResult.overallScore,
-          breakdown: JSON.stringify(analysisResult.breakdown || []),
-          image_url: analysisResult.imageUrl || '',
-          feedback: analysisResult.summary || '',
-          scan_date: new Date().toISOString()
+    if (!user) {
+      toast({
+        title: "Authentication Error",
+        description: "Please sign in again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // CRITICAL FIX: Actually fetch user profile data before completing
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('age_range, main_goal')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Failed to fetch profile data:', error);
+        toast({
+          title: "Error Loading Profile",
+          description: "Please try again.",
+          variant: "destructive"
         });
+        return;
       }
 
+      if (!profile?.age_range || !profile?.main_goal) {
+        toast({
+          title: "Incomplete Profile",
+          description: "Please complete all onboarding steps first.",
+          variant: "destructive"
+        });
+        // Redirect to missing step
+        if (!profile?.age_range) {
+          setCurrentStep('age');
+        } else if (!profile?.main_goal) {
+          setCurrentStep('goal');
+        }
+        return;
+      }
+
+      // Mark onboarding as completed
+      const saved = await saveToSupabase({ onboarding_completed: true });
+      
+      if (!saved) {
+        toast({
+          title: "Save Failed",
+          description: "Failed to save progress. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Save analysis if we have it
+      if (analysisResult && user) {
+        try {
+          await supabase.from('style_analyses').insert({
+            user_id: user.id,
+            total_score: analysisResult.overallScore,
+            breakdown: JSON.stringify(analysisResult.breakdown || []),
+            image_url: analysisResult.imageUrl || '',
+            feedback: analysisResult.summary || '',
+            scan_date: new Date().toISOString()
+          });
+        } catch (error) {
+          console.log('Analysis save failed (non-critical):', error);
+        }
+      }
+
+      // FIXED: Pass actual user data instead of empty strings
       onComplete({
-        age: '', // Will be loaded from DB
-        mainGoal: '', // Will be loaded from DB
+        age: profile.age_range,
+        mainGoal: profile.main_goal,
         analysisResult: analysisResult || undefined
+      });
+
+    } catch (error) {
+      console.error('Completion error:', error);
+      toast({
+        title: "Completion Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
       });
     }
   };

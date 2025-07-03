@@ -10,26 +10,18 @@ interface CelebrationStepProps {
 }
 
 export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepProps) => {
-  // Automatically complete onboarding for Pro users without showing UI
+  // FIXED: Immediate navigation for Pro users without delays or double logic
   useEffect(() => {
     if (isPro) {
-      console.log('✅ User is already Pro - auto-completing onboarding directly');
-      // Small delay to prevent jarring instant navigation
-      setTimeout(() => {
-        onComplete();
-      }, 500);
+      console.log('✅ User is already Pro - completing onboarding immediately');
+      onComplete();
     }
   }, [isPro, onComplete]);
 
   const handleClick = () => {
-    console.log('🎉 Celebration button clicked:', { isPro });
-    
-    // IMPROVED LOGIC: More precise handling
     if (isPro) {
-      console.log('✅ User is already Pro - completing onboarding directly');
       onComplete();
     } else {
-      console.log('💳 User needs Pro subscription - proceeding to trial offer');
       onNext();
     }
   };

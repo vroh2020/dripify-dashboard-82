@@ -9,7 +9,7 @@ import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
-import { useAuth } from "./hooks/useAuth";
+import { useAuthState } from "./hooks/useAuthState";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -26,7 +26,7 @@ const queryClient = new QueryClient({
 });
 
 const AppRoutes = () => {
-  const { isLoading: authLoading, isAuthenticated, user } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, user } = useAuthState();
   const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
   
   // Handle deep link auth callbacks
