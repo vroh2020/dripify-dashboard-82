@@ -31,7 +31,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     setHasError(false);
     
     try {
-      // FIXED: Always use fallback product for web
+      // CRITICAL FIX: Always show payment flow, even if isPro is detected
+      // This prevents bypass vulnerability from cached/existing subscriptions
+      
       const product = proProduct || {
         identifier: "gs_1299_1m",
         title: "Pro Monthly",
@@ -59,18 +61,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   };
 
-  // Auto-complete for Pro users
-  if (isPro) {
-    setTimeout(onContinue, 500);
-    return (
-      <Card className="bg-black/30 backdrop-blur-lg border-white/10 max-w-sm w-full">
-        <CardContent className="p-8 text-center">
-          <div className="w-12 h-12 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Taking you to your dashboard...</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  // CRITICAL FIX: Remove auto-complete bypass
+  // Always show payment screen regardless of isPro status
+  // This prevents users from skipping payment due to cached/test subscriptions
 
   return (
     <Card className="bg-black/30 backdrop-blur-lg border-white/10 max-w-sm w-full">
@@ -119,6 +112,15 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mb-6 text-center">
             <p className="text-red-300 font-medium text-sm">
               Payment didn't go through. Please try again.
+            </p>
+          </div>
+        )}
+
+        {/* Debug Info for Development */}
+        {isPro && (
+          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4 mb-6 text-center">
+            <p className="text-yellow-300 font-medium text-sm">
+              ⚠️ Existing subscription detected. Complete payment to verify access.
             </p>
           </div>
         )}

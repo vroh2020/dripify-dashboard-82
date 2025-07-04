@@ -166,19 +166,22 @@ export const useRevenueCatManager = () => {
       setIsLoading(true);
       console.log('🔄 Starting native purchase flow for:', product.identifier);
       
+      // CRITICAL FIX: Always attempt actual purchase, don't assume existing subscription
       const result = await Purchases.purchaseStoreProduct(product);
       console.log('✅ Purchase result:', result);
       
+      // Validate the purchase was actually completed
       const isPro = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false;
+      const hasNewPurchase = result.customerInfo.latestExpirationDate;
       
-      if (isPro) {
+      console.log('🔍 Purchase validation:', { isPro, hasNewPurchase, productId: product.identifier });
+      
+      if (isPro && hasNewPurchase) {
         // Update Supabase profile
         const { error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
-          subscription_expiry: result.customerInfo.latestExpirationDate
-            ? new Date(result.customerInfo.latestExpirationDate).toISOString()
-            : null
+          subscription_expiry: new Date(result.customerInfo.latestExpirationDate).toISOString()
         }).eq('id', user.id);
 
         if (profileError) {
@@ -191,19 +194,37 @@ export const useRevenueCatManager = () => {
         });
         await fetchSubscriptionStatus();
         return true;
+      } else {
+        console.log('❌ Purchase validation failed - no new subscription detected');
+        toast({ 
+          variant: "destructive", 
+          title: "Purchase Validation Failed", 
+          description: "Please try again or contact support." 
+        });
+        return false;
       }
       
-      return false;
     } catch (error: any) {
       console.error('Native purchase failed:', error);
       
-      if (!error.message?.includes('cancelled')) {
+      if (error.message?.includes('cancelled')) {
+        toast({ 
+          title: "Payment Cancelled", 
+          description: "You can try again anytime." 
+        });
+      } else if (error.message?.includes('already active')) {
+        // Handle existing subscription case
+        toast({ 
+          title: "Subscription Already Active", 
+          description: "You already have an active subscription!" 
+        });
+        await fetchSubscriptionStatus();
+        return true;
+      } else {
         toast({ 
           variant: "destructive", 
           title: "Purchase Failed", 
-          description: error.message?.includes('already active') 
-            ? "You already have an active subscription."
-            : "Please try again or contact support if the issue persists." 
+          description: "Please try again or contact support if the issue persists." 
         });
       }
       return false;
