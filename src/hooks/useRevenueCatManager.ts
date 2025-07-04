@@ -346,22 +346,37 @@ export const useRevenueCatManager = () => {
           throw new Error('No API key');
         }
 
+        // First configure RevenueCat
         await Purchases.configure({
-          apiKey: data.publicKey,
-          appUserID: user.id
+          apiKey: data.publicKey
         });
+
+        // Then explicitly log in the user to switch to their account
+        try {
+          const { customerInfo } = await Purchases.logIn({ appUserID: user.id });
+          console.log('🔄 Logged in RevenueCat user:', user.id);
+          
+          // Now check their subscription status
+          const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+          
+          setSubscription({
+            isActive: isPro,
+            expirationDate: null,
+            productId: null,
+            offeringId: null
+          });
+        } catch (loginError) {
+          console.error('RevenueCat login failed:', loginError);
+          // If login fails, ensure subscription is marked as inactive
+          setSubscription({
+            isActive: false,
+            expirationDate: null,
+            productId: null,
+            offeringId: null
+          });
+        }
 
         hasInitialized.current = true;
-
-        const { customerInfo } = await Purchases.getCustomerInfo();
-        const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
-        
-        setSubscription({
-          isActive: isPro,
-          expirationDate: null,
-          productId: null,
-          offeringId: null
-        });
 
         const offeringsData = await Purchases.getOfferings();
         setOfferings(Object.values(offeringsData.all || {}));
