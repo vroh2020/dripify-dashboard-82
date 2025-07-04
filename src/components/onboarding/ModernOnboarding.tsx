@@ -153,7 +153,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           return;
         }
 
-        // Handle completed onboarding users
+        // Handle completed onboarding users - BUT ONLY if not in payment flow
         if (data.onboarding_completed) {
           if (isPro) {
             onComplete({
@@ -161,7 +161,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               mainGoal: data.main_goal || '',
               analysisResult: undefined
             });
-          } else if (!isPaymentPending) {
+          } else if (!isPaymentPending && currentStep !== 'paywall' && currentStep !== 'trial-offer') {
+            // CRITICAL FIX: Don't override if user is already in payment flow
             setIsPaymentPending(true);
             setCurrentStep('trial-offer');
           }
@@ -193,7 +194,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     };
 
     loadData();
-  }, [isAuthenticated, user, isPro, onComplete, toast, hasLoadedInitialData]);
+  }, [isAuthenticated, user, onComplete, toast, hasLoadedInitialData]); // REMOVED isPro from dependencies to prevent loops
 
   // Skip welcome for authenticated users ONLY if they have loaded data
   useEffect(() => {
