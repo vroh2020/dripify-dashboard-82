@@ -348,15 +348,17 @@ export const useRevenueCatManager = () => {
 
         // First configure RevenueCat
         await Purchases.configure({
-          apiKey: data.publicKey
+          apiKey: data.publicKey,
+          appUserID: null // Required by type definition
         });
 
         // Then explicitly log in the user to switch to their account
         try {
-          const { customerInfo } = await Purchases.logIn({ appUserID: user.id });
+          await Purchases.logIn({ appUserID: user.id });
           console.log('🔄 Logged in RevenueCat user:', user.id);
           
           // Now check their subscription status
+          const { customerInfo } = await Purchases.getCustomerInfo();
           const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
           
           setSubscription({
