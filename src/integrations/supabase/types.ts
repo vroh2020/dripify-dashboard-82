@@ -26,6 +26,8 @@ export type Database = {
           size_info: Json | null
           style_preference: string | null
           style_preferences: string[] | null
+          subscription_status: string | null
+          subscription_expiry: string | null
           updated_at: string | null
           username: string | null
         }
@@ -45,6 +47,8 @@ export type Database = {
           size_info?: Json | null
           style_preference?: string | null
           style_preferences?: string[] | null
+          subscription_status?: string | null
+          subscription_expiry?: string | null
           updated_at?: string | null
           username?: string | null
         }
@@ -64,6 +68,8 @@ export type Database = {
           size_info?: Json | null
           style_preference?: string | null
           style_preferences?: string[] | null
+          subscription_status?: string | null
+          subscription_expiry?: string | null
           updated_at?: string | null
           username?: string | null
         }

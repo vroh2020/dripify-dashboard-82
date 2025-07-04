@@ -31,23 +31,18 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     setHasError(false);
     
     try {
-      let success = false;
+      // FIXED: Always use fallback product for web
+      const product = proProduct || {
+        identifier: "gs_1299_1m",
+        title: "Pro Monthly",
+        description: "Pro subscription with 7-day free trial",
+        price: 12.99,
+        priceString: "$12.99",
+        currencyCode: "USD",
+        subscriptionPeriod: "P1M",
+      };
       
-      if (proProduct) {
-        success = await purchaseProduct(proProduct);
-      } else {
-        console.log("🚫 No pro product found, using fallback");
-        const fallbackProduct = {
-          identifier: "gs_1299_1m",
-          title: "Pro Monthly",
-          description: "Pro subscription with 7-day free trial",
-          price: 12.99,
-          priceString: "$12.99",
-          currencyCode: "USD",
-          subscriptionPeriod: "P1M",
-        };
-        success = await purchaseProduct(fallbackProduct);
-      }
+      const success = await purchaseProduct(product);
       
       if (success) {
         // Payment succeeded - proceed to completion

@@ -2,14 +2,11 @@ import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { isLoading } = useAuth();
 
   // Handle OAuth errors
   useEffect(() => {
@@ -31,10 +28,7 @@ export const Auth = () => {
     navigate("/dashboard", { replace: true });
   };
 
-  if (isLoading) {
-    return <LoadingScreen message="Loading..." />;
-  }
-
+  // Don't show loading screen - ModernOnboarding handles its own loading states
   return <ModernOnboarding onComplete={handleComplete} />;
 };
 

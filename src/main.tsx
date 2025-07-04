@@ -4,6 +4,7 @@ import './index.css'
 import { performanceMonitor } from './utils/performance-monitor.ts'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { Capacitor } from '@capacitor/core'
+import React from 'react'
 
 // Extend Window interface for our performance tracking
 declare global {
@@ -143,17 +144,26 @@ class AppLauncher {
   private splash: SplashManager;
   private loadingSteps: number;
   private totalSteps: number;
+  private isLaunching: boolean;
 
   constructor() {
     this.splash = new SplashManager();
     this.loadingSteps = 0;
     this.totalSteps = 5;
+    this.isLaunching = false;
 
     // Start timing app initialization
     performanceMonitor.startTiming('app-init');
   }
 
   async launch(): Promise<void> {
+    if (this.isLaunching) {
+      console.log('🚫 Launch already in progress');
+      return;
+    }
+
+    this.isLaunching = true;
+
     try {
       // Mark launch start
       performanceMonitor.mark('launch-start');
@@ -163,11 +173,11 @@ class AppLauncher {
 
       // Step 1: Initialize core systems
       this.updateProgress(15, 'Loading core systems...');
-      await this.simulateAsyncWork(500);
+      await this.simulateAsyncWork(300); // Reduced from 500ms
 
       // Step 2: Setup security & validation
       this.updateProgress(35, 'Initializing security...');
-      await this.simulateAsyncWork(400);
+      await this.simulateAsyncWork(200); // Reduced from 400ms
 
       // Step 3: Setup React
       this.updateProgress(60, 'Setting up interface...');
@@ -177,7 +187,7 @@ class AppLauncher {
 
       // Step 4: Initialize app data
       this.updateProgress(80, 'Preparing your experience...');
-      await this.simulateAsyncWork(400);
+      await this.simulateAsyncWork(200); // Reduced from 400ms
 
       // Step 5: Complete and hide splash
       performanceMonitor.endTiming('app-init');
@@ -191,6 +201,8 @@ class AppLauncher {
     } catch (error) {
       console.error('App launch failed:', error);
       this.handleLaunchError(error);
+    } finally {
+      this.isLaunching = false;
     }
   }
 
@@ -203,18 +215,30 @@ class AppLauncher {
       const rootElement = document.getElementById("app-shell")!;
       const root = createRoot(rootElement);
       
-      // Mount React app
-      root.render(<App />);
+      // Mount React app with React.StrictMode disabled in production
+      root.render(
+        import.meta.env.DEV ? (
+          <React.StrictMode>
+            <App />
+          </React.StrictMode>
+        ) : (
+          <App />
+        )
+      );
       
-      // Simulate React hydration with iOS timing
+      // Reduced timeout from 300ms to 100ms
       setTimeout(() => {
         performanceMonitor.mark('react-mounted');
         resolve();
-      }, 300);
+      }, 100);
     });
   }
 
   private async simulateAsyncWork(duration: number): Promise<void> {
+    if (import.meta.env.PROD) {
+      // In production, reduce artificial delays
+      return new Promise(resolve => setTimeout(resolve, Math.min(duration, 100)));
+    }
     return new Promise(resolve => setTimeout(resolve, duration));
   }
 
@@ -222,10 +246,10 @@ class AppLauncher {
     this.splash.updateProgress(100, 'Encountered an issue...');
     console.error('Launch error:', error);
     
-    // Fallback: still hide splash after error with iOS timing
+    // Reduced timeout from 1200ms to 800ms
     setTimeout(() => {
       this.splash.hideWhenReady();
-    }, 1200);
+    }, 800);
   }
 }
 

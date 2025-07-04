@@ -1,105 +1,14 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Crown, AlertCircle, RefreshCw } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useSubscription } from "@/components/subscription/SubscriptionProvider";
+import { Crown } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
 
 interface TrialOfferStepProps {
   onNext: () => void;
-  onComplete?: () => void;
 }
 
-export const TrialOfferStep = ({ onNext, onComplete }: TrialOfferStepProps) => {
-  const { purchaseProduct, isPro, isLoading, offerings, refreshSubscription } = useSubscription();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isPaymentStarted, setIsPaymentStarted] = useState(false);
-
-  // Automatically proceed for Pro users without showing UI
-  useEffect(() => {
-    if (isPro && !isPaymentStarted && onComplete) {
-      console.log('✅ User is already Pro - auto-completing onboarding');
-      // Small delay to prevent jarring instant navigation
-      setTimeout(() => {
-        onComplete();
-      }, 500);
-    }
-  }, [isPro, onComplete, isPaymentStarted]);
-
-  const handleStartTrial = async () => {
-    // If user is already Pro and payment not started, complete onboarding
-    if (isPro && !isPaymentStarted && onComplete) {
-      onComplete();
-      return;
-    }
-
-    setIsProcessing(true);
-    setHasError(false);
-    setIsPaymentStarted(true);
-    
-    try {
-      const proProduct = offerings?.[0]?.availablePackages?.find(
-        (pkg) => pkg.product.identifier === "gs_1299_1m"
-      );
-      
-      // CRITICAL FIX: Don't bypass payment if products fail to load
-      if (!proProduct) {
-        console.log('🚫 No pro product found - showing error instead of bypassing');
-        setHasError(true);
-        setIsProcessing(false);
-        return;
-      }
-      
-      const success = await purchaseProduct(proProduct);
-      if (success) {
-        // FIXED: Refresh subscription state after successful payment
-        console.log('✅ Payment successful - refreshing subscription state');
-        
-        try {
-          await refreshSubscription();
-          // Small delay to ensure state propagates
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-          console.error('Failed to refresh subscription:', error);
-        }
-        
-        if (onComplete) {
-          setTimeout(onComplete, 500);
-        } else {
-          // Fallback to next step if no completion handler
-          setTimeout(onNext, 500);
-        }
-      } else {
-        // Payment failed - show error, don't proceed
-        setHasError(true);
-        setIsPaymentStarted(false);
-      }
-    } catch (error) {
-      console.error("Trial start error:", error);
-      setHasError(true);
-      setIsPaymentStarted(false);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleRetry = async () => {
-    setRetryCount(prev => prev + 1);
-    setHasError(false);
-    setIsPaymentStarted(false);
-    
-    // Refresh subscription state and retry
-    try {
-      // Give RevenueCat time to load
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      await handleStartTrial();
-    } catch (error) {
-      console.error("Retry failed:", error);
-      setHasError(true);
-      setIsPaymentStarted(false);
-    }
-  };
+export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
+  const isWeb = !Capacitor.isNativePlatform();
 
   return (
     <motion.div
@@ -129,78 +38,49 @@ export const TrialOfferStep = ({ onNext, onComplete }: TrialOfferStepProps) => {
 
         <div className="text-center space-y-6">
           <h1 className="text-4xl font-bold text-white leading-tight">
-            We offer
-            <br />
-            <span className="text-orange-400 text-5xl">7 days free</span>
-            <br />
-            so everyone can
-            <br />
-            max their drip with
-            <br />
-            <span className="text-orange-400">Drip Max</span>
+            {isWeb ? (
+              <>
+                Try Drip Max
+                <br />
+                <span className="text-orange-400 text-5xl">Web Demo</span>
+                <br />
+                with a simulated
+                <br />
+                <span className="text-orange-400">7-day trial</span>
+              </>
+            ) : (
+              <>
+                We offer
+                <br />
+                <span className="text-orange-400 text-5xl">7 days free</span>
+                <br />
+                so everyone can
+                <br />
+                max their drip with
+                <br />
+                <span className="text-orange-400">Drip Max</span>
+              </>
+            )}
           </h1>
 
-
-
-          {hasError && (
-            <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mt-6">
-              <div className="flex items-center gap-2 text-red-300 font-medium mb-2">
-                <AlertCircle className="w-5 h-5" />
-                Connection Issue
-              </div>
-              <p className="text-red-200 text-sm">
-                {retryCount < 2 
-                  ? "Having trouble loading subscription options. Let's try again!"
-                  : "Still having trouble? Please check your internet connection and try again."
-                }
-              </p>
-            </div>
+          {isWeb && (
+            <p className="text-white/70 text-sm mt-4">
+              This is a web demo. In production, this would open a real payment flow.
+              <br />
+              For demo purposes, you'll be able to simulate a successful payment.
+            </p>
           )}
         </div>
       </div>
 
       {/* Button Area - Fixed bottom */}
-      <div className="px-8 pb-8 space-y-3">
-        {hasError ? (
-          <Button
-            onClick={handleRetry}
-            disabled={isProcessing}
-            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
-          >
-            {isProcessing ? (
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                Retrying...
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-5 h-5" />
-                Try Again
-              </div>
-            )}
-          </Button>
-        ) : (
-          <Button
-            onClick={handleStartTrial}
-            disabled={isProcessing || isLoading}
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
-          >
-            {isProcessing ? (
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Starting Trial...
-              </div>
-            ) : (
-              "Try for Free"
-            )}
-          </Button>
-        )}
-
-        {retryCount >= 2 && hasError && (
-          <p className="text-center text-white/60 text-sm">
-            Need help? Email support@dripmax.com
-          </p>
-        )}
+      <div className="px-8 pb-8">
+        <Button
+          onClick={onNext}
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+        >
+          {isWeb ? "Try Web Demo" : "Continue to Free Trial"}
+        </Button>
       </div>
     </motion.div>
   );

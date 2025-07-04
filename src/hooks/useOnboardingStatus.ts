@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
+import { Capacitor } from '@capacitor/core';
 
 interface OnboardingStatus {
   isLoading: boolean;
@@ -15,7 +16,7 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const { isAuthenticated, user } = useAuth();
-  const { isPro } = useSubscription();
+  const { isPro, subscription } = useSubscription();
 
   const checkOnboardingStatus = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
@@ -29,49 +30,60 @@ export function useOnboardingStatus(): OnboardingStatus {
       
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('onboarding_completed')
+        .select('onboarding_completed, subscription_status')
         .eq('id', user.id)
         .maybeSingle();
 
       if (error) {
         console.error('Onboarding check error:', error);
         
-        // FASTER: Reduce retry delay and count
         if (retryCount < 2) {
           setTimeout(() => {
             setRetryCount(prev => prev + 1);
             checkOnboardingStatus();
-          }, 500); // Only 500ms delay instead of exponential backoff
+          }, 500);
           return;
         }
         
-        // After retries, assume not completed
         setHasCompletedOnboarding(false);
         setIsLoading(false);
         return;
       }
 
-      // CRITICAL: Strict validation for dashboard access
-      // User must have BOTH completed onboarding AND active subscription
       const onboardingCompleted = profile?.onboarding_completed === true;
-      const hasActiveSubscription = isPro === true;
       
-      const completed = onboardingCompleted && hasActiveSubscription;
+      // Handle subscription status differently for web vs native
+      let hasActiveSubscription = false;
+      if (Capacitor.isNativePlatform()) {
+        hasActiveSubscription = isPro === true;
+      } else {
+        // For web, check both RevenueCat simulation and Supabase status
+        hasActiveSubscription = 
+          subscription.isActive === true || 
+          profile?.subscription_status === 'active';
+      }
+      
+      // If we're in onboarding (/auth route), only check onboarding_completed
+      const isOnboarding = window.location.pathname.includes('/auth');
+      const completed = isOnboarding ? onboardingCompleted : (onboardingCompleted && hasActiveSubscription);
       
       console.log('📊 Onboarding Status Check:', {
         userId: user.id,
         onboardingCompleted,
         hasActiveSubscription,
+        isOnboarding,
+        platform: Capacitor.isNativePlatform() ? 'native' : 'web',
+        revenueCatStatus: subscription.isActive,
+        supabaseStatus: profile?.subscription_status,
         finalResult: completed
       });
 
       setHasCompletedOnboarding(completed);
-      setRetryCount(0); // Reset retry count on success
+      setRetryCount(0);
       
     } catch (error) {
       console.error('Error checking onboarding:', error);
       
-      // FASTER: Quick retry with short delay
       if (retryCount < 2) {
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
@@ -80,30 +92,25 @@ export function useOnboardingStatus(): OnboardingStatus {
         return;
       }
       
-      // After retries, fail safe to not completed
       setHasCompletedOnboarding(false);
     } finally {
-      // FIXED: Always set loading to false when done
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.id, isPro, retryCount]);
+  }, [isAuthenticated, user?.id, isPro, subscription.isActive, retryCount]);
 
   useEffect(() => {
-    // Reset retry count when key dependencies change
     setRetryCount(0);
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id, isPro]);
+  }, [isAuthenticated, user?.id, isPro, subscription.isActive]);
 
-  // FASTER: Reduce timeout to 3 seconds instead of 10
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (isLoading) {
         console.warn('⚠️ Onboarding status check timeout - forcing completion');
         setIsLoading(false);
-        // Fail safe to require onboarding
         setHasCompletedOnboarding(false);
       }
-    }, 3000); // Much faster timeout
+    }, 3000);
 
     return () => clearTimeout(timeout);
   }, [isLoading]);

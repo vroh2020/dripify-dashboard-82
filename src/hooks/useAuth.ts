@@ -28,9 +28,25 @@ export function useAuth(): AuthState & AuthActions {
 
   const mountedRef = useRef(true);
   const lastEventRef = useRef<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialSessionChecked = useRef(false);
+  const isSigningOut = useRef(false);
+  const hasInitialized = useRef(false);
+  const lastEventData = useRef<{ event: string; session: Session | null } | null>(null);
 
   const updateAuthState = useCallback((session: Session | null, error?: string) => {
     if (!mountedRef.current) return;
+
+    // Clear any pending timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    
+    // Don't update state during sign out process
+    if (isSigningOut.current && !session) {
+      return;
+    }
     
     setAuthState({
       session,
@@ -93,7 +109,13 @@ export function useAuth(): AuthState & AuthActions {
   }, []);
 
   const signOut = useCallback(async () => {
+    if (isSigningOut.current) {
+      console.log('🚫 Sign out already in progress');
+      return;
+    }
+    
     console.log('🚪 Starting complete sign out...');
+    isSigningOut.current = true;
     
     try {
       // Clear all storage first
@@ -114,24 +136,38 @@ export function useAuth(): AuthState & AuthActions {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Supabase sign out error:', error);
+        throw error;
       }
       
-      // Clear auth state
-      updateAuthState(null);
+      // Clear auth state immediately
+      setAuthState({
+        session: null,
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+        error: null
+      });
+      
+      // Reset all refs
+      initialSessionChecked.current = false;
+      hasInitialized.current = false;
+      lastEventData.current = null;
       
       console.log('✅ Complete sign out successful');
       
-      // Navigate to auth page
+      // Redirect to welcome screen immediately
       window.location.href = '/auth';
+      
     } catch (error) {
       console.error('❌ Sign out error:', error);
-      // Force reload as fallback
       window.location.reload();
+    } finally {
+      isSigningOut.current = false;
     }
-  }, [clearAllStorage, updateAuthState]);
+  }, [clearAllStorage]);
 
   const refreshSession = useCallback(async () => {
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || isSigningOut.current) return;
     
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -150,82 +186,115 @@ export function useAuth(): AuthState & AuthActions {
     }
   }, [updateAuthState]);
 
+  // Get initial session
+  const getInitialSession = useCallback(async () => {
+    if (initialSessionChecked.current || isSigningOut.current) return;
+    
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (!mountedRef.current) return;
+      
+      if (error) {
+        console.error('Error getting initial session:', error);
+        updateAuthState(null, error.message);
+        return;
+      }
+      
+      initialSessionChecked.current = true;
+      updateAuthState(session);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error('Initial session error:', error);
+      updateAuthState(null, 'Failed to get session');
+    }
+  }, [updateAuthState]);
+
   // Single auth listener with proper cleanup
   useEffect(() => {
     mountedRef.current = true;
     let eventCount = 0;
+    let lastEventTime = Date.now();
 
-    // Get initial session
-    const getInitialSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (!mountedRef.current) return;
-        
-        if (error) {
-          console.error('Error getting initial session:', error);
-          updateAuthState(null, error.message);
-          return;
-        }
-        
-        updateAuthState(session);
-      } catch (error) {
-        if (!mountedRef.current) return;
-        console.error('Initial session error:', error);
-        updateAuthState(null, 'Failed to get session');
-      }
-    };
+    // Start initial session check
+    getInitialSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || isSigningOut.current) return;
+      
+      const now = Date.now();
+      const timeSinceLastEvent = now - lastEventTime;
+      lastEventTime = now;
+      
+      // Ignore rapid duplicate events
+      if (lastEventData.current && 
+          event === lastEventData.current.event && 
+          JSON.stringify(session) === JSON.stringify(lastEventData.current.session) && 
+          timeSinceLastEvent < 100) {
+        return;
+      }
       
       eventCount++;
+      lastEventData.current = { event, session };
       
-      // Reduce logging spam
-      if (eventCount <= 3 || lastEventRef.current !== event || event === 'SIGNED_OUT') {
-        console.log('🔐 Auth state change:', event);
-        lastEventRef.current = event;
+      // Handle INITIAL_SESSION specially
+      if (event === 'INITIAL_SESSION') {
+        if (initialSessionChecked.current) {
+          console.log('🔄 Skipping duplicate INITIAL_SESSION event');
+          return;
+        }
+        initialSessionChecked.current = true;
       }
       
-      // Warn if too many rapid events
-      if (eventCount > 10) {
-        console.warn('⚠️ Many auth state changes detected. Possible infinite loop.', { eventCount, event });
+      // Handle SIGNED_OUT specially
+      if (event === 'SIGNED_OUT') {
+        setAuthState({
+          session: null,
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+          error: null
+        });
+        return;
       }
       
-      updateAuthState(session);
+      // Only update state if the session has actually changed
+      const currentSession = authState.session;
+      const sessionChanged = !currentSession !== !session || // One is null and the other isn't
+        (currentSession && session && currentSession.access_token !== session.access_token);
+      
+      if (sessionChanged) {
+        setAuthState({
+          session,
+          user: session?.user || null,
+          isLoading: false,
+          isAuthenticated: !!session?.user,
+          error: null
+        });
+      }
     });
-
-    // Timeout protection
-    const loadingTimeout = setTimeout(() => {
-      if (mountedRef.current && authState.isLoading) {
-        console.warn('Auth loading timeout - completing with no session');
-        updateAuthState(null);
-      }
-    }, 10000);
-
-    getInitialSession();
 
     return () => {
       mountedRef.current = false;
       subscription.unsubscribe();
-      clearTimeout(loadingTimeout);
     };
-  }, []); // Empty dependency array is correct here
+  }, [authState.session]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       mountedRef.current = false;
+      isSigningOut.current = false;
     };
   }, []);
 
   // CRITICAL FIX: Automatic session refresh to prevent silent expiry
   useEffect(() => {
-    if (!authState.session || !authState.isAuthenticated) return;
+    if (!authState.session || !authState.isAuthenticated || isSigningOut.current) return;
 
     // Check if session is close to expiry (5 minutes before)
     const checkSessionExpiry = () => {
-      if (!mountedRef.current || !authState.session) return;
+      if (!mountedRef.current || !authState.session || isSigningOut.current) return;
       
       const expiresAt = authState.session.expires_at;
       if (!expiresAt) return;
@@ -251,14 +320,14 @@ export function useAuth(): AuthState & AuthActions {
 
   // CRITICAL FIX: Handle null user race condition with retry logic
   useEffect(() => {
-    if (!authState.session || authState.user || !authState.isAuthenticated) return;
+    if (!authState.session || authState.user || !authState.isAuthenticated || isSigningOut.current) return;
     
     // If we have a session but no user (race condition), retry getting user
     let retryCount = 0;
     const maxRetries = 3;
     
     const retryGetUser = async () => {
-      if (!mountedRef.current || retryCount >= maxRetries) return;
+      if (!mountedRef.current || retryCount >= maxRetries || isSigningOut.current) return;
       
       retryCount++;
       console.log(`🔄 Retrying user fetch (attempt ${retryCount}/${maxRetries})...`);
@@ -266,7 +335,7 @@ export function useAuth(): AuthState & AuthActions {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || isSigningOut.current) return;
         
         if (user && !error) {
           console.log('✅ User fetch retry successful');

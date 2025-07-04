@@ -73,25 +73,23 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
     }
 
     try {
+      // FIXED: Only revoke previous URL after creating new one
+      const newPreviewUrl = URL.createObjectURL(file);
+      
       // Clean up previous preview URL
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
-        previewUrlRef.current = null;
       }
       
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file);
-      previewUrlRef.current = previewUrl;
+      // Set new preview URL
+      previewUrlRef.current = newPreviewUrl;
+      setPreview(newPreviewUrl);
       
-      console.log('🖼️ Preview URL created:', previewUrl);
-      
-      setPreview(previewUrl);
+      // Notify parent
       onImageSelect(file);
       
-      console.log('✅ File processing complete - notifying parent component');
-      console.log('🔗 Callback executed - parent should update selectedImage state');
-      console.log('📊 Current component state:', { 
-        hasPreview: !!previewUrl, 
+      console.log('✅ File processing complete:', { 
+        hasPreview: true, 
         fileSize: file.size, 
         fileName: file.name 
       });

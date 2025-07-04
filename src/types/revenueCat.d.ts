@@ -1,3 +1,10 @@
+import { CustomerInfo as BaseCustomerInfo } from '@revenuecat/purchases-capacitor';
+
+export interface CustomerInfo extends BaseCustomerInfo {
+  latestExpirationDate?: string;
+  allExpirationDates?: Record<string, string>;
+}
+
 declare module '@revenuecat/purchases-capacitor' {
   export interface CustomerInfo {
     entitlements: {
@@ -27,6 +34,8 @@ declare module '@revenuecat/purchases-capacitor' {
     originalAppUserId: string;
     allPurchaseDates: { [key: string]: string };
     managementURL: string | null;
+    latestExpirationDate?: string;
+    allExpirationDates?: Record<string, string>;
   }
 
   export interface PurchasesPackage {

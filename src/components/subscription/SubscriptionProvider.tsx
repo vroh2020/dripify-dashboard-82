@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useRef } from 'react';
+import { createContext, useContext, ReactNode, useRef, useCallback, useMemo, useState } from 'react';
 import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
 import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
 
@@ -11,6 +11,7 @@ interface SubscriptionContextType {
   purchaseProduct: (product: PurchasesPackage['product']) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
   offerings: any[];
+  subscription: SubscriptionStatus;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType>({
@@ -22,6 +23,12 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   purchaseProduct: async () => false,
   restorePurchases: async () => false,
   offerings: [],
+  subscription: {
+    isActive: false,
+    expirationDate: null,
+    productId: null,
+    offeringId: null
+  }
 });
 
 export const useSubscription = () => useContext(SubscriptionContext);
@@ -31,27 +38,45 @@ interface SubscriptionProviderProps {
 }
 
 export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) => {
+  // Always declare all hooks at the top level
+  const [isInitialized, setIsInitialized] = useState(false);
+  const lastRefreshRef = useRef<Date | null>(null);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const {
     isLoading,
     subscription,
     offerings,
     purchaseProduct,
     restorePurchases,
-    refreshSubscription
+    refreshSubscription: refreshRevenueCat
   } = useRevenueCatManager();
 
-  // Check if user has Pro subscription
-  const checkSubscription = async (): Promise<boolean> => {
-    await refreshSubscription();
+  const checkSubscription = useCallback(async (): Promise<boolean> => {
+    await refreshRevenueCat();
     return subscription.isActive;
-  };
+  }, [refreshRevenueCat, subscription.isActive]);
 
-  // Force refresh the subscription status
-  const refreshSubscriptionStatus = async (): Promise<void> => {
-    await refreshSubscription();
-  };
+  const refreshSubscriptionStatus = useCallback(async (): Promise<void> => {
+    // Debounce refresh calls
+    const now = new Date();
+    if (lastRefreshRef.current && now.getTime() - lastRefreshRef.current.getTime() < 1000) {
+      return;
+    }
+    
+    lastRefreshRef.current = now;
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    
+    refreshTimeoutRef.current = setTimeout(async () => {
+      await refreshRevenueCat();
+      lastRefreshRef.current = null;
+      refreshTimeoutRef.current = null;
+    }, 1000);
+  }, [refreshRevenueCat]);
 
-  const value = {
+  const value = useMemo(() => ({
     isPro: subscription.isActive,
     isLoading,
     expirationDate: subscription.expirationDate,
@@ -59,8 +84,19 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     refreshSubscription: refreshSubscriptionStatus,
     purchaseProduct,
     restorePurchases,
-    offerings
-  };
+    offerings,
+    subscription
+  }), [
+    subscription.isActive,
+    subscription.expirationDate,
+    isLoading,
+    checkSubscription,
+    refreshSubscriptionStatus,
+    purchaseProduct,
+    restorePurchases,
+    offerings,
+    subscription
+  ]);
 
   return (
     <SubscriptionContext.Provider value={value}>
