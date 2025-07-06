@@ -421,7 +421,6 @@ export const useRevenueCatManager = () => {
     subscription,
     isLoading,
     offerings,
-    fetchSubscriptionStatus,
     purchaseProduct,
     restorePurchases,
     refreshSubscription
