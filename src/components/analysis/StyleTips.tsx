@@ -51,20 +51,6 @@ export const StyleTips = ({ tips }: StyleTipsProps) => {
       </div>
 
       <div className="space-y-6">
-        {/* Score Card */}
-        <div className="bg-[#1E1E1E] rounded-xl p-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-400">Hair</p>
-              <h3 className="text-3xl font-bold text-white">23</h3>
-            </div>
-            <div className="w-24 h-8 bg-[#ff6b6b]/10 rounded-full relative">
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500" />
-            </div>
-          </div>
-          <p className="text-gray-400 text-sm mt-2">You've got thinning hair</p>
-        </div>
-
         {/* Recommendations */}
         <h3 className="text-white text-lg font-medium flex items-center gap-2 mb-4">
           <Lightbulb className="w-5 h-5" />
@@ -87,10 +73,9 @@ export const StyleTips = ({ tips }: StyleTipsProps) => {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-white font-medium mb-2">{tip.tip}</h4>
+                  <h4 className="text-white font-medium mb-2">{tip.category}</h4>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    {tip.description || `This tip focuses on improving your ${tip.category.toLowerCase()} 
-                    to enhance your overall appearance.`}
+                    {tip.tip}
                   </p>
                 </div>
               </div>

@@ -423,6 +423,7 @@ export const useRevenueCatManager = () => {
     offerings,
     purchaseProduct,
     restorePurchases,
-    refreshSubscription
+    refreshSubscription,
+    fetchSubscriptionStatus
   };
 };
