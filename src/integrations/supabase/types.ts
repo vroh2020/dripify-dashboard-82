@@ -20,14 +20,19 @@ export type Database = {
           favorite_brands: string[] | null
           gender: string | null
           id: string
+          last_subscription_event: string | null
+          last_subscription_update: string | null
           main_goal: string | null
           onboarding_completed: boolean | null
           referral_source: string | null
           size_info: Json | null
           style_preference: string | null
           style_preferences: string[] | null
-          subscription_status: string | null
+          subscription_entitlement_id: string | null
           subscription_expiry: string | null
+          subscription_platform: string | null
+          subscription_product_id: string | null
+          subscription_status: string | null
           updated_at: string | null
           username: string | null
         }
@@ -41,14 +46,19 @@ export type Database = {
           favorite_brands?: string[] | null
           gender?: string | null
           id: string
+          last_subscription_event?: string | null
+          last_subscription_update?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean | null
           referral_source?: string | null
           size_info?: Json | null
           style_preference?: string | null
           style_preferences?: string[] | null
-          subscription_status?: string | null
+          subscription_entitlement_id?: string | null
           subscription_expiry?: string | null
+          subscription_platform?: string | null
+          subscription_product_id?: string | null
+          subscription_status?: string | null
           updated_at?: string | null
           username?: string | null
         }
@@ -62,14 +72,79 @@ export type Database = {
           favorite_brands?: string[] | null
           gender?: string | null
           id?: string
+          last_subscription_event?: string | null
+          last_subscription_update?: string | null
           main_goal?: string | null
           onboarding_completed?: boolean | null
           referral_source?: string | null
           size_info?: Json | null
           style_preference?: string | null
           style_preferences?: string[] | null
-          subscription_status?: string | null
+          subscription_entitlement_id?: string | null
           subscription_expiry?: string | null
+          subscription_platform?: string | null
+          subscription_product_id?: string | null
+          subscription_status?: string | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      profiles_backup: {
+        Row: {
+          age_range: string | null
+          avatar_url: string | null
+          body_type: string | null
+          budget_range: string | null
+          color_preferences: string[] | null
+          created_at: string | null
+          favorite_brands: string[] | null
+          gender: string | null
+          id: string | null
+          main_goal: string | null
+          onboarding_completed: boolean | null
+          referral_source: string | null
+          size_info: Json | null
+          style_preference: string | null
+          style_preferences: string[] | null
+          updated_at: string | null
+          username: string | null
+        }
+        Insert: {
+          age_range?: string | null
+          avatar_url?: string | null
+          body_type?: string | null
+          budget_range?: string | null
+          color_preferences?: string[] | null
+          created_at?: string | null
+          favorite_brands?: string[] | null
+          gender?: string | null
+          id?: string | null
+          main_goal?: string | null
+          onboarding_completed?: boolean | null
+          referral_source?: string | null
+          size_info?: Json | null
+          style_preference?: string | null
+          style_preferences?: string[] | null
+          updated_at?: string | null
+          username?: string | null
+        }
+        Update: {
+          age_range?: string | null
+          avatar_url?: string | null
+          body_type?: string | null
+          budget_range?: string | null
+          color_preferences?: string[] | null
+          created_at?: string | null
+          favorite_brands?: string[] | null
+          gender?: string | null
+          id?: string | null
+          main_goal?: string | null
+          onboarding_completed?: boolean | null
+          referral_source?: string | null
+          size_info?: Json | null
+          style_preference?: string | null
+          style_preferences?: string[] | null
           updated_at?: string | null
           username?: string | null
         }

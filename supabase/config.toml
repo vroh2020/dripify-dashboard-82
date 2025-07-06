@@ -1,7 +1,1 @@
 project_id = "jjqwhxamjxsiotnhhqco"
-
-[functions.analyze-style]
-verify_jwt = false
-
-[functions.revenuecat-config]
-verify_jwt = false
