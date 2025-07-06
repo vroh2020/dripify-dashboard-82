@@ -89,8 +89,7 @@ export const StyleTips = ({ tips }: StyleTipsProps) => {
                 <div>
                   <h4 className="text-white font-medium mb-2">{tip.tip}</h4>
                   <p className="text-sm text-gray-400 leading-relaxed">
-                    {tip.description || `This tip focuses on improving your ${tip.category.toLowerCase()} 
-                    to enhance your overall appearance.`}
+                    {tip.tip}
                   </p>
                 </div>
               </div>
