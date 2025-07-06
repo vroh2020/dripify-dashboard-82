@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Apple, Star, LogOut } from "lucide-react";
+import { Apple, Star } from "lucide-react";
 import { handleAppleSignIn } from "../utils/auth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,10 +24,6 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
     } catch (error) {
       console.error('💥 Apple Sign-In error:', error);
     }
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
   };
 
   return (
@@ -95,7 +91,7 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
         </div>
       </div>
 
-      {/* Button Area - Apple Sign In + Debug */}
+      {/* Button Area - Apple Sign In */}
       <div className="flex-shrink-0 space-y-4 px-6 pb-6">
         <Button
           onClick={handleAppleClick}
@@ -103,16 +99,6 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
         >
           <Apple className="mr-3 h-6 w-6" />
           Continue with Apple
-        </Button>
-        
-        {/* Debug: Sign Out Button */}
-        <Button
-          onClick={handleSignOut}
-          variant="outline"
-          className="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border-red-400/30 h-12 text-sm rounded-xl"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign Out (Debug)
         </Button>
         
         <p className="text-white/60 text-sm text-center leading-relaxed">

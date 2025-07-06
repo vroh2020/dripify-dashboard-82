@@ -1,8 +1,6 @@
-
 import { motion } from "framer-motion";
 import { Lightbulb } from "lucide-react";
 import { StyleTip } from "@/types/styleTypes";
-import { Card, CardContent } from "@/components/ui/card";
 
 interface StyleTipsProps {
   tips: StyleTip[];
@@ -44,20 +42,32 @@ export const StyleTips = ({ tips }: StyleTipsProps) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="bg-[#121212] rounded-xl p-6 max-w-2xl mx-auto"
+      className="bg-black min-h-screen p-6"
     >
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-white mb-2">
-          Get tips to enhance your style
+          Get tips to become more attractive
         </h2>
-        <p className="text-gray-400">
-          Key recommendations to improve your look
-        </p>
       </div>
 
-      <div className="space-y-4 mt-8">
-        <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-          <Lightbulb className="w-5 h-5 text-[#ff6b6b]" />
+      <div className="space-y-6">
+        {/* Score Card */}
+        <div className="bg-[#1E1E1E] rounded-xl p-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-400">Hair</p>
+              <h3 className="text-3xl font-bold text-white">23</h3>
+            </div>
+            <div className="w-24 h-8 bg-[#ff6b6b]/10 rounded-full relative">
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-500" />
+            </div>
+          </div>
+          <p className="text-gray-400 text-sm mt-2">You've got thinning hair</p>
+        </div>
+
+        {/* Recommendations */}
+        <h3 className="text-white text-lg font-medium flex items-center gap-2 mb-4">
+          <Lightbulb className="w-5 h-5" />
           Recommendations
         </h3>
 
@@ -65,33 +75,25 @@ export const StyleTips = ({ tips }: StyleTipsProps) => {
           {crucialTips.map((tip, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
+              className="bg-[#1E1E1E] rounded-xl p-4"
             >
-              <Card className="bg-[#1E1E1E] border border-white/5">
-                <CardContent className="p-4">
-                  <div className="flex gap-3">
-                    <div className="mt-1">
-                      <div className="w-8 h-8 rounded-full bg-[#ff6b6b]/10 flex items-center justify-center">
-                        <Lightbulb className="w-4 h-4 text-[#ff6b6b]" />
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-white font-medium mb-2">{tip.tip}</h4>
-                      <p className="text-sm text-gray-400 leading-relaxed">
-                        <span className="text-[#ff6b6b] font-medium">{tip.category}</span> - This 
-                        tip will help you improve your overall style by focusing on {tip.category.toLowerCase()} 
-                        elements in your outfit.
-                      </p>
-                      <div className="mt-2 bg-black/20 p-2 rounded text-xs text-gray-400">
-                        <strong>Why this matters:</strong> Implementing this advice can 
-                        enhance how others perceive your fashion sense and boost your confidence.
-                      </div>
-                    </div>
+              <div className="flex gap-3">
+                <div className="mt-1">
+                  <div className="w-8 h-8 rounded-full bg-[#ff6b6b]/10 flex items-center justify-center">
+                    <Lightbulb className="w-4 h-4 text-[#ff6b6b]" />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div>
+                  <h4 className="text-white font-medium mb-2">{tip.tip}</h4>
+                  <p className="text-sm text-gray-400 leading-relaxed">
+                    {tip.description || `This tip focuses on improving your ${tip.category.toLowerCase()} 
+                    to enhance your overall appearance.`}
+                  </p>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>

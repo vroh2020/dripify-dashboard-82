@@ -82,11 +82,11 @@ ANALYSIS FOCUS:
 [Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]
 
 **Style Tips:**
-• Aura: [Specific tip about boosting confidence and presence through styling]
-• Drip: [Specific tip about elevating the overall freshness and coolness]
-• Colors: [Specific tip about color choices and coordination]
-• Potential: [Specific tip about small changes that would level up the look]
-• Overall: [Specific tip for maximizing the outfit's impact and appeal]
+• Aura Enhancement: [Specific actionable tip about boosting confidence and presence through styling - be detailed and specific]
+• Drip Upgrade: [Specific actionable tip about elevating the overall freshness and coolness - include specific clothing items or styling techniques]
+• Final Touch: [Specific actionable tip about perfecting the look - could be about accessories, fit adjustments, or color choices]
+
+IMPORTANT: You MUST include exactly 3 tips in the Style Tips section. Each tip should be actionable, specific, and different from the others. Use the bullet format exactly as shown above.
 
 Be honest but encouraging. Use contemporary style language that Gen Z understands.`;
 

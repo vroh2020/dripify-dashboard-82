@@ -39,12 +39,14 @@ export const useRevenueCatManager = () => {
         }
         const { customerInfo } = await Purchases.getCustomerInfo();
         const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+        const expiryTimestamp = customerInfo.latestExpirationDate || null;
+        const expiryDate = expiryTimestamp ? new Date(expiryTimestamp) : null;
         
         console.log('🔄 fetchSubscriptionStatus result:', { isPro });
         
         const newStatus = {
           isActive: isPro,
-          expirationDate: subscription.expirationDate,
+          expirationDate: expiryDate,
           productId: subscription.productId,
           offeringId: subscription.offeringId
         };
@@ -114,7 +116,7 @@ export const useRevenueCatManager = () => {
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + 7); // 7 days trial
+        expiryDate.setMonth(expiryDate.getMonth() + 1);
 
         const newSubscription = {
           isActive: true,
@@ -127,7 +129,9 @@ export const useRevenueCatManager = () => {
         const { error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
-          subscription_expiry: expiryDate.toISOString()
+          subscription_expiry: expiryDate.toISOString(),
+          subscription_product_id: product.identifier,
+          subscription_platform: 'web'
         }).eq('id', user.id);
 
         if (profileError) throw profileError;
@@ -135,7 +139,7 @@ export const useRevenueCatManager = () => {
         setSubscription(newSubscription);
         toast({ 
           title: "Welcome to Pro! 🎉", 
-          description: "Your 7-day trial is now active." 
+          description: "Your monthly subscription is now active." 
         });
         return true;
       } catch (error) {
@@ -177,16 +181,31 @@ export const useRevenueCatManager = () => {
       console.log('🔍 Purchase validation:', { isPro, hasNewPurchase, productId: product.identifier });
       
       if (isPro && hasNewPurchase) {
-        // Update Supabase profile
+        // Calculate proper expiry date (1 month from today for new subscription)
+        const expiryTimestamp = result.customerInfo.latestExpirationDate || null;
+        const expiryDate = expiryTimestamp ? new Date(expiryTimestamp) : null;
+        
+        // Update Supabase profile with correct expiry if available
         const { error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
-          subscription_expiry: new Date(result.customerInfo.latestExpirationDate).toISOString()
+          subscription_expiry: expiryDate ? expiryDate.toISOString() : null,
+          subscription_product_id: product.identifier,
+          subscription_platform: 'ios',
+          device_id: result.customerInfo.originalAppUserId
         }).eq('id', user.id);
 
         if (profileError) {
           console.error('Failed to update profile after purchase:', profileError);
         }
+
+        // Update local subscription state with proper expiry
+        setSubscription({
+          isActive: true,
+          expirationDate: expiryDate,
+          productId: product.identifier,
+          offeringId: null
+        });
 
         toast({ 
           title: "Welcome to Pro! 🎉", 

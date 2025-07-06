@@ -207,61 +207,111 @@ function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): v
 // Extract all tips from analysis
 function extractAllTips(text: string, tips: StyleTip[]): void {
   console.log('🔍 DEBUG: Starting tip extraction from text...');
-  const lines = text.split('\n');
   
-  let inTipsSection = false;
-  let currentCategory = 'General';
+  // Look for the Style Tips section specifically
+  const tipsSectionMatch = text.match(/\*\*Style Tips:\*\*([\s\S]*?)(?:\*\*|$)/i);
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+  if (!tipsSectionMatch) {
+    console.log('🔍 DEBUG: No Style Tips section found');
+    return;
+  }
+  
+  const tipsContent = tipsSectionMatch[1];
+  console.log('🔍 DEBUG: Found tips content:', tipsContent);
+  
+  // Split by lines and look for bullet points
+  const lines = tipsContent.split('\n');
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
     
     // Skip empty lines
-    if (!line) continue;
+    if (!trimmedLine) continue;
     
-    // Check if we're entering a tips section - improved regex
-    const tipsSectionMatch = line.match(/\*\*\s*Style\s+Tips\s*:?\s*\*\*/i) || 
-                            line.match(/\*\*\s*([A-Za-z\s&]+)\s+Tips\s*:?\s*\*\*/i);
-    
-    if (tipsSectionMatch) {
-      inTipsSection = true;
-      currentCategory = tipsSectionMatch[1] ? tipsSectionMatch[1].trim() : 'General';
-      console.log('🔍 DEBUG: Found tips section:', currentCategory);
-      continue;
-    }
-    
-    // Special case for "Next Level Tips" section
-    if (line.match(/\*\*\s*Next\s+Level\s+Tips\s*:?\s*\*\*/i)) {
-      inTipsSection = true;
-      currentCategory = "Advanced";
-      console.log('🔍 DEBUG: Found advanced tips section');
-      continue;
-    }
-    
-    // If we're in a tips section, look for bullet points (•, *, -) or numbered items
-    if (inTipsSection && (line.startsWith('•') || line.startsWith('*') || line.startsWith('-') || line.match(/^\d+\./))) {
-      // Extract the tip content (remove the bullet/number)
-      const tipContent = line.replace(/^(?:•|\*|-|\d+\.)\s*/, '').trim();
+    // Look for bullet points (• or *)
+    const tipMatch = trimmedLine.match(/^[•*\-—]\s*(.+)$/);
+    if (tipMatch) {
+      const fullTip = tipMatch[1].trim();
       
-      if (tipContent && tipContent.length > 10) { // Filter out very short tips
-        const tip = {
-          category: currentCategory,
-          tip: tipContent,
-          level: currentCategory.toLowerCase() === "advanced" ? "advanced" : determineLevel(tipContent)
-        };
-        tips.push(tip);
-        console.log('🔍 DEBUG: Extracted tip:', tip);
+      // Extract category and tip content
+      const categoryMatch = fullTip.match(/^([^:]+):\s*(.+)$/);
+      if (categoryMatch) {
+        const category = categoryMatch[1].trim();
+        const tipContent = categoryMatch[2].trim();
+        
+        if (tipContent && tipContent.length > 15) { // Ensure substantial tip
+          tips.push({
+            category,
+            tip: tipContent,
+            level: "intermediate"
+          });
+          console.log('🔍 DEBUG: Extracted tip:', { category, tip: tipContent });
+        }
+      } else if (fullTip.length > 15) {
+        // Fallback for tips without clear category separation
+        tips.push({
+          category: "General",
+          tip: fullTip,
+          level: "intermediate"
+        });
+        console.log('🔍 DEBUG: Extracted general tip:', fullTip);
       }
-    }
-    
-    // If we hit a new major section header (not tips related), exit the tips section
-    if (inTipsSection && line.match(/\*\*[^*]+\*\*/) && !line.toLowerCase().includes('tips')) {
-      console.log('🔍 DEBUG: Exiting tips section, found new header:', line);
-      inTipsSection = false;
-      currentCategory = 'General';
     }
   }
   
-  console.log('🔍 DEBUG: Final tips extracted:', tips.length);
+  // If we didn't find exactly 3 tips, try alternative extraction
+  if (tips.length !== 3) {
+    console.log('🔍 DEBUG: Did not find 3 tips, trying alternative extraction. Found:', tips.length);
+    
+    // Clear and try again with more flexible parsing
+    tips.length = 0;
+    
+    // Try to find any bullet points in the entire text after "Style Tips"
+    const afterTipsIndex = text.toLowerCase().indexOf('style tips');
+    if (afterTipsIndex !== -1) {
+      const afterTipsText = text.substring(afterTipsIndex);
+      const bulletPoints = afterTipsText.match(/[•*\-—]\s*[^•*\-—\n]+/g);
+      
+      if (bulletPoints) {
+        console.log('🔍 DEBUG: Found bullet points:', bulletPoints);
+        
+        bulletPoints.slice(0, 3).forEach((bullet, index) => {
+          const cleanBullet = bullet.replace(/^[•*\-—]\s*/, '').trim();
+          if (cleanBullet.length > 15) {
+            tips.push({
+              category: `Tip ${index + 1}`,
+              tip: cleanBullet,
+              level: "intermediate"
+            });
+          }
+        });
+      }
+    }
+  }
+  
+  // Final fallback: create generic tips if still none found
+  if (tips.length === 0) {
+    console.log('🔍 DEBUG: No tips extracted, creating fallback tips');
+    tips.push(
+      {
+        category: "Style Enhancement",
+        tip: "Consider experimenting with different color combinations to create more visual interest and personal expression.",
+        level: "intermediate"
+      },
+      {
+        category: "Fit Improvement", 
+        tip: "Focus on proper fit and proportions - well-fitted clothes instantly elevate any outfit and boost confidence.",
+        level: "intermediate"
+      },
+      {
+        category: "Confidence Boost",
+        tip: "Add one statement piece or accessory that reflects your personality to make the outfit uniquely yours.",
+        level: "intermediate"
+      }
+    );
+  }
+  
+  console.log('🔍 DEBUG: Final tips extracted:', tips.length, tips);
 }
 
 // Helper function to determine the level of a tip

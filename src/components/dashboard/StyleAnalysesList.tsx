@@ -108,7 +108,7 @@ export const StyleAnalysesList = ({ analyses }: { analyses: StyleAnalysis[] }) =
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <p className="text-white font-medium">
-                            Style Score: {analysis.total_score}/10
+                            Style Score: {analysis.total_score}/100
                           </p>
                           <span className="text-xs text-[#C8C8C9]">
                             {format(new Date(analysis.created_at || analysis.scan_date || ''), 'MMM d, yyyy')}
@@ -122,7 +122,7 @@ export const StyleAnalysesList = ({ analyses }: { analyses: StyleAnalysis[] }) =
                                 return Array.isArray(parsed) ? parsed.slice(0, 3).map((item, i) => (
                                   <div key={i} className="flex items-center gap-1">
                                     <span className="text-sm">{item.emoji}</span>
-                                    <span className="text-xs text-[#C8C8C9]">{item.score}/10</span>
+                                    <span className="text-xs text-[#C8C8C9]">{item.score}/100</span>
                                   </div>
                                 )) : null;
                               } catch (e) {
@@ -133,7 +133,7 @@ export const StyleAnalysesList = ({ analyses }: { analyses: StyleAnalysis[] }) =
                             analysis.breakdown.slice(0, 3).map((item, i) => (
                               <div key={i} className="flex items-center gap-1">
                                 <span className="text-sm">{item.emoji}</span>
-                                <span className="text-xs text-[#C8C8C9]">{item.score}/10</span>
+                                <span className="text-xs text-[#C8C8C9]">{item.score}/100</span>
                               </div>
                             ))
                           ) : null}
@@ -194,7 +194,7 @@ export const StyleAnalysesList = ({ analyses }: { analyses: StyleAnalysis[] }) =
                         {selectedAnalysis.total_score}
                       </div>
                     </div>
-                    <h3 className="text-xl font-bold text-purple-400 mt-2">Score: {selectedAnalysis.total_score}/10</h3>
+                    <h3 className="text-xl font-bold text-purple-400 mt-2">Score: {selectedAnalysis.total_score}/100</h3>
                     <p className="text-sm text-[#C8C8C9] mt-1">
                       {format(new Date(selectedAnalysis.created_at || selectedAnalysis.scan_date || ''), 'MMMM d, yyyy')}
                     </p>

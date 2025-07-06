@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
@@ -21,25 +20,30 @@ interface Profile {
 
 const Profile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const { stats, isLoading, error, fetchUserStats } = useStatsStore();
-  const [loading, setLoading] = useState(true);
+  const { stats, isLoading: statsLoading, error, fetchUserStats } = useStatsStore();
+  const [profileLoading, setProfileLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { isPro } = useSubscription();
   const { signOut } = useAuth();
 
+  // Combined loading state
+  const isLoading = profileLoading || statsLoading;
+
   useEffect(() => {
-    fetchProfile();
-    initializeStats();
+    const initializeProfile = async () => {
+      await fetchProfile();
+      await initializeStats();
+    };
+    initializeProfile();
   }, []);
 
   const fetchProfile = async () => {
     try {
-      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setLoading(false);
+        setProfileLoading(false);
         return;
       }
 
@@ -81,7 +85,7 @@ const Profile = () => {
     } catch (error) {
       console.error('Error in fetchProfile:', error);
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -126,7 +130,7 @@ const Profile = () => {
     }
   };
 
-  if (loading || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1F3D] py-8 px-4 flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-[#9b87f5] border-t-transparent animate-spin" />

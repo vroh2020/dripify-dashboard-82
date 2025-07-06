@@ -21,8 +21,8 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       pkg.product.title.toLowerCase().includes("pro")
   );
 
-  // Format the price
-  const formattedPrice = proProduct?.product.priceString || "$12.99";
+  // Format the price - ensure it's always $12.99
+  const formattedPrice = "$12.99";
 
   const handleStartTrial = async () => {
     if (isProcessing) return;
@@ -100,7 +100,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4 mb-6 text-center">
           <div className="text-white/90 text-lg">
             <span className="font-bold text-2xl text-orange-400">{formattedPrice}</span>
-            <span className="text-base"> Annual</span>
+            <span className="text-base"> /month</span>
           </div>
           <div className="text-orange-300 text-sm mt-1">
             First 7 days free
@@ -142,13 +142,12 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
               Try Again
             </div>
           ) : (
-            "Try free and subscribe"
+            "Start 7-day free trial"
           )}
         </Button>
 
-        {/* Small Text Links */}
-        <div className="flex justify-between items-center mt-4 text-sm text-white/60">
-          <button className="hover:text-white/80">Restore Purchase</button>
+        {/* Small Text Links - Removed restore purchase */}
+        <div className="flex justify-center items-center mt-4 text-sm text-white/60">
           <button className="hover:text-white/80">Terms & Conditions</button>
         </div>
       </CardContent>

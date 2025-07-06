@@ -113,129 +113,131 @@ export const ScanView = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="px-4 relative"
-    >
-      {/* Style Loading Overlay */}
-      <StyleLoadingOverlay 
-        isAnalyzing={analyzing} 
-        onTimeout={handleAnalyzeTimeout}
-        timeoutDuration={90000}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 py-8">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="px-4 relative max-w-2xl mx-auto"
+      >
+        {/* Style Loading Overlay */}
+        <StyleLoadingOverlay 
+          isAnalyzing={analyzing} 
+          onTimeout={handleAnalyzeTimeout}
+          timeoutDuration={90000}
+        />
 
-      {!showResults ? (
-        <Card className="backdrop-blur-xl bg-black/30 border-white/10">
-          <CardContent className="space-y-8 p-8">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <ImageUpload onImageSelect={setSelectedImage} />
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="space-y-6"
-            >
-              <h3 className="text-xl font-medium text-center text-white">
-                What's the occasion?
-              </h3>
-              <StyleSelector selected={selectedStyle} onSelect={setSelectedStyle} />
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="flex justify-center pt-4"
-            >
-              <Button
-                onClick={handleAnalyze}
-                disabled={!selectedImage || analyzing}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-10 py-6 rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:-translate-y-1"
+        {!showResults ? (
+          <Card className="backdrop-blur-xl bg-black/30 border-white/10">
+            <CardContent className="space-y-8 p-8">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
               >
-                {analyzing ? (
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 animate-pulse text-yellow-300" />
-                    <span>Analyzing Style...</span>
-                  </div>
-                ) : (
-                  <>
-                    <Camera className="mr-2 h-5 w-5" />
-                    Analyze Style
-                  </>
-                )}
-              </Button>
-            </motion.div>
-          </CardContent>
-        </Card>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, x: 100 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className="pb-20"
-        >
-          {result && (
-            <div className="w-full max-w-2xl mx-auto space-y-6">
-              {/* Modern Ratings Display */}
-              <ModernRatingsDisplay
-                overallScore={result.overallScore}
-                profileImage={result.imageUrl}
-                breakdown={result.breakdown || []}
-                onSave={handleSave}
-                onShare={handleShare}
-                isOnboarding={false}
-              />
+                <ImageUpload onImageSelect={setSelectedImage} />
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="space-y-6"
+              >
+                <h3 className="text-xl font-medium text-center text-white">
+                  What's the occasion?
+                </h3>
+                <StyleSelector selected={selectedStyle} onSelect={setSelectedStyle} />
+              </motion.div>
 
-              {/* Detailed feedback */}
-              {result.summary && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="flex justify-center pt-4"
+              >
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={!selectedImage || analyzing}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-10 py-6 rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:-translate-y-1 min-h-[44px]"
+                >
+                  {analyzing ? (
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 animate-pulse text-yellow-300" />
+                      <span>Analyzing Style...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <Camera className="mr-2 h-5 w-5" />
+                      Analyze Style
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+            </CardContent>
+          </Card>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="pb-24 pt-4"
+          >
+            {result && (
+              <div className="w-full space-y-6">
+                {/* Modern Ratings Display */}
+                <ModernRatingsDisplay
+                  overallScore={result.overallScore}
+                  profileImage={result.imageUrl}
+                  breakdown={result.breakdown || []}
+                  onSave={handleSave}
+                  onShare={handleShare}
+                  isOnboarding={false}
+                />
+
+                {/* Detailed feedback */}
+                {result.summary && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-black/30 backdrop-blur-lg border-white/10 rounded-lg"
+                  >
+                    <div className="p-6">
+                      <h3 className="text-xl font-semibold text-white mb-4">Detailed Analysis</h3>
+                      <p className="text-white/80 leading-relaxed">
+                        {result.summary}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Style tips */}
+                {result.tips && result.tips.length > 0 && (
+                  <StyleTips tips={result.tips} />
+                )}
+
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-black/30 backdrop-blur-lg border-white/10 rounded-lg"
+                  transition={{ delay: 0.5 }}
+                  className="flex justify-center gap-4"
                 >
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">Detailed Analysis</h3>
-                    <p className="text-white/80 leading-relaxed">
-                      {result.summary}
-                    </p>
-                  </div>
+                  <Button
+                    onClick={handleRestart}
+                    variant="outline"
+                    size="lg"
+                    className="rounded-full bg-gray-800 hover:bg-gray-700 text-white border-white/20 min-h-[44px]"
+                  >
+                    <Camera className="w-5 h-5 mr-2" />
+                    Scan Again
+                  </Button>
                 </motion.div>
-              )}
-
-              {/* Style tips */}
-              {result.tips && result.tips.length > 0 && (
-                <StyleTips tips={result.tips} />
-              )}
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="flex justify-center gap-4"
-              >
-                <Button
-                  onClick={handleRestart}
-                  variant="outline"
-                  size="lg"
-                  className="rounded-full bg-gray-800 hover:bg-gray-700 text-white border-white/20"
-                >
-                  <Camera className="w-5 h-5 mr-2" />
-                  Scan Again
-                </Button>
-              </motion.div>
-            </div>
-          )}
-        </motion.div>
-      )}
-    </motion.div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </motion.div>
+    </div>
   );
 };

@@ -52,12 +52,12 @@ export const GoalStep = ({ onGoalSelect }: GoalStepProps) => {
                 console.log('🎯 GoalStep Button CLICKED:', goal.id, 'at:', new Date().toISOString());
                 onGoalSelect(goal.id);
               }}
-              className="w-full h-18 bg-white/10 border-2 border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:scale-105 transition-all duration-300 rounded-2xl backdrop-blur-sm flex items-center justify-start p-6"
+              className="w-full h-[80px] min-h-[80px] bg-white/10 border-2 border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/30 hover:to-orange-400/30 hover:border-orange-500/70 hover:scale-105 transition-all duration-300 rounded-2xl backdrop-blur-sm flex items-center justify-start p-4"
             >
-              <span className="text-3xl mr-4">{goal.emoji}</span>
-              <div className="text-left">
-                <div className="font-bold text-xl">{goal.title}</div>
-                <div className="text-white/70 text-base">{goal.description}</div>
+              <span className="text-3xl mr-4 flex-shrink-0">{goal.emoji}</span>
+              <div className="text-left min-w-0">
+                <div className="font-bold text-lg leading-tight">{goal.title}</div>
+                <div className="text-white/70 text-sm leading-tight line-clamp-2">{goal.description}</div>
               </div>
             </Button>
           </motion.div>

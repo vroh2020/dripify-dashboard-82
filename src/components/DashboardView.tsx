@@ -174,7 +174,7 @@ export const DashboardView = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full max-w-sm mx-auto px-4 pb-6"
+      className="w-full max-w-md mx-auto px-4 pb-20 pt-4"
     >
         <DashboardHeader 
           hasScans={hasScans} 
@@ -186,6 +186,7 @@ export const DashboardView = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.1 }}
+            className="mt-6"
           >
             <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20 backdrop-blur-xl">
               <CardContent className="p-6">
@@ -200,7 +201,7 @@ export const DashboardView = () => {
                 </p>
                 <Button 
                   onClick={() => navigate('/scan')} 
-                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 h-auto transition-all duration-200 group"
+                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 h-auto transition-all duration-200 group min-h-[44px]"
                 >
                   <Camera className="w-4 h-4 mr-2" />
                   Take Your First Scan
@@ -215,7 +216,7 @@ export const DashboardView = () => {
             </Card>
           </motion.div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 mt-6">
             {/* Stats Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
