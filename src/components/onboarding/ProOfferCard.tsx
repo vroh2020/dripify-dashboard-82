@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCw } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
+import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -13,44 +14,53 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Find the Pro product - look for gs_1299_1m specifically
-  const proProduct = offerings?.[0]?.availablePackages?.find(
-    (pkg) =>
-      pkg.product.identifier === "gs_1299_1m" ||
-      pkg.product.identifier.includes("pro") ||
-      pkg.product.title.toLowerCase().includes("pro")
+  // Find both products
+  const weeklyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
+  );
+  
+  const monthlyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.monthly ||
+             pkg.product.identifier.includes("1299") ||
+             pkg.product.identifier.includes("pro")
   );
 
-  // Format the price - ensure it's always $12.99
-  const formattedPrice = "$12.99";
-
-  const handleStartTrial = async () => {
+  const handlePurchase = async (productType: 'weekly' | 'monthly') => {
     if (isProcessing) return;
     
     setIsProcessing(true);
     setHasError(false);
     
     try {
-      // CRITICAL FIX: Always show payment flow, even if isPro is detected
-      // This prevents bypass vulnerability from cached/existing subscriptions
+      let product;
       
-      const product = proProduct || {
-        identifier: "gs_1299_1m",
-        title: "Pro Monthly",
-        description: "Pro subscription with 7-day free trial",
-        price: 12.99,
-        priceString: "$12.99",
-        currencyCode: "USD",
-        subscriptionPeriod: "P1M",
-      };
+      if (productType === 'weekly') {
+        product = weeklyProduct?.product || {
+          identifier: REVENUECAT_CONFIG.products.weekly,
+          title: "Weekly Premium",
+          description: "Weekly Pro subscription",
+          price: 4.99,
+          priceString: "$4.99",
+          currencyCode: "USD",
+          subscriptionPeriod: "P1W",
+        };
+      } else {
+        product = monthlyProduct?.product || {
+          identifier: REVENUECAT_CONFIG.products.monthly,
+          title: "Monthly Premium",
+          description: "Monthly Pro subscription",
+          price: 12.99,
+          priceString: "$12.99",
+          currencyCode: "USD",
+          subscriptionPeriod: "P1M",
+        };
+      }
       
       const success = await purchaseProduct(product);
       
       if (success) {
-        // Payment succeeded - proceed to completion
         setTimeout(onContinue, 1000);
       } else {
-        // Payment failed - show error
         setHasError(true);
       }
     } catch (error) {
@@ -60,10 +70,6 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       setIsProcessing(false);
     }
   };
-
-  // CRITICAL FIX: Remove auto-complete bypass
-  // Always show payment screen regardless of isPro status
-  // This prevents users from skipping payment due to cached/test subscriptions
 
   return (
     <Card className="bg-black/30 backdrop-blur-lg border-white/10 max-w-sm w-full">
@@ -77,33 +83,25 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
 
         {/* Title */}
         <h3 className="text-2xl font-bold text-white text-center mb-2">
-          Try Drip Max for free
+          Unlock Premium Features
         </h3>
+        <p className="text-white/70 text-center mb-6">
+          Choose your subscription plan
+        </p>
 
         {/* Features List */}
-        <div className="space-y-3 mb-8">
+        <div className="space-y-3 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
               <span className="text-white text-xs">✓</span>
             </div>
-            <span className="text-white/90">Unlock unlimited style analyses</span>
+            <span className="text-white/90">Unlimited style analyses</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
               <span className="text-white text-xs">✓</span>
             </div>
             <span className="text-white/90">Personalized recommendations</span>
-          </div>
-        </div>
-
-        {/* Pricing */}
-        <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4 mb-6 text-center">
-          <div className="text-white/90 text-lg">
-            <span className="font-bold text-2xl text-orange-400">{formattedPrice}</span>
-            <span className="text-base"> /month</span>
-          </div>
-          <div className="text-orange-300 text-sm mt-1">
-            First 7 days free
           </div>
         </div>
 
@@ -125,28 +123,60 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           </div>
         )}
 
-        {/* Single Action Button */}
-        <Button
-          onClick={handleStartTrial}
-          disabled={isProcessing || isLoading}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white border-0"
-        >
-          {isProcessing ? (
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Starting Trial...
+        {/* Plan Buttons */}
+        <div className="space-y-3 mb-4">
+          {/* Weekly Plan - Popular */}
+          <div className="relative">
+            <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-10">
+              <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold px-3 py-1 rounded-full">
+                POPULAR
+              </span>
             </div>
-          ) : hasError ? (
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5" />
-              Try Again
-            </div>
-          ) : (
-            "Start 7-day free trial"
-          )}
-        </Button>
+            <Button
+              onClick={() => handlePurchase('weekly')}
+              disabled={isProcessing || isLoading}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white border-0 pt-3"
+            >
+              {isProcessing ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Starting Weekly...
+                </div>
+              ) : (
+                <div className="text-center">
+                  <div className="text-xl font-bold">$4.99/week</div>
+                  <div className="text-sm opacity-90">Weekly Premium</div>
+                </div>
+              )}
+            </Button>
+          </div>
 
-        {/* Small Text Links - Removed restore purchase */}
+          {/* Monthly Plan */}
+          <Button
+            onClick={() => handlePurchase('monthly')}
+            disabled={isProcessing || isLoading}
+            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white border-0"
+          >
+            {isProcessing ? (
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Starting Monthly...
+              </div>
+            ) : hasError ? (
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-5 h-5" />
+                Try Again
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="text-xl font-bold">$12.99/month</div>
+                <div className="text-sm opacity-90">Monthly Premium</div>
+              </div>
+            )}
+          </Button>
+        </div>
+
+        {/* Terms */}
         <div className="flex justify-center items-center mt-4 text-sm text-white/60">
           <button className="hover:text-white/80">Terms & Conditions</button>
         </div>

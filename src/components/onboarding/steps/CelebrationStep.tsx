@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { PartyPopper } from "lucide-react";
-import { useEffect } from "react";
 
 interface CelebrationStepProps {
   isPro: boolean;
@@ -10,14 +9,8 @@ interface CelebrationStepProps {
 }
 
 export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepProps) => {
-  // FIXED: Never auto-complete here - always go to trial offer to handle payment flow
-  // This prevents the "Subscription Required" loop issue
-  
   const handleClick = () => {
-    console.log('🎉 Celebration button clicked - proceeding to trial offer');
-    
-    // FIXED: Always proceed to trial offer step
-    // The trial offer step will handle Pro users appropriately
+    console.log('🎉 Celebration button clicked - proceeding to subscription options');
     onNext();
   };
 
@@ -59,11 +52,6 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
             <p className="text-white/70 text-lg leading-relaxed max-w-sm">
               Ready to unlock unlimited style analyses and premium features?
             </p>
-            <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
-              <p className="text-orange-300 font-medium">
-                🔥 7-day free trial available
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -74,7 +62,7 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
           onClick={handleClick}
           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
         >
-          Continue
+          Continue to Plans
         </Button>
       </div>
     </motion.div>

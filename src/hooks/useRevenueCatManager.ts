@@ -42,7 +42,37 @@ export const useRevenueCatManager = () => {
         const expiryTimestamp = customerInfo.latestExpirationDate || null;
         const expiryDate = expiryTimestamp ? new Date(expiryTimestamp) : null;
         
-        console.log('🔄 fetchSubscriptionStatus result:', { isPro });
+        console.log('🔄 fetchSubscriptionStatus result:', { isPro, expiryDate });
+        
+        // Check if subscription is expired or expiring soon
+        if (expiryDate) {
+          const now = new Date();
+          const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          const isWeekly = subscription.productId === REVENUECAT_CONFIG.products.weekly;
+          const planName = isWeekly ? 'Weekly Premium' : 'Monthly Premium';
+          
+          // Log subscription status for debugging
+          console.log(`📅 ${planName} expires in ${daysUntilExpiry} days`);
+          
+          // If subscription expired, ensure access is revoked
+          if (expiryDate < now && isPro) {
+            console.warn('⚠️ Subscription appears expired but still marked as active');
+            toast({
+              title: "Subscription Expired",
+              description: `Your ${planName} subscription has expired. Please renew to continue using Pro features.`,
+              variant: "destructive"
+            });
+          }
+          
+          // Warn if expiring soon (adjust warning period based on plan type)
+          const warningDays = isWeekly ? 2 : 3; // 2 days for weekly, 3 days for monthly
+          if (daysUntilExpiry <= warningDays && daysUntilExpiry > 0 && isPro) {
+            toast({
+              title: "Subscription Expiring Soon",
+              description: `Your ${planName} subscription expires in ${daysUntilExpiry} day(s). Renew now to avoid interruption.`,
+            });
+          }
+        }
         
         const newStatus = {
           isActive: isPro,
@@ -100,8 +130,11 @@ export const useRevenueCatManager = () => {
         setIsLoading(true);
         
         // Show payment confirmation dialog
+        const isWeekly = product.identifier === REVENUECAT_CONFIG.products.weekly;
+        const planName = isWeekly ? 'Weekly Premium ($4.99/week)' : 'Monthly Premium ($12.99/month)';
+        
         const confirmed = window.confirm(
-          'This is a web demo. In production, this would open a payment flow. Would you like to simulate a successful payment?'
+          `This is a web demo. In production, this would open a payment flow. Would you like to simulate a successful payment for ${planName}?`
         );
         
         if (!confirmed) {
@@ -115,8 +148,15 @@ export const useRevenueCatManager = () => {
         // Simulate payment processing
         await new Promise(resolve => setTimeout(resolve, 1500));
         
+        // Calculate expiration date properly
         const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 1);
+        if (isWeekly) {
+          expiryDate.setDate(expiryDate.getDate() + 7);
+        } else {
+          expiryDate.setMonth(expiryDate.getMonth() + 1);
+        }
+        // Set time to end of day to avoid timezone issues
+        expiryDate.setHours(23, 59, 59, 999);
 
         const newSubscription = {
           isActive: true,
@@ -125,7 +165,7 @@ export const useRevenueCatManager = () => {
           offeringId: 'web-simulation'
         };
         
-        // Update Supabase profile
+        // Update Supabase profile with precise expiration timing
         const { error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
@@ -137,9 +177,10 @@ export const useRevenueCatManager = () => {
         if (profileError) throw profileError;
         
         setSubscription(newSubscription);
+        const planType = isWeekly ? 'weekly' : 'monthly';
         toast({ 
           title: "Welcome to Pro! 🎉", 
-          description: "Your monthly subscription is now active." 
+          description: `Your ${planType} subscription is now active until ${expiryDate.toLocaleDateString()}.` 
         });
         return true;
       } catch (error) {
