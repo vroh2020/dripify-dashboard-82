@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { useScanStore } from "@/store/scanStore";
 import { Sparkles, Camera } from "lucide-react";
-import { StyleTips } from "./analysis/StyleTips";
+
 import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
 import { ModernRatingsDisplay } from "./ModernRatingsDisplay";
 import type { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
@@ -212,10 +212,6 @@ export const ScanView = () => {
                   </motion.div>
                 )}
 
-                {/* Style tips */}
-                {result.tips && result.tips.length > 0 && (
-                  <StyleTips tips={result.tips} />
-                )}
 
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
