@@ -39,9 +39,14 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
   // Handle purchase
   const handlePurchase = async (planType: 'weekly' | 'monthly' = 'weekly') => {
     const targetProduct = planType === 'weekly' ? weeklyProduct : monthlyProduct;
-    if (targetProduct) {
-      await purchaseProduct(targetProduct.product.identifier);
-    }
+
+    // If the product is found in the current offerings use it, otherwise fall back
+    // to the known identifier so the web-demo flow can still proceed.
+    const productId = targetProduct?.product.identifier ?? (
+      planType === 'weekly' ? REVENUECAT_CONFIG.products.weekly : REVENUECAT_CONFIG.products.monthly
+    );
+
+    await purchaseProduct(productId);
   };
 
   // Handle restore

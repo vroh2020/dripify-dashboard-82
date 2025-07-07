@@ -74,10 +74,14 @@ export const useRevenueCatManager = () => {
           }
         }
         
+        // Determine current product ID from active entitlements if available
+        const activeEntitlement = customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER];
+        const currentProductId = activeEntitlement?.productIdentifier ?? subscription.productId;
+
         const newStatus = {
           isActive: isPro,
           expirationDate: expiryDate,
-          productId: subscription.productId,
+          productId: currentProductId,
           offeringId: subscription.offeringId
         };
         

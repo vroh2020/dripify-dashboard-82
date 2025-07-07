@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRevenueCatManager } from './useRevenueCatManager';
 import { useToast } from './use-toast';
+import { REVENUECAT_CONFIG } from '@/config/revenueCat';
 
 export const useRevenueCat = () => {
   const {
@@ -26,17 +27,23 @@ export const useRevenueCat = () => {
         ?.find(pkg => pkg.product.identifier === productId)
         ?.product;
       
-      if (!product) {
-        console.error(`Product not found with ID: ${productId}`);
-        toast({
-          title: "Product Error",
-          description: "Product not available for purchase.",
-          variant: "destructive"
-        });
-        return false;
+      let resolvedProduct = product;
+
+      if (!resolvedProduct) {
+        // Offerings may not have loaded yet (especially immediately after login).
+        // Fall back to a minimal product object so the web-demo flow can still proceed.
+        resolvedProduct = {
+          identifier: productId,
+          title: productId === REVENUECAT_CONFIG.products.weekly ? 'Weekly Premium' : 'Monthly Premium',
+          description: 'Pro subscription',
+          price: productId === REVENUECAT_CONFIG.products.weekly ? 4.99 : 12.99,
+          priceString: productId === REVENUECAT_CONFIG.products.weekly ? '$4.99' : '$12.99',
+          currencyCode: 'USD',
+          subscriptionPeriod: productId === REVENUECAT_CONFIG.products.weekly ? 'P1W' : 'P1M',
+        } as any; // Cast because we are only using a subset of fields on web
       }
       
-      const result = await managerPurchase(product); // Pass the full product object
+      const result = await managerPurchase(resolvedProduct); // Pass the full/ fallback product object
       if (result) {
         toast({
           title: "Success!",
