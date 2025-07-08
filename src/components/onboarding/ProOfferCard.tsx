@@ -18,14 +18,14 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [hasError, setHasError] = useState(false);
 
   // Find the Weekly and Monthly Pro products directly in offerings
-  const weeklyProduct = offerings?.[0]?.availablePackages?.find(
+  const weeklyProduct = offerings?.flatMap(o => o.availablePackages)?.find(
     (pkg) =>
       pkg.product.identifier === REVENUECAT_CONFIG.products.weekly ||
       pkg.product.identifier.includes('week') ||
       pkg.product.title.toLowerCase().includes('week')
   )?.product;
 
-  const monthlyProduct = offerings?.[0]?.availablePackages?.find(
+  const monthlyProduct = offerings?.flatMap(o => o.availablePackages)?.find(
     (pkg) =>
       pkg.product.identifier === REVENUECAT_CONFIG.products.monthly ||
       pkg.product.identifier.includes('pro') ||
