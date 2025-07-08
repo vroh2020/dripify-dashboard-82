@@ -1,127 +1,131 @@
 import { Purchases, PurchasesPackage, CustomerInfo, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
+import { supabase } from '@/integrations/supabase/client';
 
-class RevenueCatService {
-  private static instance: RevenueCatService;
-  private isInitialized = false;
-
-  private constructor() {}
-
-  public static getInstance(): RevenueCatService {
-    if (!RevenueCatService.instance) {
-      RevenueCatService.instance = new RevenueCatService();
-    }
-    return RevenueCatService.instance;
+export const initializeRevenueCat = async (userId: string | null) => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
   }
 
-  private throwWebNotSupported(): never {
-    throw new Error('RevenueCat is not supported on web platform');
-  }
-
-  public async initialize(apiKey: string): Promise<void> {
-    if (!Capacitor.isNativePlatform()) {
-      this.throwWebNotSupported();
+  try {
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    
+    // Fetch the API key from Supabase Edge Function
+    const { data: config, error: configError } = await supabase.functions.invoke('revenuecat-config');
+    if (configError || !config.revenueCatApiKey) {
+      console.error('Failed to fetch RevenueCat API key:', configError);
+      throw new Error("Could not retrieve RevenueCat API key.");
     }
+    
+    // No configuration here, just setup
+    // await Purchases.configure({
+    //   apiKey: config.revenueCatApiKey,
+    // });
 
-    if (this.isInitialized) return;
-
-    try {
-      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-      await Purchases.configure({
-        apiKey,
-        appUserID: null, // Let RevenueCat generate a unique ID
-      });
-      this.isInitialized = true;
-    } catch (error) {
-      console.error('Failed to initialize RevenueCat:', error);
-      throw error;
-    }
-  }
-
-  public async getOfferings(): Promise<PurchasesPackage[]> {
-    if (!Capacitor.isNativePlatform()) {
-      this.throwWebNotSupported();
-    }
-
-    try {
-      const offerings = await Purchases.getOfferings();
-      return offerings.current?.availablePackages || [];
-    } catch (error) {
-      console.error('Failed to get offerings:', error);
-      throw error;
-    }
-  }
-
-  public async purchasePackage(packageToPurchase: PurchasesPackage): Promise<CustomerInfo> {
-    if (!Capacitor.isNativePlatform()) {
-      this.throwWebNotSupported();
-    }
-
-    try {
-      const { customerInfo } = await Purchases.purchasePackage({ 
-        offeringIdentifier: packageToPurchase.offeringIdentifier,
-        packageIdentifier: packageToPurchase.identifier
-      });
-      return customerInfo;
-    } catch (error) {
-      console.error('Failed to purchase package:', error);
-      throw error;
-    }
-  }
-
-  public async restorePurchases(): Promise<CustomerInfo> {
-    if (!Capacitor.isNativePlatform()) {
-      this.throwWebNotSupported();
-    }
-
-    try {
-      const { customerInfo } = await Purchases.restorePurchases();
-      return customerInfo;
-    } catch (error) {
-      console.error('Failed to restore purchases:', error);
-      throw error;
-    }
-  }
-
-  public async getCustomerInfo(): Promise<CustomerInfo> {
-    if (!Capacitor.isNativePlatform()) {
-      this.throwWebNotSupported();
-    }
-
-    try {
-      const { customerInfo } = await Purchases.getCustomerInfo();
-      return customerInfo;
-    } catch (error) {
-      console.error('Failed to get customer info:', error);
-      throw error;
-    }
-  }
-
-  public async identifyUser(userId: string): Promise<void> {
-    if (!Capacitor.isNativePlatform()) {
-      this.throwWebNotSupported();
-    }
-
-    try {
+    if (userId) {
       await Purchases.logIn({ appUserID: userId });
-    } catch (error) {
-      console.error('Failed to identify user:', error);
-      throw error;
+      console.log('✅ RevenueCat: User logged in');
     }
+
+  } catch (error) {
+    console.error("Failed to initialize RevenueCat:", error);
+  }
+};
+
+export const getPurchaserInfo = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
   }
 
-  public async logout(): Promise<void> {
-    if (!Capacitor.isNativePlatform()) {
-      this.throwWebNotSupported();
-    }
-
-    try {
-      await Purchases.logOut();
-    } catch (error) {
-      console.error('Failed to logout:', error);
-      throw error;
-    }
+  try {
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const { customerInfo } = await Purchases.getCustomerInfo();
+    return customerInfo;
+  } catch (error) {
+    console.error('Failed to get customer info:', error);
+    throw error;
   }
-}
+};
 
-export const revenueCatService = RevenueCatService.getInstance(); 
+export const getOfferings = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
+  }
+
+  try {
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const offerings = await Purchases.getOfferings();
+    return offerings.current?.availablePackages || [];
+  } catch (error) {
+    console.error('Failed to get offerings:', error);
+    throw error;
+  }
+};
+
+export const purchasePackage = async (packageToPurchase: PurchasesPackage) => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
+  }
+
+  try {
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const { customerInfo } = await Purchases.purchasePackage({ 
+      offeringIdentifier: packageToPurchase.offeringIdentifier,
+      packageIdentifier: packageToPurchase.identifier
+    });
+    return customerInfo;
+  } catch (error) {
+    console.error('Failed to purchase package:', error);
+    throw error;
+  }
+};
+
+export const restorePurchases = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
+  }
+
+  try {
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    const { customerInfo } = await Purchases.restorePurchases();
+    return customerInfo;
+  } catch (error) {
+    console.error('Failed to restore purchases:', error);
+    throw error;
+  }
+};
+
+export const identifyUser = async (userId: string) => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
+  }
+
+  try {
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    await Purchases.logIn({ appUserID: userId });
+  } catch (error) {
+    console.error('Failed to identify user:', error);
+    throw error;
+  }
+};
+
+export const logout = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
+  }
+
+  try {
+    const { Purchases } = await import('@revenuecat/purchases-capacitor');
+    await Purchases.logOut();
+  } catch (error) {
+    console.error('Failed to logout:', error);
+    throw error;
+  }
+}; 

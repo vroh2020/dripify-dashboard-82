@@ -64,14 +64,14 @@ export function useOnboardingStatus(): OnboardingStatus {
       }
       
       // If we're in onboarding (/auth route), only check onboarding_completed
-      const isOnboarding = window.location.pathname.includes('/auth');
-      const completed = isOnboarding ? onboardingCompleted : (onboardingCompleted && hasActiveSubscription);
+      // const isOnboarding = window.location.pathname.includes('/auth');
+      const completed = onboardingCompleted && hasActiveSubscription;
       
       console.log('📊 Onboarding Status Check:', {
         userId: user.id,
         onboardingCompleted,
         hasActiveSubscription,
-        isOnboarding,
+        // isOnboarding,
         platform: Capacitor.isNativePlatform() ? 'native' : 'web',
         revenueCatStatus: subscription.isActive,
         supabaseStatus: profile?.subscription_status,
