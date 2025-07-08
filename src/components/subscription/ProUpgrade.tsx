@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Sparkles, Check, RefreshCw, Timer, Calendar, Crown } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
-import { format } from "date-fns";
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
+import { findProduct } from '@/utils/subscriptionProducts';
 import { Capacitor } from '@capacitor/core';
 
 interface ProUpgradeProps {
@@ -20,7 +20,11 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
 
   // Format the expiration date if available
   const formattedExpirationDate = subscription.expirationDate
-    ? format(subscription.expirationDate, 'MMM dd, yyyy')
+    ? subscription.expirationDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+      })
     : null;
 
   // Determine current plan type
@@ -28,39 +32,25 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
   const isMonthlyPlan = subscription.productId === REVENUECAT_CONFIG.products.monthly;
   const currentPlanName = isWeeklyPlan ? 'Weekly Premium' : isMonthlyPlan ? 'Monthly Premium' : 'Premium';
 
-  // Find the Pro products
-  const monthlyProduct = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier.includes('1299') || pkg.product.identifier.includes('pro') || pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
-  );
+  // Resolve the Pro products (native or stub)
+  const weeklyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.weekly);
+  const monthlyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.monthly);
 
-  const weeklyProduct = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
-  );
+  const weeklyPriceDisplay = weeklyProduct?.priceString ?? `$${(weeklyProduct?.price ?? 4.99).toFixed(2)}`;
+  const monthlyPriceDisplay = monthlyProduct?.priceString ?? `$${(monthlyProduct?.price ?? 12.99).toFixed(2)}`;
 
   // Handle purchase
   const handlePurchase = async (planType: 'weekly' | 'monthly' = 'weekly') => {
-    const targetProduct = planType === 'weekly' ? weeklyProduct : monthlyProduct;
+    const product = planType === 'weekly' ? weeklyProduct : monthlyProduct;
 
-    if (targetProduct?.product) {
-      await purchaseProduct(targetProduct.product);
+    if (!product) {
+      if (Capacitor.isNativePlatform()) {
+        alert('We are still connecting to the App Store. Please try again in a moment.');
+      }
       return;
     }
 
-    // Fallbacks when offerings aren’t loaded yet
-    if (!Capacitor.isNativePlatform()) {
-      const fallbackProduct = {
-        identifier: planType === 'weekly' ? REVENUECAT_CONFIG.products.weekly : REVENUECAT_CONFIG.products.monthly,
-        title: planType === 'weekly' ? 'Weekly Premium' : 'Monthly Premium',
-        description: 'Pro subscription',
-        price: planType === 'weekly' ? 4.99 : 12.99,
-        priceString: planType === 'weekly' ? '$4.99' : '$12.99',
-        currencyCode: 'USD',
-        subscriptionPeriod: planType === 'weekly' ? 'P1W' : 'P1M',
-      } as any;
-      await purchaseProduct(fallbackProduct);
-    } else {
-      alert('We are still connecting to the App Store. Please try again in a moment.');
-    }
+    await purchaseProduct(product);
   };
 
   // Handle restore
@@ -90,10 +80,8 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
               <span className="text-sm text-purple-400">Active</span>
             </div>
           ) : (
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="bg-purple-500/20 border-purple-500/30 text-purple-300 hover:bg-purple-500/30"
+            <Button
+              className="bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:bg-purple-500/30 h-9 px-3 rounded-md text-sm"
               onClick={() => handlePurchase('weekly')}
               disabled={isLoading}
             >
@@ -179,7 +167,7 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 h-14 text-base font-bold rounded-xl transition-all duration-300 hover:scale-105 text-white border-0 pt-3"
               >
                 <div className="text-center">
-                  <div className="text-lg font-bold">$4.99/week</div>
+                  <div className="text-lg font-bold">{weeklyPriceDisplay}/week</div>
                   <div className="text-sm opacity-90">Weekly Premium</div>
                 </div>
               </Button>
@@ -192,7 +180,7 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
               className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-base font-bold rounded-xl transition-all duration-300 hover:scale-105 text-white border-0"
             >
               <div className="text-center">
-                <div className="text-lg font-bold">$12.99/month</div>
+                <div className="text-lg font-bold">{monthlyPriceDisplay}/month</div>
                 <div className="text-sm opacity-90">Monthly Premium</div>
               </div>
             </Button>
@@ -216,9 +204,8 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
           </div>
         ) : null}
         
-        <Button 
-          variant="ghost" 
-          className="text-white/70 hover:text-white"
+        <Button
+          className="text-white/70 hover:text-white bg-transparent"
           onClick={handleRestore}
           disabled={isLoading || restoring}
         >

@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { useState } from "react";
 import { REVENUECAT_CONFIG } from "@/config/revenueCat";
+import { findProduct } from "@/utils/subscriptionProducts";
 
 interface TrialOfferStepProps {
   onNext: () => void;
@@ -13,6 +14,13 @@ interface TrialOfferStepProps {
 export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
   const isWeb = !Capacitor.isNativePlatform();
   const { offerings, purchaseProduct, isLoading } = useSubscription();
+
+  const weeklyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.weekly);
+  const monthlyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.monthly);
+
+  const weeklyPriceDisplay = weeklyProduct?.priceString ?? `$${(weeklyProduct?.price ?? 4.99).toFixed(2)}`;
+  const monthlyPriceDisplay = monthlyProduct?.priceString ?? `$${(monthlyProduct?.price ?? 12.99).toFixed(2)}`;
+
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePurchase = async (productType: 'weekly' | 'monthly') => {
@@ -20,31 +28,16 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
     setIsProcessing(true);
 
     try {
-      const identifier = productType === 'weekly' 
-        ? REVENUECAT_CONFIG.products.weekly 
-        : REVENUECAT_CONFIG.products.monthly;
+      const product = productType === 'weekly' ? weeklyProduct : monthlyProduct;
 
-      const productToPurchase = offerings?.flatMap(o => o.availablePackages).find(p => p.product.identifier === identifier)?.product;
-
-      if (!productToPurchase) {
-        console.error(`Product ${identifier} not found in offerings.`);
+      if (!product) {
         if (Capacitor.isNativePlatform()) {
-          // On native, we need the real product – show error message.
           alert('We are still connecting to the App Store. Please try again in a moment.');
-          return;
         }
-
-        // Web demo fallback
-        const fallbackProduct = {
-          identifier,
-          priceString: productType === 'weekly' ? '$4.99' : '$12.99',
-        } as any;
-        const success = await purchaseProduct(fallbackProduct);
-        if (success) onNext();
         return;
       }
-      
-      const success = await purchaseProduct(productToPurchase);
+
+      const success = await purchaseProduct(product);
       if (success) {
         onNext();
       }
@@ -98,7 +91,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white border-0 pt-3"
             >
               <div className="text-center">
-                <div className="text-xl font-bold">$4.99/week</div>
+                <div className="text-xl font-bold">{weeklyPriceDisplay}/week</div>
                 <div className="text-sm opacity-90">Weekly Premium</div>
               </div>
             </Button>
@@ -109,7 +102,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
             className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white border-0"
           >
             <div className="text-center">
-                <div className="text-xl font-bold">$12.99/month</div>
+                <div className="text-xl font-bold">{monthlyPriceDisplay}/month</div>
                 <div className="text-sm opacity-90">Monthly Premium</div>
               </div>
           </Button>

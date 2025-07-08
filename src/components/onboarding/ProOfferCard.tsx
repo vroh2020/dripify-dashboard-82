@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Capacitor } from "@capacitor/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCw } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 import { useToast } from "@/hooks/use-toast";
+import { findProduct } from "@/utils/subscriptionProducts";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -17,79 +17,35 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Find both products
-  const weeklyProduct = offerings?.[0]?.availablePackages?.find(
-    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
-  );
-  
-  const monthlyProduct = offerings?.[0]?.availablePackages?.find(
-    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.monthly ||
-             pkg.product.identifier.includes("1299") ||
-             pkg.product.identifier.includes("pro")
-  );
+  // Resolve products from RevenueCat offerings or fall back to hard-coded stubs
+  const weeklyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.weekly);
+  const monthlyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.monthly);
 
-  const handlePurchase = async (productType: 'weekly' | 'monthly') => {
+  const weeklyPriceDisplay = weeklyProduct?.priceString ?? `$${(weeklyProduct?.price ?? 4.99).toFixed(2)}`;
+  const monthlyPriceDisplay = monthlyProduct?.priceString ?? `$${(monthlyProduct?.price ?? 12.99).toFixed(2)}`;
+
+  const handlePurchase = async (plan: 'weekly' | 'monthly') => {
     if (isProcessing) return;
-    
     setIsProcessing(true);
     setHasError(false);
-    
+
     try {
-      let product;
-      
-      if (productType === 'weekly') {
-        if (weeklyProduct?.product) {
-          product = weeklyProduct.product;
-        } else if (!Capacitor.isNativePlatform()) {
-          product = {
-            identifier: REVENUECAT_CONFIG.products.weekly,
-            title: "Weekly Premium",
-            description: "Weekly Pro subscription",
-            price: 4.99,
-            priceString: "$4.99",
-            currencyCode: "USD",
-            subscriptionPeriod: "P1W",
-          } as any;
-        } else {
-          toast({
-            variant: 'destructive',
-            title: 'Store Unavailable',
-            description: 'We are still connecting to the App Store. Please try again in a moment.'
-          });
-          return;
-        }
-      } else {
-        if (monthlyProduct?.product) {
-          product = monthlyProduct.product;
-        } else if (!Capacitor.isNativePlatform()) {
-          product = {
-            identifier: REVENUECAT_CONFIG.products.monthly,
-            title: "Monthly Premium",
-            description: "Monthly Pro subscription",
-            price: 12.99,
-            priceString: "$12.99",
-            currencyCode: "USD",
-            subscriptionPeriod: "P1M",
-          } as any;
-        } else {
-          toast({
-            variant: 'destructive',
-            title: 'Store Unavailable',
-            description: 'We are still connecting to the App Store. Please try again in a moment.'
-          });
-          return;
-        }
+      const product = plan === 'weekly' ? weeklyProduct : monthlyProduct;
+
+      if (!product) {
+        toast({
+          variant: 'destructive',
+          title: 'Store Unavailable',
+          description: 'We are still connecting to the App Store. Please try again in a moment.'
+        });
+        return;
       }
-      
+
       const success = await purchaseProduct(product);
-      
-      if (success) {
-        setTimeout(onContinue, 1000);
-      } else {
-        setHasError(true);
-      }
+      if (success) setTimeout(onContinue, 1000);
+      else setHasError(true);
     } catch (error) {
-      console.error("Purchase error:", error);
+      console.error('Purchase error:', error);
       setHasError(true);
     } finally {
       setIsProcessing(false);
@@ -169,7 +125,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
                 </div>
               ) : (
                 <div className="text-center">
-                  <div className="text-xl font-bold">$4.99/week</div>
+                  <div className="text-xl font-bold">{weeklyPriceDisplay}/week</div>
                   <div className="text-sm opacity-90">Weekly Premium</div>
                 </div>
               )}
@@ -194,7 +150,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
               </div>
             ) : (
               <div className="text-center">
-                <div className="text-xl font-bold">$12.99/month</div>
+                <div className="text-xl font-bold">{monthlyPriceDisplay}/month</div>
                 <div className="text-sm opacity-90">Monthly Premium</div>
               </div>
             )}
