@@ -68,7 +68,7 @@
       "localizations" : [
 
       ],
-      "name" : "Drip Max Pro",
+      "name" : "Drip Check Pro",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -89,13 +89,42 @@
           "localizations" : [
             {
               "description" : "Unlock unlimited AI-powered style analysis and personalized fashion recommendations.",
-              "displayName" : "Drip Max Pro Monthly",
+              "displayName" : "Drip Check Pro Monthly",
               "locale" : "en_US"
             }
           ],
           "productID" : "gs_1299_1m",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Monthly $12.99",
+          "subscriptionGroupID" : "21672094",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6741270017",
+          "introductoryOffer" : {
+            "internalID" : "70612346",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock unlimited AI-powered style analysis and personalized fashion recommendations.",
+              "displayName" : "Drip Check Pro Weekly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "gs_499_1w",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Weekly $4.99",
           "subscriptionGroupID" : "21672094",
           "type" : "RecurringSubscription"
         }
