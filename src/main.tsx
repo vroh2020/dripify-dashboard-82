@@ -281,7 +281,7 @@ function initializePerformanceMonitoring() {
 
 // Enhanced startup sequence
 function startApp() {
-  console.log('🚀 Starting Drip Max app with enhanced iOS splash...');
+  console.log('🚀 Starting Drip Check app with enhanced iOS splash...');
   initializePerformanceMonitoring();
   
   const launcher = new AppLauncher();

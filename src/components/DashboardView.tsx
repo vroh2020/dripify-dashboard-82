@@ -197,7 +197,7 @@ export const DashboardView = () => {
                   </div>
                 </div>
                 <p className="text-white/70 mb-6 leading-relaxed">
-                  Welcome to Drip Max! Take your first style scan to get personalized fashion insights and start building your style streak.
+                  Welcome to Drip Check! Take your first style scan to get personalized fashion insights and start building your style streak.
                 </p>
                 <Button 
                   onClick={() => navigate('/scan')} 

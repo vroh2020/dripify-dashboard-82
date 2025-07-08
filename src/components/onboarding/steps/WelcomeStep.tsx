@@ -57,7 +57,7 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
             <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
               Welcome to{" "}
               <span className="bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text">
-                Drip Max
+                Drip Check
               </span>
             </h1>
             <p className="text-white/80 text-lg leading-relaxed">

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRevenueCatManager } from './useRevenueCatManager';
 import { useToast } from './use-toast';
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
+import { Capacitor } from '@capacitor/core';
 
 export const useRevenueCat = () => {
   const {
@@ -30,8 +31,17 @@ export const useRevenueCat = () => {
       let resolvedProduct = product;
 
       if (!resolvedProduct) {
-        // Offerings may not have loaded yet (especially immediately after login).
-        // Fall back to a minimal product object so the web-demo flow can still proceed.
+        // If running on native, we MUST have the real product from RevenueCat.
+        if (Capacitor.isNativePlatform()) {
+          toast({
+            variant: 'destructive',
+            title: 'Store Unavailable',
+            description: 'We are still connecting to the App Store. Please try again in a moment.'
+          });
+          return false;
+        }
+
+        // Web-demo fallback – create a minimal product so simulation continues.
         resolvedProduct = {
           identifier: productId,
           title: productId === REVENUECAT_CONFIG.products.weekly ? 'Weekly Premium' : 'Monthly Premium',
@@ -40,7 +50,7 @@ export const useRevenueCat = () => {
           priceString: productId === REVENUECAT_CONFIG.products.weekly ? '$4.99' : '$12.99',
           currencyCode: 'USD',
           subscriptionPeriod: productId === REVENUECAT_CONFIG.products.weekly ? 'P1W' : 'P1M',
-        } as any; // Cast because we are only using a subset of fields on web
+        } as any;
       }
       
       const result = await managerPurchase(resolvedProduct); // Pass the full/ fallback product object

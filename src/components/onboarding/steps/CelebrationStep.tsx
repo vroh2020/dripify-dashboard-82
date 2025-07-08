@@ -45,7 +45,7 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
             Congratulations!
           </h2>
           <p className="text-white/80 text-xl leading-relaxed max-w-md">
-            You've just experienced the power of Drip Max!
+            You've just experienced the power of Drip Check!
           </p>
           
           <div className="space-y-4">

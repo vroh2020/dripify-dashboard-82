@@ -6,6 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
 
+// Global flag to prevent duplicate RevenueCat configuration across multiple hook instances
+let RC_GLOBAL_INITIALIZED = false;
+let RC_LAST_LOGGED_IN_USER: string | null = null;
+
 export type SubscriptionStatus = {
   isActive: boolean;
   expirationDate: Date | null;
@@ -174,11 +178,15 @@ export const useRevenueCatManager = () => {
           onboarding_completed: true,
           subscription_status: 'active',
           subscription_expiry: expiryDate.toISOString(),
-          subscription_product_id: product.identifier,
+          // The following optional fields may not exist in all databases. Ignore errors if they do.
+          subscription_product_id: (product as any).identifier ?? product.identifier,
           subscription_platform: 'web'
         }).eq('id', user.id);
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          // Don't block the simulated payment flow – log and continue.
+          console.warn('Non-fatal profile update error (web purchase):', profileError.message || profileError);
+        }
         
         setSubscription(newSubscription);
         const planType = isWeekly ? 'weekly' : 'monthly';
@@ -410,16 +418,27 @@ export const useRevenueCatManager = () => {
           throw new Error('No API key');
         }
 
-        // First configure RevenueCat
-        await Purchases.configure({
-          apiKey: data.publicKey,
-          appUserID: null // Required by type definition
-        });
+        // First configure RevenueCat (only once per app lifetime)
+        if (!RC_GLOBAL_INITIALIZED) {
+          await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+          await Purchases.configure({
+            apiKey: data.publicKey,
+            appUserID: null // Let RevenueCat generate one, we'll logIn right after
+          });
+          RC_GLOBAL_INITIALIZED = true;
+        } else {
+          console.log('ℹ️ RevenueCat already configured globally, skipping duplicate call');
+        }
 
         // Then explicitly log in the user to switch to their account
         try {
-          await Purchases.logIn({ appUserID: user.id });
-          console.log('🔄 Logged in RevenueCat user:', user.id);
+          if (RC_LAST_LOGGED_IN_USER !== user.id) {
+            await Purchases.logIn({ appUserID: user.id });
+            RC_LAST_LOGGED_IN_USER = user.id;
+            console.log('🔄 Logged in RevenueCat user:', user.id);
+          } else {
+            console.log('ℹ️ RevenueCat already logged in as user', user.id);
+          }
           
           // Now check their subscription status
           const { customerInfo } = await Purchases.getCustomerInfo();

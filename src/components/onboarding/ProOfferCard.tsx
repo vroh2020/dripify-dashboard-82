@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCw } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { REVENUECAT_CONFIG } from "@/config/revenueCat";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -11,6 +13,7 @@ interface ProOfferCardProps {
 
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const { offerings, purchaseProduct, isPro, isLoading } = useSubscription();
+  const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
@@ -35,25 +38,47 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       let product;
       
       if (productType === 'weekly') {
-        product = weeklyProduct?.product || {
-          identifier: REVENUECAT_CONFIG.products.weekly,
-          title: "Weekly Premium",
-          description: "Weekly Pro subscription",
-          price: 4.99,
-          priceString: "$4.99",
-          currencyCode: "USD",
-          subscriptionPeriod: "P1W",
-        };
+        if (weeklyProduct?.product) {
+          product = weeklyProduct.product;
+        } else if (!Capacitor.isNativePlatform()) {
+          product = {
+            identifier: REVENUECAT_CONFIG.products.weekly,
+            title: "Weekly Premium",
+            description: "Weekly Pro subscription",
+            price: 4.99,
+            priceString: "$4.99",
+            currencyCode: "USD",
+            subscriptionPeriod: "P1W",
+          } as any;
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Store Unavailable',
+            description: 'We are still connecting to the App Store. Please try again in a moment.'
+          });
+          return;
+        }
       } else {
-        product = monthlyProduct?.product || {
-          identifier: REVENUECAT_CONFIG.products.monthly,
-          title: "Monthly Premium",
-          description: "Monthly Pro subscription",
-          price: 12.99,
-          priceString: "$12.99",
-          currencyCode: "USD",
-          subscriptionPeriod: "P1M",
-        };
+        if (monthlyProduct?.product) {
+          product = monthlyProduct.product;
+        } else if (!Capacitor.isNativePlatform()) {
+          product = {
+            identifier: REVENUECAT_CONFIG.products.monthly,
+            title: "Monthly Premium",
+            description: "Monthly Pro subscription",
+            price: 12.99,
+            priceString: "$12.99",
+            currencyCode: "USD",
+            subscriptionPeriod: "P1M",
+          } as any;
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Store Unavailable',
+            description: 'We are still connecting to the App Store. Please try again in a moment.'
+          });
+          return;
+        }
       }
       
       const success = await purchaseProduct(product);

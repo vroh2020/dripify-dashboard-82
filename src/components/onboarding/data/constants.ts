@@ -7,7 +7,7 @@ export const goalOptions = [
   { id: "get-drippy", title: "Get Drippy", description: "Elevate my style game", emoji: "🔥" },
   { id: "find-outfits", title: "Find Good Outfits", description: "Discover what looks good on me", emoji: "👔" },
   { id: "get-partner", title: "Trying to get a BF/GF", description: "Look attractive for dating", emoji: "💕" },
-  { id: "drip-max", title: "Drip Max", description: "Become a style icon", emoji: "🏆" }
+  { id: "drip-check", title: "Drip Check", description: "Become a style icon", emoji: "🏆" }
 ];
 
 export const totalSteps = 8;

@@ -28,12 +28,18 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
 
       if (!productToPurchase) {
         console.error(`Product ${identifier} not found in offerings.`);
-        // Fallback for web demo
+        if (Capacitor.isNativePlatform()) {
+          // On native, we need the real product – show error message.
+          alert('We are still connecting to the App Store. Please try again in a moment.');
+          return;
+        }
+
+        // Web demo fallback
         const fallbackProduct = {
           identifier,
           priceString: productType === 'weekly' ? '$4.99' : '$12.99',
-        };
-        const success = await purchaseProduct(fallbackProduct as any);
+        } as any;
+        const success = await purchaseProduct(fallbackProduct);
         if (success) onNext();
         return;
       }
