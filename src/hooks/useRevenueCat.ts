@@ -17,20 +17,24 @@ export const useRevenueCat = () => {
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
 
-  const purchaseProduct = useCallback(async (productId: string) => {
+  const purchaseProduct = useCallback(async (input: any) => {
+    // Accept either a full product object or a legacy identifier string
+    const isStringId = typeof input === 'string';
+    const productId = isStringId ? input : input?.identifier;
+
+    if (!productId) {
+      console.error('purchaseProduct called without product identifier');
+      return false;
+    }
     if (isPurchasing) return false;
     
     setIsPurchasing(true);
     try {
-      // Find the product object from offerings using the productId
-      const product = offerings
-        ?.flatMap(offering => offering.availablePackages)
-        ?.find(pkg => pkg.product.identifier === productId)
-        ?.product;
-      
-      let resolvedProduct = product;
+      let productObj = isStringId
+        ? offerings?.flatMap(o => o.availablePackages).find(p => p.product.identifier === productId)?.product
+        : input;
 
-      if (!resolvedProduct) {
+      if (!productObj) {
         // If running on native, we MUST have the real product from RevenueCat.
         if (Capacitor.isNativePlatform()) {
           toast({
@@ -42,7 +46,7 @@ export const useRevenueCat = () => {
         }
 
         // Web-demo fallback – create a minimal product so simulation continues.
-        resolvedProduct = {
+        productObj = {
           identifier: productId,
           title: productId === REVENUECAT_CONFIG.products.weekly ? 'Weekly Premium' : 'Monthly Premium',
           description: 'Pro subscription',
@@ -52,8 +56,8 @@ export const useRevenueCat = () => {
           subscriptionPeriod: productId === REVENUECAT_CONFIG.products.weekly ? 'P1W' : 'P1M',
         } as any;
       }
-      
-      const result = await managerPurchase(resolvedProduct); // Pass the full/ fallback product object
+
+      const result = await managerPurchase(productObj); // Pass the full product object
       if (result) {
         toast({
           title: "Success!",

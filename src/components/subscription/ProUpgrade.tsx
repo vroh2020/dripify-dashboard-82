@@ -5,6 +5,7 @@ import { Sparkles, Check, RefreshCw, Timer, Calendar, Crown } from "lucide-react
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { format } from "date-fns";
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
+import { Capacitor } from '@capacitor/core';
 
 interface ProUpgradeProps {
   compact?: boolean;
@@ -40,13 +41,26 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
   const handlePurchase = async (planType: 'weekly' | 'monthly' = 'weekly') => {
     const targetProduct = planType === 'weekly' ? weeklyProduct : monthlyProduct;
 
-    // If the product is found in the current offerings use it, otherwise fall back
-    // to the known identifier so the web-demo flow can still proceed.
-    const productId = targetProduct?.product.identifier ?? (
-      planType === 'weekly' ? REVENUECAT_CONFIG.products.weekly : REVENUECAT_CONFIG.products.monthly
-    );
+    if (targetProduct?.product) {
+      await purchaseProduct(targetProduct.product);
+      return;
+    }
 
-    await purchaseProduct(productId);
+    // Fallbacks when offerings aren’t loaded yet
+    if (!Capacitor.isNativePlatform()) {
+      const fallbackProduct = {
+        identifier: planType === 'weekly' ? REVENUECAT_CONFIG.products.weekly : REVENUECAT_CONFIG.products.monthly,
+        title: planType === 'weekly' ? 'Weekly Premium' : 'Monthly Premium',
+        description: 'Pro subscription',
+        price: planType === 'weekly' ? 4.99 : 12.99,
+        priceString: planType === 'weekly' ? '$4.99' : '$12.99',
+        currencyCode: 'USD',
+        subscriptionPeriod: planType === 'weekly' ? 'P1W' : 'P1M',
+      } as any;
+      await purchaseProduct(fallbackProduct);
+    } else {
+      alert('We are still connecting to the App Store. Please try again in a moment.');
+    }
   };
 
   // Handle restore
