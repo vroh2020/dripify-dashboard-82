@@ -6,6 +6,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
 
+// Lightweight debug logger – only logs in dev mode
+const dbg = (...args: unknown[]) => {
+  // Using any cast to avoid TS complaints in non-Vite environments
+  if ((import.meta as any).env?.DEV) console.log(...args);
+};
+
 // Global flag to prevent duplicate RevenueCat configuration across multiple hook instances
 let RC_GLOBAL_INITIALIZED = false;
 let RC_LAST_LOGGED_IN_USER: string | null = null;
@@ -46,7 +52,7 @@ export const useRevenueCatManager = () => {
         const expiryTimestamp = customerInfo.latestExpirationDate || null;
         const expiryDate = expiryTimestamp ? new Date(expiryTimestamp) : null;
         
-        console.log('🔄 fetchSubscriptionStatus result:', { isPro, expiryDate });
+        dbg('🔄 fetchSubscriptionStatus result:', { isPro, expiryDate });
         
         // Check if subscription is expired or expiring soon
         if (expiryDate) {
