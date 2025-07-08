@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
 import type { Session, User } from '@supabase/supabase-js';
+import { useToast } from "@/hooks/use-toast";
 
 interface AuthState {
   session: Session | null;
@@ -25,6 +26,18 @@ export function useAuth(): AuthState & AuthActions {
     isAuthenticated: false,
     error: null
   });
+
+  // Add this effect to handle RevenueCat login
+  useEffect(() => {
+    if (authState.user && Capacitor.isNativePlatform()) {
+      console.log('🚀 Auth user identified, logging into RevenueCat...', authState.user.id);
+      import('@revenuecat/purchases-capacitor').then(({ Purchases }) => {
+        Purchases.logIn({ appUserID: authState.user.id })
+          .then(() => console.log('✅ RevenueCat login successful from useAuth effect'))
+          .catch(error => console.error('❌ RevenueCat login failed from useAuth effect:', error));
+      });
+    }
+  }, [authState.user]);
 
   const mountedRef = useRef(true);
   const lastEventRef = useRef<string | null>(null);

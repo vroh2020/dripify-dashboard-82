@@ -2,13 +2,17 @@ import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { isLoading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
 
-  // Handle OAuth errors
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const authError = urlParams.get('error');
@@ -24,11 +28,22 @@ export const Auth = () => {
     }
   }, [location.search, toast]);
 
+  useEffect(() => {
+    if (!authLoading && !onboardingLoading) {
+      if (isAuthenticated && hasCompletedOnboarding) {
+        navigate("/dashboard", { replace: true });
+      }
+    }
+  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, navigate]);
+
   const handleComplete = () => {
     navigate("/dashboard", { replace: true });
   };
 
-  // Don't show loading screen - ModernOnboarding handles its own loading states
+  if (authLoading || onboardingLoading) {
+    return <LoadingScreen message="Checking your status..." />;
+  }
+
   return <ModernOnboarding onComplete={handleComplete} />;
 };
 
