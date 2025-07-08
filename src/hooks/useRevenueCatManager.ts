@@ -224,7 +224,7 @@ export const useRevenueCatManager = () => {
       console.log('🔄 Starting native purchase flow for:', product.identifier);
       
       // CRITICAL FIX: Always attempt actual purchase, don't assume existing subscription
-      const result = await Purchases.purchaseStoreProduct(product);
+      const result = await Purchases.purchaseStoreProduct({ productIdentifier: product.identifier });
       console.log('✅ Purchase result:', result);
       
       // Validate the purchase was actually completed
