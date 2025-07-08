@@ -520,23 +520,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="absolute top-0 left-0 right-0 z-50 p-4">
-              <div className="w-full bg-white/10 rounded-full h-2 backdrop-blur-sm">
-                <div 
-                  className="bg-gradient-to-r from-orange-500 to-orange-400 h-2 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${(getCurrentStepNumber() / totalSteps) * 100}%` }}
-                />
-              </div>
-            </div>
-
             <div className="flex-1 px-4 pb-4 pt-16">
               <Card className="min-h-[calc(100vh-80px)] backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-3xl">
                 <CardContent className="p-0 h-full relative">
-                  <StyleLoadingOverlay 
-                    isAnalyzing={isAnalyzing} 
-                    timeoutDuration={90000}
-                  />
                   
                   <div className="h-full overflow-y-auto">
                     <AnimatePresence mode="wait">

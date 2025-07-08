@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Drip Max</string>
-    <string name="title_activity_main">Drip Max</string>
+    <string name="app_name">Drip Check</string>
+    <string name="title_activity_main">Drip Check</string>
     <string name="package_name">com.dripmax.app</string>
     <string name="custom_url_scheme">com.dripmax.app</string>
 </resources>

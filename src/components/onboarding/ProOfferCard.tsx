@@ -37,7 +37,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       const product = proProduct || {
         identifier: "gs_1299_1m",
         title: "Pro Monthly",
-        description: "Pro subscription with 7-day free trial",
+        description: "Pro subscription",
         price: 12.99,
         priceString: "$12.99",
         currencyCode: "USD",
@@ -77,7 +77,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
 
         {/* Title */}
         <h3 className="text-2xl font-bold text-white text-center mb-2">
-          Try Drip Max for free
+          Try Drip Max Pro
         </h3>
 
         {/* Features List */}
@@ -100,10 +100,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4 mb-6 text-center">
           <div className="text-white/90 text-lg">
             <span className="font-bold text-2xl text-orange-400">{formattedPrice}</span>
-            <span className="text-base"> Annual</span>
+            <span className="text-base"> Monthly</span>
           </div>
           <div className="text-orange-300 text-sm mt-1">
-            First 7 days free
+            Monthly Subscription
           </div>
         </div>
 
@@ -134,7 +134,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           {isProcessing ? (
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Starting Trial...
+              Starting Subscription...
             </div>
           ) : hasError ? (
             <div className="flex items-center gap-2">
@@ -142,14 +142,14 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
               Try Again
             </div>
           ) : (
-            "Try free and subscribe"
+            "Subscribe to Pro"
           )}
         </Button>
 
         {/* Small Text Links */}
         <div className="flex justify-between items-center mt-4 text-sm text-white/60">
-          <button className="hover:text-white/80">Restore Purchase</button>
-          <button className="hover:text-white/80">Terms & Conditions</button>
+          <button className="hover:text-white/80"></button>
+          <button className="hover:text-white/80"></button>
         </div>
       </CardContent>
     </Card>

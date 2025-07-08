@@ -14,13 +14,11 @@ export const DashboardHeader = ({ hasScans, totalScans }: DashboardHeaderProps) 
       className="py-8 flex justify-between items-start"
     >
       <div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-[#9b87f5] to-[#D6BCFA] text-transparent bg-clip-text">
-          {hasScans ? `Welcome Back!` : 'Welcome to DripCheck'}
-        </h1>
-        <p className="text-[#C8C8C9] text-sm mt-1">
-          {hasScans 
-            ? `You've completed ${totalScans} style ${totalScans === 1 ? 'scan' : 'scans'}!` 
-            : "Let's discover your unique style"}
+        <div className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-500">
+          Drip Max
+        </div>
+        <p className="text-white/70 text-sm">
+          Style Analysis
         </p>
       </div>
     </motion.div>

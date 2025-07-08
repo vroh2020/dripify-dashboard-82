@@ -12,6 +12,8 @@ import { ProUpgrade } from "@/components/subscription/ProUpgrade";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfileStats } from "@/components/profile/ProfileStats";
+import { Button } from "@/components/ui/button";
+import { Crown, BadgeInfo, LogOut, ShieldCheck, User, Star, Trash2, Heart } from "lucide-react";
 
 interface Profile {
   username: string;
@@ -161,8 +163,6 @@ const Profile = () => {
             </div>
           </CardContent>
         </Card>
-
-        <ProUpgrade />
 
         <ProfileStats stats={stats} />
 

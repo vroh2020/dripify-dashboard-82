@@ -37,31 +37,9 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
         </motion.div>
 
         <div className="text-center space-y-6">
-          <h1 className="text-4xl font-bold text-white leading-tight">
-            {isWeb ? (
-              <>
-                Try Drip Max
-                <br />
-                <span className="text-orange-400 text-5xl">Web Demo</span>
-                <br />
-                with a simulated
-                <br />
-                <span className="text-orange-400">7-day trial</span>
-              </>
-            ) : (
-              <>
-                We offer
-                <br />
-                <span className="text-orange-400 text-5xl">7 days free</span>
-                <br />
-                so everyone can
-                <br />
-                max their drip with
-                <br />
-                <span className="text-orange-400">Drip Max</span>
-              </>
-            )}
-          </h1>
+          <h2 className="text-4xl font-bold text-white leading-tight">
+            We offer a monthly plan to try out Drip Check
+          </h2>
 
           {isWeb && (
             <p className="text-white/70 text-sm mt-4">

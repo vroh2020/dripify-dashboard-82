@@ -194,44 +194,17 @@ export const ScanView = () => {
                 isOnboarding={false}
               />
 
-              {/* Detailed feedback */}
-              {result.summary && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-black/30 backdrop-blur-lg border-white/10 rounded-lg"
-                >
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">Detailed Analysis</h3>
-                    <p className="text-white/80 leading-relaxed">
-                      {result.summary}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Style tips */}
-              {result.tips && result.tips.length > 0 && (
-                <StyleTips tips={result.tips} />
-              )}
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="flex justify-center gap-4"
-              >
-                <Button
+              {/* Action Buttons */}
+              <div className="p-6 bg-zinc-900/50 rounded-b-2xl">
+                <Button 
                   onClick={handleRestart}
                   variant="outline"
-                  size="lg"
-                  className="rounded-full bg-gray-800 hover:bg-gray-700 text-white border-white/20"
+                  className="w-full h-14 text-lg"
                 >
-                  <Camera className="w-5 h-5 mr-2" />
-                  Scan Again
+                  <Camera className="mr-2" />
+                  Retake
                 </Button>
-              </motion.div>
+              </div>
             </div>
           )}
         </motion.div>
