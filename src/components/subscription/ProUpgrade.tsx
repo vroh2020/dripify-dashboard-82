@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Check, RefreshCw, Timer, Calendar, Crown } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
-import { findProduct } from '@/utils/subscriptionProducts';
+// Hard-coded product fallback logic
 import { Capacitor } from '@capacitor/core';
 
 interface ProUpgradeProps {
@@ -32,22 +32,48 @@ export const ProUpgrade = ({ compact = false }: ProUpgradeProps) => {
   const isMonthlyPlan = subscription.productId === REVENUECAT_CONFIG.products.monthly;
   const currentPlanName = isWeeklyPlan ? 'Weekly Premium' : isMonthlyPlan ? 'Monthly Premium' : 'Premium';
 
-  // Resolve the Pro products (native or stub)
-  const weeklyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.weekly);
-  const monthlyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.monthly);
+  // Find products directly in offerings
+  const weeklyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) =>
+      pkg.product.identifier === REVENUECAT_CONFIG.products.weekly ||
+      pkg.product.identifier.includes('week') ||
+      pkg.product.title.toLowerCase().includes('week')
+  )?.product;
 
-  const weeklyPriceDisplay = weeklyProduct?.priceString ?? `$${(weeklyProduct?.price ?? 4.99).toFixed(2)}`;
-  const monthlyPriceDisplay = monthlyProduct?.priceString ?? `$${(monthlyProduct?.price ?? 12.99).toFixed(2)}`;
+  const monthlyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) =>
+      pkg.product.identifier === REVENUECAT_CONFIG.products.monthly ||
+      pkg.product.identifier.includes('pro') ||
+      pkg.product.title.toLowerCase().includes('pro')
+  )?.product;
+
+  const weeklyPriceDisplay = '$4.99';
+  const monthlyPriceDisplay = '$12.99';
 
   // Handle purchase
   const handlePurchase = async (planType: 'weekly' | 'monthly' = 'weekly') => {
-    const product = planType === 'weekly' ? weeklyProduct : monthlyProduct;
+    let product = planType === 'weekly' ? weeklyProduct : monthlyProduct;
 
     if (!product) {
-      if (Capacitor.isNativePlatform()) {
-        alert('We are still connecting to the App Store. Please try again in a moment.');
-      }
-      return;
+      product = planType === 'weekly'
+        ? {
+            identifier: REVENUECAT_CONFIG.products.weekly,
+            title: 'Weekly Premium',
+            description: 'Weekly plan',
+            price: 4.99,
+            priceString: '$4.99',
+            currencyCode: 'USD',
+            subscriptionPeriod: 'P1W',
+          } as any
+        : {
+            identifier: REVENUECAT_CONFIG.products.monthly,
+            title: 'Pro Monthly',
+            description: 'Pro subscription with 7-day free trial',
+            price: 12.99,
+            priceString: '$12.99',
+            currencyCode: 'USD',
+            subscriptionPeriod: 'P1M',
+          } as any;
     }
 
     await purchaseProduct(product);

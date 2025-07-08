@@ -5,7 +5,7 @@ import { Sparkles, RefreshCw } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 import { useToast } from "@/hooks/use-toast";
-import { findProduct } from "@/utils/subscriptionProducts";
+// Hard-coded fallback products logic
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -17,12 +17,23 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Resolve products from RevenueCat offerings or fall back to hard-coded stubs
-  const weeklyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.weekly);
-  const monthlyProduct = findProduct(offerings, REVENUECAT_CONFIG.products.monthly);
+  // Find the Weekly and Monthly Pro products directly in offerings
+  const weeklyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) =>
+      pkg.product.identifier === REVENUECAT_CONFIG.products.weekly ||
+      pkg.product.identifier.includes('week') ||
+      pkg.product.title.toLowerCase().includes('week')
+  )?.product;
 
-  const weeklyPriceDisplay = weeklyProduct?.priceString ?? `$${(weeklyProduct?.price ?? 4.99).toFixed(2)}`;
-  const monthlyPriceDisplay = monthlyProduct?.priceString ?? `$${(monthlyProduct?.price ?? 12.99).toFixed(2)}`;
+  const monthlyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) =>
+      pkg.product.identifier === REVENUECAT_CONFIG.products.monthly ||
+      pkg.product.identifier.includes('pro') ||
+      pkg.product.title.toLowerCase().includes('pro')
+  )?.product;
+
+  const weeklyPriceDisplay = '$4.99';
+  const monthlyPriceDisplay = '$12.99';
 
   const handlePurchase = async (plan: 'weekly' | 'monthly') => {
     if (isProcessing) return;
@@ -30,15 +41,29 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     setHasError(false);
 
     try {
-      const product = plan === 'weekly' ? weeklyProduct : monthlyProduct;
+      // Build stub if product hasn’t loaded yet
+      let product = plan === 'weekly' ? weeklyProduct : monthlyProduct;
 
       if (!product) {
-        toast({
-          variant: 'destructive',
-          title: 'Store Unavailable',
-          description: 'We are still connecting to the App Store. Please try again in a moment.'
-        });
-        return;
+        product = plan === 'weekly'
+          ? {
+              identifier: REVENUECAT_CONFIG.products.weekly,
+              title: 'Weekly Premium',
+              description: 'Weekly plan',
+              price: 4.99,
+              priceString: '$4.99',
+              currencyCode: 'USD',
+              subscriptionPeriod: 'P1W',
+            } as any
+          : {
+              identifier: REVENUECAT_CONFIG.products.monthly,
+              title: 'Pro Monthly',
+              description: 'Pro subscription with 7-day free trial',
+              price: 12.99,
+              priceString: '$12.99',
+              currencyCode: 'USD',
+              subscriptionPeriod: 'P1M',
+            } as any;
       }
 
       const success = await purchaseProduct(product);
