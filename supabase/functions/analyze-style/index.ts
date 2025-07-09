@@ -39,48 +39,29 @@ function checkRateLimit(clientId: string, maxRequests = 10, windowMs = 60000): b
 
 // Enhanced prompt for better scoring
 function createAnalysisPrompt(style?: string): string {
-  const basePrompt = `You are a Gen Z fashion expert and style consultant who understands modern drip culture. Analyze this outfit photo and rate it using contemporary style categories that resonate with young people.
+  const basePrompt = `Act as a world-class fashion stylist for Gen Z streetwear and high fashion. Analyze this outfit in detail and give brutally honest but constructive feedback. 
 
-CRITICAL: Your response MUST follow this EXACT format with scores out of 100:
+  CRITICAL: Your response MUST follow this EXACT format. Here is an example:
 
-**Overall Score:** [number 1-100]
+  ---
+  **Vibe:** Minimalist Hypebeast
 
-**Aura:** [number 1-100]
-Rate the overall vibe, confidence projection, and how much presence this outfit commands.
+  **Overall Score:** 7/10
+  
+  **What's Working:** 
+  • The clean, monochrome color palette is on point. The fit of the hoodie and joggers is relaxed but not sloppy, which is key for this aesthetic.
+  
+  **What's Not:** 
+  • The sneakers are a bit too generic. A classic white sneaker is fine, but this look needs something with more personality to elevate it.
+  
+  **Elevate The Drip:** 
+  • Swap the current sneakers for a pair of New Balance 550s or Adidas Sambas to add a touch of vintage cool. A simple silver chain or a classic Casio watch would also complete the look.
+  ---
 
-**Drip Quality:** [number 1-100] 
-Evaluate the overall freshness and quality of styling execution.
-
-**Potential:** [number 1-100]
-Assess how much this outfit could be elevated with small changes.
-
-**Color Coordination:** [number 1-100]
-Analyze color harmony and how well the colors work together.
-
-**Attractiveness:** [number 1-100]
-Rate how appealing and eye-catching this outfit is.
-
-**Summary:**
-[Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]
-
----
-**Detailed Analysis:**
-
-**Vibe:** [e.g., Techwear Rebel, Vintage King, Y2K Baddie]
-
-**What's Working:**
-• [Detailed point about colors, fit, layers, accessories]
-
-**What's Not:**
-• [Detailed point about what could be improved]
-
-**Elevate The Drip:**
-• [1-2 specific swaps or additions, including brand or style names]
-
-IMPORTANT: Do not use asterisks or quotation marks in your response. Be cool, concise, and creative — like a fashion editor who knows TikTok culture and runway trends.`;
+  Now, analyze the following image using the same format. Do not use asterisks or quotation marks in your response.`;
 
   if (style) {
-    return basePrompt + `\n\nSPECIAL STYLE FOCUS: Analyze how well this outfit represents "${style}" aesthetic.`;
+    return basePrompt + `\n\nSPECIAL STYLE FOCUS: Analyze how well this outfit represents the "${style}" aesthetic.`;
   }
   
   return basePrompt;
