@@ -1,10 +1,10 @@
-# Privacy Policy for Drip Check
+# Privacy Policy for Dripify AI
 
-**Last Updated:** July 9, 2025
+**Last Updated:** July 15, 2024
 
-## Introduction
+Welcome to Dripify AI ("we," "our," or "us"). We respect your privacy and are committed to protecting your personal data. This privacy policy explains how we collect, use, and safeguard your information when you use our mobile application ("App").
 
-Welcome to Drip Check ("we," "our," or "us"). We respect your privacy and are committed to protecting your personal data. This privacy policy explains how we collect, use, and safeguard your information when you use our mobile application.
+We encourage you to read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the App.
 
 ## Information We Collect
 

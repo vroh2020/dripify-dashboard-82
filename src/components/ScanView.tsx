@@ -117,7 +117,7 @@ export const ScanView = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="px-4 relative"
+      className="px-4 relative pt-4"
     >
       {/* Style Loading Overlay */}
       <StyleLoadingOverlay 

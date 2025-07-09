@@ -1,4 +1,4 @@
-# 🚀 App Store Submission Checklist - Drip Check
+# 🚀 App Store Submission Checklist - Dripify AI
 
 ## ✅ **COMPLETED ITEMS** (95% Done!)
 
@@ -32,7 +32,7 @@
 ### 1. App Store Connect Metadata (CRITICAL)
 
 #### App Information Section
-- [ ] **App Name**: "Drip Check" ✅ (already set)
+- [ ] **App Name**: "Dripify AI" ✅ (already set)
 - [ ] **Subtitle**: "AI Style Analysis & Tips" (30 chars max)
 - [ ] **Keywords**: "style,fashion,outfit,analysis,AI,clothing,rating,drip,wardrobe,fashionista"
 - [ ] **Description**: Use the comprehensive description from APP_STORE_METADATA.md
@@ -154,7 +154,7 @@
 - **App Store Connect Help**: https://appstoreconnect.apple.com/help
 
 ### Your App Information
-- **App Name**: Drip Check
+- **App Name**: Dripify AI
 - **Bundle ID**: com.genstyle.app
 - **Support Email**: ramcharanvelpuri@gmail.com
 - **Website**: https://dripcheck.framer.website

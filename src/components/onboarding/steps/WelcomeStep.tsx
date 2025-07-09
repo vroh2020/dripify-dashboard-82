@@ -54,16 +54,23 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
           </motion.div>
           
           <div className="space-y-4 text-center mb-6">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
-              Welcome to{" "}
-              <span className="bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text">
-                Drip Check
-              </span>
-            </h1>
-            <p className="text-white/70 max-w-sm mt-4 text-lg">
-              Your AI stylist is here!<br />
-              Get instant style ratings & become the best dressed you.
-            </p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6, duration: 0.5 }}
+              className="text-center"
+            >
+              <h1 className="text-5xl md:text-6xl font-extrabold text-white tracking-tighter">
+                Welcome to
+                <br />
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
+                  Dripify AI
+                </span>
+              </h1>
+              <p className="mt-6 text-lg md:text-xl max-w-2xl mx-auto text-white/70">
+                Get instant, AI-powered feedback on your style.
+              </p>
+            </motion.div>
           </div>
 
           <motion.div 

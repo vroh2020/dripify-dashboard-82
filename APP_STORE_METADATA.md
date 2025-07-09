@@ -1,72 +1,35 @@
-# 📱 App Store Metadata for Drip Check
+# 📱 App Store Metadata for Dripify AI
 
 ## App Information
 
 ### App Name
-**Drip Check**
+**Dripify AI**
 
 ### Subtitle (30 characters max)
-**AI Style Analysis & Tips**
+AI-Powered Style Analysis
 
 ### Keywords (100 characters max)
 **style,fashion,outfit,analysis,AI,clothing,rating,drip,wardrobe,fashionista**
 
 ### App Description (4,000 characters max)
 ```
-Transform your style with AI-powered outfit analysis! Drip Check uses advanced artificial intelligence to analyze your photos and provide personalized style ratings, detailed breakdowns, and actionable fashion tips.
+Transform your style with AI-powered outfit analysis! Dripify AI uses advanced artificial intelligence to analyze your photos and provide personalized style ratings, detailed breakdowns, and actionable fashion tips.
 
-🎯 **INSTANT STYLE ANALYSIS**
-Upload a photo of your outfit and get an instant AI-powered rating. Our advanced algorithm analyzes color coordination, fit, style coherence, and overall fashion sense to give you a comprehensive score.
+Whether you're getting ready for a date, a night out, or just want to improve your daily look, Dripify AI is your personal style coach.
 
-📊 **DETAILED BREAKDOWN**
-Get specific feedback on:
-• Color Coordination - How well your colors work together
-• Fit & Silhouette - How your clothes complement your body
-• Style Coherence - How well your pieces match your aesthetic
-• Overall Impact - The complete look and feel
+**Key Features:**
+- **AI Style Score:** Get an objective score on your outfit's style.
+- **Detailed Analysis:** Understand what works and what doesn't, from color coordination to fit.
+- **Personalized Tips:** Receive actionable advice to instantly improve your look.
+- **Track Your Progress:** See how your style evolves over time.
+- **Inspiration:** Discover new styles and trends.
 
-💡 **PERSONALIZED TIPS**
-Receive customized advice based on your analysis:
-• Specific improvement suggestions
-• Style recommendations
-• Color palette advice
-• Fit optimization tips
-
-📈 **TRACK YOUR PROGRESS**
-Monitor your style evolution over time:
-• Historical analysis tracking
-• Progress visualization
-• Style improvement insights
-• Personal fashion journey
-
-🔒 **PRIVATE & SECURE**
-• Your photos are processed securely
-• No data shared with third parties
-• Apple Sign-In for privacy protection
-• Local photo processing
-
-✨ **PREMIUM FEATURES**
-• Unlimited style analyses
-• Advanced AI insights
-• Detailed style breakdowns
-• Personalized recommendations
-• Progress tracking
-• Priority support
-
-Perfect for:
-• Fashion enthusiasts looking to improve their style
-• Anyone wanting objective outfit feedback
-• Style-conscious individuals
-• Fashion bloggers and influencers
-• Anyone building their personal brand
-
-Download Drip Check today and elevate your style game with AI-powered fashion analysis!
+Download Dripify AI today and elevate your style game with AI-powered fashion analysis!
 
 ---
 
 **Privacy & Terms:**
 Your privacy is our priority. We use Apple Sign-In for secure authentication and process your photos locally for analysis. View our complete privacy policy and terms of service at https://dripcheck.framer.website
-```
 
 ### Support URL
 **https://dripcheck.framer.website**
@@ -80,10 +43,10 @@ Your privacy is our priority. We use Apple Sign-In for secure authentication and
 ```
 Dear App Review Team,
 
-Thank you for reviewing Drip Check! Here's what you need to know:
+Thank you for reviewing Dripify AI! Here's what you need to know:
 
 **App Functionality:**
-- Drip Check is an AI-powered style analysis app
+- Dripify AI is an AI-powered style analysis app
 - Users upload outfit photos and receive AI-generated style ratings
 - The app uses Apple Sign-In for authentication
 - All photo processing is done securely through our AI service
@@ -124,7 +87,7 @@ Password: [Use Apple Sign-In]
 If you have any questions or need additional information, please don't hesitate to contact us.
 
 Best regards,
-The Drip Check Team
+The Dripify AI Team
 ```
 
 ### Demo Account (if required)
@@ -132,7 +95,7 @@ The Drip Check Team
 **Password:** Use Apple Sign-In with test account
 
 ### Contact Information
-**Name:** Drip Check Support  
+**Name:** Dripify AI Support  
 **Email:** ramcharanvelpuri@gmail.com  
 **Phone:** [Your support phone number]
 

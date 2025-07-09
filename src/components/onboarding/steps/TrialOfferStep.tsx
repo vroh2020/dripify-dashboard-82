@@ -36,18 +36,10 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
           <Crown className="w-24 h-24 text-orange-400 mx-auto" />
         </motion.div>
 
-        <div className="text-center space-y-6">
-          <h2 className="text-4xl font-bold text-white leading-tight">
-            We offer a monthly plan to try out Drip Check
-          </h2>
-
-          {isWeb && (
-            <p className="text-white/70 text-sm mt-4">
-              This is a web demo. In production, this would open a real payment flow.
-              <br />
-              For demo purposes, you'll be able to simulate a successful payment.
-            </p>
-          )}
+        <div className="text-center">
+          <p className="text-gray-400">
+            We offer a monthly plan to try out Dripify AI
+          </p>
         </div>
       </div>
 

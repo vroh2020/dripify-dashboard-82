@@ -14,7 +14,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>com.genstyle.app</key>
-        <string>Drip Check</string>
+        <string>Dripify AI</string>
     </dict>
     <key>stripSwiftSymbols</key>
     <true/>

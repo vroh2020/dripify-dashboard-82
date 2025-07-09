@@ -11,10 +11,10 @@ export const DashboardHeader = () => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex items-center justify-between px-4 pt-2 pb-4"
+      className="flex items-center justify-between px-4 pt-6 pb-4"
     >
       <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-500">
-        Drip Check
+        Dripify AI
       </h1>
 
       <Button

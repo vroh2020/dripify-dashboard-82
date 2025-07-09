@@ -51,8 +51,11 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
           <h2 className="text-4xl font-bold text-white leading-tight">
             Congratulations!
           </h2>
-          <p className="text-white/80 text-xl leading-relaxed max-w-md">
-            You've just experienced the power of Drip Check!
+          <p className="max-w-md mx-auto text-lg text-white/70">
+            Ready to discover your true style potential?
+          </p>
+          <p className="mt-2 max-w-md mx-auto text-md text-white/50">
+            You've just experienced the power of Dripify AI!
           </p>
           
           <div className="space-y-4">

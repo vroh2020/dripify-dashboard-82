@@ -109,7 +109,7 @@
   "ios": {
     "debug": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "Drip Check",
+      "provisioningProfile": "Dripify AI",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
@@ -117,11 +117,22 @@
     },
     "release": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "Drip Check",
+      "provisioningProfile": "Dripify AI",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
       "bundleIdentifier": "com.genstyle.app"
+    }
+  },
+  "cordova": {},
+  "capacitor": {
+    "ios": {
+      "provisioningProfile": "Dripify AI"
+    }
+  },
+  "capacitor-build": {
+    "ios": {
+      "provisioningProfile": "Dripify AI"
     }
   }
 }

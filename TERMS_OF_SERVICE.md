@@ -1,16 +1,14 @@
-# Terms of Service for Drip Check
+# Terms of Service for Dripify AI
 
-**Last Updated:** July 9, 2025
+**Last Updated:** July 15, 2024
 
 ## Agreement to Terms
-
-By downloading, installing, or using the Drip Check mobile application ("App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the App.
+By downloading, installing, or using the Dripify AI mobile application ("App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the App.
 
 ## Description of Service
-
-Drip Check is an AI-powered style analysis application that:
-- Analyzes outfit photos using artificial intelligence
-- Provides style ratings and personalized fashion feedback
+Dripify AI is an AI-powered style analysis application that:
+- Allows users to upload photos of their outfits.
+- Provides an AI-generated score and analysis of the outfit's style.
 - Tracks your style progress over time
 - Offers premium features through subscription
 
@@ -117,7 +115,7 @@ You agree to indemnify and hold us harmless from any claims, damages, or expense
 
 ## Governing Law
 
-These Terms are governed by the laws of [Your State/Country], without regard to conflict of law principles.
+These Terms shall be governed and construed in accordance with the laws of the State of Delaware, without regard to its conflict of law provisions.
 
 ## Dispute Resolution
 
