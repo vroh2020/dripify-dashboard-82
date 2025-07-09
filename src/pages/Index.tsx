@@ -39,28 +39,6 @@ const Index = () => {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] relative overflow-x-hidden">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex justify-between items-center py-4 px-4 safe-area-top"
-      >
-        <motion.h1 
-          className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text"
-          whileHover={{ scale: 1.05 }}
-          transition={{ duration: 0.2 }}
-        >
-          Drip Max
-        </motion.h1>
-        
-        <Link 
-          to="/profile" 
-          className="p-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-200 hover:scale-110"
-        >
-          <User className="w-5 h-5 text-white/80" />
-        </Link>
-      </motion.div>
-      
       <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-80px)]">
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
