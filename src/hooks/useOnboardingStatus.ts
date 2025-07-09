@@ -52,19 +52,12 @@ export function useOnboardingStatus(): OnboardingStatus {
 
       const onboardingCompleted = profile?.onboarding_completed === true;
       
-      // Handle subscription status differently for web vs native
-      let hasActiveSubscription = false;
-      if (Capacitor.isNativePlatform()) {
-        hasActiveSubscription = isPro === true;
-      } else {
-        // For web, check both RevenueCat simulation and Supabase status
-        hasActiveSubscription = 
-          subscription.isActive === true || 
-          profile?.subscription_status === 'active';
-      }
+      // Handle subscription status consistently across platforms
+      const hasActiveSubscription = 
+        isPro === true || 
+        subscription.isActive === true || 
+        profile?.subscription_status === 'active';
       
-      // If we're in onboarding (/auth route), only check onboarding_completed
-      // const isOnboarding = window.location.pathname.includes('/auth');
       const completed = onboardingCompleted && hasActiveSubscription;
       
       console.log('📊 Onboarding Status Check:', {
