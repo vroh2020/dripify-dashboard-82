@@ -60,12 +60,7 @@ export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
   // Extract tips using our robust extraction
   extractAllTips(rawAnalysis, tips);
 
-  // Ensure we always have tips
-  if (tips.length === 0) {
-    console.log('⚠️ No tips found after extraction, this should not happen with fallbacks');
-    addFallbackTips(tips);
-  }
-
+  // NO FALLBACK BULLSHIT - if AI doesn't give tips, that's it
   console.log('✅ Analysis parsing complete:', {
     overallScore,
     breakdownCount: breakdown.length,
@@ -190,164 +185,66 @@ function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): v
 }
 
 function extractAllTips(text: string, tips: StyleTip[]): void {
-  console.log('🔍 Extracting tips from text:', text.substring(0, 500));
+  console.log('🔍 Extracting tips from AI response...');
   
-  // Multiple parsing strategies for different AI response formats
-  let extracted = false;
-  
-  // Strategy 1: Standard format with **Style Tips:**
+  // Find the Style Tips section
   const tipsSectionMatch = text.match(/\*\*Style Tips:\*\*([\s\S]*?)(?=\n\n|\*\*|$)/i);
-  if (tipsSectionMatch) {
-    console.log('📋 Found Style Tips section');
-    const tipsContent = tipsSectionMatch[1];
-    extracted = parseStandardFormat(tipsContent, tips);
+  if (!tipsSectionMatch) {
+    console.log('⚠️ No Style Tips section found in AI response');
+    return;
   }
   
-  // Strategy 2: Look for bullet points anywhere in the text
-  if (!extracted || tips.length === 0) {
-    console.log('🔄 Trying bullet point extraction...');
-    extracted = parseBulletPoints(text, tips);
-  }
+  const tipsContent = tipsSectionMatch[1];
+  console.log('📋 Found Style Tips section:', tipsContent.substring(0, 200));
   
-  // Strategy 3: Look for category-specific patterns throughout the text
-  if (!extracted || tips.length === 0) {
-    console.log('🔄 Trying category pattern extraction...');
-    extracted = parseCategoryPatterns(text, tips);
-  }
+  // Extract tips with bullet points
+  const tipLines = tipsContent.split(/[•·\-\*]/g)
+    .map(line => line.trim())
+    .filter(line => line.length > 10 && line.includes(':'));
   
-  // Strategy 4: Fallback - generate helpful tips based on the analysis
-  if (!extracted || tips.length === 0) {
-    console.log('⚠️ No tips extracted, using fallback tips');
-    addFallbackTips(tips);
-  }
+  console.log('🔍 Found tip lines:', tipLines.length);
   
-  console.log(`✅ Final tips extracted: ${tips.length}`, tips.map(t => t.category));
-}
-
-function parseStandardFormat(tipsContent: string, tips: StyleTip[]): boolean {
-  const tipLines = tipsContent.split(/[•·\-\*]/g).filter(line => line.trim());
-  let extracted = false;
-  
-  tipLines.forEach(line => {
-    const cleanLine = line.trim();
-    if (cleanLine.length < 5) return; // Skip very short lines
+  // Process only the first 3 tips
+  for (let i = 0; i < Math.min(3, tipLines.length); i++) {
+    const line = tipLines[i];
+    const colonIndex = line.indexOf(':');
     
-    const colonIndex = cleanLine.indexOf(':');
-    if (colonIndex > 0 && colonIndex < 20) { // Reasonable category length
-      const category = cleanLine.substring(0, colonIndex).trim();
-      const tipText = cleanLine.substring(colonIndex + 1).trim();
+    if (colonIndex > 0 && colonIndex < 25) {
+      const category = line.substring(0, colonIndex).trim();
+      const tipText = line.substring(colonIndex + 1).trim();
       
-      if (tipText.length > 10) { // Ensure we have substantial tip content
+      if (tipText.length > 15) {
         tips.push({
-          category: category || 'Style',
+          category: category,
           tip: tipText,
-          level: determineLevel(tipText)
+          level: 'intermediate'
         });
-        extracted = true;
       }
     }
-  });
+  }
   
-  return extracted;
+  console.log(`✅ Extracted ${tips.length} tips from AI response`);
+}
+
+// Remove all the fallback bullshit - we only want real AI tips
+function parseStandardFormat(tipsContent: string, tips: StyleTip[]): boolean {
+  // This function is no longer needed - keeping it simple
+  return false;
 }
 
 function parseBulletPoints(text: string, tips: StyleTip[]): boolean {
-  // Look for bullet point patterns throughout the text
-  const bulletPatterns = [
-    /[•·\-\*]\s*([^:]+):\s*(.+?)(?=\n|$)/g,
-    /(\w+):\s*([^•·\-\*\n]+)/g
-  ];
-  
-  let extracted = false;
-  
-  for (const pattern of bulletPatterns) {
-    let match;
-    while ((match = pattern.exec(text)) !== null) {
-      const category = match[1]?.trim();
-      const tipText = match[2]?.trim();
-      
-      if (category && tipText && tipText.length > 15 && 
-          !tips.some(t => t.category.toLowerCase() === category.toLowerCase())) {
-        
-        // Filter out scores and non-tip content
-        if (!/^\d+/.test(tipText) && !tipText.includes('Rate ') && !tipText.includes('Evaluate ')) {
-          tips.push({
-            category: category,
-            tip: tipText,
-            level: determineLevel(tipText)
-          });
-          extracted = true;
-        }
-      }
-    }
-  }
-  
-  return extracted;
+  // This function is no longer needed - keeping it simple  
+  return false;
 }
 
 function parseCategoryPatterns(text: string, tips: StyleTip[]): boolean {
-  // Look for specific style-related advice patterns
-  const advicePatterns = [
-    /(?:try|consider|add|wear|choose|opt for|go for|pair)\s+([^.!?]{20,100})[.!?]/gi,
-    /(?:to improve|to enhance|to elevate|to upgrade)\s+([^.!?]{15,80})[.!?]/gi,
-    /(?:would suggest|recommend|advice)\s+([^.!?]{15,80})[.!?]/gi
-  ];
-  
-  let extracted = false;
-  const categories = ['Style', 'Improvement', 'Enhancement', 'Recommendation'];
-  let categoryIndex = 0;
-  
-  for (const pattern of advicePatterns) {
-    let match;
-    while ((match = pattern.exec(text)) !== null && categoryIndex < categories.length) {
-      const advice = match[1]?.trim();
-      if (advice && advice.length > 15) {
-        tips.push({
-          category: categories[categoryIndex],
-          tip: advice.charAt(0).toUpperCase() + advice.slice(1),
-          level: 'intermediate'
-        });
-        categoryIndex++;
-        extracted = true;
-      }
-    }
-  }
-  
-  return extracted;
+  // This function is no longer needed - keeping it simple
+  return false;
 }
 
 function addFallbackTips(tips: StyleTip[]): void {
-  const fallbackTips = [
-    {
-      category: 'Confidence',
-      tip: 'The most important accessory is confidence. Own your style choices and wear them with pride.',
-      level: 'intermediate' as const
-    },
-    {
-      category: 'Fit',
-      tip: 'Proper fit is everything. Well-fitted basics will always look better than expensive clothes that don\'t fit right.',
-      level: 'beginner' as const
-    },
-    {
-      category: 'Color Harmony',
-      tip: 'Start with neutral bases and add one or two accent colors. This creates a cohesive, intentional look.',
-      level: 'intermediate' as const
-    },
-    {
-      category: 'Personal Style',
-      tip: 'Experiment with different styles to find what makes you feel most authentic and confident.',
-      level: 'beginner' as const
-    },
-    {
-      category: 'Details Matter',
-      tip: 'Small details like properly rolled sleeves, clean shoes, or a well-chosen accessory can elevate any outfit.',
-      level: 'advanced' as const
-    }
-  ];
-  
-  // Add 3-4 random fallback tips
-  const shuffled = fallbackTips.sort(() => 0.5 - Math.random());
-  tips.push(...shuffled.slice(0, 4));
+  // NO FALLBACK BULLSHIT - if AI doesn't give tips, we don't show any
+  console.log('🚫 No fallback tips - AI must provide real tips');
 }
 
 // Helper function to determine the level of a tip

@@ -9,6 +9,13 @@ interface StyleTipsProps {
 }
 
 export const StyleTips = ({ tips }: StyleTipsProps) => {
+  // Only show the first 3 tips
+  const displayTips = tips.slice(0, 3);
+  
+  if (displayTips.length === 0) {
+    return null; // Don't show anything if no tips
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -18,10 +25,10 @@ export const StyleTips = ({ tips }: StyleTipsProps) => {
     >
       <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
         <Lightbulb className="w-5 h-5 text-yellow-400" />
-        Recommendations
+        Style Tips
       </h3>
 
-      {tips.map((tip, index) => (
+      {displayTips.map((tip, index) => (
         <motion.div
           key={index}
           initial={{ opacity: 0, x: -20 }}

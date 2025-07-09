@@ -75,13 +75,11 @@ ENHANCED SCORING GUIDELINES (out of 100):
 [Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]
 
 **Style Tips:**
-• Aura: [Specific tip about boosting confidence and presence through styling]
-• Drip: [Specific tip about elevating the overall freshness and coolness]
-• Colors: [Specific tip about color choices and coordination]
-• Potential: [Specific tip about small changes that would level up the look]
-• Overall: [Specific tip for maximizing the outfit's impact and appeal]
+• Fit: [Specific tip about THIS outfit's fit and silhouette based on what you see]
+• Colors: [Specific tip about THIS outfit's color choices and how to improve them]
+• Styling: [Specific tip about how to elevate THIS specific look with accessories or changes]
 
-Be honest but encouraging. Use contemporary style language that Gen Z understands.`;
+IMPORTANT: Give exactly 3 tips that are specific to THIS outfit. Be direct and actionable.`;
 
   if (style) {
     return basePrompt + `\n\nSPECIAL STYLE FOCUS: Analyze how well this outfit represents the "${style}" aesthetic.`;
