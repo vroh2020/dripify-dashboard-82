@@ -225,26 +225,21 @@ function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): v
 
 // Extract all tips from analysis
 function extractAllTips(text: string, tips: StyleTip[]): void {
-  const tipsSectionMatch = text.match(/\*\*Style Tips:\*\*([\s\S]*)/i);
-  
-  if (tipsSectionMatch) {
-    const tipsContent = tipsSectionMatch[1];
-    const tipLines = tipsContent.split(/•/g).filter(line => line.trim());
+  const sections = ["What's Working", "What's Not", "Elevate The Drip"];
 
-    tipLines.forEach(line => {
-      const parts = line.split(':');
-      if (parts.length >= 2) {
-        const category = parts[0].replace(/\*\*/g, '').trim();
-        const tipText = parts.slice(1).join(':').trim();
-        
-        tips.push({
-          category,
-          tip: tipText,
-          level: determineLevel(tipText),
-        });
-      }
-    });
-  }
+  sections.forEach(section => {
+    const regex = new RegExp(`\\*\\*${section}:\\*\\*\\s*•\\s*([\\s\\S]*?)(?=\\s*\\*\\*|$)`, 'i');
+    const match = text.match(regex);
+    
+    if (match && match[1]) {
+      const content = match[1].trim();
+      tips.push({
+        category: section,
+        tip: content,
+        level: 'intermediate'
+      });
+    }
+  });
 }
 
 // Helper function to determine the level of a tip
