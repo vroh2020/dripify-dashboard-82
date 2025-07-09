@@ -188,32 +188,30 @@ function extractAllTips(text: string, tips: StyleTip[]): void {
   console.log('🔍 Extracting tips from AI response...');
   
   // Find the Style Tips section
-  const tipsSectionMatch = text.match(/\*\*Style Tips:\*\*([\s\S]*?)(?=\n\n|\*\*|$)/i);
+  const tipsSectionMatch = text.match(/\*\*Style Tips:\*\*([\s\S]*?)(?=\*\*SPECIAL|$)/i);
   if (!tipsSectionMatch) {
     console.log('⚠️ No Style Tips section found in AI response');
     return;
   }
   
   const tipsContent = tipsSectionMatch[1];
-  console.log('📋 Found Style Tips section:', tipsContent.substring(0, 200));
+  console.log('📋 Found Style Tips section with', tipsContent.length, 'characters');
   
-  // Extract tips with bullet points
-  const tipLines = tipsContent.split(/[•·\-\*]/g)
-    .map(line => line.trim())
-    .filter(line => line.length > 10 && line.includes(':'));
+  // Extract tips with bullet points and handle **bold** formatting
+  const lines = tipsContent.split('\n').filter(line => line.trim().startsWith('•'));
   
-  console.log('🔍 Found tip lines:', tipLines.length);
+  console.log('🔍 Found bullet lines:', lines.length);
   
-  // Process only the first 3 tips
-  for (let i = 0; i < Math.min(3, tipLines.length); i++) {
-    const line = tipLines[i];
-    const colonIndex = line.indexOf(':');
+  for (let i = 0; i < Math.min(3, lines.length); i++) {
+    const line = lines[i];
     
-    if (colonIndex > 0 && colonIndex < 25) {
-      const category = line.substring(0, colonIndex).trim();
-      const tipText = line.substring(colonIndex + 1).trim();
+    // Extract category and tip from format: • **Category:** tip text
+    const match = line.match(/•\s*\*\*([^*]+)\*\*:?\s*(.*)/);
+    if (match) {
+      const category = match[1].trim().replace(':', ''); // Remove colon
+      const tipText = match[2].trim();
       
-      if (tipText.length > 15) {
+      if (category && tipText && tipText.length > 15) {
         tips.push({
           category: category,
           tip: tipText,
