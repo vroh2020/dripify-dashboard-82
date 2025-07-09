@@ -66,5 +66,10 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Privacy Policy URL required for App Store approval -->
+	<key>NSPrivacyPolicyURL</key>
+	<string>https://dripcheck.framer.website/privacy-policy</string>
+	<key>NSTermsOfServiceURL</key>
+	<string>https://dripcheck.framer.website/terms-of-services</string>
 </dict>
 </plist>
