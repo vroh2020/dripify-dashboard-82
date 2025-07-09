@@ -253,7 +253,6 @@ export function useAuth(): AuthState & AuthActions {
       // Handle INITIAL_SESSION specially
       if (event === 'INITIAL_SESSION') {
         if (initialSessionChecked.current) {
-          console.log('🔄 Skipping duplicate INITIAL_SESSION event');
           return;
         }
         initialSessionChecked.current = true;
@@ -317,7 +316,6 @@ export function useAuth(): AuthState & AuthActions {
       
       // If session expires in less than 5 minutes, refresh it
       if (timeUntilExpiry < 300) { // 300 seconds = 5 minutes
-        console.log('🔄 Session expiring soon, auto-refreshing...');
         refreshSession();
       }
     };

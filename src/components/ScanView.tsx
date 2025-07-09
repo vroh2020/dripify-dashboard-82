@@ -189,15 +189,8 @@ export const ScanView = () => {
                 overallScore={result.overallScore}
                 profileImage={result.imageUrl}
                 breakdown={result.breakdown || []}
-                onSave={handleSave}
-                onShare={handleShare}
                 isOnboarding={false}
               />
-
-              {/* Style Tips - Show tips if available */}
-              {result.tips && result.tips.length > 0 && (
-                <StyleTips tips={result.tips} />
-              )}
 
               {/* Action Buttons */}
               <div className="p-6 bg-zinc-900/50 rounded-b-2xl">
