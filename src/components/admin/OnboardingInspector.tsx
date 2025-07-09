@@ -268,7 +268,7 @@ export function OnboardingInspector() {
                       {analyses.map((analysis) => (
                         <div key={analysis.id} className="border rounded p-3 space-y-2">
                           <div className="flex justify-between items-center">
-                            <strong>Score: {analysis.total_score}/10</strong>
+                            <strong>Overall Score: {analysis.total_score}/100</strong>
                             <span className="text-sm text-gray-500">
                               {formatDate(analysis.scan_date)}
                             </span>

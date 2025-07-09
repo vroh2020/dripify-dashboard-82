@@ -2,7 +2,7 @@ import { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 
 interface AnalysisResult {
   breakdown: ScoreBreakdown[];
-  tips?: StyleTip[];
+  tips: StyleTip[];
   overallScore?: number;
   summary?: string;
   vibe?: string;
@@ -26,128 +26,54 @@ const categoryEmojis: Record<string, string> = {
 };
 
 export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
-  console.log('Parsing analysis...');
-  console.log('🔍 DEBUG: Raw AI response (first 500 chars):', rawAnalysis.substring(0, 500));
-  console.log('🔍 DEBUG: Looking for tips in response...');
+  const breakdown: ScoreBreakdown[] = [];
+  const tips: StyleTip[] = [];
   
-  try {
-    const breakdown: ScoreBreakdown[] = [];
-    const tips: StyleTip[] = [];
-    
-    // Extract the overall score - strict numerical extraction
-    const overallScoreMatch = rawAnalysis.match(/\*\*Overall Score:\*\*\s*(\d+)/i);
-    const overallScore = overallScoreMatch 
-      ? parseInt(overallScoreMatch[1], 10) 
-      : extractFallbackScore(rawAnalysis);
-    
-    if (overallScore === undefined) {
-      console.warn('Could not find overall score in analysis');
-    }
-    
-    // Extract the summary section
-    const summaryMatch = rawAnalysis.match(/\*\*Summary:\*\*([\s\S]*?)(?:\*\*|$)/i);
-    const summary = summaryMatch ? summaryMatch[1].trim() : undefined;
-    
-    // Extract the new sections
-    const vibeMatch = rawAnalysis.match(/Vibe:\s*(.*)/i);
-    const whatsWorkingMatch = rawAnalysis.match(/What's Working:\s*•\s*(.*)/i);
-    const whatsNotMatch = rawAnalysis.match(/What's Not:\s*•\s*(.*)/i);
-    const elevateTheDripMatch = rawAnalysis.match(/Elevate The Drip:\s*•\s*(.*)/i);
+  const overallScoreMatch = rawAnalysis.match(/\*\*Overall Score:\*\*\s*(\d+)/i);
+  const overallScore = overallScoreMatch ? parseInt(overallScoreMatch[1], 10) : undefined;
+  
+  const summaryMatch = rawAnalysis.match(/\*\*Summary:\*\*([\s\S]*?)(?=\*\*|$)/i);
+  const summary = summaryMatch ? summaryMatch[1].trim() : undefined;
+  
+  const vibeMatch = rawAnalysis.match(/\*\*Vibe:\*\*\s*(.*)/i);
+  const vibe = vibeMatch ? vibeMatch[1].trim() : undefined;
 
-    const vibe = vibeMatch ? vibeMatch[1].trim() : undefined;
-    const whatsWorking = whatsWorkingMatch ? whatsWorkingMatch[1].trim() : undefined;
-    const whatsNot = whatsNotMatch ? whatsNotMatch[1].trim() : undefined;
-    const elevateTheDrip = elevateTheDripMatch ? elevateTheDripMatch[1].trim() : undefined;
-    
-    // Fixed category regex to better extract numerical scores
-    // This now uses a more strict pattern to get only the numerical value after the category header
-    const categoryRegex = /\*\*([^*:]+):\*\*\s*(\d+)(?:\s*|\n)([\s\S]*?)(?=\*\*[^*]+:\*\*|$)/g;
-    let match;
-    
-    while ((match = categoryRegex.exec(rawAnalysis)) !== null) {
-      const category = match[1].trim();
-      const scoreText = match[2].trim();
-      let details = match[3].trim();
-      
-      // Skip overall score and summary which are handled separately
-      if (category.toLowerCase() === 'overall score' || category.toLowerCase() === 'summary') {
-        continue;
-      }
-      
-      // Clean up potential numerical prefixes in details (some responses include the score again)
-      details = details.replace(/^\d+\s*/, '');
-      
-      const score = parseInt(scoreText, 10);
-      
-      if (!isNaN(score)) {
-        const emoji = categoryEmojis[category] || "✅";
-        
-        breakdown.push({
-          category,
-          score,
-          emoji,
-          details
-        });
-      } else {
-        console.warn(`Invalid score "${scoreText}" for category: ${category}`);
-        
-        // Try to extract score from the first line of details
-        const detailsScoreMatch = details.match(/^(\d+)/);
-        if (detailsScoreMatch) {
-          const detailsScore = parseInt(detailsScoreMatch[1], 10);
-          if (!isNaN(detailsScore)) {
-            const emoji = categoryEmojis[category] || "✅";
-            breakdown.push({
-              category,
-              score: detailsScore,
-              emoji,
-              details: details.replace(/^\d+\s*/, '')
-            });
-          }
-        }
-      }
+  const whatsWorkingMatch = rawAnalysis.match(/\*\*What's Working:\*\*\s*•\s*([\s\S]*?)(?=\*\*|$)/i);
+  const whatsWorking = whatsWorkingMatch ? whatsWorkingMatch[1].trim() : undefined;
+
+  const whatsNotMatch = rawAnalysis.match(/\*\*What's Not:\*\*\s*•\s*([\s\S]*?)(?=\*\*|$)/i);
+  const whatsNot = whatsNotMatch ? whatsNotMatch[1].trim() : undefined;
+
+  const elevateTheDripMatch = rawAnalysis.match(/\*\*Elevate The Drip:\*\*\s*•\s*([\s\S]*?)(?=\*\*|$)/i);
+  const elevateTheDrip = elevateTheDripMatch ? elevateTheDripMatch[1].trim() : undefined;
+
+  const categoryRegex = /\*\*(Aura|Drip Quality|Potential|Color Coordination|Attractiveness):\*\*\s*(\d+)/gi;
+  let match;
+  while ((match = categoryRegex.exec(rawAnalysis)) !== null) {
+    const category = match[1].trim();
+    const score = parseInt(match[2], 10);
+    if (!isNaN(score)) {
+      breakdown.push({
+        category,
+        score,
+        emoji: categoryEmojis[category] || "✅",
+        details: ''
+      });
     }
-    
-    // If we found fewer than 4 categories, try a more flexible approach
-    if (breakdown.length < 4) {
-      extractCategoriesFlexible(rawAnalysis, breakdown);
-    }
-    
-    // Extract tips from the analysis
-    extractAllTips(rawAnalysis, tips);
-    console.log('🔍 DEBUG: Tips extracted:', tips.length, tips);
-    
-    // Sort categories by score (highest first)
-    breakdown.sort((a, b) => b.score - a.score);
-    
-    // Make sure we have a valid overall score (now on /100 scale)
-    const validOverallScore = (overallScore !== undefined && !isNaN(overallScore)) 
-      ? overallScore 
-      : breakdown.length > 0 
-        ? Math.round(breakdown.reduce((sum, item) => sum + item.score, 0) / breakdown.length) 
-        : 75; // Use 75 as absolute fallback for /100 scale
-    
-    return { 
-      breakdown, 
-      tips, 
-      overallScore: validOverallScore,
-      summary,
-      vibe,
-      whatsWorking,
-      whatsNot,
-      elevateTheDrip
-    };
-    
-  } catch (error) {
-    console.error('Error parsing analysis:', error);
-    // Return minimal valid data in case of error
-    return {
-      breakdown: [],
-      tips: [],
-      overallScore: 75, // Fallback score for /100 scale
-      summary: "We encountered an error analyzing your outfit. Please try again with a different image."
-    };
   }
+
+  extractAllTips(rawAnalysis, tips);
+
+  return { 
+    breakdown, 
+    tips, 
+    overallScore,
+    summary,
+    vibe,
+    whatsWorking,
+    whatsNot,
+    elevateTheDrip
+  };
 };
 
 // Fallback score extraction for when the standard regex fails
@@ -223,23 +149,26 @@ function extractCategoriesFlexible(text: string, breakdown: ScoreBreakdown[]): v
   }
 }
 
-// Extract all tips from analysis
 function extractAllTips(text: string, tips: StyleTip[]): void {
-  const sections = ["What's Working", "What's Not", "Elevate The Drip"];
+  const tipsSectionMatch = text.match(/\*\*Style Tips:\*\*([\s\S]*)/i);
+  if (tipsSectionMatch) {
+    const tipsContent = tipsSectionMatch[1];
+    const tipLines = tipsContent.split(/•/g).filter(line => line.trim());
 
-  sections.forEach(section => {
-    const regex = new RegExp(`\\*\\*${section}:\\*\\*\\s*•\\s*([\\s\\S]*?)(?=\\s*\\*\\*|$)`, 'i');
-    const match = text.match(regex);
-    
-    if (match && match[1]) {
-      const content = match[1].trim();
-      tips.push({
-        category: section,
-        tip: content,
-        level: 'intermediate'
-      });
-    }
-  });
+    tipLines.forEach(line => {
+      const parts = line.split(':');
+      if (parts.length >= 2) {
+        const category = parts[0].trim();
+        const tipText = parts.slice(1).join(':').trim();
+        
+        tips.push({
+          category,
+          tip: tipText,
+          level: 'intermediate'
+        });
+      }
+    });
+  }
 }
 
 // Helper function to determine the level of a tip

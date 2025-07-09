@@ -39,26 +39,56 @@ function checkRateLimit(clientId: string, maxRequests = 10, windowMs = 60000): b
 
 // Enhanced prompt for better scoring
 function createAnalysisPrompt(style?: string): string {
-  const basePrompt = `Act as a world-class fashion stylist for Gen Z streetwear and high fashion. Analyze this outfit in detail and give brutally honest but constructive feedback. 
+  const basePrompt = `You are a Gen Z fashion expert and style consultant who understands modern drip culture. Analyze this outfit photo and rate it using contemporary style categories that resonate with young people.
 
-  CRITICAL: Your response MUST follow this EXACT format. Here is an example:
+CRITICAL: Your response MUST follow this EXACT format with scores out of 100:
 
-  ---
-  **Vibe:** Minimalist Hypebeast
+**Overall Score:** [number 1-100]
 
-  **Overall Score:** 7/10
-  
-  **What's Working:** 
-  • The clean, monochrome color palette is on point. The fit of the hoodie and joggers is relaxed but not sloppy, which is key for this aesthetic.
-  
-  **What's Not:** 
-  • The sneakers are a bit too generic. A classic white sneaker is fine, but this look needs something with more personality to elevate it.
-  
-  **Elevate The Drip:** 
-  • Swap the current sneakers for a pair of New Balance 550s or Adidas Sambas to add a touch of vintage cool. A simple silver chain or a classic Casio watch would also complete the look.
-  ---
+**Aura:** [number 1-100]
+Rate the overall vibe, confidence projection, and how much presence this outfit commands. Does it give main character energy? Does it radiate confidence and swagger?
 
-  Now, analyze the following image using the same format. Do not use asterisks or quotation marks in your response.`;
+**Drip Quality:** [number 1-100] 
+Evaluate the overall freshness, how clean the fit looks, and the quality of styling execution. Is this outfit fire? Does it have that effortless cool factor?
+
+**Potential:** [number 1-100]
+Assess how much this outfit could be elevated with small changes. Rate the foundation and room for improvement. What's the ceiling for this look?
+
+**Color Coordination:** [number 1-100]
+Analyze color harmony, how well the colors work together, and the overall color story. Do the colors enhance each other and create visual impact?
+
+**Attractiveness:** [number 1-100]
+Rate how appealing and eye-catching this outfit is. Does it turn heads? Would people compliment this look? Overall aesthetic appeal and magnetism.
+
+ENHANCED SCORING GUIDELINES (out of 100):
+- 95-100: Absolutely iconic, viral-worthy drip, perfect execution
+- 85-94: Fire outfit with serious drip, minimal flaws
+- 75-84: Really solid fit with good style choices
+- 65-74: Decent outfit with good foundation, some improvements needed
+- 55-64: Mid-tier fit with potential but several areas to work on
+- 45-54: Below average outfit with noticeable styling issues
+- 35-44: Poor styling choices that need major fixes
+- 25-34: Bad outfit with fundamental problems
+- Below 25: Serious style disasters requiring complete redo
+
+ANALYSIS FOCUS:
+- Modern street style and contemporary trends
+- Confidence and swagger projection
+- Visual impact and head-turning potential
+- Overall freshness and coolness factor
+- Gen Z aesthetic preferences and style codes
+
+**Summary:**
+[Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]
+
+**Style Tips:**
+• Aura: [Specific tip about boosting confidence and presence through styling]
+• Drip: [Specific tip about elevating the overall freshness and coolness]
+• Colors: [Specific tip about color choices and coordination]
+• Potential: [Specific tip about small changes that would level up the look]
+• Overall: [Specific tip for maximizing the outfit's impact and appeal]
+
+Be honest but encouraging. Use contemporary style language that Gen Z understands.`;
 
   if (style) {
     return basePrompt + `\n\nSPECIAL STYLE FOCUS: Analyze how well this outfit represents the "${style}" aesthetic.`;

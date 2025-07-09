@@ -66,12 +66,12 @@ export const DripResults = ({
           <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-2xl">👕</AvatarFallback>
         </Avatar>
         <div className="space-y-2">
-          <h2 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">{displayScore}/10</h2>
+          <h2 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">{displayScore}/100</h2>
           <p className="text-xl text-green-400 font-semibold">Style Score</p>
           <div className="h-1.5 w-32 mx-auto bg-gray-800 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${(displayScore / 10) * 100}%` }}
+              animate={{ width: `${(displayScore / 100) * 100}%` }}
               transition={{ delay: 0.5, duration: 1.2 }}
               className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
             />
@@ -120,10 +120,10 @@ export const DripResults = ({
                 <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${(item.score / 10) * 100}%` }}
+                    animate={{ width: `${(item.score / 100) * 100}%` }}
                     className={`absolute top-0 left-0 h-full rounded-full ${
-                      item.score >= 8 ? 'bg-gradient-to-r from-green-500 to-green-400' : 
-                      item.score >= 6 ? 'bg-gradient-to-r from-yellow-500 to-yellow-400' : 
+                      item.score >= 80 ? 'bg-gradient-to-r from-green-500 to-green-400' : 
+                      item.score >= 60 ? 'bg-gradient-to-r from-yellow-500 to-yellow-400' : 
                       'bg-gradient-to-r from-red-500 to-red-400'
                     }`}
                     transition={{ duration: 1 }}
@@ -131,7 +131,7 @@ export const DripResults = ({
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-white">{item.score}</span>
-                  <span className="text-xs text-white/60">out of 10</span>
+                  <span className="text-xs text-white/60">out of 100</span>
                 </div>
                 {item.details && (
                   <motion.div 
@@ -168,8 +168,8 @@ export const DripResults = ({
                   <h4 className="text-md font-medium text-white/90 flex items-center gap-2">
                     {categoryTips.category}
                     <div className={`h-1.5 w-1.5 rounded-full ${
-                      validBreakdown.find(b => b.category === categoryTips.category)?.score >= 8 ? 'bg-green-400' : 
-                      validBreakdown.find(b => b.category === categoryTips.category)?.score >= 6 ? 'bg-yellow-400' : 
+                      validBreakdown.find(b => b.category === categoryTips.category)?.score >= 80 ? 'bg-green-400' : 
+                      validBreakdown.find(b => b.category === categoryTips.category)?.score >= 60 ? 'bg-yellow-400' : 
                       'bg-red-400'
                     }`} />
                   </h4>
