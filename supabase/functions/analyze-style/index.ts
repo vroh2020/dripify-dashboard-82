@@ -82,11 +82,16 @@ ANALYSIS FOCUS:
 [Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]
 
 **Style Tips:**
-• Aura: [Specific tip about boosting confidence and presence through styling]
-• Drip: [Specific tip about elevating the overall freshness and coolness]
-• Colors: [Specific tip about color choices and coordination]
-• Potential: [Specific tip about small changes that would level up the look]
-• Overall: [Specific tip for maximizing the outfit's impact and appeal]
+Provide exactly 3 specific, actionable style tips based on the analysis:
+• [First specific tip about improving this exact outfit]
+• [Second specific tip about enhancing the overall look]
+• [Third specific tip about maximizing style impact]
+
+Each tip should be:
+- Specific to what you see in the image
+- Actionable and practical
+- Using modern Gen Z fashion language
+- Focused on improving the actual outfit elements visible
 
 Be honest but encouraging. Use contemporary style language that Gen Z understands.`;
 
