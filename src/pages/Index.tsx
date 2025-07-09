@@ -39,10 +39,13 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] relative overflow-x-hidden">
+    <div 
+      className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] relative overflow-x-hidden"
+      style={{ paddingTop: `env(safe-area-inset-top)` }}
+    >
       <DashboardHeader />
       
-      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-80px)]">
+      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-88px)]">
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden pt-2">
           {renderContent()}

@@ -105,12 +105,13 @@ export const ModernRatingsDisplay = ({
         <h2 className="text-xl font-semibold text-white mb-4">Ratings</h2>
         
         {/* Profile Picture */}
-        <Avatar className="w-20 h-20 mx-auto border-2 border-white/20">
-          <AvatarImage src={profileImage} alt="Profile" className="object-cover" />
-          <AvatarFallback className="bg-gradient-to-br from-gray-700 to-gray-900 text-white text-2xl">
-            👤
-          </AvatarFallback>
-        </Avatar>
+        <div className="w-48 h-64 mx-auto rounded-lg overflow-hidden bg-white/10 flex items-center justify-center">
+            <img 
+              src={profileImage} 
+              alt="Analyzed outfit" 
+              className="w-full h-full object-contain"
+            />
+        </div>
       </div>
 
       {/* Ratings Grid - 2x3 layout */}
@@ -145,42 +146,6 @@ export const ModernRatingsDisplay = ({
           </motion.div>
         ))}
       </div>
-
-      {/* Action Buttons - Only show if NOT onboarding */}
-      {!isOnboarding && (
-        <div className="flex gap-4 mb-4">
-          <Button
-            onClick={onSave}
-            variant="outline" 
-            className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save
-          </Button>
-          <Button
-            onClick={onShare}
-            variant="outline"
-            className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
-          >
-            <Share2 className="w-4 h-4 mr-2" />
-            Share
-          </Button>
-        </div>
-      )}
-
-      {/* Bottom dots indicator - Only show if NOT onboarding */}
-      {!isOnboarding && (
-        <div className="flex justify-center space-x-2">
-          {[...Array(7)].map((_, i) => (
-            <div
-              key={i}
-              className={`w-2 h-2 rounded-full ${
-                i === 3 ? 'bg-white' : 'bg-white/30'
-              }`}
-            />
-          ))}
-        </div>
-      )}
     </motion.div>
   );
 }; 
