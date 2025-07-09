@@ -19,7 +19,7 @@ export const ScanView = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
-  const setLatestScan = useScanStore((state) => state.setLatestScan);
+  const addScan = useScanStore((state) => state.addScan);
   const [result, setResult] = useState<{ 
     overallScore: number; 
     rawAnalysis: string; 
@@ -59,7 +59,7 @@ export const ScanView = () => {
       console.log('Analysis result received:', analysisResult);
       
       setResult(analysisResult);
-      setLatestScan(analysisResult);
+      addScan(analysisResult); // Use addScan to save to history
       
       toast({
         title: "Analysis Complete! 🎉",

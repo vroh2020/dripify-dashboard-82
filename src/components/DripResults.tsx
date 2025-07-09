@@ -243,32 +243,6 @@ export const DripResults = ({
           </div>
         </ScrollArea>
       </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="flex justify-center gap-4"
-      >
-        <Button
-          variant="outline"
-          size="lg"
-          className="rounded-full bg-white hover:bg-white/90 text-black border-none"
-          onClick={onSave}
-        >
-          <Save className="w-5 h-5 mr-2" />
-          Save
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          className="rounded-full bg-white hover:bg-white/90 text-black border-none"
-          onClick={onShare}
-        >
-          <Share2 className="w-5 h-5 mr-2" />
-          Share
-        </Button>
-      </motion.div>
     </div>
   );
 };
