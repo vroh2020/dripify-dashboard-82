@@ -1,13 +1,9 @@
 import { motion } from "framer-motion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
-interface DashboardHeaderProps {
-  avatarUrl: string | null | undefined;
-}
-
-export const DashboardHeader = ({ avatarUrl }: DashboardHeaderProps) => {
+export const DashboardHeader = () => {
   const navigate = useNavigate();
 
   return (
@@ -15,21 +11,20 @@ export const DashboardHeader = ({ avatarUrl }: DashboardHeaderProps) => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex items-center justify-between py-6 px-4"
+      className="flex items-center justify-between py-4 px-4"
     >
-      <div>
-        <h1 className="text-2xl font-bold text-white">Drip Check</h1>
-        <p className="text-sm text-white/70">Style Analysis</p>
-      </div>
+      <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-500">
+        Drip Check
+      </h1>
 
-      <button onClick={() => navigate('/profile')} className="rounded-full">
-        <Avatar className="w-10 h-10 border-2 border-white/20">
-          <AvatarImage src={avatarUrl ?? undefined} />
-          <AvatarFallback>
-            <User className="text-white/70" />
-          </AvatarFallback>
-        </Avatar>
-      </button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="rounded-full text-white/80 hover:bg-white/10 hover:text-white"
+        onClick={() => navigate('/profile')}
+      >
+        <User className="h-6 w-6" />
+      </Button>
     </motion.div>
   );
 };

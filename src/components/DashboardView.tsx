@@ -134,7 +134,7 @@ export const DashboardView = () => {
       transition={{ duration: 0.5 }}
       className="w-full max-w-sm mx-auto px-4 pb-6"
     >
-        <DashboardHeader avatarUrl={user?.user_metadata.avatar_url} />
+        <DashboardHeader />
 
         {!hasScans ? (
           <motion.div
