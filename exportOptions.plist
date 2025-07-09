@@ -14,7 +14,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>com.genstyle.app</key>
-        <string>Gen Style</string>
+        <string>Drip Check</string>
     </dict>
     <key>stripSwiftSymbols</key>
     <true/>

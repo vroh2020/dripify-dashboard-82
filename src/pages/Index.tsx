@@ -6,6 +6,7 @@ import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 
 
 const Index = () => {
@@ -39,7 +40,9 @@ const Index = () => {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] relative overflow-x-hidden">
-      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-80px)]">
+      <DashboardHeader />
+      
+      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-88px)]">
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {renderContent()}

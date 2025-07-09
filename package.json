@@ -109,7 +109,7 @@
   "ios": {
     "debug": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "Gen Style",
+      "provisioningProfile": "Drip Check",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
@@ -117,7 +117,7 @@
     },
     "release": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "Gen Style",
+      "provisioningProfile": "Drip Check",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,

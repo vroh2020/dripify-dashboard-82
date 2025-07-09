@@ -6,7 +6,6 @@ import { useToast } from "./ui/use-toast";
 import { Card, CardContent } from "./ui/card";
 import { Camera, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
-import { DashboardHeader } from "./dashboard/DashboardHeader";
 import { StyleStats } from "./dashboard/StyleStats";
 import { StyleAnalysesList } from "./dashboard/StyleAnalysesList";
 import { QuickStartSection } from "./dashboard/QuickStartSection";
@@ -134,8 +133,6 @@ export const DashboardView = () => {
       transition={{ duration: 0.5 }}
       className="w-full max-w-sm mx-auto px-4 pb-6"
     >
-        <DashboardHeader />
-
         {!hasScans ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

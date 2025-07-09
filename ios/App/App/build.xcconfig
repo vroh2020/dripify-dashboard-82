@@ -1,6 +1,6 @@
 
 // Provisioning profile configuration
-PROVISIONING_PROFILE_SPECIFIER = Gen Style
+PROVISIONING_PROFILE_SPECIFIER = Drip Check
 DEVELOPMENT_TEAM = TN748MMP9M
 CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
