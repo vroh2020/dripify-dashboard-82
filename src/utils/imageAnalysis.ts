@@ -97,6 +97,11 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     const analysisData = parseAnalysis(data.feedback);
     const overallScore = data.overallScore || analysisData.overallScore || 75;
     
+    // Add debug logging for tips
+    console.log('🔍 DEBUG: Edge function response (first 1000 chars):', data.feedback.substring(0, 1000));
+    console.log('🔍 DEBUG: Parsed analysis data:', analysisData);
+    console.log('🔍 DEBUG: Tips parsed:', analysisData.tips?.length || 0, analysisData.tips);
+    
     Logger.info(`${isOnboarding ? 'Onboarding' : 'Main'} AI analysis successful`, { overallScore });
 
     // Handle image URL - ALWAYS upload to Supabase for authenticated users

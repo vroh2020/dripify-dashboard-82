@@ -194,6 +194,11 @@ export const ScanView = () => {
                 isOnboarding={false}
               />
 
+              {/* Style Tips - Show tips if available */}
+              {result.tips && result.tips.length > 0 && (
+                <StyleTips tips={result.tips} />
+              )}
+
               {/* Action Buttons */}
               <div className="p-6 bg-zinc-900/50 rounded-b-2xl">
                 <Button 
