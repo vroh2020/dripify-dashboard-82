@@ -11,6 +11,7 @@ import { StyleStats } from "./dashboard/StyleStats";
 import { StyleAnalysesList } from "./dashboard/StyleAnalysesList";
 import { QuickStartSection } from "./dashboard/QuickStartSection";
 import { StyleAnalysis, ScoreBreakdown, StyleTip } from "@/types/styleTypes";
+import { useAuth } from "@/hooks/useAuth";
 
 export const DashboardView = () => {
   const navigate = useNavigate();
@@ -23,13 +24,11 @@ export const DashboardView = () => {
     bestScore: 0
   });
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchAnalyses = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        // User not authenticated, but don't redirect here since Index.tsx handles it
-        // Just show empty state
         setLoading(false);
         return;
       }
@@ -61,7 +60,6 @@ export const DashboardView = () => {
             }
           }
 
-          // Handle tips parsing with proper type checking
           if (analysis.tips) {
             if (typeof analysis.tips === 'string') {
               try {
@@ -109,51 +107,11 @@ export const DashboardView = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     fetchAnalyses();
-
-    // DISABLED: Real-time subscription for performance optimization
-    // This was one of 3 duplicate subscriptions causing 94.8% of DB load
-    /*
-    const subscription = supabase
-      .channel('style_analyses_changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'style_analyses' 
-        }, 
-        () => {
-          fetchAnalyses();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-    */
-  }, [navigate, toast, fetchAnalyses]);
-
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      toast({
-        title: "Signed out successfully",
-        description: "You have been signed out of your account."
-      });
-      navigate('/auth');
-    } catch (error) {
-      toast({
-        title: "Error signing out",
-        description: "An error occurred while signing out.",
-        variant: "destructive"
-      });
-    }
-  };
+  }, [fetchAnalyses]);
 
   const hasScans = analyses.length > 0;
 
@@ -176,10 +134,7 @@ export const DashboardView = () => {
       transition={{ duration: 0.5 }}
       className="w-full max-w-sm mx-auto px-4 pb-6"
     >
-        <DashboardHeader 
-          hasScans={hasScans} 
-          totalScans={stats.totalScans} 
-        />
+        <DashboardHeader avatarUrl={user?.user_metadata.avatar_url} />
 
         {!hasScans ? (
           <motion.div
@@ -216,7 +171,6 @@ export const DashboardView = () => {
           </motion.div>
         ) : (
           <div className="space-y-6">
-            {/* Stats Section */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -225,7 +179,6 @@ export const DashboardView = () => {
               <StyleStats hasScans={hasScans} stats={stats} />
             </motion.div>
 
-            {/* Recent Analyses */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
