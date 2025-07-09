@@ -46,19 +46,19 @@ CRITICAL: Your response MUST follow this EXACT format with scores out of 100:
 **Overall Score:** [number 1-100]
 
 **Aura:** [number 1-100]
-Rate the overall vibe, confidence projection, and how much presence this outfit commands. Does it give main character energy? Does it radiate confidence and swagger?
+Rate the overall vibe, confidence projection, and how much presence this outfit commands.
 
 **Drip Quality:** [number 1-100] 
-Evaluate the overall freshness, how clean the fit looks, and the quality of styling execution. Is this outfit fire? Does it have that effortless cool factor?
+Evaluate the overall freshness and quality of styling execution.
 
 **Potential:** [number 1-100]
-Assess how much this outfit could be elevated with small changes. Rate the foundation and room for improvement. What's the ceiling for this look?
+Assess how much this outfit could be elevated with small changes.
 
 **Color Coordination:** [number 1-100]
-Analyze color harmony, how well the colors work together, and the overall color story. Do the colors enhance each other and create visual impact?
+Analyze color harmony and how well the colors work together.
 
 **Attractiveness:** [number 1-100]
-Rate how appealing and eye-catching this outfit is. Does it turn heads? Would people compliment this look? Overall aesthetic appeal and magnetism.
+Rate how appealing and eye-catching this outfit is.
 
 ENHANCED SCORING GUIDELINES (out of 100):
 - 95-100: Absolutely iconic, viral-worthy drip, perfect execution
@@ -70,13 +70,6 @@ ENHANCED SCORING GUIDELINES (out of 100):
 - 35-44: Poor styling choices that need major fixes
 - 25-34: Bad outfit with fundamental problems
 - Below 25: Serious style disasters requiring complete redo
-
-ANALYSIS FOCUS:
-- Modern street style and contemporary trends
-- Confidence and swagger projection
-- Visual impact and head-turning potential
-- Overall freshness and coolness factor
-- Gen Z aesthetic preferences and style codes
 
 **Summary:**
 [Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]

@@ -192,6 +192,18 @@ export const ScanView = () => {
                 isOnboarding={false}
               />
 
+              {/* Tips Section */}
+              {result.tips && result.tips.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
+                  className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 border border-white/10"
+                >
+                  <StyleTips tips={result.tips} />
+                </motion.div>
+              )}
+
               {/* Action Buttons */}
               <div className="p-6 bg-zinc-900/50 rounded-b-2xl">
                 <Button 

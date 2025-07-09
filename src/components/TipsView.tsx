@@ -12,6 +12,13 @@ export const TipsView = () => {
 
   const allTips = scans.flatMap(scan => scan.tips || []);
 
+  // Debug logging to help troubleshoot tips display
+  console.log('🔍 TipsView Debug:', {
+    scansCount: scans.length,
+    allTipsCount: allTips.length,
+    recentScanHasTips: scans[0]?.tips?.length || 0
+  });
+
   if (allTips.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-4">
@@ -34,15 +41,13 @@ export const TipsView = () => {
 
   return (
     <div className="min-h-screen px-4 py-8 pb-24">
-      <StyleTips 
-        tips={allTips} 
-        analysis={{
-          vibe: scans[0]?.summary,
-          whatsWorking: scans[0]?.breakdown?.find(b => b.score > 7)?.details,
-          whatsNot: scans[0]?.breakdown?.find(b => b.score <= 7)?.details,
-          elevateTheDrip: allTips[0]?.tip
-        }}
-      />
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white mb-2">Style Tips</h1>
+        <p className="text-white/60">
+          Personalized recommendations from your recent scans
+        </p>
+      </div>
+      <StyleTips tips={allTips} />
     </div>
   );
 };
