@@ -34,7 +34,15 @@ export const TipsView = () => {
 
   return (
     <div className="min-h-screen px-4 py-8 pb-24">
-      <StyleTips tips={allTips} />
+      <StyleTips 
+        tips={allTips} 
+        analysis={{
+          vibe: scans[0]?.summary,
+          whatsWorking: scans[0]?.breakdown?.find(b => b.score > 7)?.details,
+          whatsNot: scans[0]?.breakdown?.find(b => b.score <= 7)?.details,
+          elevateTheDrip: allTips[0]?.tip
+        }}
+      />
     </div>
   );
 };
