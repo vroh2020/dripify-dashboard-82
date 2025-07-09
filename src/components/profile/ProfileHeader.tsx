@@ -32,15 +32,6 @@ export const ProfileHeader = ({ isPro, onLogout, isLoggingOut }: ProfileHeaderPr
             <span className="text-sm font-medium text-purple-300">Pro</span>
           </div>
         )}
-        
-        <Button 
-          variant="ghost" 
-          className="rounded-full p-2 text-white/70 hover:text-white hover:bg-white/10"
-          onClick={onLogout}
-          disabled={isLoggingOut}
-        >
-          <LogOut className="h-5 w-5" />
-        </Button>
       </div>
     </div>
   );
