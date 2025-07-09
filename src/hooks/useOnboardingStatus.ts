@@ -52,26 +52,16 @@ export function useOnboardingStatus(): OnboardingStatus {
 
       const onboardingCompleted = profile?.onboarding_completed === true;
       
-      // Handle subscription status consistently across platforms
-      const hasActiveSubscription = 
-        isPro === true || 
-        subscription.isActive === true || 
-        profile?.subscription_status === 'active';
-      
-      const completed = onboardingCompleted && hasActiveSubscription;
-      
       console.log('📊 Onboarding Status Check:', {
         userId: user.id,
         onboardingCompleted,
-        hasActiveSubscription,
-        // isOnboarding,
         platform: Capacitor.isNativePlatform() ? 'native' : 'web',
         revenueCatStatus: subscription.isActive,
         supabaseStatus: profile?.subscription_status,
-        finalResult: completed
+        finalResult: onboardingCompleted
       });
 
-      setHasCompletedOnboarding(completed);
+      setHasCompletedOnboarding(onboardingCompleted);
       setRetryCount(0);
       
     } catch (error) {

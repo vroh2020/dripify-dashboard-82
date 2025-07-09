@@ -13,7 +13,7 @@ if (fs.existsSync(buildConfigPath)) {
   console.log('build.xcconfig found, verifying contents...');
   let configContent = fs.readFileSync(buildConfigPath, 'utf8');
   const requiredSettings = [
-    'PROVISIONING_PROFILE_SPECIFIER = Gen Style',
+    'PROVISIONING_PROFILE_SPECIFIER = Drip Check',
     'DEVELOPMENT_TEAM = TN748MMP9M',
     'CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)',
     'CODE_SIGN_STYLE = Manual',
@@ -32,7 +32,7 @@ if (fs.existsSync(buildConfigPath)) {
     console.log('Updating build.xcconfig with required settings...');
     fs.writeFileSync(buildConfigPath, 
 `// Provisioning profile configuration
-PROVISIONING_PROFILE_SPECIFIER = Gen Style
+PROVISIONING_PROFILE_SPECIFIER = Drip Check
 DEVELOPMENT_TEAM = TN748MMP9M
 CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
@@ -49,7 +49,7 @@ PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app
   console.log('Creating build.xcconfig...');
   fs.writeFileSync(buildConfigPath, 
 `// Provisioning profile configuration
-PROVISIONING_PROFILE_SPECIFIER = Gen Style
+PROVISIONING_PROFILE_SPECIFIER = Drip Check
 DEVELOPMENT_TEAM = TN748MMP9M
 CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
@@ -72,9 +72,9 @@ const hasBuildConfig = pbxproj.includes('build.xcconfig');
 console.log('Applying build settings via command line...');
 try {
   // Set provisioning profile specifier for both Debug and Release configurations
-  execSync(`/usr/libexec/PlistBuddy -c "Add :buildSettings:PROVISIONING_PROFILE_SPECIFIER string Gen Style" ${projectPath}/project.pbxproj || true`, { stdio: 'inherit' });
-  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Debug PROVISIONING_PROFILE_SPECIFIER="Gen Style" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
-  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Release PROVISIONING_PROFILE_SPECIFIER="Gen Style" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
+  execSync(`/usr/libexec/PlistBuddy -c "Add :buildSettings:PROVISIONING_PROFILE_SPECIFIER string Drip Check" ${projectPath}/project.pbxproj || true`, { stdio: 'inherit' });
+  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Debug PROVISIONING_PROFILE_SPECIFIER="Drip Check" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
+  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Release PROVISIONING_PROFILE_SPECIFIER="Drip Check" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
 } catch (error) {
   console.error('Warning: Command failed, but continuing:', error.message);
 }

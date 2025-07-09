@@ -1,5 +1,7 @@
 
-# iOS Build Instructions for Gen Style App
+# iOS Build Instructions for Drip Check App
+
+This guide provides instructions for building and deploying the iOS application.
 
 ## Prerequisites
 - macOS (latest stable version recommended)
@@ -34,7 +36,7 @@ node ios/App/update-build-config.js
    - Go to "Signing & Capabilities" tab
    - Ensure "Automatically manage signing" is **unchecked**
    - Select team: "TN748MMP9M"
-   - Set Provisioning Profile: "Gen Style"
+   - Set Provisioning Profile: "Drip Check"
    - Set Bundle Identifier: "com.genstyle.app"
 
 4. **Verify build.xcconfig Integration**:
@@ -75,7 +77,7 @@ xcodebuild archive -workspace App.xcworkspace -scheme App \
   -configuration Release \
   -archivePath build/App.xcarchive \
   DEVELOPMENT_TEAM=TN748MMP9M \
-  PROVISIONING_PROFILE_SPECIFIER="Gen Style" \
+  PROVISIONING_PROFILE_SPECIFIER="Drip Check" \
   CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" \
   CODE_SIGN_STYLE=Manual
 xcodebuild -exportArchive \
@@ -87,7 +89,7 @@ xcodebuild -exportArchive \
 ## Troubleshooting
 
 ### Provisioning Profile Not Found
-- Ensure profile "Gen Style" exists in your Apple Developer account
+- Ensure profile "Drip Check" exists in your Apple Developer account
 - Download and install it on your local machine in Xcode Accounts
 - Check the bundle ID matches "com.genstyle.app"
 - Verify the profile is not expired
