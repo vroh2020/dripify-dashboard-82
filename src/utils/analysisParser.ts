@@ -5,6 +5,10 @@ interface AnalysisResult {
   tips?: StyleTip[];
   overallScore?: number;
   summary?: string;
+  vibe?: string;
+  whatsWorking?: string;
+  whatsNot?: string;
+  elevateTheDrip?: string;
 }
 
 const categoryEmojis: Record<string, string> = {
@@ -43,6 +47,17 @@ export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
     // Extract the summary section
     const summaryMatch = rawAnalysis.match(/\*\*Summary:\*\*([\s\S]*?)(?:\*\*|$)/i);
     const summary = summaryMatch ? summaryMatch[1].trim() : undefined;
+    
+    // Extract the new sections
+    const vibeMatch = rawAnalysis.match(/Vibe:\s*(.*)/i);
+    const whatsWorkingMatch = rawAnalysis.match(/What's Working:\s*•\s*(.*)/i);
+    const whatsNotMatch = rawAnalysis.match(/What's Not:\s*•\s*(.*)/i);
+    const elevateTheDripMatch = rawAnalysis.match(/Elevate The Drip:\s*•\s*(.*)/i);
+
+    const vibe = vibeMatch ? vibeMatch[1].trim() : undefined;
+    const whatsWorking = whatsWorkingMatch ? whatsWorkingMatch[1].trim() : undefined;
+    const whatsNot = whatsNotMatch ? whatsNotMatch[1].trim() : undefined;
+    const elevateTheDrip = elevateTheDripMatch ? elevateTheDripMatch[1].trim() : undefined;
     
     // Fixed category regex to better extract numerical scores
     // This now uses a more strict pattern to get only the numerical value after the category header
@@ -116,7 +131,11 @@ export const parseAnalysis = (rawAnalysis: string): AnalysisResult => {
       breakdown, 
       tips, 
       overallScore: validOverallScore,
-      summary 
+      summary,
+      vibe,
+      whatsWorking,
+      whatsNot,
+      elevateTheDrip
     };
     
   } catch (error) {
