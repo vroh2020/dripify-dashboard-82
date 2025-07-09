@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
-import { useSubscription } from './subscription/SubscriptionProvider';
+import { useSubscription } from '../hooks/useSubscription';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Loader2 } from 'lucide-react';
-
+import { REVENUECAT_CONFIG } from '../config/revenueCat';
 
 interface PaywallProps {
   onPurchaseComplete?: () => void;
 }
 
 export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
-  const { offerings, isLoading, purchaseProduct } = useSubscription();
+  const { packages, isLoading, error, purchasePackage } = useSubscription();
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
 
@@ -20,7 +20,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
 
     try {
       setIsPurchasing(true);
-      await purchaseProduct(selectedPackage.product);
+      await purchasePackage(selectedPackage);
       onPurchaseComplete?.();
     } catch (error) {
       console.error('Purchase failed:', error);
@@ -37,7 +37,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
     );
   }
 
-  if (!offerings || offerings.length === 0) {
+  if (error) {
     return (
       <div className="text-center text-red-500">
         <p>Error loading subscription options. Please try again later.</p>
@@ -54,7 +54,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
         </p>
       </div>
       <div className="grid gap-6">
-        {offerings.flatMap(offering => offering.availablePackages).map((pkg) => (
+        {packages.map((pkg) => (
           <Card
             key={pkg.identifier}
             className={`cursor-pointer transition-all ${

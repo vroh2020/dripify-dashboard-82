@@ -94,13 +94,13 @@ export const TipsView = () => {
 
       {/* Recommendation Cards */}
       <div className="space-y-4">
-        {tips.slice(0, 3).map((tip, index) => (
+        {tips.map((tip, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="rounded-2xl p-4 border border-white/10 bg-zinc-900/50 backdrop-blur-sm"
+            className="bg-[#1a1a1a] rounded-2xl p-4 border border-[#333333] shadow-lg hover:bg-[#222222] transition-colors duration-200"
           >
             <div className="flex items-start space-x-3">
               {/* Orange bullet point */}
@@ -113,7 +113,7 @@ export const TipsView = () => {
                 <h3 className="text-white font-semibold text-base mb-2 leading-snug">
                   {tip.category}
                 </h3>
-                <p className="text-gray-300 text-sm leading-relaxed">
+                <p className="text-[#aaaaaa] text-sm leading-relaxed">
                   {tip.tip}
                 </p>
               </div>

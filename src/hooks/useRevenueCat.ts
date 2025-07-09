@@ -7,6 +7,7 @@ export const useRevenueCat = () => {
     isLoading,
     subscription,
     offerings,
+    fetchSubscriptionStatus,
     purchaseProduct: managerPurchase,
     restorePurchases: managerRestore
   } = useRevenueCatManager();
@@ -70,6 +71,7 @@ export const useRevenueCat = () => {
     isLoading: isLoading || isPurchasing,
     subscription,
     offerings,
+    fetchSubscriptionStatus,
     purchaseProduct,
     restorePurchases
   };

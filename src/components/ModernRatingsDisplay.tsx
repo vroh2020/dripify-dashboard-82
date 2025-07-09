@@ -146,6 +146,41 @@ export const ModernRatingsDisplay = ({
         ))}
       </div>
 
+      {/* Action Buttons - Only show if NOT onboarding */}
+      {!isOnboarding && (
+        <div className="flex gap-4 mb-4">
+          <Button
+            onClick={onSave}
+            variant="outline" 
+            className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save
+          </Button>
+          <Button
+            onClick={onShare}
+            variant="outline"
+            className="flex-1 bg-white text-black hover:bg-white/90 border-none rounded-full h-12 font-medium"
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
+        </div>
+      )}
+
+      {/* Bottom dots indicator - Only show if NOT onboarding */}
+      {!isOnboarding && (
+        <div className="flex justify-center space-x-2">
+          {[...Array(7)].map((_, i) => (
+            <div
+              key={i}
+              className={`w-2 h-2 rounded-full ${
+                i === 3 ? 'bg-white' : 'bg-white/30'
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }; 

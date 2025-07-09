@@ -11,8 +11,7 @@ export const DashboardHeader = () => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex items-center justify-between pt-safe-area-inset-top py-6 px-4"
-      style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}
+      className="flex items-center justify-between py-4 px-4"
     >
       <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-500">
         Drip Check
