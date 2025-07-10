@@ -100,7 +100,7 @@ export function useOnboardingStatus(): OnboardingStatus {
     checkOnboardingStatus();
   }, [isAuthenticated, user?.id, isPro, subscription.isActive]);
 
-  // Reduced timeout to prevent long loading states
+  // Enhanced timeout protection to prevent long loading states
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (isLoading) {
@@ -108,10 +108,24 @@ export function useOnboardingStatus(): OnboardingStatus {
         setIsLoading(false);
         setHasCompletedOnboarding(false);
       }
-    }, 2000); // Reduced from 3000ms
+    }, 3000); // Increased from 2000ms to 3000ms for better reliability
 
     return () => clearTimeout(timeout);
   }, [isLoading]);
+
+  // Additional timeout for overall loading state
+  useEffect(() => {
+    const overallTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('⚠️ Overall onboarding loading timeout - forcing decision');
+        setIsLoading(false);
+        // If we have a user but no onboarding data, assume not completed
+        setHasCompletedOnboarding(false);
+      }
+    }, 8000); // 8 second overall timeout
+
+    return () => clearTimeout(overallTimeout);
+  }, [isLoading, user]);
 
   return {
     isLoading,

@@ -372,6 +372,22 @@ export function useAuth(): AuthState & AuthActions {
     return () => clearTimeout(timeout);
   }, [authState.session, authState.user, authState.isAuthenticated, updateAuthState]);
 
+  // CRITICAL FIX: Add timeout protection to prevent infinite loading
+  useEffect(() => {
+    const authTimeout = setTimeout(() => {
+      if (authState.isLoading) {
+        console.warn('⚠️ Auth loading timeout - forcing completion');
+        setAuthState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: 'Authentication timeout - please try again'
+        }));
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(authTimeout);
+  }, [authState.isLoading]);
+
   return {
     ...authState,
     signOut,
