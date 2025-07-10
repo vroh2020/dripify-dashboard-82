@@ -7,18 +7,26 @@
     <string>app-store</string>
     <key>teamID</key>
     <string>TN748MMP9M</string>
-    <key>uploadBitcode</key>
-    <false/>
-    <key>uploadSymbols</key>
-    <true/>
-    <key>compileBitcode</key>
-    <false/>
     <key>signingStyle</key>
     <string>manual</string>
+    <key>signingCertificate</key>
+    		<string>Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>com.genstyle.app</key>
         <string>Dripify AI</string>
     </dict>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>destination</key>
+    <string>export</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>iCloudContainerEnvironment</key>
+    <string>Production</string>
 </dict>
 </plist>

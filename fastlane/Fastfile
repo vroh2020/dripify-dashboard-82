@@ -15,50 +15,25 @@ platform :ios do
       bundle_identifier: "com.genstyle.app"
     )
     
-    # Build the app with explicit export method
+    # Build the app
     build_ios_app(
       workspace: "./ios/App/App.xcworkspace",
       scheme: "App",
-      configuration: "Release",
       export_method: "app-store",
-      export_options: "./exportOptions.plist",
-      archive_path: "./build/App.xcarchive",
-      output_directory: "./build",
-      output_name: "App.ipa"
+      export_options: {
+        method: "app-store",
+        provisioningProfiles: {
+          "com.genstyle.app" => "Dripify AI"
+        },
+        signingStyle: "manual",
+        teamID: "TN748MMP9M"
+      }
     )
     
     # Upload to App Store Connect
     upload_to_app_store(
       skip_screenshots: true,
-      skip_metadata: true,
-      ipa: "./build/App.ipa"
-    )
-  end
-  
-  desc "Build only (no upload)"
-  lane :build_only do
-    # Update code signing settings
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      path: "./ios/App/App.xcodeproj",
-      team_id: "TN748MMP9M",
-      targets: ["App"],
-      build_configurations: ["Debug", "Release"],
-      code_sign_identity: "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      profile_name: "Dripify AI",
-      bundle_identifier: "com.genstyle.app"
-    )
-    
-    # Build the app with explicit export method
-    build_ios_app(
-      workspace: "./ios/App/App.xcworkspace",
-      scheme: "App",
-      configuration: "Release",
-      export_method: "app-store",
-      export_options: "./exportOptions.plist",
-      archive_path: "./build/App.xcarchive",
-      output_directory: "./build",
-      output_name: "App.ipa"
+      skip_metadata: true
     )
   end
 end
