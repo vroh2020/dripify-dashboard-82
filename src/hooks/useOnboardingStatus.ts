@@ -84,7 +84,7 @@ export function useOnboardingStatus(): OnboardingStatus {
   useEffect(() => {
     setRetryCount(0);
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, isPro, subscription.isActive]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
