@@ -28,20 +28,21 @@ export const Auth = () => {
     }
   }, [location.search, toast]);
 
-  useEffect(() => {
-    if (!authLoading && !onboardingLoading) {
-      if (isAuthenticated && hasCompletedOnboarding) {
-        navigate("/dashboard", { replace: true });
-      }
-    }
-  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, navigate]);
+  // REMOVED: The navigation logic that was conflicting with App.tsx routing
+  // The main App.tsx now handles all routing decisions properly
 
   const handleComplete = () => {
     navigate("/dashboard", { replace: true });
   };
 
+  // Show loading while auth/onboarding status is being determined
   if (authLoading || onboardingLoading) {
     return <LoadingScreen message="Checking your status..." />;
+  }
+
+  // If user is authenticated and has completed onboarding, let App.tsx handle the redirect
+  if (isAuthenticated && hasCompletedOnboarding) {
+    return <LoadingScreen message="Redirecting to dashboard..." />;
   }
 
   return <ModernOnboarding onComplete={handleComplete} />;
