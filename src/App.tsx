@@ -40,6 +40,9 @@ const AppRoutes = () => {
   // Handle deep link auth callbacks
   useAppUrlHandler();
 
+  // Calculate overall loading state
+  const isOverallLoading = authLoading || onboardingLoading;
+
   // Log routing decisions only when they change
   useEffect(() => {
     const newDecision = {
@@ -94,6 +97,17 @@ const AppRoutes = () => {
     </>
   );
 
+  // Show loading screen while determining routing
+  if (isOverallLoading) {
+    return <LoadingScreen message="Checking your status..." />;
+  }
+
+  // Handle authentication errors
+  if (authError) {
+    console.error('Auth error detected:', authError);
+    return <Navigate to="/auth" replace />;
+  }
+
   return (
     <Routes>
       {/* Auth routes - always accessible */}
@@ -111,6 +125,8 @@ const AppRoutes = () => {
               {protectedRoutes}
               {/* Redirect root to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Catch all other routes and redirect to dashboard */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </>
           ) : (
             <>

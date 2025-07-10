@@ -20,6 +20,7 @@ export function useOnboardingStatus(): OnboardingStatus {
 
   const checkOnboardingStatus = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
+      console.log('🔍 Onboarding check: User not authenticated, setting to false');
       setIsLoading(false);
       setHasCompletedOnboarding(false);
       return;
@@ -27,6 +28,7 @@ export function useOnboardingStatus(): OnboardingStatus {
 
     try {
       setIsLoading(true);
+      console.log('🔍 Checking onboarding status for user:', user.id);
       
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -38,6 +40,7 @@ export function useOnboardingStatus(): OnboardingStatus {
         console.error('Onboarding check error:', error);
         
         if (retryCount < 2) {
+          console.log(`🔄 Retrying onboarding check (attempt ${retryCount + 1}/3)...`);
           setTimeout(() => {
             setRetryCount(prev => prev + 1);
             checkOnboardingStatus();
@@ -45,6 +48,7 @@ export function useOnboardingStatus(): OnboardingStatus {
           return;
         }
         
+        console.log('❌ Onboarding check failed after retries, setting to false');
         setHasCompletedOnboarding(false);
         setIsLoading(false);
         return;
@@ -58,7 +62,8 @@ export function useOnboardingStatus(): OnboardingStatus {
         platform: Capacitor.isNativePlatform() ? 'native' : 'web',
         revenueCatStatus: subscription.isActive,
         supabaseStatus: profile?.subscription_status,
-        finalResult: onboardingCompleted
+        finalResult: onboardingCompleted,
+        profileExists: !!profile
       });
 
       setHasCompletedOnboarding(onboardingCompleted);
@@ -68,6 +73,7 @@ export function useOnboardingStatus(): OnboardingStatus {
       console.error('Error checking onboarding:', error);
       
       if (retryCount < 2) {
+        console.log(`🔄 Retrying onboarding check due to error (attempt ${retryCount + 1}/3)...`);
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
           checkOnboardingStatus();
@@ -75,6 +81,7 @@ export function useOnboardingStatus(): OnboardingStatus {
         return;
       }
       
+      console.log('❌ Onboarding check failed after error retries, setting to false');
       setHasCompletedOnboarding(false);
     } finally {
       setIsLoading(false);
@@ -82,10 +89,18 @@ export function useOnboardingStatus(): OnboardingStatus {
   }, [isAuthenticated, user?.id, isPro, subscription.isActive, retryCount]);
 
   useEffect(() => {
+    console.log('🔄 Onboarding status effect triggered:', {
+      isAuthenticated,
+      userId: user?.id,
+      isPro,
+      subscriptionActive: subscription.isActive
+    });
+    
     setRetryCount(0);
     checkOnboardingStatus();
   }, [isAuthenticated, user?.id, isPro, subscription.isActive]);
 
+  // Reduced timeout to prevent long loading states
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (isLoading) {
@@ -93,7 +108,7 @@ export function useOnboardingStatus(): OnboardingStatus {
         setIsLoading(false);
         setHasCompletedOnboarding(false);
       }
-    }, 3000);
+    }, 2000); // Reduced from 3000ms
 
     return () => clearTimeout(timeout);
   }, [isLoading]);
