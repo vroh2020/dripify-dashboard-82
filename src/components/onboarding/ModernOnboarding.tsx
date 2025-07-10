@@ -153,30 +153,30 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           return;
         }
 
-        // Handle completed onboarding users - BUT ONLY if not in payment flow
+        // Handle all logic based on onboarding completion status
         if (data.onboarding_completed) {
+          // User has finished the steps, now check if they have paid.
           if (isPro) {
+            // Condition met: Onboarding complete AND Pro subscription active.
             onComplete({
               age: data.age_range || '',
               mainGoal: data.main_goal || '',
               analysisResult: undefined
             });
-          } else if (!isPaymentPending && currentStep !== 'paywall' && currentStep !== 'trial-offer') {
-            // CRITICAL FIX: Don't override if user is already in payment flow
-            setIsPaymentPending(true);
+          } else {
+            // Condition NOT met: Onboarding is complete, but they are NOT pro. Send to payment.
             setCurrentStep('trial-offer');
           }
-          setHasLoadedInitialData(true);
-          return;
-        }
-
-        // Resume from last step
-        if (data.main_goal) {
-          setCurrentStep('test-photo');
-        } else if (data.age_range) {
-          setCurrentStep('goal');
         } else {
-          setCurrentStep('age');
+          // User has NOT finished the onboarding steps. Subscription status does not matter here.
+          // Send them to the correct step to continue their progress.
+          if (data.main_goal) {
+            setCurrentStep('test-photo');
+          } else if (data.age_range) {
+            setCurrentStep('goal');
+          } else {
+            setCurrentStep('age');
+          }
         }
         
         setHasLoadedInitialData(true);
