@@ -22,10 +22,102 @@ export const useRevenueCatManager = () => {
     productId: null,
     offeringId: null,
   });
+  const [initializationError, setInitializationError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const hasInitialized = useRef(false);
   const lastPurchaseAttempt = useRef<Date | null>(null);
+  const initializationAttempts = useRef(0);
+  const maxInitializationAttempts = 3;
+
+  // Enhanced initialization with retry logic
+  const initializeRevenueCat = useCallback(async (): Promise<boolean> => {
+    if (initializationAttempts.current >= maxInitializationAttempts) {
+      console.error('❌ RevenueCat initialization failed after maximum attempts');
+      setInitializationError('Payment system unavailable. Some features may be limited.');
+      return false;
+    }
+
+    initializationAttempts.current++;
+    
+    try {
+      console.log(`🔄 RevenueCat initialization attempt ${initializationAttempts.current}/${maxInitializationAttempts}`);
+      
+      const { data, error } = await supabase.functions.invoke('revenuecat-config');
+      if (error || !data?.publicKey) {
+        throw new Error(`Configuration error: ${error?.message || 'No API key'}`);
+      }
+
+      // Configure RevenueCat with proper error handling
+      await Purchases.configure({
+        apiKey: data.publicKey,
+        appUserID: null // Required by type definition
+      });
+
+      console.log('✅ RevenueCat configured successfully');
+
+      // Set log level for better debugging in development
+      if (import.meta.env.DEV) {
+        await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+      }
+
+      // Login user if authenticated
+      if (user?.id) {
+        try {
+          await Purchases.logIn({ appUserID: user.id });
+          console.log('✅ RevenueCat user logged in:', user.id);
+          
+          // Check subscription status
+          const { customerInfo } = await Purchases.getCustomerInfo();
+          const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+          
+          setSubscription({
+            isActive: isPro,
+            expirationDate: null,
+            productId: null,
+            offeringId: null
+          });
+        } catch (loginError) {
+          console.error('⚠️ RevenueCat login failed:', loginError);
+          // Don't fail initialization if login fails
+          setSubscription({
+            isActive: false,
+            expirationDate: null,
+            productId: null,
+            offeringId: null
+          });
+        }
+      }
+
+      // Fetch offerings with error handling
+      try {
+        const offeringsData = await Purchases.getOfferings();
+        setOfferings(Object.values(offeringsData.all || {}));
+        console.log('✅ RevenueCat offerings fetched');
+      } catch (offeringsError) {
+        console.error('⚠️ Failed to fetch offerings:', offeringsError);
+        // Continue without offerings
+      }
+
+      hasInitialized.current = true;
+      setInitializationError(null);
+      return true;
+
+    } catch (error) {
+      console.error(`❌ RevenueCat initialization failed (attempt ${initializationAttempts.current}):`, error);
+      
+      // Exponential backoff for retries
+      if (initializationAttempts.current < maxInitializationAttempts) {
+        const delay = Math.pow(2, initializationAttempts.current) * 1000; // 2s, 4s, 8s
+        console.log(`🔄 Retrying RevenueCat initialization in ${delay}ms...`);
+        setTimeout(() => initializeRevenueCat(), delay);
+      } else {
+        setInitializationError('Payment system initialization failed. App will work with limited features.');
+      }
+      
+      return false;
+    }
+  }, [user]);
 
   const fetchSubscriptionStatus = useCallback(async () => {
     if (!user) {
@@ -35,8 +127,10 @@ export const useRevenueCatManager = () => {
     try {
       if (Capacitor.isNativePlatform()) {
         if (!hasInitialized.current) {
+          console.log('⚠️ RevenueCat not initialized, returning cached subscription status');
           return subscription;
         }
+        
         const { customerInfo } = await Purchases.getCustomerInfo();
         const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
         
@@ -83,6 +177,17 @@ export const useRevenueCatManager = () => {
 
   const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
     if (!user) return false;
+
+    // Check if RevenueCat is properly initialized for native platforms
+    if (Capacitor.isNativePlatform() && !hasInitialized.current) {
+      console.error('❌ RevenueCat not initialized');
+      toast({ 
+        variant: "destructive", 
+        title: "Payment Error", 
+        description: "Payment system not ready. Please try again." 
+      });
+      return false;
+    }
 
     // Prevent rapid purchase attempts
     if (lastPurchaseAttempt.current) {
@@ -152,16 +257,6 @@ export const useRevenueCatManager = () => {
     }
 
     // Native iOS RevenueCat flow
-    if (!hasInitialized.current) {
-      console.error('RevenueCat not initialized');
-      toast({ 
-        variant: "destructive", 
-        title: "Payment Error", 
-        description: "Payment system not ready. Please try again." 
-      });
-      return false;
-    }
-
     try {
       setIsLoading(true);
       console.log('🔄 Starting native purchase flow for:', product.identifier);
@@ -271,7 +366,14 @@ export const useRevenueCatManager = () => {
       }
     }
 
-    if (!hasInitialized.current) return false;
+    if (!hasInitialized.current) {
+      toast({ 
+        variant: "destructive", 
+        title: "Service Unavailable", 
+        description: "Payment system not ready. Please try again." 
+      });
+      return false;
+    }
 
     try {
       setIsLoading(true);
@@ -338,52 +440,13 @@ export const useRevenueCatManager = () => {
           });
           
           hasInitialized.current = true;
-          return;
+        } else {
+          // Native platform initialization
+          await initializeRevenueCat();
         }
-
-        const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        if (error || !data?.publicKey) {
-          throw new Error('No API key');
-        }
-
-        // First configure RevenueCat
-        await Purchases.configure({
-          apiKey: data.publicKey,
-          appUserID: null // Required by type definition
-        });
-
-        // Then explicitly log in the user to switch to their account
-        try {
-          await Purchases.logIn({ appUserID: user.id });
-          console.log('🔄 Logged in RevenueCat user:', user.id);
-          
-          // Now check their subscription status
-          const { customerInfo } = await Purchases.getCustomerInfo();
-          const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
-          
-          setSubscription({
-            isActive: isPro,
-            expirationDate: null,
-            productId: null,
-            offeringId: null
-          });
-        } catch (loginError) {
-          console.error('RevenueCat login failed:', loginError);
-          // If login fails, ensure subscription is marked as inactive
-          setSubscription({
-            isActive: false,
-            expirationDate: null,
-            productId: null,
-            offeringId: null
-          });
-        }
-
-        hasInitialized.current = true;
-
-        const offeringsData = await Purchases.getOfferings();
-        setOfferings(Object.values(offeringsData.all || {}));
       } catch (error) {
-        console.error('RevenueCat initialization failed:', error);
+        console.error('RevenueCat manager initialization failed:', error);
+        setInitializationError('Failed to initialize payment system.');
         setSubscription({
           isActive: false,
           expirationDate: null,
@@ -396,7 +459,7 @@ export const useRevenueCatManager = () => {
     };
 
     init();
-  }, [user]);
+  }, [user, initializeRevenueCat]);
 
   return {
     subscription,
@@ -404,6 +467,7 @@ export const useRevenueCatManager = () => {
     offerings,
     purchaseProduct,
     restorePurchases,
-    refreshSubscription
+    refreshSubscription,
+    initializationError
   };
 };

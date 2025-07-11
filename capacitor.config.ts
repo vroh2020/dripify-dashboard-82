@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.genstyle.app', // This matches your bundle ID
-  appName: 'Dripify AI',
+  appName: 'Drip Max',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

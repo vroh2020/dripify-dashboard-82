@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Dripify AI</string>
+	<string>Drip Max</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -16,14 +16,12 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<key>CFBundleShortVersionString</key> <!-- Marketing version -->
-	<string>1.0</string>
-	<key>CFBundleVersion</key> <!-- Build number -->
-	<string>12</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -45,31 +43,42 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>com.genstyle.app.oauth</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.genstyle.app</string>
-			</array>
-		</dict>
-	</array>
+	
+	<!-- CRITICAL: Camera and Photo Library Permissions -->
 	<key>NSCameraUsageDescription</key>
-	<string>This app uses the camera to analyze your outfit photos and provide style ratings.</string>
+	<string>Drip Max needs camera access to take photos for AI-powered style analysis and personalized fashion recommendations.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app accesses your photo library to analyze outfit photos and provide style feedback.</string>
+	<string>Drip Max needs access to your photo library to analyze your style and provide personalized fashion insights.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>This app may save analyzed photos to your photo library for your reference.</string>
-	<key>com.apple.developer.applesignin</key>
-	<array>
-		<string>Default</string>
-	</array>
-	<!-- Privacy Policy URL required for App Store approval -->
-	<key>NSPrivacyPolicyURL</key>
-	<string>https://dripcheck.framer.website/privacy-policy</string>
-	<key>NSTermsOfServiceURL</key>
-	<string>https://dripcheck.framer.website/terms-of-services</string>
+	<string>Drip Max can save your style analysis results to your photo library for future reference.</string>
+	
+	<!-- App Store Requirements -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	
+	<!-- Privacy Policy and Terms -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	
+	<!-- Prevent screenshot in app switcher for privacy -->
+	<key>UIApplicationSupportsMultipleScenes</key>
+	<false/>
+	
+	<!-- Launch Screen Configuration -->
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIStatusBarHidden</key>
+	<true/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleLightContent</string>
+	
+	<!-- File Sharing -->
+	<key>UIFileSharingEnabled</key>
+	<false/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
 </dict>
 </plist>

@@ -5,6 +5,7 @@ import { performanceMonitor } from './utils/performance-monitor.ts'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { Capacitor } from '@capacitor/core'
 import React from 'react'
+import { Logger } from './utils/logger'
 
 // Extend Window interface for our performance tracking
 declare global {
@@ -27,13 +28,14 @@ class SplashManager {
   private splashStartTime: number;
   private currentProgress: number;
   private isCapacitor: boolean;
+  private timeouts: number[] = []; // Track timeouts for cleanup
 
   constructor() {
     this.splashElement = document.getElementById('html-splash');
     this.appShellElement = document.getElementById('app-shell');
     this.progressFill = document.getElementById('progress-fill');
     this.loadingMessage = document.getElementById('loading-message');
-    this.minimumDisplayTime = 2500; // Increased for iOS App Store feel
+    this.minimumDisplayTime = import.meta.env.PROD ? 1500 : 2500; // Faster in production
     this.splashStartTime = Date.now();
     this.currentProgress = 0;
     this.isCapacitor = Capacitor.isNativePlatform();
@@ -49,18 +51,18 @@ class SplashManager {
 
   private async initializeCapacitorSplash(): Promise<void> {
     try {
-      console.log('🚀 Initializing Capacitor splash screen for iOS');
+      Logger.info('Initializing Capacitor splash screen for iOS');
       
-      // Ensure splash stays visible with proper configuration (removed invalid showSpinner property)
+      // Ensure splash stays visible with proper configuration
       await SplashScreen.show({
         autoHide: false,
         fadeInDuration: 0,
         fadeOutDuration: 500
       });
       
-      console.log('✅ Capacitor splash screen secured with enhanced config');
+      Logger.success('Capacitor splash screen secured with enhanced config');
     } catch (error) {
-      console.warn('Capacitor splash screen initialization failed:', error);
+      Logger.warn('Capacitor splash screen initialization failed:', error);
     }
   }
 
@@ -89,14 +91,20 @@ class SplashManager {
     
     if (remainingTime > 0) {
       this.updateProgress(90, 'Finalizing...');
-      console.log(`⏱️ Maintaining splash for ${remainingTime}ms more for iOS UX`);
-      await new Promise(resolve => setTimeout(resolve, remainingTime));
+      Logger.performance(`Maintaining splash for ${remainingTime}ms more for iOS UX`);
+      await new Promise(resolve => {
+        const timeoutId = setTimeout(resolve, remainingTime);
+        this.timeouts.push(timeoutId);
+      });
     }
 
     this.updateProgress(100, 'Ready!');
     
     // Brief pause to show completion
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise(resolve => {
+      const timeoutId = setTimeout(resolve, 300); // Reduced from 400ms
+      this.timeouts.push(timeoutId);
+    });
 
     // End splash timing
     performanceMonitor.endTiming('splash-display');
@@ -105,13 +113,13 @@ class SplashManager {
     // Hide Capacitor splash screen with enhanced timing for iOS
     if (this.isCapacitor) {
       try {
-        console.log('🔄 Hiding Capacitor splash with iOS optimization...');
+        Logger.info('Hiding Capacitor splash with iOS optimization...');
         await SplashScreen.hide({
           fadeOutDuration: 500
         });
-        console.log('✅ Capacitor splash hidden with smooth iOS transition');
+        Logger.success('Capacitor splash hidden with smooth iOS transition');
       } catch (error) {
-        console.warn('Failed to hide Capacitor splash:', error);
+        Logger.warn('Failed to hide Capacitor splash:', error);
       }
     }
 
@@ -125,17 +133,24 @@ class SplashManager {
     }
 
     // Remove splash from DOM after enhanced animation
-    setTimeout(() => {
+    const cleanupTimeout = setTimeout(() => {
       if (this.splashElement) {
         this.splashElement.remove();
       }
     }, 1000);
+    this.timeouts.push(cleanupTimeout);
 
     // Mark app as fully interactive
     performanceMonitor.mark('app-interactive');
     if (window.APP_PERFORMANCE) {
       window.APP_PERFORMANCE.mark('app-interactive');
     }
+  }
+
+  // Cleanup method to prevent memory leaks
+  cleanup() {
+    this.timeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    this.timeouts = [];
   }
 }
 
@@ -158,7 +173,7 @@ class AppLauncher {
 
   async launch(): Promise<void> {
     if (this.isLaunching) {
-      console.log('🚫 Launch already in progress');
+      Logger.warn('Launch already in progress');
       return;
     }
 
@@ -173,11 +188,11 @@ class AppLauncher {
 
       // Step 1: Initialize core systems
       this.updateProgress(15, 'Loading core systems...');
-      await this.simulateAsyncWork(300); // Reduced from 500ms
+      await this.simulateAsyncWork(200); // Reduced from 300ms
 
       // Step 2: Setup security & validation
       this.updateProgress(35, 'Initializing security...');
-      await this.simulateAsyncWork(200); // Reduced from 400ms
+      await this.simulateAsyncWork(150); // Reduced from 200ms
 
       // Step 3: Setup React
       this.updateProgress(60, 'Setting up interface...');
@@ -187,22 +202,26 @@ class AppLauncher {
 
       // Step 4: Initialize app data
       this.updateProgress(80, 'Preparing your experience...');
-      await this.simulateAsyncWork(200); // Reduced from 400ms
+      await this.simulateAsyncWork(150); // Reduced from 200ms
 
       // Step 5: Complete and hide splash
       performanceMonitor.endTiming('app-init');
       await this.splash.hideWhenReady();
 
       // Log final performance report after everything is loaded
-      setTimeout(() => {
-        performanceMonitor.logFinalReport();
-      }, 1000);
+      if (import.meta.env.DEV) {
+        setTimeout(() => {
+          performanceMonitor.logFinalReport();
+        }, 1000);
+      }
       
     } catch (error) {
-      console.error('App launch failed:', error);
+      Logger.error('App launch failed:', error);
       this.handleLaunchError(error);
     } finally {
       this.isLaunching = false;
+      // Cleanup splash manager
+      this.splash.cleanup();
     }
   }
 
@@ -215,7 +234,7 @@ class AppLauncher {
       const rootElement = document.getElementById("app-shell")!;
       const root = createRoot(rootElement);
       
-      // Mount React app with React.StrictMode disabled in production
+      // Mount React app with React.StrictMode only in development
       root.render(
         import.meta.env.DEV ? (
           <React.StrictMode>
@@ -226,30 +245,30 @@ class AppLauncher {
         )
       );
       
-      // Reduced timeout from 300ms to 100ms
+      // Reduced timeout from 100ms to 50ms for faster loading
       setTimeout(() => {
         performanceMonitor.mark('react-mounted');
         resolve();
-      }, 100);
+      }, 50);
     });
   }
 
   private async simulateAsyncWork(duration: number): Promise<void> {
     if (import.meta.env.PROD) {
-      // In production, reduce artificial delays
-      return new Promise(resolve => setTimeout(resolve, Math.min(duration, 100)));
+      // In production, minimize artificial delays
+      return new Promise(resolve => setTimeout(resolve, Math.min(duration, 50)));
     }
     return new Promise(resolve => setTimeout(resolve, duration));
   }
 
   private handleLaunchError(error: Error): void {
     this.splash.updateProgress(100, 'Encountered an issue...');
-    console.error('Launch error:', error);
+    Logger.error('Launch error:', error);
     
-    // Reduced timeout from 1200ms to 800ms
+    // Reduced timeout from 800ms to 500ms
     setTimeout(() => {
       this.splash.hideWhenReady();
-    }, 800);
+    }, 500);
   }
 }
 
@@ -260,13 +279,13 @@ function initializePerformanceMonitoring() {
     window.APP_PERFORMANCE.mark('main-tsx-start');
   }
 
-  // Monitor Core Web Vitals with iOS-specific metrics
-  if ('PerformanceObserver' in window) {
+  // Monitor Core Web Vitals with iOS-specific metrics - only in development
+  if (import.meta.env.DEV && 'PerformanceObserver' in window) {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.entryType === 'navigation') {
           const navEntry = entry as PerformanceNavigationTiming;
-          console.log('📊 iOS Navigation timing:', {
+          Logger.performance('iOS Navigation timing:', {
             domContentLoaded: navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
             loadComplete: navEntry.loadEventEnd - navEntry.loadEventStart,
             platform: Capacitor.getPlatform()
@@ -281,7 +300,7 @@ function initializePerformanceMonitoring() {
 
 // Enhanced startup sequence
 function startApp() {
-  console.log('🚀 Starting Drip Max app with enhanced iOS splash...');
+  Logger.success('Starting Drip Max app with enhanced iOS splash...');
   initializePerformanceMonitoring();
   
   const launcher = new AppLauncher();

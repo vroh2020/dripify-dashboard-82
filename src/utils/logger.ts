@@ -1,49 +1,45 @@
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = import.meta.env.PROD;
+const isDevelopment = import.meta.env.DEV;
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-class Logger {
-  private static log(level: LogLevel, ...args: any[]) {
-    if (isProduction) {
-      // In production, only log errors
-      if (level === 'error') {
-        console.error(...args);
-      }
-      return;
-    }
-
-    switch (level) {
-      case 'debug':
-        console.debug(...args);
-        break;
-      case 'info':
-        console.info(...args);
-        break;
-      case 'warn':
-        console.warn(...args);
-        break;
-      case 'error':
-        console.error(...args);
-        break;
+export class Logger {
+  static info(message: string, ...args: any[]) {
+    if (isDevelopment) {
+      console.log(`ℹ️ ${message}`, ...args);
     }
   }
 
-  static debug(...args: any[]) {
-    this.log('debug', ...args);
+  static warn(message: string, ...args: any[]) {
+    if (isDevelopment) {
+      console.warn(`⚠️ ${message}`, ...args);
+    }
   }
 
-  static info(...args: any[]) {
-    this.log('info', ...args);
+  static error(message: string, ...args: any[]) {
+    // Always log errors, even in production
+    console.error(`❌ ${message}`, ...args);
   }
 
-  static warn(...args: any[]) {
-    this.log('warn', ...args);
+  static debug(message: string, ...args: any[]) {
+    if (isDevelopment) {
+      console.log(`🐛 ${message}`, ...args);
+    }
   }
 
-  static error(...args: any[]) {
-    this.log('error', ...args);
+  static performance(message: string, ...args: any[]) {
+    if (isDevelopment) {
+      console.log(`⏱️ ${message}`, ...args);
+    }
+  }
+
+  static success(message: string, ...args: any[]) {
+    if (isDevelopment) {
+      console.log(`✅ ${message}`, ...args);
+    }
+  }
+
+  // Production-safe critical logging
+  static critical(message: string, ...args: any[]) {
+    console.error(`🚨 CRITICAL: ${message}`, ...args);
   }
 }
-
-export default Logger;
