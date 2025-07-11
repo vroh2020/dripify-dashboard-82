@@ -41,19 +41,49 @@ export function useAuth(): AuthState & AuthActions {
 
   const mountedRef = useRef(true);
   const lastEventRef = useRef<string | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const initialSessionChecked = useRef(false);
   const isSigningOut = useRef(false);
   const hasInitialized = useRef(false);
   const lastEventData = useRef<{ event: string; session: Session | null } | null>(null);
 
+  // CRITICAL FIX: Add debouncing and state stabilization
+  const stableStateRef = useRef<AuthState | null>(null);
+  const stateChangeTimeoutRef = useRef<number | null>(null);
+  const lastStateUpdateRef = useRef<number>(0);
+
+  // CRITICAL FIX: Debounced state update to prevent rapid changes
   const updateAuthState = useCallback((session: Session | null, error?: string) => {
     if (!mountedRef.current) return;
 
+    const newState: AuthState = {
+      session,
+      user: session?.user || null,
+      isLoading: false,
+      isAuthenticated: !!session?.user,
+      error: error || null
+    };
+
+    // CRITICAL FIX: Only update if state has actually changed significantly
+    const currentState = stableStateRef.current;
+    const stateChanged = !currentState ||
+      currentState.isAuthenticated !== newState.isAuthenticated ||
+      currentState.user?.id !== newState.user?.id ||
+      currentState.error !== newState.error;
+
+    if (!stateChanged) {
+      console.log('🔄 Auth state unchanged, skipping update');
+      return;
+    }
+
+    // CRITICAL FIX: Debounce state updates to prevent rapid firing
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastStateUpdateRef.current;
+    
     // Clear any pending timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    if (stateChangeTimeoutRef.current) {
+      clearTimeout(stateChangeTimeoutRef.current);
+      stateChangeTimeoutRef.current = null;
     }
     
     // Don't update state during sign out process
@@ -61,13 +91,25 @@ export function useAuth(): AuthState & AuthActions {
       return;
     }
     
-    setAuthState({
-      session,
-      user: session?.user || null,
-      isLoading: false,
-      isAuthenticated: !!session?.user,
-      error: error || null
-    });
+    // If this is a rapid change (less than 500ms), debounce it
+    if (timeSinceLastUpdate < 500 && currentState) {
+      console.log('🔄 Auth state change too rapid, debouncing...');
+      stateChangeTimeoutRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          console.log('✅ Auth state update after debounce');
+          stableStateRef.current = newState;
+          setAuthState(newState);
+          lastStateUpdateRef.current = Date.now();
+        }
+      }, 300);
+      return;
+    }
+
+    // Update immediately for significant changes
+    console.log('✅ Auth state updated immediately');
+    stableStateRef.current = newState;
+    setAuthState(newState);
+    lastStateUpdateRef.current = now;
   }, []);
 
   const clearAllStorage = useCallback(async () => {
@@ -153,13 +195,15 @@ export function useAuth(): AuthState & AuthActions {
       }
       
       // Clear auth state immediately
-      setAuthState({
+      const clearedState = {
         session: null,
         user: null,
         isLoading: false,
         isAuthenticated: false,
         error: null
-      });
+      };
+      stableStateRef.current = clearedState;
+      setAuthState(clearedState);
       
       // Reset all refs
       initialSessionChecked.current = false;
@@ -222,7 +266,7 @@ export function useAuth(): AuthState & AuthActions {
     }
   }, [updateAuthState]);
 
-  // Single auth listener with proper cleanup
+  // CRITICAL FIX: Improved auth listener with better deduplication
   useEffect(() => {
     mountedRef.current = true;
     let eventCount = 0;
@@ -239,20 +283,25 @@ export function useAuth(): AuthState & AuthActions {
       const timeSinceLastEvent = now - lastEventTime;
       lastEventTime = now;
       
-      // Ignore rapid duplicate events
-      if (lastEventData.current && 
-          event === lastEventData.current.event && 
-          JSON.stringify(session) === JSON.stringify(lastEventData.current.session) && 
-          timeSinceLastEvent < 100) {
+      // CRITICAL FIX: Enhanced duplicate detection
+      const eventKey = `${event}-${session?.user?.id || 'null'}-${session?.access_token?.substring(0, 10) || 'null'}`;
+      if (lastEventRef.current === eventKey && timeSinceLastEvent < 1000) {
+        console.log('🔄 Duplicate auth event ignored:', event, timeSinceLastEvent + 'ms');
         return;
       }
+      lastEventRef.current = eventKey;
       
       eventCount++;
-      lastEventData.current = { event, session };
+      console.log(`🔔 Auth event ${eventCount}: ${event}`, {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        timeSinceLastEvent
+      });
       
       // Handle INITIAL_SESSION specially
       if (event === 'INITIAL_SESSION') {
         if (initialSessionChecked.current) {
+          console.log('🔄 INITIAL_SESSION already processed, ignoring');
           return;
         }
         initialSessionChecked.current = true;
@@ -260,43 +309,40 @@ export function useAuth(): AuthState & AuthActions {
       
       // Handle SIGNED_OUT specially
       if (event === 'SIGNED_OUT') {
-        setAuthState({
+        const signedOutState = {
           session: null,
           user: null,
           isLoading: false,
           isAuthenticated: false,
           error: null
-        });
+        };
+        stableStateRef.current = signedOutState;
+        setAuthState(signedOutState);
         return;
       }
       
-      // Only update state if the session has actually changed
-      const currentSession = authState.session;
-      const sessionChanged = !currentSession !== !session || // One is null and the other isn't
-        (currentSession && session && currentSession.access_token !== session.access_token);
-      
-      if (sessionChanged) {
-        setAuthState({
-          session,
-          user: session?.user || null,
-          isLoading: false,
-          isAuthenticated: !!session?.user,
-          error: null
-        });
-      }
+      // CRITICAL FIX: Use debounced update for all other events
+      updateAuthState(session);
     });
 
     return () => {
       mountedRef.current = false;
       subscription.unsubscribe();
+      if (stateChangeTimeoutRef.current) {
+        clearTimeout(stateChangeTimeoutRef.current);
+        stateChangeTimeoutRef.current = null;
+      }
     };
-  }, [authState.session]);
+  }, [getInitialSession, updateAuthState]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       mountedRef.current = false;
       isSigningOut.current = false;
+      if (stateChangeTimeoutRef.current) {
+        clearTimeout(stateChangeTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -316,6 +362,7 @@ export function useAuth(): AuthState & AuthActions {
       
       // If session expires in less than 5 minutes, refresh it
       if (timeUntilExpiry < 300) { // 300 seconds = 5 minutes
+        console.log('🔄 Session expiring soon, refreshing...');
         refreshSession();
       }
     };
@@ -372,15 +419,15 @@ export function useAuth(): AuthState & AuthActions {
     return () => clearTimeout(timeout);
   }, [authState.session, authState.user, authState.isAuthenticated, updateAuthState]);
 
-  // CRITICAL FIX: Add timeout protection to prevent infinite loading
+  // CRITICAL FIX: Enhanced timeout protection to prevent infinite loading
   useEffect(() => {
     const authTimeout = setTimeout(() => {
-      if (authState.isLoading) {
+      if (authState.isLoading && mountedRef.current) {
         console.warn('⚠️ Auth loading timeout - forcing completion');
         setAuthState(prev => ({
           ...prev,
           isLoading: false,
-          error: 'Authentication timeout - please try again'
+          error: prev.error || 'Authentication timeout - please try again'
         }));
       }
     }, 10000); // 10 second timeout

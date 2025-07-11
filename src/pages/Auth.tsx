@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
 import { useToast } from "@/hooks/use-toast";
@@ -13,9 +13,11 @@ export const Auth = () => {
   const { isLoading: authLoading, isAuthenticated } = useAuth();
   const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
   
-  // Add timeout protection
+  // CRITICAL FIX: Add stable state management
   const [isTimedOut, setIsTimedOut] = useState(false);
   const [redirectAttempted, setRedirectAttempted] = useState(false);
+  const hasCheckedRedirect = useRef(false);
+  const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
@@ -32,54 +34,76 @@ export const Auth = () => {
     }
   }, [location.search, toast]);
 
-  // Handle redirect logic with timeout protection
+  // CRITICAL FIX: Improved redirect logic with debouncing
   useEffect(() => {
-    if (redirectAttempted) return; // Prevent multiple redirect attempts
+    // Prevent multiple redirect attempts
+    if (redirectAttempted || hasCheckedRedirect.current) return;
 
-    const handleRedirect = () => {
-      if (isAuthenticated && hasCompletedOnboarding) {
-        console.log('✅ Auth: User authenticated and onboarding completed, redirecting to dashboard');
-        setRedirectAttempted(true);
-        navigate("/dashboard", { replace: true });
-      }
-    };
-
-    // If we have all the data we need, redirect immediately
-    if (!authLoading && !onboardingLoading) {
-      handleRedirect();
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
 
-    // Set a timeout to prevent infinite loading
-    const timeout = setTimeout(() => {
-      if (!redirectAttempted) {
-        console.warn('⚠️ Auth: Redirect timeout reached');
-        setIsTimedOut(true);
-        setRedirectAttempted(true);
-        // Force redirect to dashboard if authenticated, otherwise stay on auth
-        if (isAuthenticated) {
-          navigate("/dashboard", { replace: true });
-        }
-      }
-    }, 5000); // 5 second timeout
+    const shouldRedirect = isAuthenticated && hasCompletedOnboarding && !authLoading && !onboardingLoading;
 
-    return () => clearTimeout(timeout);
+    if (shouldRedirect) {
+      console.log('✅ Auth: User authenticated and onboarding completed, redirecting to dashboard');
+      setRedirectAttempted(true);
+      hasCheckedRedirect.current = true;
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    // FIXED: Only set timeout if we're waiting for auth/onboarding data
+    if (authLoading || onboardingLoading) {
+      timeoutRef.current = setTimeout(() => {
+        if (!redirectAttempted && !hasCheckedRedirect.current) {
+          console.log('⚠️ Auth: Loading timeout reached, proceeding with current state');
+          setIsTimedOut(true);
+          hasCheckedRedirect.current = true;
+          
+          // Only redirect if clearly authenticated, otherwise stay in onboarding
+          if (isAuthenticated && hasCompletedOnboarding) {
+            setRedirectAttempted(true);
+            navigate("/dashboard", { replace: true });
+          }
+        }
+      }, 8000); // Increased timeout to 8 seconds and only runs once
+    } else {
+      // Data is loaded, mark as checked to prevent future timeouts
+      hasCheckedRedirect.current = true;
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
   }, [isAuthenticated, hasCompletedOnboarding, authLoading, onboardingLoading, navigate, redirectAttempted]);
 
   const handleComplete = () => {
     console.log('✅ Auth: Onboarding completed, redirecting to dashboard');
+    setRedirectAttempted(true);
     navigate("/dashboard", { replace: true });
   };
 
+  // FIXED: Improved loading conditions
+  const shouldShowLoading = (authLoading || onboardingLoading) && !isTimedOut && !hasCheckedRedirect.current;
+  const shouldShowRedirecting = isAuthenticated && hasCompletedOnboarding && !redirectAttempted && !hasCheckedRedirect.current;
+
   // Show loading while auth/onboarding status is being determined
-  if ((authLoading || onboardingLoading) && !isTimedOut) {
+  if (shouldShowLoading) {
     return <LoadingScreen message="Checking your status..." />;
   }
 
   // If user is authenticated and has completed onboarding, show redirect message
-  if (isAuthenticated && hasCompletedOnboarding && !redirectAttempted) {
+  if (shouldShowRedirecting) {
     return <LoadingScreen message="Redirecting to dashboard..." />;
   }
 
+  // CRITICAL FIX: Always render ModernOnboarding to maintain state
   return <ModernOnboarding onComplete={handleComplete} />;
 };
 

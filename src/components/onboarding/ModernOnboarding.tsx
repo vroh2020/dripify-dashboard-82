@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -37,7 +37,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const { toast } = useToast();
 
-  // CRITICAL FIX: Add error state management
+  // CRITICAL FIX: Add error state management and persistence
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   
@@ -45,17 +45,78 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const { subscription, isLoading: isRevenueCatLoading, refreshSubscription } = useRevenueCatManager();
   const isPro = subscription.isActive;
 
-  // Add state to track if we've loaded initial data
+  // CRITICAL FIX: Enhanced state persistence and mounting protection
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
+  const mountedRef = useRef(true);
+  const isLoadingDataRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
   
+  // CRITICAL FIX: State recovery from previous session
+  const [stateRestored, setStateRestored] = useState(false);
+
   // Helper function to get current step number
   const getCurrentStepNumber = useCallback(() => {
     return stepMap[currentStep] || 1;
   }, [currentStep]);
 
+  // CRITICAL FIX: Enhanced state persistence - save to sessionStorage
+  const saveStateToSession = useCallback((state: any) => {
+    try {
+      if (user?.id) {
+        const stateKey = `onboarding_state_${user.id}`;
+        sessionStorage.setItem(stateKey, JSON.stringify({
+          ...state,
+          timestamp: Date.now()
+        }));
+      }
+    } catch (error) {
+      console.log('⚠️ Could not save state to session storage:', error);
+    }
+  }, [user?.id]);
+
+  // CRITICAL FIX: Restore state from sessionStorage
+  const restoreStateFromSession = useCallback(() => {
+    try {
+      if (user?.id && !stateRestored) {
+        const stateKey = `onboarding_state_${user.id}`;
+        const savedState = sessionStorage.getItem(stateKey);
+        if (savedState) {
+          const parsed = JSON.parse(savedState);
+          // Only restore if less than 1 hour old
+          if (Date.now() - parsed.timestamp < 3600000) {
+            console.log('🔄 Restoring onboarding state from session:', parsed);
+            if (parsed.currentStep) setCurrentStep(parsed.currentStep);
+            if (parsed.selectedImageName && parsed.selectedImageData) {
+              // Restore file from base64 data
+              try {
+                const byteCharacters = atob(parsed.selectedImageData);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const restoredFile = new File([byteArray], parsed.selectedImageName, { type: parsed.selectedImageType });
+                setSelectedImage(restoredFile);
+                console.log('✅ Restored selected image:', restoredFile.name);
+              } catch (error) {
+                console.warn('⚠️ Could not restore selected image:', error);
+              }
+            }
+            setStateRestored(true);
+            return true;
+          }
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Could not restore state from session storage:', error);
+    }
+    setStateRestored(true);
+    return false;
+  }, [user?.id, stateRestored]);
+
   // Simple save function - ENHANCED with better error handling
   const saveToSupabase = useCallback(async (data: any, retryCount = 0) => {
-    if (!user) return false;
+    if (!user || !mountedRef.current) return false;
     
     const maxRetries = 3;
     setSaveError(null);
@@ -67,6 +128,10 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       
       if (error) throw error;
       console.log('✅ Save successful:', data);
+      
+      // Save state to session after successful DB save
+      saveStateToSession({ currentStep, ...data });
+      
       return true;
     } catch (error: any) {
       console.error('Save failed:', error);
@@ -77,15 +142,17 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
                          error.message?.includes('network') ||
                          error.status >= 500; // Server errors
       
-      if (isRetryable && retryCount < maxRetries) {
+      if (isRetryable && retryCount < maxRetries && mountedRef.current) {
         console.log(`🔄 Retrying save (attempt ${retryCount + 1}/${maxRetries + 1})...`);
         setIsRetrying(true);
         
         // Exponential backoff: 1s, 2s, 4s
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
         
-        setIsRetrying(false);
-        return saveToSupabase(data, retryCount + 1);
+        if (mountedRef.current) {
+          setIsRetrying(false);
+          return saveToSupabase(data, retryCount + 1);
+        }
       }
       
       // Show user-friendly error message
@@ -107,16 +174,34 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       
       return false;
     }
-  }, [user, toast]);
+  }, [user, toast, currentStep, saveStateToSession]);
 
-  // Load existing data on mount - FASTER
+  // CRITICAL FIX: Load existing data on mount with better caching
   useEffect(() => {
-    if (!isAuthenticated || !user || hasLoadedInitialData) {
+    if (!isAuthenticated || !user || hasLoadedInitialData || isLoadingDataRef.current) {
       return;
     }
 
+    // Prevent multiple simultaneous loads
+    if (lastUserIdRef.current === user.id) {
+      setHasLoadedInitialData(true);
+      return;
+    }
+
+    isLoadingDataRef.current = true;
+    lastUserIdRef.current = user.id;
+
     const loadData = async () => {
       setSaveError(null);
+      
+      // First try to restore from session
+      const restoredFromSession = restoreStateFromSession();
+      if (restoredFromSession) {
+        console.log('✅ State restored from session, skipping DB load');
+        setHasLoadedInitialData(true);
+        isLoadingDataRef.current = false;
+        return;
+      }
       
       try {
         const { data, error } = await supabase
@@ -124,6 +209,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           .select('age_range, main_goal, onboarding_completed')
           .eq('id', user.id)
           .maybeSingle();
+
+        if (!mountedRef.current) return;
 
         if (error) {
           console.error('Error loading user data:', error);
@@ -142,12 +229,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           
           setCurrentStep('age');
           setHasLoadedInitialData(true);
+          isLoadingDataRef.current = false;
           return;
         }
 
         if (!data) {
           setCurrentStep('age');
           setHasLoadedInitialData(true);
+          isLoadingDataRef.current = false;
           return;
         }
 
@@ -160,6 +249,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
             analysisResult: undefined
           });
           setHasLoadedInitialData(true);
+          isLoadingDataRef.current = false;
           return;
         }
 
@@ -174,6 +264,8 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         
         setHasLoadedInitialData(true);
       } catch (error) {
+        if (!mountedRef.current) return;
+        
         console.error('Critical error loading user data:', error);
         setSaveError('Unable to load your data. Please check your connection and try again.');
         toast({
@@ -183,11 +275,13 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         });
         setCurrentStep('age');
         setHasLoadedInitialData(true);
+      } finally {
+        isLoadingDataRef.current = false;
       }
     };
 
     loadData();
-  }, [isAuthenticated, user, onComplete, toast, hasLoadedInitialData]);
+  }, [isAuthenticated, user, onComplete, toast, hasLoadedInitialData, restoreStateFromSession]);
 
   // Skip welcome for authenticated users ONLY if they have loaded data
   useEffect(() => {
@@ -195,6 +289,29 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       setCurrentStep('age');
     }
   }, [isAuthenticated, user, currentStep, hasLoadedInitialData]);
+
+  // CRITICAL FIX: Persist state when selectedImage changes
+  useEffect(() => {
+    if (selectedImage && user?.id) {
+      // Convert file to base64 for session storage
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        const base64Data = base64.split(',')[1]; // Remove data:image/xxx;base64, prefix
+        saveStateToSession({
+          currentStep,
+          selectedImageName: selectedImage.name,
+          selectedImageType: selectedImage.type,
+          selectedImageSize: selectedImage.size,
+          selectedImageData: base64Data
+        });
+      };
+      reader.readAsDataURL(selectedImage);
+    } else if (user?.id) {
+      // Clear image from session storage
+      saveStateToSession({ currentStep });
+    }
+  }, [selectedImage, currentStep, user?.id, saveStateToSession]);
 
   // Handle age selection - ENHANCED with error handling
   const handleAgeSelect = async (age: string) => {
@@ -295,6 +412,14 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
       if (error) throw error;
 
+      // Clear session storage on completion
+      try {
+        const stateKey = `onboarding_state_${user.id}`;
+        sessionStorage.removeItem(stateKey);
+      } catch (error) {
+        console.log('⚠️ Could not clear session storage:', error);
+      }
+
       // Only complete if we have all required data
       onComplete({
         age: profile?.age_range || '',
@@ -311,8 +436,6 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       });
     }
   };
-
-  // REMOVED: handlePaymentComplete function - no longer needed
 
   // Enhanced recovery function for stuck users - SIMPLIFIED
   const handleStuckUserRecovery = useCallback(async () => {
@@ -372,12 +495,18 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   }, [selectedImage]);
 
-  // REMOVED: Payment completion effect that was causing conflicts
+  // Component cleanup
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
-      {/* Only render content after initial data load, OR if user is not authenticated (sign out case) */}
-      {hasLoadedInitialData || !isAuthenticated ? (
+      {/* CRITICAL FIX: Always render content to maintain state, but guard against auth changes */}
+      {(hasLoadedInitialData || !isAuthenticated) ? (
         <>
           <div className="absolute inset-0 bg-black/20" />
           <div className="relative z-10 h-full">
