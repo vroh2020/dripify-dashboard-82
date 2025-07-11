@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
@@ -14,7 +14,7 @@ interface OnboardingStatus {
 export function useOnboardingStatus(): OnboardingStatus {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const retryCountRef = useRef(0);
   const { isAuthenticated, user } = useAuth();
   const { isPro, subscription } = useSubscription();
 
@@ -39,10 +39,10 @@ export function useOnboardingStatus(): OnboardingStatus {
       if (error) {
         console.error('Onboarding check error:', error);
         
-        if (retryCount < 2) {
-          console.log(`🔄 Retrying onboarding check (attempt ${retryCount + 1}/3)...`);
+        if (retryCountRef.current < 2) {
+          console.log(`🔄 Retrying onboarding check (attempt ${retryCountRef.current + 1}/3)...`);
           setTimeout(() => {
-            setRetryCount(prev => prev + 1);
+            retryCountRef.current += 1;
             checkOnboardingStatus();
           }, 500);
           return;
@@ -67,15 +67,15 @@ export function useOnboardingStatus(): OnboardingStatus {
       });
 
       setHasCompletedOnboarding(onboardingCompleted);
-      setRetryCount(0);
+      retryCountRef.current = 0;
       
     } catch (error) {
       console.error('Error checking onboarding:', error);
       
-      if (retryCount < 2) {
-        console.log(`🔄 Retrying onboarding check due to error (attempt ${retryCount + 1}/3)...`);
+      if (retryCountRef.current < 2) {
+        console.log(`🔄 Retrying onboarding check due to error (attempt ${retryCountRef.current + 1}/3)...`);
         setTimeout(() => {
-          setRetryCount(prev => prev + 1);
+          retryCountRef.current += 1;
           checkOnboardingStatus();
         }, 500);
         return;
@@ -86,7 +86,7 @@ export function useOnboardingStatus(): OnboardingStatus {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.id, retryCount]);
+  }, [isAuthenticated, user?.id, subscription.isActive]);
 
   useEffect(() => {
     console.log('🔄 Onboarding status effect triggered:', {
@@ -96,8 +96,13 @@ export function useOnboardingStatus(): OnboardingStatus {
       subscriptionActive: subscription.isActive
     });
     
-    setRetryCount(0);
-    checkOnboardingStatus();
+    // Add debounce to prevent excessive calls
+    const timeoutId = setTimeout(() => {
+      retryCountRef.current = 0;
+      checkOnboardingStatus();
+    }, 100); // 100ms debounce
+    
+    return () => clearTimeout(timeoutId);
   }, [isAuthenticated, user?.id]);
 
   // Enhanced timeout protection to prevent long loading states
@@ -131,6 +136,6 @@ export function useOnboardingStatus(): OnboardingStatus {
     isLoading,
     hasCompletedOnboarding,
     checkOnboardingStatus,
-    retryCount
+    retryCount: retryCountRef.current
   };
 } 

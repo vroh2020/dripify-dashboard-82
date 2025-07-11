@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -40,6 +40,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   // CRITICAL FIX: Add error state management
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  
+  // CRITICAL FIX: Add ref to preserve selectedImage across re-renders
+  const selectedImageRef = useRef<File | null>(null);
   
   const { isAuthenticated, user } = useAuth();
   const { subscription, isLoading: isRevenueCatLoading, refreshSubscription } = useRevenueCatManager();
@@ -187,7 +190,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     };
 
     loadData();
-  }, [isAuthenticated, user, onComplete, toast, hasLoadedInitialData]);
+  }, [isAuthenticated, user, toast, hasLoadedInitialData]);
 
   // Skip welcome for authenticated users ONLY if they have loaded data
   useEffect(() => {
@@ -224,20 +227,26 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       type: file.type
     } : 'NULL');
     console.log('🔄 ModernOnboarding - About to call setSelectedImage...');
+    
+    // CRITICAL FIX: Update both state and ref
     setSelectedImage(file);
+    selectedImageRef.current = file;
+    
     console.log('✅ ModernOnboarding - setSelectedImage completed');
     console.log('📊 ModernOnboarding - selectedImage state should now be:', file ? 'FILE PRESENT' : 'NULL');
   };
 
      // Handle image upload
    const handleImageUpload = async () => {
-     if (!selectedImage || isAnalyzing) return;
+     // CRITICAL FIX: Use ref as fallback if state is null
+     const imageToUpload = selectedImage || selectedImageRef.current;
+     if (!imageToUpload || isAnalyzing) return;
 
      try {
        setIsAnalyzing(true);
        setCurrentStep('rating');
 
-       const result = await analyzeStyle(selectedImage, true);
+       const result = await analyzeStyle(imageToUpload, true);
        setAnalysisResult(result);
        
        // Request in-app review after user sees their results (4 seconds)
@@ -253,7 +262,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
        setAnalysisResult({
          overallScore: 86,
          rawAnalysis: "Demo analysis",
-         imageUrl: URL.createObjectURL(selectedImage),
+         imageUrl: URL.createObjectURL(imageToUpload),
          summary: "Looking great! Your style shows good attention to detail.",
          breakdown: [],
          tips: []
@@ -360,7 +369,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
-  // Add debugging for selectedImage changes
+  // Add debugging for selectedImage changes and restore from ref if needed
   useEffect(() => {
     console.log('🎯 ModernOnboarding selectedImage changed:', selectedImage ? 'FILE PRESENT' : 'NULL');
     if (selectedImage) {
@@ -369,8 +378,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         size: selectedImage.size,
         type: selectedImage.type
       });
+    } else if (selectedImageRef.current && currentStep === 'test-photo') {
+      // CRITICAL FIX: Restore selectedImage from ref if it was reset
+      console.log('🔄 Restoring selectedImage from ref');
+      setSelectedImage(selectedImageRef.current);
     }
-  }, [selectedImage]);
+  }, [selectedImage, currentStep]);
 
   // REMOVED: Payment completion effect that was causing conflicts
 
