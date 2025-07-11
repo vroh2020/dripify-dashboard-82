@@ -35,6 +35,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showNextButton, setShowNextButton] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isInPaymentFlow, setIsInPaymentFlow] = useState(false);
   const { toast } = useToast();
 
   // CRITICAL FIX: Add error state management
@@ -47,6 +48,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   // Add state to track if we've loaded initial data
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
+  const [isPaymentPending, setIsPaymentPending] = useState(false);
   
   // Helper function to get current step number
   const getCurrentStepNumber = useCallback(() => {
@@ -151,19 +153,24 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
           return;
         }
 
-        // Handle completed onboarding users - SIMPLIFIED LOGIC
+        // Handle completed onboarding users - BUT ONLY if not in payment flow
         if (data.onboarding_completed) {
-          console.log('✅ User has completed onboarding, calling onComplete');
-          onComplete({
-            age: data.age_range || '',
-            mainGoal: data.main_goal || '',
-            analysisResult: undefined
-          });
+          if (isPro) {
+            onComplete({
+              age: data.age_range || '',
+              mainGoal: data.main_goal || '',
+              analysisResult: undefined
+            });
+          } else if (!isPaymentPending && currentStep !== 'paywall' && currentStep !== 'trial-offer') {
+            // CRITICAL FIX: Don't override if user is already in payment flow
+            setIsPaymentPending(true);
+            setCurrentStep('trial-offer');
+          }
           setHasLoadedInitialData(true);
           return;
         }
 
-        // Resume from last step for incomplete onboarding
+        // Resume from last step
         if (data.main_goal) {
           setCurrentStep('test-photo');
         } else if (data.age_range) {
@@ -187,7 +194,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     };
 
     loadData();
-  }, [isAuthenticated, user, onComplete, toast, hasLoadedInitialData]);
+  }, [isAuthenticated, user, onComplete, toast, hasLoadedInitialData]); // REMOVED isPro from dependencies to prevent loops
 
   // Skip welcome for authenticated users ONLY if they have loaded data
   useEffect(() => {
@@ -312,9 +319,64 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   };
 
-  // REMOVED: handlePaymentComplete function - no longer needed
+  // NEW: Handle completion specifically after payment
+  const handlePaymentComplete = async () => {
+    if (isCompleting) return;
+    
+    setIsCompleting(true);
+    
+    try {
+      // Wait a bit for subscription state to propagate
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // SAFETY CHECK: Only complete if user is actually Pro now
+      if (!isPro) {
+        console.log('❌ Payment completion blocked: User is not Pro after payment');
+        
+        // Try to refresh subscription state
+        try {
+          await refreshSubscription();
+          
+          // Wait a bit more and check again
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          if (!isPro) {
+            toast({
+              title: "Payment Verification",
+              description: "Please wait while we verify your payment...",
+              variant: "default"
+            });
+            setCurrentStep('trial-offer');
+            return;
+          }
+        } catch (error) {
+          console.error('Failed to refresh subscription:', error);
+          toast({
+            title: "Payment Required",
+            description: "Please complete your payment to continue.",
+            variant: "destructive"
+          });
+          setCurrentStep('trial-offer');
+          return;
+        }
+      }
 
-  // Enhanced recovery function for stuck users - SIMPLIFIED
+      // Call the regular completion function
+      await handleCompleteOnboarding();
+      
+    } catch (error) {
+      console.error('Payment completion error:', error);
+      toast({
+        title: "Completion Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  // Enhanced recovery function for stuck users
   const handleStuckUserRecovery = useCallback(async () => {
     if (!user) return;
 
@@ -331,18 +393,24 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
         return;
       }
 
-      // SIMPLIFIED: Handle completed onboarding
+      // FIXED: Proper handling of completed onboarding
       if (profile.onboarding_completed) {
-        console.log('✅ Recovery: User has completed onboarding, calling onComplete');
-        onComplete({
-          age: profile.age_range || '',
-          mainGoal: profile.main_goal || '',
-          analysisResult: undefined
-        });
+        if (isPro) {
+          // Has both onboarding and subscription - complete immediately
+          onComplete({
+            age: profile.age_range || '',
+            mainGoal: profile.main_goal || '',
+            analysisResult: undefined
+          });
+        } else {
+          // Completed onboarding but no subscription - needs payment
+          console.log('🔄 Recovery: Directing completed user to payment');
+          setCurrentStep('trial-offer');
+        }
         return;
       }
 
-      // Resume from correct step for incomplete onboarding
+      // Resume from correct step
       if (!profile.age_range) {
         setCurrentStep('age');
       } else if (!profile.main_goal) {
@@ -356,7 +424,9 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
       // Fallback to age step
       setCurrentStep('age');
     }
-  }, [user, onComplete]);
+  }, [user, isPro, onComplete]);
+
+  // Recovery function available for internal use only
 
   const progress = (stepMap[currentStep] / totalSteps) * 100;
 
@@ -372,7 +442,13 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
     }
   }, [selectedImage]);
 
-  // REMOVED: Payment completion effect that was causing conflicts
+  // Handle payment completion
+  useEffect(() => {
+    if (isPaymentPending && isPro) {
+      handlePaymentComplete();
+      setIsPaymentPending(false);
+    }
+  }, [isPaymentPending, isPro]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">

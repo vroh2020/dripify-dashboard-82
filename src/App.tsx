@@ -11,7 +11,6 @@ import { useAuth } from "./hooks/useAuth";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
-import "./utils/debugUtils"; // Import debug utilities
 
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
@@ -38,44 +37,8 @@ const AppRoutes = () => {
     retryCount: 0
   });
 
-  // Add timeout protection to prevent infinite loading
-  const [isTimedOut, setIsTimedOut] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
-
   // Handle deep link auth callbacks
   useAppUrlHandler();
-
-  // Calculate overall loading state with timeout protection
-  const isOverallLoading = (authLoading || onboardingLoading) && !isTimedOut;
-
-  // Timeout protection - prevent infinite loading states
-  useEffect(() => {
-    if (authLoading || onboardingLoading) {
-      // Clear any existing timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      // Set new timeout - 10 seconds max
-      timeoutRef.current = setTimeout(() => {
-        console.warn('⚠️ Loading timeout reached - forcing navigation decision');
-        setIsTimedOut(true);
-      }, 10000);
-    } else {
-      // Clear timeout if not loading
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      setIsTimedOut(false);
-    }
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [authLoading, onboardingLoading]);
 
   // Log routing decisions only when they change
   useEffect(() => {
@@ -131,23 +94,6 @@ const AppRoutes = () => {
     </>
   );
 
-  // Show loading screen while determining routing (with timeout protection)
-  if (isOverallLoading) {
-    return <LoadingScreen message="Checking your status..." />;
-  }
-
-  // Handle authentication errors
-  if (authError) {
-    console.error('Auth error detected:', authError);
-    return <Navigate to="/auth" replace />;
-  }
-
-  // Handle timeout case - force a decision
-  if (isTimedOut) {
-    console.warn('⚠️ Timeout reached - forcing navigation to auth');
-    return <Navigate to="/auth" replace />;
-  }
-
   return (
     <Routes>
       {/* Auth routes - always accessible */}
@@ -165,8 +111,6 @@ const AppRoutes = () => {
               {protectedRoutes}
               {/* Redirect root to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              {/* Catch all other routes and redirect to dashboard */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </>
           ) : (
             <>
