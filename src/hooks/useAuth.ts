@@ -290,7 +290,7 @@ export function useAuth(): AuthState & AuthActions {
       mountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, [authState.session]);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

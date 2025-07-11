@@ -25,92 +25,92 @@ export const DashboardView = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const fetchAnalyses = useCallback(async () => {
-    try {
+  useEffect(() => {
+    const fetchAnalyses = async () => {
       if (!user) {
         setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('style_analyses')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      try {
+        const { data, error } = await supabase
+          .from('style_analyses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data && data.length > 0) {
-        const processedData: StyleAnalysis[] = data.map(analysis => {
-          let typedBreakdown: ScoreBreakdown[] = [];
-          let typedTips: StyleTip[] = [];
-          
-          if (analysis.breakdown && typeof analysis.breakdown === 'object') {
-            if (Array.isArray(analysis.breakdown)) {
-              typedBreakdown = analysis.breakdown as unknown as ScoreBreakdown[];
-            } 
-            else if (typeof analysis.breakdown === 'string') {
-              try {
-                typedBreakdown = JSON.parse(analysis.breakdown) as ScoreBreakdown[];
-              } catch (e) {
-                console.error('Error parsing breakdown JSON:', e);
-              }
-            }
-          }
-
-          if (analysis.tips) {
-            if (typeof analysis.tips === 'string') {
-              try {
-                const parsedTips = JSON.parse(analysis.tips);
-                if (Array.isArray(parsedTips)) {
-                  typedTips = parsedTips as StyleTip[];
+        if (data && data.length > 0) {
+          const processedData: StyleAnalysis[] = data.map(analysis => {
+            let typedBreakdown: ScoreBreakdown[] = [];
+            let typedTips: StyleTip[] = [];
+            
+            if (analysis.breakdown && typeof analysis.breakdown === 'object') {
+              if (Array.isArray(analysis.breakdown)) {
+                typedBreakdown = analysis.breakdown as unknown as ScoreBreakdown[];
+              } 
+              else if (typeof analysis.breakdown === 'string') {
+                try {
+                  typedBreakdown = JSON.parse(analysis.breakdown) as ScoreBreakdown[];
+                } catch (e) {
+                  console.error('Error parsing breakdown JSON:', e);
                 }
-              } catch (e) {
-                console.error('Error parsing tips JSON:', e);
               }
-            } else if (Array.isArray(analysis.tips)) {
-              typedTips = analysis.tips as unknown as StyleTip[];
             }
-          }
+
+            if (analysis.tips) {
+              if (typeof analysis.tips === 'string') {
+                try {
+                  const parsedTips = JSON.parse(analysis.tips);
+                  if (Array.isArray(parsedTips)) {
+                    typedTips = parsedTips as StyleTip[];
+                  }
+                } catch (e) {
+                  console.error('Error parsing tips JSON:', e);
+                }
+              } else if (Array.isArray(analysis.tips)) {
+                typedTips = analysis.tips as unknown as StyleTip[];
+              }
+            }
+            
+            return {
+              ...analysis,
+              breakdown: typedBreakdown,
+              tips: typedTips,
+              image_url: analysis.thumbnail_url || analysis.image_url
+            };
+          });
           
-          return {
-            ...analysis,
-            breakdown: typedBreakdown,
-            tips: typedTips,
-            image_url: analysis.thumbnail_url || analysis.image_url
-          };
-        });
-        
-        setAnalyses(processedData);
-        
-        const scores = data.map(a => a.total_score);
-        const averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-        const bestScore = Math.max(...scores);
-        const currentStreak = data[0].streak_count || 0;
+          setAnalyses(processedData);
+          
+          const scores = data.map(a => a.total_score);
+          const averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+          const bestScore = Math.max(...scores);
+          const currentStreak = data[0].streak_count || 0;
 
-        setStats({
-          averageScore: Math.round(averageScore * 10) / 10,
-          streak: currentStreak,
-          totalScans: data.length,
-          bestScore: bestScore
+          setStats({
+            averageScore: Math.round(averageScore * 10) / 10,
+            streak: currentStreak,
+            totalScans: data.length,
+            bestScore: bestScore
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching analyses:', error);
+        toast({
+          title: "Error loading analyses",
+          description: "Failed to load your style analyses.",
+          variant: "destructive"
         });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching analyses:', error);
-      toast({
-        title: "Error loading analyses",
-        description: "Failed to load your style analyses.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast, user]);
+    };
 
-  useEffect(() => {
     fetchAnalyses();
-  }, [fetchAnalyses]);
+  }, [user, toast]);
 
   const hasScans = analyses.length > 0;
 
@@ -139,7 +139,7 @@ export const DashboardView = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20 backdrop-blur-xl">
+            <Card className="bg-white/5 border-white/10 backdrop-blur-lg">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -148,7 +148,7 @@ export const DashboardView = () => {
                   </div>
                 </div>
                 <p className="text-white/70 mb-6 leading-relaxed">
-                  Welcome to Drip Check! Take your first style scan to get personalized fashion insights and start building your style streak.
+                  Welcome to Dripify AI! Take your first style scan to get personalized fashion insights and start building your style streak.
                 </p>
                 <Button 
                   onClick={() => navigate('/scan')} 

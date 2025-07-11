@@ -79,12 +79,12 @@ export function useOnboardingStatus(): OnboardingStatus {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.id, isPro, subscription.isActive, retryCount]);
+  }, [isAuthenticated, user?.id, retryCount]);
 
   useEffect(() => {
     setRetryCount(0);
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id, isPro, subscription.isActive]);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
