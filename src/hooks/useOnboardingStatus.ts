@@ -86,7 +86,7 @@ export function useOnboardingStatus(): OnboardingStatus {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.id, retryCount]);
+  }, [isAuthenticated, user?.id, isPro, subscription.isActive, retryCount]);
 
   useEffect(() => {
     console.log('🔄 Onboarding status effect triggered:', {
@@ -98,7 +98,7 @@ export function useOnboardingStatus(): OnboardingStatus {
     
     setRetryCount(0);
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, isPro, subscription.isActive]);
 
   // Enhanced timeout protection to prevent long loading states
   useEffect(() => {
