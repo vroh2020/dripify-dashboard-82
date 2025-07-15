@@ -40,7 +40,7 @@ export const useRevenueCatManager = () => {
         const { customerInfo } = await Purchases.getCustomerInfo();
         const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
         
-        console.log('🔄 fetchSubscriptionStatus result:', { isPro });
+        console.log('🔄 fetchSubscriptionStatus result:', { isPro, userId: user.id });
         
         const newStatus = {
           isActive: isPro,
@@ -75,7 +75,7 @@ export const useRevenueCatManager = () => {
       console.error('fetchSubscriptionStatus failed:', error);
       return subscription;
     }
-  }, [user, subscription]);
+  }, [user?.id]); // FIXED: Only depend on user.id, not the entire subscription object
 
   const refreshSubscription = useCallback(async () => {
     await fetchSubscriptionStatus();

@@ -25,6 +25,13 @@ export const DashboardView = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  console.log('🎯 DashboardView rendered:', {
+    user: user?.id,
+    loading,
+    analysesCount: analyses.length,
+    timestamp: new Date().toISOString()
+  });
+
   const fetchAnalyses = useCallback(async () => {
     try {
       if (!user) {

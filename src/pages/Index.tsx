@@ -14,6 +14,12 @@ const Index = () => {
   const location = useLocation();
   const currentPath = location.pathname.split('/')[1] || 'dashboard';
 
+  console.log('🎯 Index component rendered:', {
+    currentPath,
+    location: location.pathname,
+    timestamp: new Date().toISOString()
+  });
+
   // Sync tab value with URL
   useEffect(() => {
     if (location.pathname === '/') {
@@ -22,18 +28,24 @@ const Index = () => {
   }, [location.pathname, navigate]);
 
   const handleTabChange = (value: string) => {
+    console.log('🎯 Tab changed to:', value);
     navigate(`/${value}`);
   };
 
   // Simple conditional rendering instead of nested Routes
   const renderContent = () => {
+    console.log('🎯 Rendering content for path:', currentPath);
+    
     switch (currentPath) {
       case 'scan':
+        console.log('🎯 Rendering ScanView');
         return <ScanView />;
       case 'tips':
+        console.log('🎯 Rendering TipsView');
         return <TipsView />;
       case 'dashboard':
       default:
+        console.log('🎯 Rendering DashboardView');
         return <DashboardView />;
     }
   };
@@ -48,7 +60,30 @@ const Index = () => {
       <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-88px)]">
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden pt-2">
-          {renderContent()}
+          {(() => {
+            try {
+              console.log('🎯 Attempting to render content...');
+              const content = renderContent();
+              console.log('🎯 Content rendered successfully');
+              return content;
+            } catch (error) {
+              console.error('🎯 Error rendering content:', error);
+              return (
+                <div className="flex items-center justify-center min-h-[50vh] text-white">
+                  <div className="text-center">
+                    <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+                    <p className="text-white/60 mb-4">Error loading dashboard content</p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg"
+                    >
+                      Reload
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+          })()}
         </div>
 
         {/* Bottom Navigation - Fixed */}

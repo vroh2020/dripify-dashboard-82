@@ -11,10 +11,30 @@ import { useAuth } from "./hooks/useAuth";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { DebugOverlay } from "./components/DebugOverlay";
 
 // Lazy load non-critical components
-const Index = lazy(() => import("./pages/Index"));
-const Profile = lazy(() => import("./pages/Profile"));
+const Index = lazy(() => {
+  console.log('🎯 Loading Index component...');
+  return import("./pages/Index").then(module => {
+    console.log('🎯 Index component loaded successfully');
+    return module;
+  }).catch(error => {
+    console.error('🎯 Error loading Index component:', error);
+    throw error;
+  });
+});
+
+const Profile = lazy(() => {
+  console.log('🎯 Loading Profile component...');
+  return import("./pages/Profile").then(module => {
+    console.log('🎯 Profile component loaded successfully');
+    return module;
+  }).catch(error => {
+    console.error('🎯 Error loading Profile component:', error);
+    throw error;
+  });
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +57,35 @@ const AppRoutes = () => {
     retryCount: 0
   });
 
+  // Add timeout protection for infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (authLoading || onboardingLoading) {
+        console.warn('⚠️ App loading timeout - forcing state resolution');
+        console.log('Current state:', {
+          authLoading,
+          onboardingLoading,
+          isAuthenticated,
+          hasCompletedOnboarding,
+          user: !!user,
+          retryCount,
+          currentPath: window.location.pathname
+        });
+        
+        // Force navigation to auth if stuck
+        if (!isAuthenticated && !user) {
+          console.log('🔄 Force navigating to auth due to timeout');
+          window.location.href = '/auth';
+        } else if (isAuthenticated && user && !hasCompletedOnboarding) {
+          console.log('🔄 Force navigating to onboarding due to timeout');
+          window.location.href = '/onboarding';
+        }
+      }
+    }, 15000); // Increased from 10s to 15s
+
+    return () => clearTimeout(timeout);
+  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, user, retryCount]);
+
   // Handle deep link auth callbacks
   useAppUrlHandler();
 
@@ -51,7 +100,16 @@ const AppRoutes = () => {
     };
 
     if (JSON.stringify(newDecision) !== JSON.stringify(routingDecisionRef.current)) {
-      console.log('🔍 App Routing Decision:', newDecision);
+      console.log('🔍 App Routing Decision:', {
+        isAuthenticated,
+        hasCompletedOnboarding,
+        user: !!user,
+        authError,
+        retryCount,
+        userId: user?.id || 'NO_USER',
+        userEmail: user?.email || 'NO_EMAIL',
+        currentPath: window.location.pathname
+      });
       routingDecisionRef.current = newDecision;
     }
   }, [isAuthenticated, hasCompletedOnboarding, user, authError, retryCount]);
@@ -131,6 +189,63 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  // Add global debug function
+  useEffect(() => {
+    (window as any).debugAppState = async () => {
+      console.group('🔍 DEBUG: Current App State');
+      console.log('Current URL:', window.location.href);
+      console.log('Current Path:', window.location.pathname);
+      
+      // Get auth state
+      const authState = {
+        isAuthenticated: false,
+        user: null,
+        isLoading: false
+      };
+      
+      // Get onboarding state
+      const onboardingState = {
+        hasCompletedOnboarding: false,
+        isLoading: false,
+        retryCount: 0
+      };
+      
+      console.log('Auth State:', authState);
+      console.log('Onboarding State:', onboardingState);
+      
+      // Check if we're stuck in a loop
+      const performanceEntries = performance.getEntriesByType('measure');
+      const recentChecks = performanceEntries.filter(entry => 
+        entry.name.includes('Onboarding Status Check') && 
+        entry.startTime > performance.now() - 10000 // Last 10 seconds
+      );
+      
+      console.log('Recent Onboarding Checks (last 10s):', recentChecks.length);
+      
+      // Add database health check
+      try {
+        const { checkDatabaseHealth } = await import('./utils/databaseHealthCheck');
+        const health = await checkDatabaseHealth(authState.user?.id);
+        console.log('Database Health:', health);
+      } catch (error) {
+        console.log('Database health check failed:', error);
+      }
+      
+      console.groupEnd();
+    };
+    
+    (window as any).forceNavigateToDashboard = () => {
+      console.log('🔄 Force navigating to dashboard...');
+      window.location.href = '/dashboard';
+    };
+    
+    (window as any).resetOnboarding = () => {
+      console.log('🔄 Resetting onboarding state...');
+      localStorage.removeItem('onboarding_completed');
+      window.location.reload();
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -145,6 +260,7 @@ const App = () => {
               }}
             >
               <AppRoutes />
+              <DebugOverlay />
             </BrowserRouter>
           </SubscriptionProvider>
         </AuthErrorBoundary>

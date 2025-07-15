@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
@@ -17,11 +17,26 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [retryCount, setRetryCount] = useState(0);
   const { isAuthenticated, user } = useAuth();
   const { isPro, subscription } = useSubscription();
+  
+  // Add state tracking to prevent loops
+  const lastCheckRef = useRef<{
+    userId: string | null;
+    timestamp: number;
+    result: boolean;
+  }>({ userId: null, timestamp: 0, result: false });
 
   const checkOnboardingStatus = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
       setIsLoading(false);
       setHasCompletedOnboarding(false);
+      return;
+    }
+
+    // Prevent rapid successive checks
+    const now = Date.now();
+    const lastCheck = lastCheckRef.current;
+    if (lastCheck.userId === user.id && now - lastCheck.timestamp < 1000) {
+      console.log('🔄 Skipping rapid onboarding check');
       return;
     }
 
@@ -52,13 +67,22 @@ export function useOnboardingStatus(): OnboardingStatus {
 
       const onboardingCompleted = profile?.onboarding_completed === true;
       
+      // Update last check tracking
+      lastCheckRef.current = {
+        userId: user.id,
+        timestamp: now,
+        result: onboardingCompleted
+      };
+      
       console.log('📊 Onboarding Status Check:', {
         userId: user.id,
         onboardingCompleted,
         platform: Capacitor.isNativePlatform() ? 'native' : 'web',
         revenueCatStatus: subscription.isActive,
         supabaseStatus: profile?.subscription_status,
-        finalResult: onboardingCompleted
+        finalResult: onboardingCompleted,
+        retryCount,
+        timestamp: new Date().toISOString()
       });
 
       setHasCompletedOnboarding(onboardingCompleted);
@@ -79,12 +103,12 @@ export function useOnboardingStatus(): OnboardingStatus {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user?.id, isPro, subscription.isActive, retryCount]);
+  }, [isAuthenticated, user?.id, retryCount, subscription.isActive]);
 
   useEffect(() => {
     setRetryCount(0);
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id, isPro, subscription.isActive]);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -93,7 +117,7 @@ export function useOnboardingStatus(): OnboardingStatus {
         setIsLoading(false);
         setHasCompletedOnboarding(false);
       }
-    }, 3000);
+    }, 5000); // Increased from 3s to 5s
 
     return () => clearTimeout(timeout);
   }, [isLoading]);

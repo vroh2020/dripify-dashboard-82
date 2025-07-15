@@ -290,7 +290,7 @@ export function useAuth(): AuthState & AuthActions {
       mountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, [authState.session]);
+  }, []); // FIXED: Removed authState.session to prevent infinite re-renders
 
   // Cleanup on unmount
   useEffect(() => {
