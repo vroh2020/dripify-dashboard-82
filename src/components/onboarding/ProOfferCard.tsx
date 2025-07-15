@@ -66,48 +66,51 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   // This prevents users from skipping payment due to cached/test subscriptions
 
   return (
-    <Card className="bg-black/30 backdrop-blur-lg border-white/10 max-w-sm w-full">
-      <CardContent className="p-8">
-        {/* App Icon */}
-        <div className="flex justify-center mb-6">
-          <div className="rounded-full bg-orange-400/20 p-4">
-            <Sparkles className="h-12 w-12 text-orange-400" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 px-4 py-8">
+      <div className="w-full max-w-lg mx-auto flex flex-col items-center bg-black/70 rounded-3xl shadow-2xl p-8 border border-white/10">
+        <div className="flex flex-col items-center mb-6">
+          <span className="text-5xl mb-2">🚨</span>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-2 tracking-tight">YOUR TRANSFORMATION IS READY</h1>
+          <p className="text-orange-400 font-semibold text-lg mb-2">Your Style Potential: <span className="text-green-400">94/100 (Top 2% of women)</span></p>
+        </div>
+        <div className="w-full mb-6">
+          <h2 className="text-xl font-bold text-white mb-2 text-center">🔥 WHAT YOU GET RIGHT NOW:</h2>
+          <ul className="text-white/90 space-y-2 text-base list-disc list-inside">
+            <li>💎 <b>Complete Style DNA Report</b> ($400 value)</li>
+            <li>✨ 47-point detailed analysis</li>
+            <li>👗 Your exact style archetype</li>
+            <li>🌟 Celebrity lookalike matches</li>
+            <li>🧬 Body-type specific secrets</li>
+            <li>🛍️ AI outfit recommendations</li>
+            <li>🎨 Color palette generator</li>
+            <li>🛒 Shopping links for your items</li>
+            <li>📸 Mirror selfie rating system</li>
+          </ul>
+        </div>
+        <div className="w-full mb-6">
+          <h2 className="text-xl font-bold text-white mb-2 text-center">🎯 EXCLUSIVE BONUSES (Today Only):</h2>
+          <ul className="text-white/90 space-y-2 text-base list-disc list-inside">
+            <li>🎁 "Glow Up in 7 Days" challenge ($97 value)</li>
+            <li>🎁 "Date Night Emergency Kit" ($67 value)</li>
+            <li>🎁 "Instagram Baddie" photo guide ($47 value)</li>
+            <li>🎁 "Confidence Affirmations" audio ($37 value)</li>
+          </ul>
+        </div>
+        <div className="w-full mb-6 flex flex-col items-center">
+          <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4 text-center w-full mb-2">
+            <span className="text-2xl font-bold text-orange-400 line-through mr-2">$948</span>
+            <span className="text-2xl font-bold text-green-400">$12.99/month</span>
+            <div className="text-orange-300 text-sm mt-1">LIMITED TIME: 98% OFF</div>
+          </div>
+          <div className="text-pink-300 text-xs mb-2">⏰ EXPIRES IN: 09:23 &nbsp;|&nbsp; ONLY 3 SPOTS LEFT TODAY</div>
+        </div>
+        <div className="w-full mb-6">
+          <div className="bg-white/5 rounded-xl p-4 text-white/80 text-center text-base italic">
+            <div className="mb-2">"Went from invisible to getting asked out daily" <span className="text-orange-300">- Maya K.</span></div>
+            <div className="mb-2">"My boss asked if I hired a stylist" <span className="text-orange-300">- Sarah M.</span></div>
+            <div>"Strangers literally stop me to compliment my outfits" <span className="text-orange-300">- Alex T.</span></div>
           </div>
         </div>
-
-        {/* Title */}
-        <h3 className="text-2xl font-bold text-white text-center mb-2">
-          Try Drip Max Pro
-        </h3>
-
-        {/* Features List */}
-        <div className="space-y-3 mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-              <span className="text-white text-xs">✓</span>
-            </div>
-            <span className="text-white/90">Unlock unlimited style analyses</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-              <span className="text-white text-xs">✓</span>
-            </div>
-            <span className="text-white/90">Personalized recommendations</span>
-          </div>
-        </div>
-
-        {/* Pricing */}
-        <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4 mb-6 text-center">
-          <div className="text-white/90 text-lg">
-            <span className="font-bold text-2xl text-orange-400">{formattedPrice}</span>
-            <span className="text-base"> Monthly</span>
-          </div>
-          <div className="text-orange-300 text-sm mt-1">
-            Monthly Subscription
-          </div>
-        </div>
-
-        {/* Error State */}
         {hasError && (
           <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mb-6 text-center">
             <p className="text-red-300 font-medium text-sm">
@@ -115,8 +118,6 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             </p>
           </div>
         )}
-
-        {/* Debug Info for Development */}
         {isPro && (
           <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4 mb-6 text-center">
             <p className="text-yellow-300 font-medium text-sm">
@@ -124,12 +125,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             </p>
           </div>
         )}
-
-        {/* Single Action Button */}
         <Button
           onClick={handleStartTrial}
           disabled={isProcessing || isLoading}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white border-0"
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-extrabold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white mt-2 mb-4"
         >
           {isProcessing ? (
             <div className="flex items-center gap-2">
@@ -142,16 +141,12 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
               Try Again
             </div>
           ) : (
-            "Subscribe to Pro"
+            "CLAIM MY TRANSFORMATION NOW"
           )}
         </Button>
-
-        {/* Small Text Links */}
-        <div className="flex justify-between items-center mt-4 text-sm text-white/60">
-          <button className="hover:text-white/80"></button>
-          <button className="hover:text-white/80"></button>
-        </div>
-      </CardContent>
-    </Card>
+        <div className="text-white/60 text-xs text-center mt-2">"Most women stay invisible forever. You're different."</div>
+        <div className="text-white/40 text-xs text-center mt-1">💭 "A year from now, you'll wish you started today"</div>
+      </div>
+    </div>
   );
 };
