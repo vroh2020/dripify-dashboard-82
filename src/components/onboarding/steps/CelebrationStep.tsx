@@ -57,16 +57,11 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
           <p className="mt-2 max-w-md mx-auto text-md text-white/50">
             You've just experienced the power of Dripify AI!
           </p>
-          
           <div className="space-y-4">
             <p className="text-white/70 text-lg leading-relaxed max-w-sm">
               Ready to unlock unlimited style analyses and premium features?
             </p>
-            <div className="bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
-              <p className="text-orange-300 font-medium">
-                🔥 7-day free trial available
-              </p>
-            </div>
+            {/* Removed the orange box and '7-day free trial available' message */}
           </div>
         </div>
       </div>

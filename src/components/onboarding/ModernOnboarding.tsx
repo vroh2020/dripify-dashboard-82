@@ -452,6 +452,12 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+      {/* Show loading overlay during analysis */}
+      {isAnalyzing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <StyleLoadingOverlay isAnalyzing={true} />
+        </div>
+      )}
       {/* Only render content after initial data load, OR if user is not authenticated (sign out case) */}
       {hasLoadedInitialData || !isAuthenticated ? (
         <>

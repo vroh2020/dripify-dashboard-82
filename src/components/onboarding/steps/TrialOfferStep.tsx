@@ -8,8 +8,7 @@ interface TrialOfferStepProps {
 }
 
 export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
-  const isWeb = !Capacitor.isNativePlatform();
-
+  // Remove isWeb logic, always show subscription button
   return (
     <motion.div
       key="trial-offer"
@@ -38,7 +37,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
 
         <div className="text-center">
           <p className="text-gray-400">
-            We offer a monthly plan to try out Dripify AI
+            Unlock unlimited style analyses and premium features with a subscription.
           </p>
         </div>
       </div>
@@ -49,7 +48,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
           onClick={onNext}
           className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
         >
-          {isWeb ? "Try Web Demo" : "Continue to Free Trial"}
+          Continue to Subscription
         </Button>
       </div>
     </motion.div>
