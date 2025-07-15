@@ -111,7 +111,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
             <span className="text-white/50 text-lg">/month</span>
           </div>
           <p className="text-orange-300 text-sm mt-2 font-medium">
-            ✨ 7-day free trial included
+            ✨ Premium styling insights
           </p>
         </motion.div>
       </div>
@@ -127,7 +127,7 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
             onClick={onNext}
             className="w-full h-16 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white text-xl font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl border-0"
           >
-            Start Free Trial
+            Start Subscription
           </Button>
           <p className="text-white/40 text-xs text-center mt-4">
             Cancel anytime • No commitment

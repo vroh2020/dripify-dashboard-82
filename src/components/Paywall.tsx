@@ -199,7 +199,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
                 <div className="bg-gradient-to-r from-orange-400/20 to-orange-500/20 border border-orange-500/30 rounded-xl p-3 mx-auto max-w-sm">
                   <p className="text-orange-300 font-medium flex items-center justify-center">
                     <Heart className="w-4 h-4 mr-2" />
-                    7-day free trial • Cancel anytime
+                    Cancel anytime • Secure payment
                   </p>
                 </div>
               </div>
@@ -218,7 +218,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
                 ) : (
                   <div className="flex items-center justify-center">
                     <Sparkles className="w-6 h-6 mr-3" />
-                    Start Your Free Trial
+                    Subscribe Now
                   </div>
                 )}
               </Button>
