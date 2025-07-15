@@ -1,15 +1,14 @@
 import { useEffect } from 'react';
-import { useSubscriptionStore } from '../store/subscriptionStore';
-import { Purchases } from '@revenuecat/purchases-capacitor';
+import { useRevenueCatManager } from '../hooks/useRevenueCatManager';
 import { Capacitor } from '@capacitor/core';
 
 interface SubscriptionProviderProps {
   children: React.ReactNode;
-  apiKey: string;
+  apiKey?: string;
 }
 
 export const SubscriptionProvider = ({ children, apiKey }: SubscriptionProviderProps) => {
-  const { initialize, refreshCustomerInfo } = useSubscriptionStore();
+  const { refreshSubscription } = useRevenueCatManager();
 
   useEffect(() => {
     // Only initialize RevenueCat on native platforms (iOS/Android)
@@ -18,25 +17,9 @@ export const SubscriptionProvider = ({ children, apiKey }: SubscriptionProviderP
       return;
     }
 
-    initialize(apiKey);
-
-    // Set up RevenueCat event listeners only on native platforms
-    const setupListeners = async () => {
-      try {
-        await Purchases.addCustomerInfoUpdateListener(({ customerInfo }) => {
-          useSubscriptionStore.getState().setCustomerInfo(customerInfo);
-        });
-      } catch (error) {
-        console.warn('RevenueCat listener setup failed:', error);
-      }
-    };
-
-    setupListeners();
-
-    return () => {
-      // Cleanup listeners if needed
-    };
-  }, [apiKey, initialize]);
+    // Refresh subscription status on mount
+    refreshSubscription();
+  }, [refreshSubscription]);
 
   return <>{children}</>;
-}; 
+};
