@@ -112,7 +112,7 @@ const AppRoutes = () => {
       });
       routingDecisionRef.current = newDecision;
     }
-  }, [isAuthenticated, hasCompletedOnboarding, user, authError, retryCount]);
+  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]); // Fixed dependencies
 
   // Memoize routes to prevent unnecessary re-renders
   const protectedRoutes = (
@@ -152,6 +152,16 @@ const AppRoutes = () => {
     </>
   );
 
+  // Add debugging for routing decisions
+  console.log('🔍 Current routing state:', {
+    isAuthenticated,
+    hasCompletedOnboarding,
+    user: !!user,
+    currentPath: window.location.pathname,
+    shouldShowDashboard: isAuthenticated && user && hasCompletedOnboarding,
+    shouldShowOnboarding: isAuthenticated && user && !hasCompletedOnboarding
+  });
+
   return (
     <Routes>
       {/* Auth routes - always accessible */}
@@ -169,6 +179,8 @@ const AppRoutes = () => {
               {protectedRoutes}
               {/* Redirect root to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Catch-all for dashboard users */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </>
           ) : (
             <>
@@ -239,6 +251,10 @@ const App = () => {
       window.location.href = '/dashboard';
     };
     
+    (window as any).checkRoutingState = () => {
+      console.log('🔍 Manual routing state check - use debugAppState() instead');
+    };
+    
     (window as any).resetOnboarding = () => {
       console.log('🔄 Resetting onboarding state...');
       localStorage.removeItem('onboarding_completed');
@@ -260,7 +276,7 @@ const App = () => {
               }}
             >
               <AppRoutes />
-              <DebugOverlay />
+              {/* <DebugOverlay /> */}
             </BrowserRouter>
           </SubscriptionProvider>
         </AuthErrorBoundary>

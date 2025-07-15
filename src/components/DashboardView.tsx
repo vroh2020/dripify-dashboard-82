@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./ui/use-toast";
@@ -24,13 +24,23 @@ export const DashboardView = () => {
   });
   const { toast } = useToast();
   const { user } = useAuth();
-
-  console.log('🎯 DashboardView rendered:', {
-    user: user?.id,
-    loading,
-    analysesCount: analyses.length,
-    timestamp: new Date().toISOString()
-  });
+  
+  // Add render counter to prevent infinite loops
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  
+  // Prevent excessive logging
+  if (renderCountRef.current <= 3) {
+    console.log('🎯 DashboardView rendered:', {
+      user: user?.id,
+      loading,
+      analysesCount: analyses.length,
+      renderCount: renderCountRef.current,
+      timestamp: new Date().toISOString()
+    });
+  } else if (renderCountRef.current === 4) {
+    console.warn('⚠️ DashboardView rendering too frequently - stopping logs');
+  }
 
   const fetchAnalyses = useCallback(async () => {
     try {
@@ -105,15 +115,18 @@ export const DashboardView = () => {
       }
     } catch (error) {
       console.error('Error fetching analyses:', error);
-      toast({
-        title: "Error loading analyses",
-        description: "Failed to load your style analyses.",
-        variant: "destructive"
-      });
+      // Remove toast from dependency array to prevent infinite loops
+      if (renderCountRef.current <= 10) {
+        toast({
+          title: "Error loading analyses",
+          description: "Failed to load your style analyses.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
-  }, [toast, user]);
+  }, [user]); // Removed toast from dependencies
 
   useEffect(() => {
     fetchAnalyses();

@@ -5,20 +5,31 @@ import { TipsView } from "@/components/TipsView";
 import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import Profile from "@/pages/Profile";
 
 
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname.split('/')[1] || 'dashboard';
-
-  console.log('🎯 Index component rendered:', {
-    currentPath,
-    location: location.pathname,
-    timestamp: new Date().toISOString()
-  });
+  
+  // Add render counter to prevent infinite loops
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  
+  // Prevent excessive logging
+  if (renderCountRef.current <= 3) {
+    console.log('🎯 Index component rendered:', {
+      currentPath,
+      location: location.pathname,
+      renderCount: renderCountRef.current,
+      timestamp: new Date().toISOString()
+    });
+  } else if (renderCountRef.current === 4) {
+    console.warn('⚠️ Index component rendering too frequently - stopping logs');
+  }
 
   // Sync tab value with URL
   useEffect(() => {
@@ -28,25 +39,47 @@ const Index = () => {
   }, [location.pathname, navigate]);
 
   const handleTabChange = (value: string) => {
-    console.log('🎯 Tab changed to:', value);
+    if (renderCountRef.current <= 3) {
+      console.log('🎯 Tab changed to:', value);
+    }
     navigate(`/${value}`);
   };
 
   // Simple conditional rendering instead of nested Routes
   const renderContent = () => {
-    console.log('🎯 Rendering content for path:', currentPath);
+    if (renderCountRef.current <= 3) {
+      console.log('🎯 Rendering content for path:', currentPath);
+    }
     
-    switch (currentPath) {
-      case 'scan':
-        console.log('🎯 Rendering ScanView');
-        return <ScanView />;
-      case 'tips':
-        console.log('🎯 Rendering TipsView');
-        return <TipsView />;
-      case 'dashboard':
-      default:
-        console.log('🎯 Rendering DashboardView');
-        return <DashboardView />;
+    try {
+      switch (currentPath) {
+        case 'dashboard':
+          return <DashboardView />;
+        case 'scan':
+          return <ScanView />;
+        case 'profile':
+          return <Profile />;
+        case 'tips':
+          return <TipsView />;
+        default:
+          return <DashboardView />;
+      }
+    } catch (error) {
+      console.error('🎯 Error rendering content:', error);
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-white mb-2">Something went wrong</h3>
+            <p className="text-gray-400 mb-4">There was an error loading this content</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
     }
   };
 
