@@ -33,7 +33,7 @@ export const ProfileHeader = ({ isPro, onLogout, isLoggingOut }: ProfileHeaderPr
     try {
       if (!userId) throw new Error("User not found");
       // Call your Supabase RPC or deletion logic here
-      const { error: deleteError } = await supabase.rpc("delete_user_and_data" as any, { user_id: userId });
+      const { error: deleteError } = await supabase.rpc("delete_user_and_data" as any, { uid: userId });
       if (deleteError) throw deleteError;
       await revenueCatLogout();
       await supabase.auth.signOut();
