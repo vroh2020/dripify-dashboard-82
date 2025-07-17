@@ -30,6 +30,9 @@ export function useOnboardingStatus(): OnboardingStatus {
     // Get device ID for guest mode
     import('@capacitor/device').then(({ Device }) => {
       Device.getId().then(info => setDeviceId(info.identifier));
+    }).catch(() => {
+      // Fallback for web
+      setDeviceId('web-fallback-' + Date.now());
     });
   }, []);
 
@@ -118,16 +121,13 @@ export function useOnboardingStatus(): OnboardingStatus {
       try {
         setIsLoading(true);
         const { data, error } = await supabase
-          .from<any, any>('temp_onboard_users')
+          .from('temp_onboard_users')
           .select('completed')
           .eq('device_id', deviceId)
           .maybeSingle();
         if (error) throw error;
-        let completed = false;
-        if (data !== null && typeof data === 'object' && !('code' in data) && 'completed' in data) {
-          completed = (data as any).completed;
-        }
-        setHasCompletedOnboarding(completed === true);
+        const completed = data?.completed === true;
+        setHasCompletedOnboarding(completed);
       } catch (error) {
         setHasCompletedOnboarding(false);
       } finally {

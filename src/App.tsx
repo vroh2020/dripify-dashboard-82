@@ -12,7 +12,7 @@ import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { DebugOverlay } from "./components/DebugOverlay";
-import { ModernOnboarding } from "./components/onboarding/ModernOnboarding";
+import { CalOnboarding } from "./components/onboarding/CalOnboarding";
 
 // Lazy load non-critical components
 const Index = lazy(() => {
@@ -167,7 +167,7 @@ const AppRoutes = () => {
     <Routes>
       {/* Onboarding always accessible if not completed */}
       {!hasCompletedOnboarding ? (
-        <Route path="/*" element={<ModernOnboarding onComplete={() => window.location.reload()} />} />
+        <Route path="/*" element={<CalOnboarding onComplete={() => window.location.reload()} />} />
       ) : (
         <>
           {/* Main app routes after onboarding */}
