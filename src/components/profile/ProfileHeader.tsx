@@ -1,6 +1,9 @@
 
 import { ArrowLeft, Crown, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { logout as revenueCatLogout } from "@/services/revenueCatService";
 import { useNavigate } from "react-router-dom";
 
 interface ProfileHeaderProps {
@@ -11,6 +14,37 @@ interface ProfileHeaderProps {
 
 export const ProfileHeader = ({ isPro, onLogout, isLoggingOut }: ProfileHeaderProps) => {
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id || null);
+    };
+    fetchUserId();
+  }, []);
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Are you sure you want to delete your account? This action is permanent and cannot be undone. You must also cancel your subscription in the App Store.")) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      if (!userId) throw new Error("User not found");
+      // Call your Supabase RPC or deletion logic here
+      const { error: deleteError } = await supabase.rpc("delete_user_and_data" as any, { user_id: userId });
+      if (deleteError) throw deleteError;
+      await revenueCatLogout();
+      await supabase.auth.signOut();
+      navigate("/");
+      alert("Your account and all data have been deleted.");
+    } catch (error) {
+      alert("Failed to delete account: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="flex items-center justify-between">
@@ -32,6 +66,14 @@ export const ProfileHeader = ({ isPro, onLogout, isLoggingOut }: ProfileHeaderPr
             <span className="text-sm font-medium text-purple-300">Pro</span>
           </div>
         )}
+        {/* Delete Account Button */}
+        <Button
+          variant="destructive"
+          onClick={handleDeleteAccount}
+          disabled={deleting || !userId}
+        >
+          {deleting ? "Deleting..." : "Delete Account"}
+        </Button>
       </div>
     </div>
   );
