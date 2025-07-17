@@ -1,9 +1,6 @@
 import React from 'react';
+import { ModernOnboarding } from './ModernOnboarding';
 
 export const OnboardingFlow = () => {
-  return (
-    <div>
-      <h1>Onboarding Flow</h1>
-    </div>
-  );
+  return <ModernOnboarding onComplete={() => window.location.reload()} />;
 };

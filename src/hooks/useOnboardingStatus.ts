@@ -17,6 +17,7 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [retryCount, setRetryCount] = useState(0);
   const { isAuthenticated, user } = useAuth();
   const { isPro, subscription } = useSubscription();
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   
   // Add state tracking to prevent loops
   const lastCheckRef = useRef<{
@@ -25,32 +26,80 @@ export function useOnboardingStatus(): OnboardingStatus {
     result: boolean;
   }>({ userId: null, timestamp: 0, result: false });
 
+  useEffect(() => {
+    // Get device ID for guest mode
+    import('@capacitor/device').then(({ Device }) => {
+      Device.getId().then(info => setDeviceId(info.identifier));
+    });
+  }, []);
+
   const checkOnboardingStatus = useCallback(async () => {
-    if (!isAuthenticated || !user?.id) {
-      setIsLoading(false);
-      setHasCompletedOnboarding(false);
-      return;
-    }
+    if (isAuthenticated && user?.id) {
+      // Authenticated user: check profiles table
+      if (!isAuthenticated || !user?.id) {
+        setIsLoading(false);
+        setHasCompletedOnboarding(false);
+        return;
+      }
 
-    // Prevent rapid successive checks
-    const now = Date.now();
-    const lastCheck = lastCheckRef.current;
-    if (lastCheck.userId === user.id && now - lastCheck.timestamp < 1000) {
-      console.log('🔄 Skipping rapid onboarding check');
-      return;
-    }
+      // Prevent rapid successive checks
+      const now = Date.now();
+      const lastCheck = lastCheckRef.current;
+      if (lastCheck.userId === user.id && now - lastCheck.timestamp < 1000) {
+        console.log('🔄 Skipping rapid onboarding check');
+        return;
+      }
 
-    try {
-      setIsLoading(true);
-      
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('onboarding_completed, subscription_status')
-        .eq('id', user.id)
-        .maybeSingle();
+      try {
+        setIsLoading(true);
+        
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed, subscription_status')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      if (error) {
-        console.error('Onboarding check error:', error);
+        if (error) {
+          console.error('Onboarding check error:', error);
+          
+          if (retryCount < 2) {
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+              checkOnboardingStatus();
+            }, 500);
+            return;
+          }
+          
+          setHasCompletedOnboarding(false);
+          setIsLoading(false);
+          return;
+        }
+
+        const onboardingCompleted = profile?.onboarding_completed === true;
+        
+        // Update last check tracking
+        lastCheckRef.current = {
+          userId: user.id,
+          timestamp: now,
+          result: onboardingCompleted
+        };
+        
+        console.log('📊 Onboarding Status Check:', {
+          userId: user.id,
+          onboardingCompleted,
+          platform: Capacitor.isNativePlatform() ? 'native' : 'web',
+          revenueCatStatus: subscription.isActive,
+          supabaseStatus: profile?.subscription_status,
+          finalResult: onboardingCompleted,
+          retryCount,
+          timestamp: new Date().toISOString()
+        });
+
+        setHasCompletedOnboarding(onboardingCompleted);
+        setRetryCount(0);
+        
+      } catch (error) {
+        console.error('Error checking onboarding:', error);
         
         if (retryCount < 2) {
           setTimeout(() => {
@@ -61,54 +110,39 @@ export function useOnboardingStatus(): OnboardingStatus {
         }
         
         setHasCompletedOnboarding(false);
+      } finally {
         setIsLoading(false);
-        return;
       }
-
-      const onboardingCompleted = profile?.onboarding_completed === true;
-      
-      // Update last check tracking
-      lastCheckRef.current = {
-        userId: user.id,
-        timestamp: now,
-        result: onboardingCompleted
-      };
-      
-      console.log('📊 Onboarding Status Check:', {
-        userId: user.id,
-        onboardingCompleted,
-        platform: Capacitor.isNativePlatform() ? 'native' : 'web',
-        revenueCatStatus: subscription.isActive,
-        supabaseStatus: profile?.subscription_status,
-        finalResult: onboardingCompleted,
-        retryCount,
-        timestamp: new Date().toISOString()
-      });
-
-      setHasCompletedOnboarding(onboardingCompleted);
-      setRetryCount(0);
-      
-    } catch (error) {
-      console.error('Error checking onboarding:', error);
-      
-      if (retryCount < 2) {
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          checkOnboardingStatus();
-        }, 500);
-        return;
+    } else if (deviceId) {
+      // Guest/anonymous: check temp_onboard_users by device_id
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from<any, any>('temp_onboard_users')
+          .select('completed')
+          .eq('device_id', deviceId)
+          .maybeSingle();
+        if (error) throw error;
+        let completed = false;
+        if (data !== null && typeof data === 'object' && !('code' in data) && 'completed' in data) {
+          completed = (data as any).completed;
+        }
+        setHasCompletedOnboarding(completed === true);
+      } catch (error) {
+        setHasCompletedOnboarding(false);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setHasCompletedOnboarding(false);
-    } finally {
+    } else {
       setIsLoading(false);
+      setHasCompletedOnboarding(false);
     }
-  }, [isAuthenticated, user?.id, retryCount, subscription.isActive]);
+  }, [isAuthenticated, user?.id, deviceId, retryCount, subscription.isActive]);
 
   useEffect(() => {
     setRetryCount(0);
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, deviceId]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {

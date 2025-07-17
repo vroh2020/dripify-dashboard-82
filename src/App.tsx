@@ -12,6 +12,7 @@ import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { DebugOverlay } from "./components/DebugOverlay";
+import { ModernOnboarding } from "./components/onboarding/ModernOnboarding";
 
 // Lazy load non-critical components
 const Index = lazy(() => {
@@ -164,37 +165,23 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Auth routes - always accessible */}
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/auth/*" element={<Auth />} />
-      <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
-      <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
-      
-      {/* Protected dashboard routes */}
-      {isAuthenticated && user ? (
-        <>
-          {/* Fully protected routes - require completed onboarding */}
-          {hasCompletedOnboarding ? (
-            <>
-              {protectedRoutes}
-              {/* Redirect root to dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              {/* Catch-all for dashboard users */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </>
-          ) : (
-            <>
-              {/* Allow onboarding routes */}
-              <Route path="/onboarding" element={<Auth />} />
-              <Route path="/onboarding/*" element={<Auth />} />
-              {/* Redirect non-onboarding routes to onboarding */}
-              <Route path="*" element={<Navigate to="/onboarding" replace />} />
-            </>
-          )}
-        </>
+      {/* Onboarding always accessible if not completed */}
+      {!hasCompletedOnboarding ? (
+        <Route path="/*" element={<ModernOnboarding onComplete={() => window.location.reload()} />} />
       ) : (
-        // Not authenticated - redirect everything to auth
-        <Route path="*" element={<Navigate to="/auth" replace />} />
+        <>
+          {/* Main app routes after onboarding */}
+          <Route path="/dashboard" element={<Index />} />
+          <Route path="/scan" element={<Index />} />
+          <Route path="/tips" element={<Index />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/*" element={<Auth />} />
+          <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
+          <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </>
       )}
     </Routes>
   );
