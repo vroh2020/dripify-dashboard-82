@@ -32,15 +32,24 @@ export const ProfileHeader = ({ isPro, onLogout, isLoggingOut }: ProfileHeaderPr
     setDeleting(true);
     try {
       if (!userId) throw new Error("User not found");
-      // Call your Supabase RPC or deletion logic here
-      const { error: deleteError } = await supabase.rpc("delete_user_and_data" as any, { uid: userId });
-      if (deleteError) throw deleteError;
+      // Delete Auth user via backend endpoint (service role)
+      const resp = await fetch("/api/delete-auth-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json();
+        throw new Error(data.error || "Failed to delete account");
+      }
+      // Log out from RevenueCat (if needed)
       await revenueCatLogout();
+      // Log out from Supabase
       await supabase.auth.signOut();
-      navigate("/");
-      alert("Your account and all data have been deleted.");
-    } catch (error) {
-      alert("Failed to delete account: " + (error instanceof Error ? error.message : "Unknown error"));
+      // Redirect to onboarding/login
+      navigate("/auth");
+    } catch (err) {
+      alert("Error deleting account: " + (err.message || err));
     } finally {
       setDeleting(false);
     }
