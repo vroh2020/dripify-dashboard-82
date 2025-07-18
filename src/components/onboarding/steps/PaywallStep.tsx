@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Crown, Check, Star, Zap, Sparkles, RefreshCw } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface PaywallStepProps {
   onPurchase: () => void;
@@ -12,10 +12,26 @@ interface PaywallStepProps {
 export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
   const { purchaseProduct, offerings, isLoading } = useRevenueCat();
   const { toast } = useToast();
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
+  const [isRetrying, setIsRetrying] = useState(false);
+  const isMountedRef = useRef(true);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handlePurchase = async () => {
+    // Prevent multiple purchase attempts
+    if (isLoading || isRetrying) {
+      return;
+    }
+
     // Check if we have any offerings
     if (!offerings || offerings.length === 0) {
       toast({
@@ -32,27 +48,16 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
                    offerings[0]?.availablePackages?.find(pkg => pkg.product)?.product;
                    
     if (!product) {
-      if (retryCount < maxRetries) {
-        setRetryCount(prev => prev + 1);
-        toast({
-          title: "Loading Products...",
-          description: `Retrying... (${retryCount + 1}/${maxRetries})`,
-        });
-        // Wait a moment and try again
-        setTimeout(() => handlePurchase(), 1000);
-        return;
-      }
-      
+      // Show immediate error instead of retry logic
       toast({
-        title: "Product Error",
-        description: "Subscription product not found. Please try again later or contact support if the issue persists.",
+        title: "Products Not Available",
+        description: "Subscription products are currently unavailable. Please try refreshing the page or contact support.",
         variant: "destructive"
       });
       return;
     }
 
     try {
-      setRetryCount(0); // Reset retry count on successful product access
       const success = await purchaseProduct(product.identifier);
       if (success) {
         toast({
@@ -76,6 +81,26 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
     }
   };
 
+  // Separate retry function for manual retry
+  const handleRetry = async () => {
+    if (isRetrying || !isMountedRef.current) return;
+    
+    setIsRetrying(true);
+    
+    toast({
+      title: "Refreshing...",
+      description: "Loading subscription options...",
+    });
+
+    // Give a brief moment for state updates, then try purchase again
+    retryTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsRetrying(false);
+        handlePurchase();
+      }
+    }, 1500);
+  };
+
   // Get product information for display
   const displayProduct = offerings?.[0]?.availablePackages?.[0]?.product || 
                         offerings?.[0]?.monthly?.product ||
@@ -83,6 +108,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
 
   const price = displayProduct?.priceString || "$12.99";
   const hasValidProduct = !!displayProduct;
+  const showLoading = isLoading || isRetrying;
 
   return (
     <motion.div
@@ -173,18 +199,22 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           transition={{ delay: 1.3 }}
           className="space-y-3"
         >
+          {/* Main Purchase Button */}
           <Button
             onClick={handlePurchase}
-            disabled={isLoading || !hasValidProduct}
+            disabled={showLoading || !hasValidProduct}
             className="w-full bg-yellow-400 hover:bg-yellow-500 text-purple-900 font-bold py-4 text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
           >
-            {isLoading ? (
+            {showLoading ? (
               <div className="flex items-center justify-center space-x-2">
                 <RefreshCw className="w-5 h-5 animate-spin" />
-                <span>Processing...</span>
+                <span>{isRetrying ? "Refreshing..." : "Processing..."}</span>
               </div>
             ) : !hasValidProduct ? (
-              "Loading Products..."
+              <>
+                <RefreshCw className="w-5 h-5 mr-2" />
+                Refresh Products
+              </>
             ) : (
               <>
                 <Crown className="w-5 h-5 mr-2" />
@@ -192,6 +222,18 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
               </>
             )}
           </Button>
+
+          {/* Retry Button - Only show if products failed to load */}
+          {!hasValidProduct && !showLoading && (
+            <Button
+              onClick={handleRetry}
+              variant="outline"
+              className="w-full bg-transparent border-white/30 text-white hover:bg-white/10 py-3 rounded-xl"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
+          )}
         </motion.div>
 
         {/* Terms */}

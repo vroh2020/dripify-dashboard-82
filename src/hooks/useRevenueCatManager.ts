@@ -28,6 +28,7 @@ export const useRevenueCatManager = () => {
   const lastPurchaseAttempt = useRef<Date | null>(null);
   const retryCount = useRef(0);
   const maxRetries = 3;
+  const initializationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Create fallback offering for when RevenueCat fails to load products
   const createFallbackOffering = useCallback((): PurchasesOffering => {
@@ -375,125 +376,143 @@ export const useRevenueCatManager = () => {
     }
   }, [toast, fetchSubscriptionStatus, user]);
 
-  // Enhanced initialization with retry logic and fallback offerings
+  // Enhanced initialization with timeout protection and no dependency loops
   const initializeRevenueCat = useCallback(async () => {
     if (!user || hasInitialized.current) return;
     
+    console.log('🚀 Starting RevenueCat initialization for user:', user.id);
     setIsLoading(true);
-    console.log('🚀 Initializing RevenueCat for user:', user.id);
     
+    // Set timeout protection to prevent hanging
+    const timeoutPromise = new Promise((_, reject) => {
+      initializationTimeoutRef.current = setTimeout(() => {
+        reject(new Error('Initialization timeout after 15 seconds'));
+      }, 15000);
+    });
+
     try {
-      if (!Capacitor.isNativePlatform()) {
-        // Web platform initialization with fallback offering
-        console.log('🌐 Web platform detected - using fallback offering');
-        const fallbackOffering = createFallbackOffering();
-        setOfferings([fallbackOffering]);
-        
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('subscription_status, subscription_expiry')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        setSubscription({
-          isActive: profile?.subscription_status === 'active',
-          expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
-          productId: null,
-          offeringId: 'web'
-        });
-        
-        hasInitialized.current = true;
-        return;
-      }
-
-      // Native platform initialization with retry logic
-      console.log('📱 Native platform detected - initializing RevenueCat SDK');
-      
-      let revenueCatInitialized = false;
-      let offeringsLoaded = false;
-      
-      try {
-        // Try to get RevenueCat configuration
-        const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        if (error || !data?.publicKey) {
-          console.warn('⚠️ RevenueCat API key not available, using fallback mode');
-          throw new Error('No API key available');
-        }
-
-        console.log('🔑 RevenueCat API key retrieved, configuring SDK...');
-        
-        // Configure RevenueCat
-        await Purchases.configure({
-          apiKey: data.publicKey,
-          appUserID: null
-        });
-
-        // Log in the user
-        await Purchases.logIn({ appUserID: user.id });
-        console.log('✅ RevenueCat user logged in:', user.id);
-        revenueCatInitialized = true;
-
-        // Try to load offerings with retry logic
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-          try {
-            console.log(`🔄 Attempting to load offerings (attempt ${attempt}/${maxRetries})`);
-            const offeringsData = await Purchases.getOfferings();
-            const offeringsArray = Object.values(offeringsData.all || {});
+      await Promise.race([
+        (async () => {
+          if (!Capacitor.isNativePlatform()) {
+            // Web platform initialization with fallback offering
+            console.log('🌐 Web platform detected - using fallback offering');
+            const fallbackOffering = createFallbackOffering();
+            setOfferings([fallbackOffering]);
             
-            if (offeringsArray.length > 0) {
-              console.log('✅ Offerings loaded successfully:', offeringsArray.length);
-              setOfferings(offeringsArray);
-              offeringsLoaded = true;
-              break;
-            } else {
-              console.warn(`⚠️ No offerings returned (attempt ${attempt})`);
-              if (attempt < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Progressive delay
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('subscription_status, subscription_expiry')
+              .eq('id', user.id)
+              .maybeSingle();
+
+            setSubscription({
+              isActive: profile?.subscription_status === 'active',
+              expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
+              productId: null,
+              offeringId: 'web'
+            });
+            
+            console.log('✅ Web platform initialization complete');
+            return;
+          }
+
+          // Native platform initialization with timeout protection
+          console.log('📱 Native platform detected - initializing RevenueCat SDK');
+          
+          let revenueCatInitialized = false;
+          let offeringsLoaded = false;
+          
+          try {
+            // Try to get RevenueCat configuration with timeout
+            const { data, error } = await supabase.functions.invoke('revenuecat-config');
+            if (error || !data?.publicKey) {
+              console.warn('⚠️ RevenueCat API key not available, using fallback mode');
+              throw new Error('No API key available');
+            }
+
+            console.log('🔑 RevenueCat API key retrieved, configuring SDK...');
+            
+            // Configure RevenueCat
+            await Purchases.configure({
+              apiKey: data.publicKey,
+              appUserID: null
+            });
+
+            // Log in the user
+            await Purchases.logIn({ appUserID: user.id });
+            console.log('✅ RevenueCat user logged in:', user.id);
+            revenueCatInitialized = true;
+
+            // Try to load offerings with limited retries and shorter timeouts
+            for (let attempt = 1; attempt <= 2; attempt++) { // Reduced from 3 to 2 attempts
+              try {
+                console.log(`🔄 Loading offerings (attempt ${attempt}/2)`);
+                const offeringsData = await Promise.race([
+                  Purchases.getOfferings(),
+                  new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Offerings timeout')), 5000)
+                  )
+                ]);
+                
+                const offeringsArray = Object.values((offeringsData as any).all || {});
+                
+                if (offeringsArray.length > 0) {
+                  console.log('✅ Offerings loaded successfully:', offeringsArray.length);
+                  setOfferings(offeringsArray);
+                  offeringsLoaded = true;
+                  break;
+                } else {
+                  console.warn(`⚠️ No offerings returned (attempt ${attempt})`);
+                  if (attempt < 2) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                  }
+                }
+              } catch (offeringsError) {
+                console.error(`❌ Failed to load offerings (attempt ${attempt}):`, offeringsError);
+                if (attempt < 2) {
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }
               }
             }
-          } catch (offeringsError) {
-            console.error(`❌ Failed to load offerings (attempt ${attempt}):`, offeringsError);
-            if (attempt < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Progressive delay
-            }
+
+            // Check subscription status
+            const { customerInfo } = await Purchases.getCustomerInfo();
+            const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+            
+            setSubscription({
+              isActive: isPro,
+              expirationDate: null,
+              productId: null,
+              offeringId: null
+            });
+
+          } catch (revenueCatError) {
+            console.error('❌ RevenueCat initialization failed:', revenueCatError);
+            revenueCatInitialized = false;
           }
-        }
 
-        // Check subscription status
-        const { customerInfo } = await Purchases.getCustomerInfo();
-        const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
-        
-        setSubscription({
-          isActive: isPro,
-          expirationDate: null,
-          productId: null,
-          offeringId: null
-        });
+          // If RevenueCat failed or no offerings loaded, use fallback
+          if (!revenueCatInitialized || !offeringsLoaded) {
+            console.log('🔄 Using fallback offering due to RevenueCat initialization issues');
+            const fallbackOffering = createFallbackOffering();
+            setOfferings([fallbackOffering]);
+            
+            // Set subscription to false for safety
+            setSubscription({
+              isActive: false,
+              expirationDate: null,
+              productId: null,
+              offeringId: 'fallback'
+            });
+          }
 
-      } catch (revenueCatError) {
-        console.error('❌ RevenueCat initialization failed:', revenueCatError);
-        revenueCatInitialized = false;
-      }
-
-      // If RevenueCat failed or no offerings loaded, use fallback
-      if (!revenueCatInitialized || !offeringsLoaded) {
-        console.log('🔄 Using fallback offering due to RevenueCat initialization issues');
-        const fallbackOffering = createFallbackOffering();
-        setOfferings([fallbackOffering]);
-        
-        // Set subscription to false for safety
-        setSubscription({
-          isActive: false,
-          expirationDate: null,
-          productId: null,
-          offeringId: 'fallback'
-        });
-      }
-
-      hasInitialized.current = true;
+          console.log('✅ Native platform initialization complete');
+        })(),
+        timeoutPromise
+      ]);
       
     } catch (error) {
-      console.error('💥 Critical initialization error:', error);
+      console.error('💥 Initialization error or timeout:', error);
       
       // Always provide fallback offering as last resort
       console.log('🆘 Using emergency fallback offering');
@@ -506,12 +525,27 @@ export const useRevenueCatManager = () => {
         productId: null,
         offeringId: 'emergency-fallback'
       });
-      
-      hasInitialized.current = true; // Mark as initialized to prevent infinite loops
     } finally {
+      // Clear timeout and mark as initialized
+      if (initializationTimeoutRef.current) {
+        clearTimeout(initializationTimeoutRef.current);
+        initializationTimeoutRef.current = null;
+      }
+      
+      hasInitialized.current = true;
       setIsLoading(false);
+      console.log('🏁 RevenueCat initialization complete');
     }
-  }, [user, createFallbackOffering]);
+  }, [user?.id]); // FIXED: Remove createFallbackOffering dependency to prevent re-renders
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (initializationTimeoutRef.current) {
+        clearTimeout(initializationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {
