@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 import { Capacitor } from '@capacitor/core';
+import { persistenceManager } from '@/utils/persistenceManager';
 
 interface OnboardingStatus {
   isLoading: boolean;
@@ -17,94 +18,67 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [retryCount, setRetryCount] = useState(0);
   const { isAuthenticated, user } = useAuth();
   const { isPro, subscription } = useSubscription();
-  const [deviceId, setDeviceId] = useState<string | null>(null);
   
-  // Add state tracking to prevent loops
+  // Prevent multiple simultaneous checks
+  const isCheckingRef = useRef(false);
   const lastCheckRef = useRef<{
     userId: string | null;
-    deviceId: string | null;
     timestamp: number;
     result: boolean;
-  }>({ userId: null, deviceId: null, timestamp: 0, result: false });
-
-  // Cache onboarding status in localStorage to prevent going back to start
-  const getCachedOnboardingStatus = () => {
-    try {
-      const cached = localStorage.getItem('dripify_onboarding_completed');
-      return cached === 'true';
-    } catch (error) {
-      console.error('Error reading cached onboarding status:', error);
-      return false;
-    }
-  };
-
-  const setCachedOnboardingStatus = (completed: boolean) => {
-    try {
-      localStorage.setItem('dripify_onboarding_completed', completed.toString());
-    } catch (error) {
-      console.error('Error caching onboarding status:', error);
-    }
-  };
-
-  useEffect(() => {
-    // Get device ID for guest mode
-    import('@capacitor/device').then(({ Device }) => {
-      Device.getId().then(info => setDeviceId(info.identifier));
-    }).catch(() => {
-      // Fallback for web
-      setDeviceId('web-fallback-' + Date.now());
-    });
-  }, []);
+  }>({ userId: null, timestamp: 0, result: false });
 
   const checkOnboardingStatus = useCallback(async () => {
     // Prevent rapid successive checks
-    const now = Date.now();
-    const lastCheck = lastCheckRef.current;
-    const currentUserId = user?.id || null;
-    const currentDeviceId = deviceId;
-    
-    if (lastCheck.userId === currentUserId && 
-        lastCheck.deviceId === currentDeviceId && 
-        now - lastCheck.timestamp < 1000) {
-      console.log('🔄 Skipping rapid onboarding check');
+    if (isCheckingRef.current) {
+      console.log('🔄 Onboarding check already in progress, skipping');
       return;
     }
 
+    const now = Date.now();
+    const currentUserId = user?.id || null;
+    const lastCheck = lastCheckRef.current;
+    
+    // Skip if we checked recently for the same user
+    if (lastCheck.userId === currentUserId && now - lastCheck.timestamp < 2000) {
+      console.log('🔄 Skipping rapid onboarding check for same user');
+      return;
+    }
+
+    isCheckingRef.current = true;
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
+      console.log('🔍 Starting onboarding status check...', {
+        userId: currentUserId,
+        isAuthenticated,
+        platform: Capacitor.isNativePlatform() ? 'native' : 'web'
+      });
+
       let onboardingCompleted = false;
 
-      // First check localStorage as the source of truth
-      const cachedStatus = getCachedOnboardingStatus();
-      if (cachedStatus) {
-        console.log('📊 Using localStorage onboarding status: completed');
+      // Step 1: Check localStorage first (fastest)
+      const cachedCompletion = await persistenceManager.isOnboardingCompleted();
+      if (cachedCompletion) {
+        console.log('📊 Using cached onboarding completion status');
         setHasCompletedOnboarding(true);
         setIsLoading(false);
+        isCheckingRef.current = false;
         return;
       }
 
-      // Check for cached progress to prevent going back to start
-      try {
-        const cachedProgress = localStorage.getItem('dripify_onboarding_progress');
-        if (cachedProgress) {
-          const progress = JSON.parse(cachedProgress);
-          const progressAge = now - progress.timestamp;
-          const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-          
-          if (progressAge < maxAge && progress.currentStep > 0) {
-            console.log('📊 Found recent onboarding progress, not completed yet');
-            setHasCompletedOnboarding(false);
-            setIsLoading(false);
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Error checking cached progress:', error);
+      // Step 2: Check for in-progress onboarding
+      const progress = await persistenceManager.getOnboardingProgress();
+      if (progress && !progress.completed && progress.currentStep > 0) {
+        console.log('📊 Found in-progress onboarding at step:', progress.currentStep);
+        setHasCompletedOnboarding(false);
+        setIsLoading(false);
+        isCheckingRef.current = false;
+        return;
       }
 
+      // Step 3: Check database for authenticated users
       if (isAuthenticated && user?.id) {
-        // Authenticated user: check profiles table
-        console.log('🔍 Checking onboarding for authenticated user:', user.id);
+        console.log('🔍 Checking database for authenticated user:', user.id);
         
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -113,118 +87,134 @@ export function useOnboardingStatus(): OnboardingStatus {
           .maybeSingle();
 
         if (error) {
-          console.error('Onboarding check error:', error);
+          console.error('Database onboarding check error:', error);
           
-          if (retryCount < 2) {
+          // Only retry for network errors, not permission issues
+          if (error.code === 'PGRST301' && retryCount < 2) {
+            console.log('🔄 Retrying database check due to network error');
             setTimeout(() => {
               setRetryCount(prev => prev + 1);
+              isCheckingRef.current = false;
               checkOnboardingStatus();
-            }, 500);
+            }, 1000);
             return;
           }
           
-          setHasCompletedOnboarding(false);
-          setIsLoading(false);
-          return;
-        }
-
-        onboardingCompleted = profile?.onboarding_completed === true;
-        
-        console.log('📊 Authenticated User Onboarding Status:', {
-          userId: user.id,
-          onboardingCompleted,
-          profileData: profile,
-          platform: Capacitor.isNativePlatform() ? 'native' : 'web',
-          revenueCatStatus: subscription.isActive,
-          supabaseStatus: profile?.subscription_status
-        });
-        
-      } else if (deviceId) {
-        // Guest/anonymous: check temp_onboard_users by device_id
-        console.log('🔍 Checking onboarding for guest user:', deviceId);
-        
-        const { data, error } = await supabase
-          .from('temp_onboard_users')
-          .select('completed, onboarding_step')
-          .eq('device_id', deviceId)
-          .maybeSingle();
-          
-        if (error) {
-          console.error('Guest onboarding check error:', error);
+          // For other errors, assume not completed
           onboardingCompleted = false;
         } else {
-          onboardingCompleted = data?.completed === true;
+          onboardingCompleted = profile?.onboarding_completed === true;
           
-          console.log('📊 Guest User Onboarding Status:', {
-            deviceId,
+          console.log('📊 Database onboarding status:', {
+            userId: user.id,
             onboardingCompleted,
-            onboardingStep: data?.onboarding_step,
-            platform: Capacitor.isNativePlatform() ? 'native' : 'web'
+            profileData: profile
           });
         }
       } else {
-        // No device ID yet, assume not completed
-        onboardingCompleted = false;
-        console.log('🔍 No device ID available, assuming onboarding not completed');
-      }
-      
-      // Only cache if onboarding is completed
-      if (onboardingCompleted) {
-        setCachedOnboardingStatus(onboardingCompleted);
+        // Step 4: Check database for guest users
+        const deviceInfo = persistenceManager.getDeviceInfo();
+        if (deviceInfo?.deviceId) {
+          console.log('🔍 Checking database for guest user:', deviceInfo.deviceId);
+          
+          const { data, error } = await supabase
+            .from('temp_onboard_users')
+            .select('completed, onboarding_step')
+            .eq('device_id', deviceInfo.deviceId)
+            .maybeSingle();
+            
+          if (error) {
+            console.error('Guest database check error:', error);
+            onboardingCompleted = false;
+          } else {
+            onboardingCompleted = data?.completed === true;
+            
+            console.log('📊 Guest database onboarding status:', {
+              deviceId: deviceInfo.deviceId,
+              onboardingCompleted,
+              onboardingStep: data?.onboarding_step
+            });
+          }
+        } else {
+          // No device info yet, assume not completed
+          onboardingCompleted = false;
+          console.log('🔍 No device info available, assuming onboarding not completed');
+        }
       }
       
       // Update last check tracking
       lastCheckRef.current = {
         userId: currentUserId,
-        deviceId: currentDeviceId,
         timestamp: now,
         result: onboardingCompleted
       };
       
-      console.log('📊 Final Onboarding Status Check:', {
+      console.log('📊 Final onboarding status:', {
         userId: currentUserId,
-        deviceId: currentDeviceId,
         onboardingCompleted,
         platform: Capacitor.isNativePlatform() ? 'native' : 'web',
-        revenueCatStatus: subscription.isActive,
-        finalResult: onboardingCompleted,
-        retryCount,
-        timestamp: new Date().toISOString()
+        retryCount
       });
 
       setHasCompletedOnboarding(onboardingCompleted);
       setRetryCount(0);
       
     } catch (error) {
-      console.error('Error checking onboarding:', error);
+      console.error('Error checking onboarding status:', error);
       
-      if (retryCount < 2) {
+      // Only retry for network-related errors
+      if (retryCount < 2 && error instanceof Error && 
+          (error.message.includes('network') || error.message.includes('fetch'))) {
+        console.log('🔄 Retrying due to network error');
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
+          isCheckingRef.current = false;
           checkOnboardingStatus();
-        }, 500);
+        }, 1000);
         return;
       }
       
+      // For other errors, assume not completed
       setHasCompletedOnboarding(false);
+      setRetryCount(0);
     } finally {
       setIsLoading(false);
+      isCheckingRef.current = false;
     }
-  }, [isAuthenticated, user?.id, deviceId, retryCount, subscription.isActive]);
+  }, [isAuthenticated, user?.id, retryCount, subscription.isActive]);
 
+  // Initialize persistence manager and check status
   useEffect(() => {
-    setRetryCount(0);
-    checkOnboardingStatus();
-  }, [isAuthenticated, user?.id, deviceId]);
+    const initializeAndCheck = async () => {
+      try {
+        await persistenceManager.initialize();
+        await checkOnboardingStatus();
+      } catch (error) {
+        console.error('Error initializing onboarding status:', error);
+        setIsLoading(false);
+      }
+    };
 
+    initializeAndCheck();
+  }, []);
+
+  // Re-check when auth state changes
+  useEffect(() => {
+    if (!isLoading) {
+      checkOnboardingStatus();
+    }
+  }, [isAuthenticated, user?.id]);
+
+  // Safety timeout to prevent infinite loading
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (isLoading) {
         console.warn('⚠️ Onboarding status check timeout - forcing completion');
         setIsLoading(false);
         setHasCompletedOnboarding(false);
+        isCheckingRef.current = false;
       }
-    }, 5000); // Increased from 3s to 5s
+    }, 8000); // Increased timeout
 
     return () => clearTimeout(timeout);
   }, [isLoading]);

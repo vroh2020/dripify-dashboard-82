@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Device } from '@capacitor/device';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { OnboardingStep } from './OnboardingStep';
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Star, Check, Zap, Crown } from 'lucide-react';
 import { ModernRatingsDisplay } from '../ModernRatingsDisplay';
+import { persistenceManager } from '@/utils/persistenceManager';
 
 interface OnboardingData {
   heard_about?: string;
@@ -34,7 +34,6 @@ const TOTAL_STEPS = 15; // Updated to remove account choice step
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [deviceId, setDeviceId] = useState<string>('');
   const [data, setData] = useState<OnboardingData>({});
   const [isLoading, setIsLoading] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string>('');
@@ -51,91 +50,82 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   });
   const { toast } = useToast();
 
-  // Initialize device ID and restore progress
+  // Initialize and restore progress
   useEffect(() => {
-    const initDevice = async () => {
+    const initializeAndRestore = async () => {
       try {
-        const { Device } = await import('@capacitor/device');
-        const info = await Device.getId();
-        setDeviceId(info.identifier);
-        console.log('📱 Device ID set:', info.identifier);
+        // Initialize persistence manager
+        await persistenceManager.initialize();
         
         // Restore progress from localStorage
-        restoreProgress(info.identifier);
-      } catch (error) {
-        console.error('Error getting device ID:', error);
-        const fallbackId = 'web-fallback-' + Date.now();
-        setDeviceId(fallbackId);
-        console.log('🌐 Using fallback device ID:', fallbackId);
-        
-        // Restore progress from localStorage
-        restoreProgress(fallbackId);
-      }
-    };
-
-    initDevice();
-  }, []);
-
-  const restoreProgress = async (deviceId: string) => {
-    try {
-      // First try to restore from localStorage
-      const cachedProgress = localStorage.getItem('dripify_onboarding_progress');
-      if (cachedProgress) {
-        const progress = JSON.parse(cachedProgress);
-        if (progress.deviceId === deviceId && progress.currentStep > 0) {
+        const progress = await persistenceManager.getOnboardingProgress();
+        if (progress && !progress.completed && progress.currentStep > 0) {
           console.log('🔄 Restoring onboarding progress from cache:', progress);
           setCurrentStep(progress.currentStep - 1); // Adjust for 0-based index
           setData(prev => ({ ...prev, ...progress.stepData }));
         }
+
+        // Also try to restore from Supabase for additional data
+        const deviceInfo = persistenceManager.getDeviceInfo();
+        if (deviceInfo?.deviceId) {
+          const { data: supabaseData, error } = await supabase
+            .from('temp_onboard_users')
+            .select('*')
+            .eq('device_id', deviceInfo.deviceId)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Error restoring from Supabase:', error);
+            return;
+          }
+
+          if (supabaseData && supabaseData.onboarding_step) {
+            console.log('🔄 Restoring onboarding progress from Supabase:', supabaseData);
+            
+            // Only update if Supabase has more recent data
+            if (supabaseData.onboarding_step > progress?.currentStep || 0) {
+              setCurrentStep(supabaseData.onboarding_step - 1); // Adjust for 0-based index
+            }
+            
+            // Restore all saved data
+            const restoredData: Partial<OnboardingData> = {};
+            if (supabaseData.heard_about) restoredData.heard_about = supabaseData.heard_about;
+            if (supabaseData.age_range) restoredData.age_range = supabaseData.age_range;
+            if (supabaseData.gender) restoredData.gender = supabaseData.gender;
+            if (supabaseData.style_goal) restoredData.style_goal = supabaseData.style_goal;
+            if (supabaseData.clothing_category) restoredData.clothing_category = supabaseData.clothing_category;
+            if (supabaseData.budget) restoredData.budget = supabaseData.budget;
+            if (supabaseData.favorite_brands) restoredData.favorite_brands = supabaseData.favorite_brands;
+            if (supabaseData.color_preference) restoredData.color_preference = supabaseData.color_preference;
+            if (supabaseData.occasions) restoredData.occasions = supabaseData.occasions;
+            if (supabaseData.selfie_url) restoredData.selfie_url = supabaseData.selfie_url;
+            if (supabaseData.weekly_reports !== undefined) restoredData.weekly_reports = supabaseData.weekly_reports;
+            if (supabaseData.instant_suggestions !== undefined) restoredData.instant_suggestions = supabaseData.instant_suggestions;
+            if (supabaseData.color_palette) restoredData.color_palette = supabaseData.color_palette;
+            if (supabaseData.shop_frequency) restoredData.shop_frequency = supabaseData.shop_frequency;
+            
+            setData(prev => ({ ...prev, ...restoredData }));
+          }
+        }
+      } catch (error) {
+        console.error('Error restoring progress:', error);
       }
+    };
 
-      // Then try to restore from Supabase
-      const { data, error } = await supabase
-        .from('temp_onboard_users')
-        .select('*')
-        .eq('device_id', deviceId)
-        .maybeSingle();
+    initializeAndRestore();
+  }, []);
 
-      if (error) {
-        console.error('Error restoring from Supabase:', error);
+  const saveProgress = async (stepData: Partial<OnboardingData>) => {
+    setIsLoading(true);
+    try {
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      if (!deviceInfo?.deviceId) {
+        console.error('No device ID available for saving progress');
         return;
       }
 
-      if (data && data.onboarding_step) {
-        console.log('🔄 Restoring onboarding progress from Supabase:', data);
-        setCurrentStep(data.onboarding_step - 1); // Adjust for 0-based index
-        
-        // Restore all saved data
-        const restoredData: Partial<OnboardingData> = {};
-        if (data.heard_about) restoredData.heard_about = data.heard_about;
-        if (data.age_range) restoredData.age_range = data.age_range;
-        if (data.gender) restoredData.gender = data.gender;
-        if (data.style_goal) restoredData.style_goal = data.style_goal;
-        if (data.clothing_category) restoredData.clothing_category = data.clothing_category;
-        if (data.budget) restoredData.budget = data.budget;
-        if (data.favorite_brands) restoredData.favorite_brands = data.favorite_brands;
-        if (data.color_preference) restoredData.color_preference = data.color_preference;
-        if (data.occasions) restoredData.occasions = data.occasions;
-        if (data.selfie_url) restoredData.selfie_url = data.selfie_url;
-        if (data.weekly_reports !== undefined) restoredData.weekly_reports = data.weekly_reports;
-        if (data.instant_suggestions !== undefined) restoredData.instant_suggestions = data.instant_suggestions;
-        if (data.color_palette) restoredData.color_palette = data.color_palette;
-        if (data.shop_frequency) restoredData.shop_frequency = data.shop_frequency;
-        
-        setData(restoredData);
-      }
-    } catch (error) {
-      console.error('Error restoring progress:', error);
-    }
-  };
-
-  const saveProgress = async (stepData: Partial<OnboardingData>) => {
-    if (!deviceId) return;
-
-    setIsLoading(true);
-    try {
       const updateData = {
-        device_id: deviceId,
+        device_id: deviceInfo.deviceId,
         onboarding_step: currentStep + 1,
         ...stepData,
         ...(currentStep === TOTAL_STEPS - 1 && { completed: true })
@@ -151,19 +141,12 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       // Update local state
       setData(prev => ({ ...prev, ...stepData }));
 
-      // Cache progress in localStorage for better persistence
-      try {
-        const cachedProgress = {
-          deviceId,
-          currentStep: currentStep + 1,
-          stepData,
-          timestamp: Date.now()
-        };
-        localStorage.setItem('dripify_onboarding_progress', JSON.stringify(cachedProgress));
-        console.log('✅ Onboarding progress cached in localStorage:', cachedProgress);
-      } catch (error) {
-        console.error('Error caching onboarding progress:', error);
-      }
+      // Save to persistence manager
+      await persistenceManager.saveOnboardingProgress({
+        currentStep: currentStep + 1,
+        stepData,
+        completed: currentStep === TOTAL_STEPS - 1
+      });
 
       console.log('✅ Onboarding progress saved:', updateData);
     } catch (error) {
@@ -289,7 +272,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const markOnboardingComplete = async () => {
     try {
       // Mark temp onboarding as complete for guest users
-      if (deviceId) {
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      if (deviceInfo?.deviceId) {
         await supabase
           .from('temp_onboard_users')
           .update({ 
@@ -297,9 +281,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
             onboarding_step: TOTAL_STEPS,
             completed_at: new Date().toISOString()
           })
-          .eq('device_id', deviceId);
+          .eq('device_id', deviceInfo.deviceId);
         
-        console.log('✅ Guest onboarding marked complete for device:', deviceId);
+        console.log('✅ Guest onboarding marked complete for device:', deviceInfo.deviceId);
       }
 
       // If user is authenticated, also mark in profiles table
@@ -316,14 +300,15 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         console.log('✅ Authenticated user onboarding marked complete:', user.id);
       }
       
-      // Cache onboarding completion in localStorage
-      try {
-        localStorage.setItem('dripify_onboarding_completed', 'true');
-        localStorage.removeItem('dripify_onboarding_progress'); // Clean up progress cache
-        console.log('✅ Onboarding completion cached in localStorage');
-      } catch (error) {
-        console.error('Error caching onboarding completion:', error);
-      }
+              // Cache onboarding completion in localStorage
+        try {
+          await persistenceManager.saveOnboardingProgress({
+            completed: true
+          });
+          console.log('✅ Onboarding completion cached in localStorage');
+        } catch (error) {
+          console.error('Error caching onboarding completion:', error);
+        }
     } catch (error) {
       console.error('Error marking onboarding complete:', error);
     }
