@@ -170,15 +170,16 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
         };
         input.click();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('📷 Photo library error:', error);
       
-      if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage?.includes('User cancelled') || errorMessage?.includes('cancelled')) {
         console.log('👤 User cancelled photo selection');
         // Don't show error for user cancellation
       } else {
-        console.error('📷 Actual error occurred:', error.message);
-        setError(`Failed to select photo: ${error.message || 'Please try again.'}`);
+        console.error('📷 Actual error occurred:', errorMessage);
+        setError(`Failed to select photo: ${errorMessage || 'Please try again.'}`);
       }
     } finally {
       console.log('🏁 Photo selection process finished');
@@ -240,12 +241,13 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
         };
         input.click();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('📷 Camera error:', error);
-      if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage?.includes('User cancelled') || errorMessage?.includes('cancelled')) {
         console.log('👤 User cancelled camera');
       } else {
-        setError(`Camera error: ${error.message || 'Please try photo library instead.'}`);
+        setError(`Camera error: ${errorMessage || 'Please try photo library instead.'}`);
       }
     } finally {
       setIsProcessing(false);

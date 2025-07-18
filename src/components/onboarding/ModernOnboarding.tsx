@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Device } from '@capacitor/device';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { OnboardingStep } from './OnboardingStep';
@@ -12,6 +11,13 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Star, Check, Zap, Crown } from 'lucide-react';
 import { ModernRatingsDisplay } from '../ModernRatingsDisplay';
+import { persistenceManager } from '@/utils/persistenceManager';
+import { useStrategicPrompts } from '@/hooks/useStrategicPrompts';
+import { AppleSignIn } from '@/components/auth/AppleSignIn';
+import { StrategicUpgradePrompt } from '@/components/upgrade/StrategicUpgradePrompt';
+import { engagementTracker } from '@/utils/engagementTracker';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { getDeviceId, resetDeviceId } from '@/utils/device';
 
 interface OnboardingData {
   heard_about?: string;
@@ -33,10 +39,19 @@ interface OnboardingData {
 const TOTAL_STEPS = 15; // Updated to remove account choice step
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const {
+    onboarding,
+    isLoading: onboardingLoading,
+    isError: onboardingError,
+    saveOnboarding,
+    resetOnboarding,
+    refetch: refetchOnboarding
+  } = useOnboarding();
+
   const [currentStep, setCurrentStep] = useState(0);
-  const [deviceId, setDeviceId] = useState<string>('');
-  const [data, setData] = useState<OnboardingData>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [stepData, setStepData] = useState<Partial<OnboardingData>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [textInput, setTextInput] = useState('');
   const [multiSelect, setMultiSelect] = useState<string[]>([]);
@@ -45,97 +60,110 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [showPaywall, setShowPaywall] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<{
-    fullAnalysis: any | null; // Store the full analysis result
-  }>({
-    fullAnalysis: null
-  });
+    fullAnalysis: unknown | null;
+  }>({ fullAnalysis: null });
   const { toast } = useToast();
 
-  // Initialize device ID and restore progress
+  // Strategic prompts hook - must be declared before any conditional returns
+  const {
+    showAppleSignIn,
+    showUpgradePrompt,
+    hideAppleSignIn,
+    hideUpgradePrompt,
+    trackFeatureUsage,
+    trackAnalysis,
+    userProgress: strategicUserProgress
+  } = useStrategicPrompts();
+
+  // Initialize and restore progress
   useEffect(() => {
-    const initDevice = async () => {
+    const initializeAndRestore = async () => {
       try {
-        const { Device } = await import('@capacitor/device');
-        const info = await Device.getId();
-        setDeviceId(info.identifier);
-        console.log('📱 Device ID set:', info.identifier);
+        // Initialize persistence manager
+        await persistenceManager.initialize();
+        
+        // Initialize engagement tracker
+        await engagementTracker.initialize();
+        
+        // Track onboarding start
+        engagementTracker.trackEvent('view', { page: 'onboarding_start' });
         
         // Restore progress from localStorage
-        restoreProgress(info.identifier);
+        const progress = await persistenceManager.getOnboardingProgress();
+        if (progress && !progress.completed && progress.currentStep > 0) {
+          console.log('🔄 Restoring onboarding progress from cache:', progress);
+          setCurrentStep(progress.currentStep - 1); // Adjust for 0-based index
+          setStepData(prev => ({ ...prev, ...progress.stepData }));
+          
+          // Track onboarding resume
+          engagementTracker.trackEvent('interaction', { 
+            type: 'onboarding_resume',
+            step: progress.currentStep 
+          });
+        }
+
+        // Also try to restore from Supabase for additional data
+        const deviceInfo = persistenceManager.getDeviceInfo();
+        if (deviceInfo?.deviceId) {
+          const { data: supabaseData, error } = await supabase
+            .from('temp_onboard_users')
+            .select('*')
+            .eq('device_id', deviceInfo.deviceId)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Error restoring from Supabase:', error);
+            return;
+          }
+
+          if (supabaseData && supabaseData.onboarding_step) {
+            console.log('🔄 Restoring onboarding progress from Supabase:', supabaseData);
+            
+            // Only update if Supabase has more recent data
+            if (supabaseData.onboarding_step > progress?.currentStep || 0) {
+              setCurrentStep(supabaseData.onboarding_step - 1); // Adjust for 0-based index
+            }
+            
+            // Restore all saved data
+            const restoredData: Partial<OnboardingData> = {};
+            if (supabaseData.heard_about) restoredData.heard_about = supabaseData.heard_about;
+            if (supabaseData.age_range) restoredData.age_range = supabaseData.age_range;
+            if (supabaseData.gender) restoredData.gender = supabaseData.gender;
+            if (supabaseData.style_goal) restoredData.style_goal = supabaseData.style_goal;
+            if (supabaseData.clothing_category) restoredData.clothing_category = supabaseData.clothing_category;
+            if (supabaseData.budget) restoredData.budget = supabaseData.budget;
+            if (supabaseData.favorite_brands) restoredData.favorite_brands = supabaseData.favorite_brands;
+            if (supabaseData.color_preference) restoredData.color_preference = supabaseData.color_preference;
+            if (supabaseData.occasions) restoredData.occasions = supabaseData.occasions;
+            if (supabaseData.selfie_url) restoredData.selfie_url = supabaseData.selfie_url;
+            if (supabaseData.weekly_reports !== undefined) restoredData.weekly_reports = supabaseData.weekly_reports;
+            if (supabaseData.instant_suggestions !== undefined) restoredData.instant_suggestions = supabaseData.instant_suggestions;
+            if (supabaseData.color_palette) restoredData.color_palette = supabaseData.color_palette;
+            if (supabaseData.shop_frequency) restoredData.shop_frequency = supabaseData.shop_frequency;
+            
+            setStepData(prev => ({ ...prev, ...restoredData }));
+          }
+        }
       } catch (error) {
-        console.error('Error getting device ID:', error);
-        const fallbackId = 'web-fallback-' + Date.now();
-        setDeviceId(fallbackId);
-        console.log('🌐 Using fallback device ID:', fallbackId);
-        
-        // Restore progress from localStorage
-        restoreProgress(fallbackId);
+        console.error('Error restoring progress:', error);
       }
     };
 
-    initDevice();
+    initializeAndRestore();
   }, []);
 
-  const restoreProgress = async (deviceId: string) => {
+  const saveProgress = async (stepData: Partial<OnboardingData>) => {
+    setIsSaving(true);
+    setError(null);
     try {
-      // First try to restore from localStorage
-      const cachedProgress = localStorage.getItem('dripify_onboarding_progress');
-      if (cachedProgress) {
-        const progress = JSON.parse(cachedProgress);
-        if (progress.deviceId === deviceId && progress.currentStep > 0) {
-          console.log('🔄 Restoring onboarding progress from cache:', progress);
-          setCurrentStep(progress.currentStep - 1); // Adjust for 0-based index
-          setData(prev => ({ ...prev, ...progress.stepData }));
-        }
-      }
-
-      // Then try to restore from Supabase
-      const { data, error } = await supabase
-        .from('temp_onboard_users')
-        .select('*')
-        .eq('device_id', deviceId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error restoring from Supabase:', error);
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      if (!deviceInfo?.deviceId) {
+        console.error('No device ID available for saving progress');
         return;
       }
 
-      if (data && data.onboarding_step) {
-        console.log('🔄 Restoring onboarding progress from Supabase:', data);
-        setCurrentStep(data.onboarding_step - 1); // Adjust for 0-based index
-        
-        // Restore all saved data
-        const restoredData: Partial<OnboardingData> = {};
-        if (data.heard_about) restoredData.heard_about = data.heard_about;
-        if (data.age_range) restoredData.age_range = data.age_range;
-        if (data.gender) restoredData.gender = data.gender;
-        if (data.style_goal) restoredData.style_goal = data.style_goal;
-        if (data.clothing_category) restoredData.clothing_category = data.clothing_category;
-        if (data.budget) restoredData.budget = data.budget;
-        if (data.favorite_brands) restoredData.favorite_brands = data.favorite_brands;
-        if (data.color_preference) restoredData.color_preference = data.color_preference;
-        if (data.occasions) restoredData.occasions = data.occasions;
-        if (data.selfie_url) restoredData.selfie_url = data.selfie_url;
-        if (data.weekly_reports !== undefined) restoredData.weekly_reports = data.weekly_reports;
-        if (data.instant_suggestions !== undefined) restoredData.instant_suggestions = data.instant_suggestions;
-        if (data.color_palette) restoredData.color_palette = data.color_palette;
-        if (data.shop_frequency) restoredData.shop_frequency = data.shop_frequency;
-        
-        setData(restoredData);
-      }
-    } catch (error) {
-      console.error('Error restoring progress:', error);
-    }
-  };
-
-  const saveProgress = async (stepData: Partial<OnboardingData>) => {
-    if (!deviceId) return;
-
-    setIsLoading(true);
-    try {
       const updateData = {
-        device_id: deviceId,
+        device_id: deviceInfo.deviceId,
         onboarding_step: currentStep + 1,
         ...stepData,
         ...(currentStep === TOTAL_STEPS - 1 && { completed: true })
@@ -149,21 +177,14 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       if (error) throw error;
 
       // Update local state
-      setData(prev => ({ ...prev, ...stepData }));
+      setStepData(prev => ({ ...prev, ...stepData }));
 
-      // Cache progress in localStorage for better persistence
-      try {
-        const cachedProgress = {
-          deviceId,
-          currentStep: currentStep + 1,
-          stepData,
-          timestamp: Date.now()
-        };
-        localStorage.setItem('dripify_onboarding_progress', JSON.stringify(cachedProgress));
-        console.log('✅ Onboarding progress cached in localStorage:', cachedProgress);
-      } catch (error) {
-        console.error('Error caching onboarding progress:', error);
-      }
+      // Save to persistence manager
+      await persistenceManager.saveOnboardingProgress({
+        currentStep: currentStep + 1,
+        stepData,
+        completed: currentStep === TOTAL_STEPS - 1
+      });
 
       console.log('✅ Onboarding progress saved:', updateData);
     } catch (error) {
@@ -174,12 +195,18 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
   const handleNext = async () => {
     let stepData: Partial<OnboardingData> = {};
+
+    // Track step completion
+    engagementTracker.trackConversion('onboarding', `step_${currentStep + 1}_complete`, {
+      step: currentStep + 1,
+      stepName: getStepName(currentStep + 1)
+    });
 
     // Save current step data
     switch (currentStep) {
@@ -243,11 +270,41 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
+  const getStepName = (step: number): string => {
+    const stepNames = [
+      'welcome',
+      'heard_about',
+      'age_range',
+      'gender',
+      'style_goal',
+      'clothing_category',
+      'budget',
+      'favorite_brands',
+      'color_preference',
+      'occasions',
+      'photo_upload',
+      'weekly_reports',
+      'instant_suggestions',
+      'color_palette',
+      'shop_frequency'
+    ];
+    return stepNames[step - 1] || 'unknown';
+  };
+
   const handleImageUpload = async () => {
     if (!selectedImage) return;
 
     setIsAnalyzing(true);
     try {
+      // Track feature usage
+      trackFeatureUsage('photo_upload');
+      
+      // Track analysis start
+      engagementTracker.trackEvent('interaction', { 
+        type: 'analysis_start',
+        step: currentStep + 1
+      });
+      
       // Use the actual image analysis from ScanView
       const { analyzeStyle } = await import('@/utils/imageAnalysis');
       
@@ -261,8 +318,22 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       });
       
       setShowResults(true);
+      
+      // Track analysis completion
+      trackAnalysis();
+      engagementTracker.trackConversion('analysis', 'onboarding_analysis_complete', {
+        step: currentStep + 1,
+        hasResults: true
+      });
     } catch (error) {
       console.error('Error analyzing image:', error);
+      
+      // Track analysis error
+      engagementTracker.trackError('analysis_failed', {
+        step: currentStep + 1,
+        error: error.message
+      });
+      
       toast({
         title: "Analysis Failed",
         description: "Failed to analyze your photo. Please try again.",
@@ -289,7 +360,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const markOnboardingComplete = async () => {
     try {
       // Mark temp onboarding as complete for guest users
-      if (deviceId) {
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      if (deviceInfo?.deviceId) {
         await supabase
           .from('temp_onboard_users')
           .update({ 
@@ -297,9 +369,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
             onboarding_step: TOTAL_STEPS,
             completed_at: new Date().toISOString()
           })
-          .eq('device_id', deviceId);
+          .eq('device_id', deviceInfo.deviceId);
         
-        console.log('✅ Guest onboarding marked complete for device:', deviceId);
+        console.log('✅ Guest onboarding marked complete for device:', deviceInfo.deviceId);
       }
 
       // If user is authenticated, also mark in profiles table
@@ -316,18 +388,22 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         console.log('✅ Authenticated user onboarding marked complete:', user.id);
       }
       
-      // Cache onboarding completion in localStorage
-      try {
-        localStorage.setItem('dripify_onboarding_completed', 'true');
-        localStorage.removeItem('dripify_onboarding_progress'); // Clean up progress cache
-        console.log('✅ Onboarding completion cached in localStorage');
-      } catch (error) {
-        console.error('Error caching onboarding completion:', error);
-      }
+              // Cache onboarding completion in localStorage
+        try {
+          await persistenceManager.saveOnboardingProgress({
+            completed: true
+          });
+          console.log('✅ Onboarding completion cached in localStorage');
+        } catch (error) {
+          console.error('Error caching onboarding completion:', error);
+        }
     } catch (error) {
       console.error('Error marking onboarding complete:', error);
     }
   };
+
+  if (onboardingLoading || isSaving) return <StyleLoadingOverlay isAnalyzing={true} />;
+  if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
 
   if (isAnalyzing) {
     return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
@@ -425,7 +501,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
 
   const renderStep = () => {
     const stepProps = {
-      isLoading,
+      isLoading: isSaving,
       currentStep: currentStep + 1,
       totalSteps: TOTAL_STEPS
     };
@@ -864,10 +940,45 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
+  const appleSignInTrigger = strategicUserProgress.isPro;
+  const upgradePromptTrigger = strategicUserProgress.isPro;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black">
       <AnimatePresence mode="wait">
         {renderStep()}
+      </AnimatePresence>
+      
+      {/* Strategic Prompts */}
+      <AnimatePresence>
+        {/* Apple Sign-in Prompt */}
+        {showAppleSignIn && appleSignInTrigger && (
+          <AppleSignIn
+            trigger={appleSignInTrigger}
+            userProgress={strategicUserProgress}
+            onSuccess={(user) => {
+              hideAppleSignIn();
+              toast({
+                title: "Welcome!",
+                description: "Your progress has been saved securely.",
+              });
+            }}
+            onCancel={hideAppleSignIn}
+          />
+        )}
+        
+        {/* Upgrade Prompt */}
+        {showUpgradePrompt && upgradePromptTrigger && (
+          <StrategicUpgradePrompt
+            trigger={upgradePromptTrigger}
+            userContext={strategicUserProgress}
+            onUpgrade={() => {
+              hideUpgradePrompt();
+              // Continue with onboarding or show success
+            }}
+            onSkip={hideUpgradePrompt}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

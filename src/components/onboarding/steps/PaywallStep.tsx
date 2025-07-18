@@ -9,23 +9,12 @@ interface PaywallStepProps {
 }
 
 export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
-  const { offerings, purchaseProduct, isLoading } = useRevenueCat();
+  const { purchaseProduct, offerings, isLoading } = useRevenueCat();
   const { toast } = useToast();
 
   const handlePurchase = async () => {
-    if (!offerings || offerings.length === 0) {
-      console.error('No subscription options available');
-      toast({
-        title: "Subscription Unavailable",
-        description: "No subscription options available. Please try again later.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const product = offerings[0]?.availablePackages?.[0]?.product;
+    const product = offerings?.[0]?.availablePackages?.[0]?.product;
     if (!product) {
-      console.error('No subscription product found');
       toast({
         title: "Product Error",
         description: "Subscription product not found. Please try again.",
@@ -33,7 +22,6 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       });
       return;
     }
-    
     try {
       const success = await purchaseProduct(product.identifier);
       if (success) {
@@ -49,7 +37,6 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         });
       }
     } catch (error) {
-      console.error('Purchase failed:', error);
       toast({
         title: "Purchase Failed",
         description: "Something went wrong. Please try again.",
@@ -57,17 +44,6 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       });
     }
   };
-
-  const features = [
-    { icon: Zap, text: 'Unlimited outfit analyses' },
-    { icon: Sparkles, text: 'Personalized style reports' },
-    { icon: Star, text: 'Early-access trends' },
-    { icon: Crown, text: 'Advanced color palette analysis' },
-    { icon: Check, text: 'Priority customer support' },
-    { icon: Check, text: 'Export your style profiles' }
-  ];
-
-  const price = offerings?.[0]?.availablePackages?.[0]?.product?.priceString || "$12.99/month";
 
   return (
     <motion.div
@@ -108,7 +84,6 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           >
             <Crown className="w-16 h-16 text-orange-400" />
           </motion.div>
-          
           <h2 className="text-3xl font-bold text-white leading-tight">
             Unlock Your Style Potential
           </h2>
@@ -124,16 +99,16 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           transition={{ delay: 0.3, duration: 0.5 }}
           className="space-y-3"
         >
-          {features.map((feature, index) => (
+          {["Unlimited outfit analyses", "Personalized style reports", "Early-access trends", "Advanced color palette analysis", "Priority customer support", "Export your style profiles"].map((feature, index) => (
             <motion.div
-              key={feature.text}
+              key={feature}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 + index * 0.1, duration: 0.5 }}
               className="flex items-center space-x-3"
             >
-              <feature.icon className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <span className="text-white/80 text-sm">{feature.text}</span>
+              <Check className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <span className="text-white/80 text-sm">{feature}</span>
             </motion.div>
           ))}
         </motion.div>
@@ -146,12 +121,12 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           className="bg-gradient-to-r from-purple-900/40 to-purple-700/40 rounded-2xl p-4 border border-purple-500/30"
         >
           <div className="text-center">
-            <div className="text-3xl font-bold text-white mb-1">{price}</div>
+            <div className="text-3xl font-bold text-white mb-1">$12.99/month</div>
             <div className="text-white/60 text-xs">Cancel anytime</div>
           </div>
         </motion.div>
 
-        {/* Action Buttons */}
+        {/* Action Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -175,8 +150,6 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
               </>
             )}
           </Button>
-          
-
         </motion.div>
 
         {/* Legal Text */}
@@ -187,22 +160,10 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           className="text-center"
         >
           <p className="text-white/40 text-xs leading-relaxed">
-            By continuing, you agree to our Terms of Service and Privacy Policy. {price}.
+            By continuing, you agree to our Terms of Service and Privacy Policy. $12.99/month.
           </p>
         </motion.div>
       </div>
-
-      {/* Footer Branding */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.0, duration: 0.5 }}
-        className="absolute bottom-4 right-4 text-white/30 text-xs flex items-center gap-1"
-      >
-        <span>Edit with</span>
-        <span className="text-red-400">♥</span>
-        <span>Lovable</span>
-      </motion.div>
     </motion.div>
   );
 }; 

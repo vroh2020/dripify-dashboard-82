@@ -6,6 +6,8 @@ import { Check, X, Crown, Star, Zap, Sparkles } from 'lucide-react';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
+import { SubscriptionDescription } from '@/components/subscription/SubscriptionDescription';
+import { OptionalRegistration } from '@/components/auth/OptionalRegistration';
 
 interface PaywallProps {
   onPurchaseSuccess?: () => void;
@@ -98,6 +100,10 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
       >
         <Card className="bg-gradient-to-b from-indigo-900/60 via-purple-800/40 to-black border-white/10">
           <div className="p-6">
+            {/* Subscription Description */}
+            <SubscriptionDescription />
+            {/* Optional Registration */}
+            <OptionalRegistration onPurchase={() => handlePurchase(monthlyOffering?.product?.identifier || '')} />
             {/* Header */}
             <div className="text-center mb-6">
               <motion.div

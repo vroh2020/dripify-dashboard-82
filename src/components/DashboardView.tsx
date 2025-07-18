@@ -126,7 +126,7 @@ export const DashboardView = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]); // Removed toast from dependencies
+  }, [user, toast]);
 
   useEffect(() => {
     fetchAnalyses();
