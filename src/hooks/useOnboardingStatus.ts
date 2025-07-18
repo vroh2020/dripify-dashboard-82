@@ -22,9 +22,10 @@ export function useOnboardingStatus(): OnboardingStatus {
   // Add state tracking to prevent loops
   const lastCheckRef = useRef<{
     userId: string | null;
+    deviceId: string | null;
     timestamp: number;
     result: boolean;
-  }>({ userId: null, timestamp: 0, result: false });
+  }>({ userId: null, deviceId: null, timestamp: 0, result: false });
 
   useEffect(() => {
     // Get device ID for guest mode
@@ -37,24 +38,26 @@ export function useOnboardingStatus(): OnboardingStatus {
   }, []);
 
   const checkOnboardingStatus = useCallback(async () => {
-    if (isAuthenticated && user?.id) {
-      // Authenticated user: check profiles table
-      if (!isAuthenticated || !user?.id) {
-        setIsLoading(false);
-        setHasCompletedOnboarding(false);
-        return;
-      }
+    // Prevent rapid successive checks
+    const now = Date.now();
+    const lastCheck = lastCheckRef.current;
+    const currentUserId = user?.id || null;
+    const currentDeviceId = deviceId;
+    
+    if (lastCheck.userId === currentUserId && 
+        lastCheck.deviceId === currentDeviceId && 
+        now - lastCheck.timestamp < 1000) {
+      console.log('🔄 Skipping rapid onboarding check');
+      return;
+    }
 
-      // Prevent rapid successive checks
-      const now = Date.now();
-      const lastCheck = lastCheckRef.current;
-      if (lastCheck.userId === user.id && now - lastCheck.timestamp < 1000) {
-        console.log('🔄 Skipping rapid onboarding check');
-        return;
-      }
+    try {
+      setIsLoading(true);
+      let onboardingCompleted = false;
 
-      try {
-        setIsLoading(true);
+      if (isAuthenticated && user?.id) {
+        // Authenticated user: check profiles table
+        console.log('🔍 Checking onboarding for authenticated user:', user.id);
         
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -78,64 +81,82 @@ export function useOnboardingStatus(): OnboardingStatus {
           return;
         }
 
-        const onboardingCompleted = profile?.onboarding_completed === true;
+        onboardingCompleted = profile?.onboarding_completed === true;
         
-        // Update last check tracking
-        lastCheckRef.current = {
-          userId: user.id,
-          timestamp: now,
-          result: onboardingCompleted
-        };
-        
-        console.log('📊 Onboarding Status Check:', {
+        console.log('📊 Authenticated User Onboarding Status:', {
           userId: user.id,
           onboardingCompleted,
+          profileData: profile,
           platform: Capacitor.isNativePlatform() ? 'native' : 'web',
           revenueCatStatus: subscription.isActive,
-          supabaseStatus: profile?.subscription_status,
-          finalResult: onboardingCompleted,
-          retryCount,
-          timestamp: new Date().toISOString()
+          supabaseStatus: profile?.subscription_status
         });
-
-        setHasCompletedOnboarding(onboardingCompleted);
-        setRetryCount(0);
         
-      } catch (error) {
-        console.error('Error checking onboarding:', error);
+      } else if (deviceId) {
+        // Guest/anonymous: check temp_onboard_users by device_id
+        console.log('🔍 Checking onboarding for guest user:', deviceId);
         
-        if (retryCount < 2) {
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-            checkOnboardingStatus();
-          }, 500);
-          return;
-        }
-        
-        setHasCompletedOnboarding(false);
-      } finally {
-        setIsLoading(false);
-      }
-    } else if (deviceId) {
-      // Guest/anonymous: check temp_onboard_users by device_id
-      try {
-        setIsLoading(true);
         const { data, error } = await supabase
           .from('temp_onboard_users')
-          .select('completed')
+          .select('completed, onboarding_step')
           .eq('device_id', deviceId)
           .maybeSingle();
-        if (error) throw error;
-        const completed = data?.completed === true;
-        setHasCompletedOnboarding(completed);
-      } catch (error) {
-        setHasCompletedOnboarding(false);
-      } finally {
-        setIsLoading(false);
+          
+        if (error) {
+          console.error('Guest onboarding check error:', error);
+          onboardingCompleted = false;
+        } else {
+          onboardingCompleted = data?.completed === true;
+          
+          console.log('📊 Guest User Onboarding Status:', {
+            deviceId,
+            onboardingCompleted,
+            onboardingStep: data?.onboarding_step,
+            platform: Capacitor.isNativePlatform() ? 'native' : 'web'
+          });
+        }
+      } else {
+        // No device ID yet, assume not completed
+        onboardingCompleted = false;
+        console.log('🔍 No device ID available, assuming onboarding not completed');
       }
-    } else {
-      setIsLoading(false);
+      
+      // Update last check tracking
+      lastCheckRef.current = {
+        userId: currentUserId,
+        deviceId: currentDeviceId,
+        timestamp: now,
+        result: onboardingCompleted
+      };
+      
+      console.log('📊 Final Onboarding Status Check:', {
+        userId: currentUserId,
+        deviceId: currentDeviceId,
+        onboardingCompleted,
+        platform: Capacitor.isNativePlatform() ? 'native' : 'web',
+        revenueCatStatus: subscription.isActive,
+        finalResult: onboardingCompleted,
+        retryCount,
+        timestamp: new Date().toISOString()
+      });
+
+      setHasCompletedOnboarding(onboardingCompleted);
+      setRetryCount(0);
+      
+    } catch (error) {
+      console.error('Error checking onboarding:', error);
+      
+      if (retryCount < 2) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          checkOnboardingStatus();
+        }, 500);
+        return;
+      }
+      
       setHasCompletedOnboarding(false);
+    } finally {
+      setIsLoading(false);
     }
   }, [isAuthenticated, user?.id, deviceId, retryCount, subscription.isActive]);
 
