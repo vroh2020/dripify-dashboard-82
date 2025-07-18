@@ -27,6 +27,25 @@ export function useOnboardingStatus(): OnboardingStatus {
     result: boolean;
   }>({ userId: null, deviceId: null, timestamp: 0, result: false });
 
+  // Cache onboarding status in localStorage to prevent going back to start
+  const getCachedOnboardingStatus = () => {
+    try {
+      const cached = localStorage.getItem('dripify_onboarding_completed');
+      return cached === 'true';
+    } catch (error) {
+      console.error('Error reading cached onboarding status:', error);
+      return false;
+    }
+  };
+
+  const setCachedOnboardingStatus = (completed: boolean) => {
+    try {
+      localStorage.setItem('dripify_onboarding_completed', completed.toString());
+    } catch (error) {
+      console.error('Error caching onboarding status:', error);
+    }
+  };
+
   useEffect(() => {
     // Get device ID for guest mode
     import('@capacitor/device').then(({ Device }) => {
@@ -54,6 +73,15 @@ export function useOnboardingStatus(): OnboardingStatus {
     try {
       setIsLoading(true);
       let onboardingCompleted = false;
+
+      // First check cache to prevent going back to start
+      const cachedStatus = getCachedOnboardingStatus();
+      if (cachedStatus) {
+        console.log('📊 Using cached onboarding status: completed');
+        setHasCompletedOnboarding(true);
+        setIsLoading(false);
+        return;
+      }
 
       if (isAuthenticated && user?.id) {
         // Authenticated user: check profiles table
@@ -120,6 +148,9 @@ export function useOnboardingStatus(): OnboardingStatus {
         onboardingCompleted = false;
         console.log('🔍 No device ID available, assuming onboarding not completed');
       }
+      
+      // Cache the result to prevent going back to start
+      setCachedOnboardingStatus(onboardingCompleted);
       
       // Update last check tracking
       lastCheckRef.current = {

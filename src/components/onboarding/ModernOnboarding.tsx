@@ -252,6 +252,14 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         });
 
       if (error) throw error;
+      
+      // Cache onboarding completion in localStorage to prevent going back to start
+      try {
+        localStorage.setItem('dripify_onboarding_completed', 'true');
+        console.log('✅ Onboarding completion cached in localStorage for authenticated user');
+      } catch (error) {
+        console.error('Error caching onboarding completion:', error);
+      }
     } catch (error) {
       console.error('Error saving to profile:', error);
     }
@@ -265,6 +273,14 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
           .from('temp_onboard_users')
           .update({ completed: true })
           .eq('device_id', deviceId);
+      }
+      
+      // Cache onboarding completion in localStorage to prevent going back to start
+      try {
+        localStorage.setItem('dripify_onboarding_completed', 'true');
+        console.log('✅ Onboarding completion cached in localStorage');
+      } catch (error) {
+        console.error('Error caching onboarding completion:', error);
       }
     } catch (error) {
       console.error('Error marking onboarding complete:', error);
