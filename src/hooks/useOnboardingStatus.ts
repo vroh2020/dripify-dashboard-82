@@ -83,6 +83,25 @@ export function useOnboardingStatus(): OnboardingStatus {
         return;
       }
 
+      // Check for cached progress to prevent going back to start
+      try {
+        const cachedProgress = localStorage.getItem('dripify_onboarding_progress');
+        if (cachedProgress) {
+          const progress = JSON.parse(cachedProgress);
+          const progressAge = now - progress.timestamp;
+          const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+          
+          if (progressAge < maxAge && progress.currentStep > 0) {
+            console.log('📊 Found recent onboarding progress, not completed yet');
+            setHasCompletedOnboarding(false);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking cached progress:', error);
+      }
+
       if (isAuthenticated && user?.id) {
         // Authenticated user: check profiles table
         console.log('🔍 Checking onboarding for authenticated user:', user.id);
