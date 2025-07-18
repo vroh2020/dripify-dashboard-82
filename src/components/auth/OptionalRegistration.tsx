@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { User, Shield, Sync, Zap, Check, X } from 'lucide-react';
+import { User, Shield, Loader2, Zap, Check, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { persistenceManager } from '@/utils/persistenceManager';
 
@@ -123,7 +123,7 @@ export const OptionalRegistration: React.FC<OptionalRegistrationProps> = ({
         <div className="space-y-3 mb-6">
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0 w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center">
-              <Sync className="w-3 h-3 text-green-400" />
+              <Loader2 className="w-3 h-3 text-green-400" />
             </div>
             <span className="text-gray-300 text-sm">Sync across all your devices</span>
           </div>
@@ -165,7 +165,7 @@ export const OptionalRegistration: React.FC<OptionalRegistrationProps> = ({
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               >
-                <Sync className="w-5 h-5" />
+                <Loader2 className="w-5 h-5" />
               </motion.div>
             ) : (
               <>
