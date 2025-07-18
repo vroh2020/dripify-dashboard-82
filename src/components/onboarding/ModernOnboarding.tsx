@@ -6,12 +6,12 @@ import { OnboardingStep } from './OnboardingStep';
 import { OnboardingOption } from './OnboardingOption';
 import { OnboardingPhotoPicker } from './OnboardingPhotoPicker';
 import { StyleLoadingOverlay } from '../StyleLoadingOverlay';
-import { Paywall } from '../Paywall';
+import { PaywallStep } from './steps/PaywallStep';
+import { AccountChoiceStep } from './steps/AccountChoiceStep';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { handleAppleSignIn } from './utils/auth';
-import { Sparkles, Crown } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface OnboardingData {
   heard_about?: string;
@@ -31,7 +31,7 @@ interface OnboardingData {
   account_choice?: string;
 }
 
-const TOTAL_STEPS = 18; // Updated to include paywall and account steps
+const TOTAL_STEPS = 16; // Updated to include paywall and account steps
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -44,6 +44,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showAccountChoice, setShowAccountChoice] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -138,18 +139,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       case 14: // Shop frequency
         stepData = { shop_frequency: selectedOption };
         break;
-      case 15: // Final confirmation
-        // Show paywall after onboarding
+      case 15: // Final confirmation - show paywall
         setShowPaywall(true);
         return;
-      case 16: // Paywall handled separately
-        break;
-      case 17: // Account choice - final step
-        if (currentStep === TOTAL_STEPS - 1) {
-          onComplete();
-          return;
-        }
-        break;
     }
 
     await saveProgress(stepData);
@@ -186,30 +178,13 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
-  const handlePaywallComplete = () => {
+  const handlePaywallComplete = (purchased: boolean) => {
     setShowPaywall(false);
-    setCurrentStep(16); // Move to account choice
+    setShowAccountChoice(true);
   };
 
-  const handleSignInWithApple = async () => {
-    try {
-      const success = await handleAppleSignIn();
-      if (success) {
-        await saveProgress({ account_choice: 'Sign In with Apple' });
-        onComplete();
-      }
-    } catch (error) {
-      console.error('Apple sign in error:', error);
-      toast({
-        title: "Sign In Failed",
-        description: "Failed to sign in with Apple. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleContinueAsGuest = async () => {
-    await saveProgress({ account_choice: 'Continue as Guest' });
+  const handleAccountChoice = async (choice: 'Sign In with Apple' | 'Continue as Guest') => {
+    await saveProgress({ account_choice: choice });
     onComplete();
   };
 
@@ -219,56 +194,16 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
 
   if (showPaywall) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col">
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex-1 flex flex-col justify-center items-center px-6 py-8"
-        >
-          <motion.div
-            animate={{ 
-              rotate: [0, 10, -10, 0],
-              scale: [1, 1.1, 1]
-            }}
-            transition={{ 
-              duration: 2, 
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="mb-6"
-          >
-            <Crown className="w-16 h-16 text-orange-400 mx-auto" />
-          </motion.div>
-          
-          <h2 className="text-3xl font-bold text-white mb-4 text-center">
-            Unlock Your Style Potential
-          </h2>
-          <p className="text-white/80 text-center mb-8 max-w-sm">
-            Get unlimited outfit analyses, personalized style reports, and early access to trends. Cancel anytime.
-          </p>
-          
-          <div className="w-full max-w-sm space-y-4">
-            <Button
-              className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
-              onClick={handlePaywallComplete}
-            >
-              <Crown className="mr-3 h-6 w-6" />
-              Unlock Premium
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full h-16 text-lg font-medium rounded-2xl border-white/20 text-white hover:bg-white/10"
-              onClick={handlePaywallComplete}
-            >
-              Continue with Free
-            </Button>
-          </div>
-          
-          <p className="text-white/50 text-sm text-center mt-6">
-            7-day free trial • Cancel anytime
-          </p>
-        </motion.div>
-      </div>
+      <PaywallStep
+        onPurchase={() => handlePaywallComplete(true)}
+        onContinueFree={() => handlePaywallComplete(false)}
+      />
+    );
+  }
+
+  if (showAccountChoice) {
+    return (
+      <AccountChoiceStep onNext={handleAccountChoice} />
     );
   }
 
@@ -734,29 +669,6 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
               </motion.div>
               <p className="text-white/70 text-lg">
                 Ready to see your personalized style recommendations?
-              </p>
-            </div>
-          </OnboardingStep>
-        );
-
-      case 16:
-        return (
-          <OnboardingStep
-            title="Save your style profile?"
-            subtitle="Sign in to sync your preferences across devices"
-            onNext={handleContinueAsGuest}
-            nextButtonText="Continue as Guest"
-            {...stepProps}
-          >
-            <div className="space-y-4">
-              <Button
-                onClick={handleSignInWithApple}
-                className="w-full h-16 text-lg font-medium rounded-2xl bg-black text-white hover:bg-gray-800 border border-white/20"
-              >
-                🍎 Sign In with Apple
-              </Button>
-              <p className="text-xs text-white/50 text-center">
-                Sign in to sync your preferences across devices and never lose your style profile
               </p>
             </div>
           </OnboardingStep>
