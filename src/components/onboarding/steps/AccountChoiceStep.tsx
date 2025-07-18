@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Apple, User } from "lucide-react";
+import { Apple, User, X } from "lucide-react";
 import { handleAppleSignIn } from "../utils/auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,65 +48,81 @@ export const AccountChoiceStep = ({ onNext }: AccountChoiceStepProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="h-full flex flex-col"
+      className="min-h-screen bg-gradient-to-b from-purple-900/40 via-purple-800/20 to-black flex flex-col justify-center items-center px-6 py-8 relative overflow-hidden"
     >
-      {/* Content Area - Centered */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
-        <div className="space-y-6 text-center mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-          >
-            <h2 className="text-3xl font-bold text-white mb-4">Save your progress?</h2>
-            <p className="text-white/70 text-base leading-relaxed max-w-sm">
-              Sign in to sync your style profile across devices and never lose your preferences
-            </p>
-          </motion.div>
-        </div>
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)`,
+        }} />
+      </div>
 
-        {/* Options */}
-        <div className="w-full max-w-sm space-y-4">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            <Button
-              onClick={handleAppleClick}
-              className="w-full h-16 text-lg font-bold rounded-2xl bg-black hover:bg-gray-900 text-white border-2 border-white/10 transition-all duration-300 hover:scale-105 shadow-xl flex items-center justify-center"
-            >
-              <Apple className="mr-3 h-6 w-6" />
-              Sign In with Apple
-            </Button>
-          </motion.div>
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-sm space-y-6">
+        {/* Alert Box */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="bg-white rounded-lg p-4 flex items-center space-x-3"
+        >
+          <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <X className="w-3 h-3 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="font-bold text-black">Subscription Unavailable</div>
+            <div className="text-sm text-gray-600">Please try again later or continue with the free version.</div>
+          </div>
+        </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
+        {/* Action Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="space-y-3"
+        >
+          <Button
+            onClick={handleAppleClick}
+            className="w-full h-16 text-lg font-bold rounded-2xl bg-black hover:bg-gray-900 text-white border-2 border-white/10 transition-all duration-300 hover:scale-105 shadow-xl flex items-center justify-center"
           >
-            <Button
-              onClick={() => onNext('Continue as Guest')}
-              className="w-full h-16 text-lg font-medium rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all duration-300 hover:scale-105"
-            >
-              <User className="mr-3 h-5 w-5" />
-              Continue as Guest
-            </Button>
-          </motion.div>
-        </div>
+            <Apple className="mr-3 h-6 w-6" />
+            Sign In with Apple
+          </Button>
 
+          <Button
+            onClick={() => onNext('Continue as Guest')}
+            className="w-full h-16 text-lg font-medium rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all duration-300 hover:scale-105 flex items-center justify-center"
+          >
+            <User className="mr-3 h-5 w-5" />
+            Continue as Guest
+          </Button>
+        </motion.div>
+
+        {/* Footer Text */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.5 }}
-          className="text-center mt-8"
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="text-center"
         >
-          <p className="text-white/40 text-xs">
+          <p className="text-white/60 text-sm">
             You can always sign in later from your profile
           </p>
         </motion.div>
       </div>
+
+      {/* Footer Branding */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.5 }}
+        className="absolute bottom-4 right-4 text-white/30 text-xs flex items-center gap-1"
+      >
+        <span>Edit with</span>
+        <span className="text-red-400">♥</span>
+        <span>Lovable</span>
+      </motion.div>
     </motion.div>
   );
 }; 
