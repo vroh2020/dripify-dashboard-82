@@ -4,7 +4,7 @@ interface EngagementEvent {
   userId?: string;
   deviceId?: string;
   sessionId: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface UserSession {
@@ -136,7 +136,7 @@ class EngagementTracker {
     }, 300000);
   }
 
-  trackEvent(type: EngagementEvent['type'], metadata?: Record<string, any>) {
+  trackEvent(type: EngagementEvent['type'], metadata?: Record<string, unknown>) {
     const event: EngagementEvent = {
       type,
       timestamp: Date.now(),
@@ -158,7 +158,7 @@ class EngagementTracker {
     }
   }
 
-  trackConversion(funnel: string, step: string, metadata?: Record<string, any>) {
+  trackConversion(funnel: string, step: string, metadata?: Record<string, unknown>) {
     this.trackEvent('conversion', {
       funnel,
       step,
@@ -166,7 +166,7 @@ class EngagementTracker {
     });
   }
 
-  trackError(error: string, metadata?: Record<string, any>) {
+  trackError(error: string, metadata?: Record<string, unknown>) {
     this.trackEvent('error', {
       error,
       ...metadata

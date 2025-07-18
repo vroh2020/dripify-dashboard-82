@@ -21,8 +21,9 @@ export const AccountDeletion: React.FC<{ onReset: () => void }> = ({ onReset }) 
         setSuccess(false);
         onReset(); // Parent should reset onboarding state
       }, 1500);
-    } catch (e: any) {
-      setError(e.message || 'Failed to delete account.');
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Failed to delete account.';
+      setError(errorMessage);
       setIsDeleting(false);
     }
   };

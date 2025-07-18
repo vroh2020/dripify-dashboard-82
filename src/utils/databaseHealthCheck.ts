@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface DatabaseHealthResult {
   isConnected: boolean;
   userProfileExists: boolean;
-  profileData: any;
+  profileData: unknown;
   errors: string[];
   recommendations: string[];
 }

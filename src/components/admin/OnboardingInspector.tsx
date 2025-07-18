@@ -20,8 +20,8 @@ interface StyleAnalysisData {
   id: string;
   user_id: string;
   total_score: number;
-  breakdown: any;
-  tips: any;
+  breakdown: Record<string, unknown>;
+  tips: Record<string, unknown>;
   image_url: string | null;
   scan_date: string;
   feedback: string | null;
@@ -149,7 +149,7 @@ export function OnboardingInspector() {
 
   const getCompletionPercentage = (user: UserOnboardingData) => {
     let completed = 0;
-    let total = 4; // age, goal, photo, payment
+    const total = 4; // age, goal, photo, payment
     
     if (user.age_range) completed++;
     if (user.main_goal) completed++;

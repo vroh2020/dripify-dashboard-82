@@ -60,7 +60,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [showPaywall, setShowPaywall] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<{
-    fullAnalysis: any | null;
+    fullAnalysis: unknown | null;
   }>({ fullAnalysis: null });
   const { toast } = useToast();
 

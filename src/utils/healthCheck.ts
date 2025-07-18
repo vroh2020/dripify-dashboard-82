@@ -41,7 +41,7 @@ class HealthChecker {
   private lastCheck: number = 0;
   private checkInterval: number = 30000; // 30 seconds
   private _lastResult: HealthCheckResult | null = null;
-  private _intervalId: any = null;
+  private _intervalId: NodeJS.Timeout | null = null;
 
   private constructor() {}
 
@@ -166,7 +166,12 @@ class HealthChecker {
 
   checkMemory(): boolean {
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
+      const memory = (performance as Performance & {
+        memory: {
+          usedJSHeapSize: number;
+          jsHeapSizeLimit: number;
+        };
+      }).memory;
       const usagePercentage = (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100;
       
       if (usagePercentage > 80) {

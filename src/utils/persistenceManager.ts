@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 export interface OnboardingProgress {
   deviceId: string;
   currentStep: number;
-  stepData: Record<string, any>;
+  stepData: Record<string, unknown>;
   timestamp: number;
   completed: boolean;
 }

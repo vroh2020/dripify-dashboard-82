@@ -4,7 +4,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 class Logger {
-  private static log(level: LogLevel, ...args: any[]) {
+  private static log(level: LogLevel, ...args: unknown[]) {
     if (isProduction) {
       // In production, only log errors
       if (level === 'error') {
@@ -29,19 +29,19 @@ class Logger {
     }
   }
 
-  static debug(...args: any[]) {
+  static debug(...args: unknown[]) {
     this.log('debug', ...args);
   }
 
-  static info(...args: any[]) {
+  static info(...args: unknown[]) {
     this.log('info', ...args);
   }
 
-  static warn(...args: any[]) {
+  static warn(...args: unknown[]) {
     this.log('warn', ...args);
   }
 
-  static error(...args: any[]) {
+  static error(...args: unknown[]) {
     this.log('error', ...args);
   }
 }

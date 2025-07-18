@@ -5,7 +5,7 @@ interface PerformanceMetric {
   value: number;
   unit: string;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface UserEvent {
@@ -13,7 +13,7 @@ interface UserEvent {
   timestamp: number;
   userId?: string;
   deviceId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ConversionEvent {
@@ -22,7 +22,7 @@ interface ConversionEvent {
   userId?: string;
   deviceId?: string;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 class PerformanceMonitor {
@@ -72,7 +72,12 @@ class PerformanceMonitor {
 
       // Track memory usage
       if ('memory' in performance) {
-        const memory = (performance as any).memory;
+        const memory = (performance as Performance & {
+          memory: {
+            usedJSHeapSize: number;
+            jsHeapSizeLimit: number;
+          };
+        }).memory;
         this.recordMetric('memory_used', memory.usedJSHeapSize, 'bytes');
         this.recordMetric('memory_limit', memory.jsHeapSizeLimit, 'bytes');
       }
@@ -143,7 +148,7 @@ class PerformanceMonitor {
     }
   }
 
-  recordMetric(name: string, value: number, unit: string, metadata?: Record<string, any>) {
+  recordMetric(name: string, value: number, unit: string, metadata?: Record<string, unknown>) {
     const metric: PerformanceMetric = {
       name,
       value,
@@ -165,7 +170,7 @@ class PerformanceMonitor {
     }
   }
 
-  recordEvent(event: string, metadata?: Record<string, any>) {
+  recordEvent(event: string, metadata?: Record<string, unknown>) {
     const userEvent: UserEvent = {
       event,
       timestamp: Date.now(),
@@ -183,7 +188,7 @@ class PerformanceMonitor {
     console.log(`📈 Event: ${event}`, metadata);
   }
 
-  recordConversion(funnel: string, step: string, metadata?: Record<string, any>) {
+  recordConversion(funnel: string, step: string, metadata?: Record<string, unknown>) {
     const conversion: ConversionEvent = {
       funnel,
       step,
@@ -203,7 +208,7 @@ class PerformanceMonitor {
   }
 
   // Track onboarding funnel
-  trackOnboardingStep(step: number, stepName: string, metadata?: Record<string, any>) {
+  trackOnboardingStep(step: number, stepName: string, metadata?: Record<string, unknown>) {
     this.recordConversion('onboarding', `step_${step}_${stepName}`, {
       step,
       stepName,
@@ -212,12 +217,12 @@ class PerformanceMonitor {
   }
 
   // Track analysis funnel
-  trackAnalysisStep(step: string, metadata?: Record<string, any>) {
+  trackAnalysisStep(step: string, metadata?: Record<string, unknown>) {
     this.recordConversion('analysis', step, metadata);
   }
 
   // Track upgrade funnel
-  trackUpgradeStep(step: string, metadata?: Record<string, any>) {
+  trackUpgradeStep(step: string, metadata?: Record<string, unknown>) {
     this.recordConversion('upgrade', step, metadata);
   }
 
