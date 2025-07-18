@@ -22,34 +22,35 @@ export function useOnboarding() {
     isLoading,
     isError,
     refetch
-  } = useQuery(['onboarding'], async () => {
-    const device_id = await getDeviceId();
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select('*')
-      .eq('device_id', device_id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as OnboardingData | null;
+  } = useQuery({
+    queryKey: ['onboarding'],
+    queryFn: async () => {
+      const device_id = await getDeviceId();
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select('*')
+        .eq('device_id', device_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as OnboardingData | null;
+    }
   });
 
   // Save/update onboarding step
-  const saveOnboarding = useMutation(
-    async (updates: Partial<OnboardingData>) => {
+  const saveOnboarding = useMutation({
+    mutationFn: async (updates: Partial<OnboardingData>) => {
       const device_id = await getDeviceId();
       const { error } = await supabase
         .from(TABLE)
         .upsert({ device_id, ...updates }, { onConflict: 'device_id' });
       if (error) throw error;
     },
-    {
-      onSuccess: () => queryClient.invalidateQueries(['onboarding'])
-    }
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['onboarding'] })
+  });
 
   // Reset onboarding (delete row)
-  const resetOnboarding = useMutation(
-    async () => {
+  const resetOnboarding = useMutation({
+    mutationFn: async () => {
       const device_id = await getDeviceId();
       const { error } = await supabase
         .from(TABLE)
@@ -57,10 +58,8 @@ export function useOnboarding() {
         .eq('device_id', device_id);
       if (error) throw error;
     },
-    {
-      onSuccess: () => queryClient.invalidateQueries(['onboarding'])
-    }
-  );
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['onboarding'] })
+  });
 
   return {
     onboarding,
