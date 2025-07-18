@@ -1,96 +1,43 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { Trash2 } from 'lucide-react';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { resetDeviceId } from '@/utils/device';
 
-export const AccountDeletion: React.FC = () => {
+export const AccountDeletion: React.FC<{ onReset: () => void }> = ({ onReset }) => {
+  const { resetOnboarding } = useOnboarding();
   const [isDeleting, setIsDeleting] = useState(false);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const handleDeleteAccount = async () => {
+  const handleDelete = async () => {
     setIsDeleting(true);
+    setError(null);
     try {
-      const { error } = await supabase.functions.invoke('delete-account', {
-        method: 'POST',
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Account Deleted",
-        description: "Your account and all associated data have been permanently deleted.",
-      });
-
-      // Sign out and redirect to home
-      await supabase.auth.signOut();
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Account deletion failed:', error);
-      toast({
-        title: "Deletion Failed",
-        description: "Failed to delete your account. Please try again or contact support.",
-        variant: "destructive",
-      });
-    } finally {
+      await resetOnboarding.mutateAsync();
+      await resetDeviceId();
+      setSuccess(true);
+      setTimeout(() => {
+        setIsDeleting(false);
+        setSuccess(false);
+        onReset(); // Parent should reset onboarding state
+      }, 1500);
+    } catch (e: any) {
+      setError(e.message || 'Failed to delete account.');
       setIsDeleting(false);
     }
   };
 
+  if (isDeleting) return <div className="p-8 text-center text-lg text-orange-500">Deleting your data...</div>;
+  if (success) return <div className="p-8 text-center text-lg text-green-500">Account deleted. Restarting onboarding...</div>;
+
   return (
-    <Card className="p-6 border-destructive/20">
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
-            <Trash2 className="h-5 w-5" />
-            Delete Account
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            Permanently delete your account and all associated data. This action cannot be undone.
-          </p>
-        </div>
-        
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button 
-              variant="destructive" 
-              className="w-full"
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete My Account'}
-            </Button>
-          </AlertDialogTrigger>
-          
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your account and remove all of your data from our servers, including:
-                <ul className="mt-2 ml-4 list-disc">
-                  <li>Your profile information</li>
-                  <li>All style analyses</li>
-                  <li>Saved outfits</li>
-                  <li>Subscription data</li>
-                  <li>Achievement progress</li>
-                </ul>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteAccount}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Deleting...' : 'Yes, delete my account'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    </Card>
+    <div className="p-8 max-w-md mx-auto text-center">
+      <h2 className="text-2xl font-bold mb-4 text-white">Delete Your Data</h2>
+      <p className="mb-6 text-white/70">This will permanently delete all your onboarding and subscription data for this device. This action cannot be undone.</p>
+      {error && <div className="text-red-500 mb-4">{error}</div>}
+      <Button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl px-6 py-3">
+        Yes, delete everything
+      </Button>
+    </div>
   );
 };
