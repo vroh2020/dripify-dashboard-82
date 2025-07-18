@@ -64,7 +64,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   }>({ fullAnalysis: null });
   const { toast } = useToast();
 
-  // Strategic prompts hook
+  // Strategic prompts hook - must be declared before any conditional returns
   const {
     showAppleSignIn,
     showUpgradePrompt,
@@ -404,17 +404,6 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
 
   if (onboardingLoading || isSaving) return <StyleLoadingOverlay isAnalyzing={true} />;
   if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
-
-  // Strategic prompts hook
-  const {
-    showAppleSignIn,
-    showUpgradePrompt,
-    hideAppleSignIn,
-    hideUpgradePrompt,
-    trackFeatureUsage,
-    trackAnalysis,
-    userProgress: strategicUserProgress
-  } = useStrategicPrompts();
 
   if (isAnalyzing) {
     return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
