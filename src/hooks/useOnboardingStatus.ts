@@ -74,10 +74,10 @@ export function useOnboardingStatus(): OnboardingStatus {
       setIsLoading(true);
       let onboardingCompleted = false;
 
-      // First check cache to prevent going back to start
+      // First check localStorage as the source of truth
       const cachedStatus = getCachedOnboardingStatus();
       if (cachedStatus) {
-        console.log('📊 Using cached onboarding status: completed');
+        console.log('📊 Using localStorage onboarding status: completed');
         setHasCompletedOnboarding(true);
         setIsLoading(false);
         return;
@@ -149,8 +149,10 @@ export function useOnboardingStatus(): OnboardingStatus {
         console.log('🔍 No device ID available, assuming onboarding not completed');
       }
       
-      // Cache the result to prevent going back to start
-      setCachedOnboardingStatus(onboardingCompleted);
+      // Only cache if onboarding is completed
+      if (onboardingCompleted) {
+        setCachedOnboardingStatus(onboardingCompleted);
+      }
       
       // Update last check tracking
       lastCheckRef.current = {

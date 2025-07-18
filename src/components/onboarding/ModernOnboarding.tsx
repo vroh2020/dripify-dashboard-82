@@ -7,11 +7,10 @@ import { OnboardingOption } from './OnboardingOption';
 import { OnboardingPhotoPicker } from './OnboardingPhotoPicker';
 import { StyleLoadingOverlay } from '../StyleLoadingOverlay';
 import { PaywallStep } from './steps/PaywallStep';
-import { AccountChoiceStep } from './steps/AccountChoiceStep';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Star, Check, Zap, Crown } from 'lucide-react';
 
 interface OnboardingData {
   heard_about?: string;
@@ -28,10 +27,9 @@ interface OnboardingData {
   instant_suggestions?: boolean;
   color_palette?: string;
   shop_frequency?: string;
-  account_choice?: string;
 }
 
-const TOTAL_STEPS = 16; // Updated to include paywall and account steps
+const TOTAL_STEPS = 15; // Updated to remove account choice step
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -44,8 +42,16 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [showAccountChoice, setShowAccountChoice] = useState(false);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState({
+    score: 0,
+    breakdown: {
+      colorHarmony: 0,
+      styleCoherence: 0,
+      trendAlignment: 0,
+      confidence: 0
+    }
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -126,8 +132,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       case 9: // Occasions
         stepData = { occasions: multiSelect };
         break;
-      case 10: // Test photo upload
-        break;
+      case 10: // Test photo upload - show results instead of continuing
+        setShowResults(true);
+        return;
       case 11: // Weekly reports
         stepData = { weekly_reports: selectedOption === 'Yes' };
         break;
@@ -137,10 +144,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       case 13: // Color palette
         stepData = { color_palette: selectedOption };
         break;
-      case 14: // Shop frequency
-        stepData = { shop_frequency: selectedOption };
-        break;
-      case 15: // Final confirmation - show paywall
+      case 14: // Shop frequency - show paywall
         setShowPaywall(true);
         return;
     }
@@ -162,11 +166,22 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
 
     setIsAnalyzing(true);
     try {
-      // Simulate analysis
+      // Simulate analysis with realistic results
       await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Continue to next step after analysis
-      handleNext();
+      // Generate realistic analysis results
+      const score = Math.floor(Math.random() * 30) + 70; // 70-100
+      setAnalysisResults({
+        score,
+        breakdown: {
+          colorHarmony: Math.floor(Math.random() * 20) + 80,
+          styleCoherence: Math.floor(Math.random() * 20) + 80,
+          trendAlignment: Math.floor(Math.random() * 20) + 80,
+          confidence: Math.floor(Math.random() * 20) + 80
+        }
+      });
+      
+      setShowResults(true);
     } catch (error) {
       console.error('Error analyzing image:', error);
       toast({
@@ -179,90 +194,17 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
+  const handleContinueFromResults = async () => {
+    setShowResults(false);
+    await saveProgress({ selfie_url: 'uploaded' });
+    setCurrentStep(prev => prev + 1);
+  };
+
   const handlePaywallComplete = (purchased: boolean) => {
     setShowPaywall(false);
-    setShowAccountChoice(true);
-  };
-
-  const handleAccountChoice = async (choice: 'Sign In with Apple' | 'Continue as Guest') => {
-    setIsAuthenticating(true);
-    
-    try {
-      if (choice === 'Sign In with Apple') {
-        // Handle Apple Sign-In
-        const { handleAppleSignIn } = await import('./utils/auth');
-        const success = await handleAppleSignIn();
-        
-        if (success) {
-          // Wait a moment for auth state to update
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Check if user is authenticated
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (user) {
-            // Save onboarding data to user profile
-            await saveOnboardingToProfile(user.id);
-            toast({
-              title: "Welcome! 🎉",
-              description: "You're all set up and ready to go!",
-            });
-          } else {
-            throw new Error('Authentication failed');
-          }
-        } else {
-          throw new Error('Apple Sign-In failed');
-        }
-      } else {
-        // Continue as guest - save to temp table
-        await saveProgress({ account_choice: choice });
-      }
-      
-      // Mark onboarding as completed
-      await markOnboardingComplete();
-      
-      // Complete onboarding
-      onComplete();
-      
-    } catch (error) {
-      console.error('Account choice error:', error);
-      toast({
-        title: "Authentication Error",
-        description: "Please try again or continue as guest.",
-        variant: "destructive",
-      });
-      // Fallback to guest mode
-      await saveProgress({ account_choice: 'Continue as Guest' });
-      await markOnboardingComplete();
-      onComplete();
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  const saveOnboardingToProfile = async (userId: string) => {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          onboarding_completed: true,
-          onboarding_data: data,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      
-      // Cache onboarding completion in localStorage to prevent going back to start
-      try {
-        localStorage.setItem('dripify_onboarding_completed', 'true');
-        console.log('✅ Onboarding completion cached in localStorage for authenticated user');
-      } catch (error) {
-        console.error('Error caching onboarding completion:', error);
-      }
-    } catch (error) {
-      console.error('Error saving to profile:', error);
-    }
+    // Mark onboarding as completed
+    markOnboardingComplete();
+    onComplete();
   };
 
   const markOnboardingComplete = async () => {
@@ -275,7 +217,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
           .eq('device_id', deviceId);
       }
       
-      // Cache onboarding completion in localStorage to prevent going back to start
+      // Cache onboarding completion in localStorage
       try {
         localStorage.setItem('dripify_onboarding_completed', 'true');
         console.log('✅ Onboarding completion cached in localStorage');
@@ -291,28 +233,108 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
   }
 
-  if (isAuthenticating) {
+  if (showResults) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col justify-center items-center">
-        <motion.div
-          animate={{ 
-            rotate: [0, 360],
-            scale: [1, 1.2, 1]
-          }}
-          transition={{ 
-            duration: 2, 
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="mb-6"
-        >
-          <Sparkles className="w-16 h-16 text-orange-400" />
-        </motion.div>
-        <h2 className="text-2xl font-bold text-white mb-4">Setting up your account...</h2>
-        <p className="text-white/70 text-center max-w-sm">
-          Please wait while we complete your setup
-        </p>
-      </div>
+      <motion.div
+        key="results"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -30 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="min-h-screen bg-gradient-to-b from-purple-900/40 via-purple-800/20 to-black flex flex-col justify-center items-center px-6 py-8 relative overflow-hidden"
+      >
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)`,
+          }} />
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 w-full max-w-md space-y-6">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="text-center"
+          >
+            <motion.div
+              animate={{ 
+                rotate: [0, 10, -10, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="mb-6"
+            >
+              <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
+            </motion.div>
+            
+            <h2 className="text-3xl font-bold text-white mb-4">Your Style Analysis</h2>
+            <p className="text-white/70 text-base">
+              Here's what our AI discovered about your style
+            </p>
+          </motion.div>
+
+          {/* Score Display */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="bg-gradient-to-r from-purple-900/40 to-purple-700/40 rounded-2xl p-6 border border-purple-500/30"
+          >
+            <div className="text-center">
+              <div className="text-5xl font-bold text-white mb-2">{analysisResults.score}</div>
+              <div className="text-white/60 text-lg">Style Score</div>
+              <div className="text-white/40 text-sm mt-2">Out of 100</div>
+            </div>
+          </motion.div>
+
+          {/* Breakdown */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 text-sm">Color Harmony</span>
+              <span className="text-white font-semibold">{analysisResults.breakdown.colorHarmony}%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 text-sm">Style Coherence</span>
+              <span className="text-white font-semibold">{analysisResults.breakdown.styleCoherence}%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 text-sm">Trend Alignment</span>
+              <span className="text-white font-semibold">{analysisResults.breakdown.trendAlignment}%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 text-sm">Confidence</span>
+              <span className="text-white font-semibold">{analysisResults.breakdown.confidence}%</span>
+            </div>
+          </motion.div>
+
+          {/* Continue Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <Button
+              onClick={handleContinueFromResults}
+              className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
+            >
+              <Sparkles className="mr-3 h-5 w-5" />
+              Continue to Premium
+            </Button>
+          </motion.div>
+        </div>
+      </motion.div>
     );
   }
 
@@ -320,14 +342,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     return (
       <PaywallStep
         onPurchase={() => handlePaywallComplete(true)}
-        onContinueFree={() => handlePaywallComplete(false)}
       />
-    );
-  }
-
-  if (showAccountChoice) {
-    return (
-      <AccountChoiceStep onNext={handleAccountChoice} />
     );
   }
 
@@ -763,37 +778,6 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   onClick={() => setSelectedOption(frequency)}
                 />
               ))}
-            </div>
-          </OnboardingStep>
-        );
-
-      case 15:
-        return (
-          <OnboardingStep
-            title="Perfect! You're all set"
-            subtitle="Time to unlock your style potential"
-            onNext={handleNext}
-            nextButtonText="Continue"
-            {...stepProps}
-          >
-            <div className="text-center">
-              <motion.div
-                animate={{ 
-                  rotate: [0, 360],
-                  scale: [1, 1.2, 1]
-                }}
-                transition={{ 
-                  duration: 3, 
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="mb-6"
-              >
-                <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
-              </motion.div>
-              <p className="text-white/70 text-lg">
-                Ready to see your personalized style recommendations?
-              </p>
             </div>
           </OnboardingStep>
         );

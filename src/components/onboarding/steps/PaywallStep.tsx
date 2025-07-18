@@ -6,10 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 
 interface PaywallStepProps {
   onPurchase: () => void;
-  onContinueFree: () => void;
 }
 
-export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) => {
+export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
   const { offerings, purchaseProduct, isLoading } = useRevenueCat();
   const { toast } = useToast();
 
@@ -18,7 +17,7 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
       console.error('No subscription options available');
       toast({
         title: "Subscription Unavailable",
-        description: "Please try again later or continue with the free version.",
+        description: "No subscription options available. Please try again later.",
         variant: "destructive"
       });
       return;
@@ -46,14 +45,14 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
       } else {
         toast({
           title: "Purchase Cancelled",
-          description: "You can continue with the free version or try again later.",
+          description: "Please try again to unlock premium features.",
         });
       }
     } catch (error) {
       console.error('Purchase failed:', error);
       toast({
         title: "Purchase Failed",
-        description: "Something went wrong. Please try again or continue with the free version.",
+        description: "Something went wrong. Please try again.",
         variant: "destructive"
       });
     }
@@ -177,13 +176,7 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
             )}
           </Button>
           
-          <Button
-            onClick={onContinueFree}
-            variant="outline"
-            className="w-full h-14 text-base font-medium rounded-2xl border-white/20 text-white hover:bg-white/10 transition-all duration-300"
-          >
-            Continue as Guest
-          </Button>
+
         </motion.div>
 
         {/* Legal Text */}
