@@ -926,6 +926,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
+  const appleSignInTrigger = strategicUserProgress.isPro;
+  const upgradePromptTrigger = strategicUserProgress.isPro;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black">
       <AnimatePresence mode="wait">
@@ -935,9 +938,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       {/* Strategic Prompts */}
       <AnimatePresence>
         {/* Apple Sign-in Prompt */}
-        {showAppleSignIn && strategicUserProgress.isPro && (
+        {showAppleSignIn && appleSignInTrigger && (
           <AppleSignIn
-            trigger={strategicUserProgress.isPro}
+            trigger={appleSignInTrigger}
             userProgress={strategicUserProgress}
             onSuccess={(user) => {
               hideAppleSignIn();
@@ -951,9 +954,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         )}
         
         {/* Upgrade Prompt */}
-        {showUpgradePrompt && strategicUserProgress.isPro && (
+        {showUpgradePrompt && upgradePromptTrigger && (
           <StrategicUpgradePrompt
-            trigger={strategicUserProgress.isPro}
+            trigger={upgradePromptTrigger}
             userContext={strategicUserProgress}
             onUpgrade={() => {
               hideUpgradePrompt();
