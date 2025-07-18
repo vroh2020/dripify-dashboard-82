@@ -12,6 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Star, Check, Zap, Crown } from 'lucide-react';
 import { ModernRatingsDisplay } from '../ModernRatingsDisplay';
 import { persistenceManager } from '@/utils/persistenceManager';
+import { useStrategicPrompts } from '@/hooks/useStrategicPrompts';
+import { AppleSignIn } from '@/components/auth/AppleSignIn';
+import { StrategicUpgradePrompt } from '@/components/upgrade/StrategicUpgradePrompt';
+import { engagementTracker } from '@/utils/engagementTracker';
 
 interface OnboardingData {
   heard_about?: string;
@@ -50,6 +54,17 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   });
   const { toast } = useToast();
 
+  // Strategic prompts hook
+  const {
+    showAppleSignIn,
+    showUpgradePrompt,
+    hideAppleSignIn,
+    hideUpgradePrompt,
+    trackFeatureUsage,
+    trackAnalysis,
+    userProgress: strategicUserProgress
+  } = useStrategicPrompts();
+
   // Initialize and restore progress
   useEffect(() => {
     const initializeAndRestore = async () => {
@@ -57,12 +72,24 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         // Initialize persistence manager
         await persistenceManager.initialize();
         
+        // Initialize engagement tracker
+        await engagementTracker.initialize();
+        
+        // Track onboarding start
+        engagementTracker.trackEvent('view', { page: 'onboarding_start' });
+        
         // Restore progress from localStorage
         const progress = await persistenceManager.getOnboardingProgress();
         if (progress && !progress.completed && progress.currentStep > 0) {
           console.log('🔄 Restoring onboarding progress from cache:', progress);
           setCurrentStep(progress.currentStep - 1); // Adjust for 0-based index
           setData(prev => ({ ...prev, ...progress.stepData }));
+          
+          // Track onboarding resume
+          engagementTracker.trackEvent('interaction', { 
+            type: 'onboarding_resume',
+            step: progress.currentStep 
+          });
         }
 
         // Also try to restore from Supabase for additional data
@@ -164,6 +191,12 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const handleNext = async () => {
     let stepData: Partial<OnboardingData> = {};
 
+    // Track step completion
+    engagementTracker.trackConversion('onboarding', `step_${currentStep + 1}_complete`, {
+      step: currentStep + 1,
+      stepName: getStepName(currentStep + 1)
+    });
+
     // Save current step data
     switch (currentStep) {
       case 0: // Welcome
@@ -226,11 +259,41 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
+  const getStepName = (step: number): string => {
+    const stepNames = [
+      'welcome',
+      'heard_about',
+      'age_range',
+      'gender',
+      'style_goal',
+      'clothing_category',
+      'budget',
+      'favorite_brands',
+      'color_preference',
+      'occasions',
+      'photo_upload',
+      'weekly_reports',
+      'instant_suggestions',
+      'color_palette',
+      'shop_frequency'
+    ];
+    return stepNames[step - 1] || 'unknown';
+  };
+
   const handleImageUpload = async () => {
     if (!selectedImage) return;
 
     setIsAnalyzing(true);
     try {
+      // Track feature usage
+      trackFeatureUsage('photo_upload');
+      
+      // Track analysis start
+      engagementTracker.trackEvent('interaction', { 
+        type: 'analysis_start',
+        step: currentStep + 1
+      });
+      
       // Use the actual image analysis from ScanView
       const { analyzeStyle } = await import('@/utils/imageAnalysis');
       
@@ -244,8 +307,22 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       });
       
       setShowResults(true);
+      
+      // Track analysis completion
+      trackAnalysis();
+      engagementTracker.trackConversion('analysis', 'onboarding_analysis_complete', {
+        step: currentStep + 1,
+        hasResults: true
+      });
     } catch (error) {
       console.error('Error analyzing image:', error);
+      
+      // Track analysis error
+      engagementTracker.trackError('analysis_failed', {
+        step: currentStep + 1,
+        error: error.message
+      });
+      
       toast({
         title: "Analysis Failed",
         description: "Failed to analyze your photo. Please try again.",
@@ -853,6 +930,38 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black">
       <AnimatePresence mode="wait">
         {renderStep()}
+      </AnimatePresence>
+      
+      {/* Strategic Prompts */}
+      <AnimatePresence>
+        {/* Apple Sign-in Prompt */}
+        {showAppleSignIn && appleSignInTrigger && (
+          <AppleSignIn
+            trigger={appleSignInTrigger}
+            userProgress={strategicUserProgress}
+            onSuccess={(user) => {
+              hideAppleSignIn();
+              toast({
+                title: "Welcome!",
+                description: "Your progress has been saved securely.",
+              });
+            }}
+            onCancel={hideAppleSignIn}
+          />
+        )}
+        
+        {/* Upgrade Prompt */}
+        {showUpgradePrompt && upgradePromptTrigger && (
+          <StrategicUpgradePrompt
+            trigger={upgradePromptTrigger}
+            userContext={strategicUserProgress}
+            onUpgrade={() => {
+              hideUpgradePrompt();
+              // Continue with onboarding or show success
+            }}
+            onSkip={hideUpgradePrompt}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

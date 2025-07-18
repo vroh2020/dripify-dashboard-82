@@ -1,230 +1,297 @@
 import Logger from './logger';
 
-export interface PerformanceMetric {
+interface PerformanceMetric {
   name: string;
-  startTime: number;
-  endTime?: number;
-  duration?: number;
+  value: number;
+  unit: string;
+  timestamp: number;
   metadata?: Record<string, any>;
 }
 
-export interface PerformanceReport {
-  metrics: PerformanceMetric[];
-  totalDuration: number;
-  slowOperations: PerformanceMetric[];
-  errors: string[];
+interface UserEvent {
+  event: string;
   timestamp: number;
+  userId?: string;
+  deviceId?: string;
+  metadata?: Record<string, any>;
+}
+
+interface ConversionEvent {
+  funnel: string;
+  step: string;
+  userId?: string;
+  deviceId?: string;
+  timestamp: number;
+  metadata?: Record<string, any>;
 }
 
 class PerformanceMonitor {
-  private static instance: PerformanceMonitor;
-  private metrics: Map<string, PerformanceMetric> = new Map();
-  private errors: string[] = [];
-  private isEnabled: boolean = true;
-  private slowThreshold: number = 1000; // 1 second
+  private metrics: PerformanceMetric[] = [];
+  private events: UserEvent[] = [];
+  private conversions: ConversionEvent[] = [];
+  private isInitialized = false;
+  private deviceId?: string;
 
-  private constructor() {
-    // Monitor for memory leaks
+  async initialize() {
+    if (this.isInitialized) return;
+
+    try {
+      // Get device ID from persistence manager
+      const { persistenceManager } = await import('@/utils/persistenceManager');
+      await persistenceManager.initialize();
+      this.deviceId = persistenceManager.getDeviceInfo()?.deviceId;
+
+      // Start performance monitoring
+      this.startPerformanceTracking();
+      this.startErrorTracking();
+      this.startUserBehaviorTracking();
+
+      this.isInitialized = true;
+      console.log('🚀 Performance monitor initialized');
+    } catch (error) {
+      console.error('Failed to initialize performance monitor:', error);
+    }
+  }
+
+  private startPerformanceTracking() {
+    // Track page load times
     if (typeof window !== 'undefined') {
-      this.monitorMemoryUsage();
-      this.monitorLongTasks();
+      window.addEventListener('load', () => {
+        const loadTime = performance.now();
+        this.recordMetric('page_load_time', loadTime, 'ms');
+      });
+
+      // Track navigation timing
+      if ('navigation' in performance) {
+        const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+        if (nav) {
+          this.recordMetric('dom_content_loaded', nav.domContentLoadedEventEnd - nav.domContentLoadedEventStart, 'ms');
+          this.recordMetric('first_paint', nav.loadEventEnd - nav.loadEventStart, 'ms');
+        }
+      }
+
+      // Track memory usage
+      if ('memory' in performance) {
+        const memory = (performance as any).memory;
+        this.recordMetric('memory_used', memory.usedJSHeapSize, 'bytes');
+        this.recordMetric('memory_limit', memory.jsHeapSizeLimit, 'bytes');
+      }
     }
   }
 
-  static getInstance(): PerformanceMonitor {
-    if (!PerformanceMonitor.instance) {
-      PerformanceMonitor.instance = new PerformanceMonitor();
-    }
-    return PerformanceMonitor.instance;
-  }
+  private startErrorTracking() {
+    if (typeof window !== 'undefined') {
+      // Track JavaScript errors
+      window.addEventListener('error', (event) => {
+        this.recordEvent('error', {
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          error: event.error?.stack
+        });
+      });
 
-  startTiming(name: string, metadata?: Record<string, any>): void {
-    if (!this.isEnabled) return;
-
-    const metric: PerformanceMetric = {
-      name,
-      startTime: performance.now(),
-      metadata
-    };
-
-    this.metrics.set(name, metric);
-  }
-
-  endTiming(name: string): number | null {
-    if (!this.isEnabled) return null;
-
-    const metric = this.metrics.get(name);
-    if (!metric) {
-      console.warn(`Performance metric '${name}' not found`);
-      return null;
-    }
-
-    metric.endTime = performance.now();
-    metric.duration = metric.endTime - metric.startTime;
-
-    // Log slow operations
-    if (metric.duration > this.slowThreshold) {
-      Logger.warn('Slow operation detected:', {
-        name,
-        duration: metric.duration,
-        metadata: metric.metadata
+      // Track unhandled promise rejections
+      window.addEventListener('unhandledrejection', (event) => {
+        this.recordEvent('unhandled_rejection', {
+          reason: event.reason,
+          promise: event.promise
+        });
       });
     }
-
-    return metric.duration;
   }
 
-  mark(name: string, metadata?: Record<string, any>): void {
-    if (!this.isEnabled) return;
+  private startUserBehaviorTracking() {
+    if (typeof window !== 'undefined') {
+      // Track user interactions
+      let lastActivity = Date.now();
+      let isIdle = false;
 
+      const resetIdle = () => {
+        if (isIdle) {
+          this.recordEvent('user_returned', {
+            idleDuration: Date.now() - lastActivity
+          });
+          isIdle = false;
+        }
+        lastActivity = Date.now();
+      };
+
+      // Track user activity
+      ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
+        document.addEventListener(event, resetIdle, true);
+      });
+
+      // Track idle time
+      setInterval(() => {
+        if (Date.now() - lastActivity > 30000 && !isIdle) { // 30 seconds
+          isIdle = true;
+          this.recordEvent('user_idle', {
+            idleDuration: 30000
+          });
+        }
+      }, 10000); // Check every 10 seconds
+
+      // Track page visibility
+      document.addEventListener('visibilitychange', () => {
+        this.recordEvent('visibility_change', {
+          hidden: document.hidden,
+          timestamp: Date.now()
+        });
+      });
+    }
+  }
+
+  recordMetric(name: string, value: number, unit: string, metadata?: Record<string, any>) {
     const metric: PerformanceMetric = {
       name,
-      startTime: performance.now(),
-      endTime: performance.now(),
-      duration: 0,
+      value,
+      unit,
+      timestamp: Date.now(),
       metadata
     };
 
-    this.metrics.set(name, metric);
-  }
-
-  measure(name: string, fn: () => void | Promise<void>): void | Promise<void> {
-    this.startTiming(name);
+    this.metrics.push(metric);
     
-    try {
-      const result = fn();
-      if (result instanceof Promise) {
-        return result.finally(() => this.endTiming(name));
-      } else {
-        this.endTiming(name);
-        return result;
-      }
-    } catch (error) {
-      this.endTiming(name);
-      this.recordError(`Error in ${name}: ${error}`);
-      throw error;
+    // Keep only last 1000 metrics to prevent memory issues
+    if (this.metrics.length > 1000) {
+      this.metrics = this.metrics.slice(-1000);
+    }
+
+    // Log important metrics
+    if (value > 1000 || name.includes('error')) {
+      console.log(`📊 Metric: ${name} = ${value}${unit}`, metadata);
     }
   }
 
-  async measureAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
-    this.startTiming(name);
+  recordEvent(event: string, metadata?: Record<string, any>) {
+    const userEvent: UserEvent = {
+      event,
+      timestamp: Date.now(),
+      deviceId: this.deviceId,
+      metadata
+    };
+
+    this.events.push(userEvent);
     
-    try {
-      const result = await fn();
-      this.endTiming(name);
-      return result;
-    } catch (error) {
-      this.endTiming(name);
-      this.recordError(`Error in ${name}: ${error}`);
-      throw error;
+    // Keep only last 500 events
+    if (this.events.length > 500) {
+      this.events = this.events.slice(-500);
     }
+
+    console.log(`📈 Event: ${event}`, metadata);
   }
 
-  recordError(error: string): void {
-    this.errors.push(error);
-    Logger.error('Performance error:', error);
+  recordConversion(funnel: string, step: string, metadata?: Record<string, any>) {
+    const conversion: ConversionEvent = {
+      funnel,
+      step,
+      timestamp: Date.now(),
+      deviceId: this.deviceId,
+      metadata
+    };
+
+    this.conversions.push(conversion);
+    
+    // Keep only last 200 conversions
+    if (this.conversions.length > 200) {
+      this.conversions = this.conversions.slice(-200);
+    }
+
+    console.log(`🎯 Conversion: ${funnel} -> ${step}`, metadata);
   }
 
-  getReport(): PerformanceReport {
-    const metrics = Array.from(this.metrics.values());
-    const slowOperations = metrics.filter(m => m.duration && m.duration > this.slowThreshold);
-    const totalDuration = metrics.reduce((sum, m) => sum + (m.duration || 0), 0);
+  // Track onboarding funnel
+  trackOnboardingStep(step: number, stepName: string, metadata?: Record<string, any>) {
+    this.recordConversion('onboarding', `step_${step}_${stepName}`, {
+      step,
+      stepName,
+      ...metadata
+    });
+  }
+
+  // Track analysis funnel
+  trackAnalysisStep(step: string, metadata?: Record<string, any>) {
+    this.recordConversion('analysis', step, metadata);
+  }
+
+  // Track upgrade funnel
+  trackUpgradeStep(step: string, metadata?: Record<string, any>) {
+    this.recordConversion('upgrade', step, metadata);
+  }
+
+  // Get performance summary
+  getPerformanceSummary() {
+    const now = Date.now();
+    const lastHour = now - (60 * 60 * 1000);
+    const lastDay = now - (24 * 60 * 60 * 1000);
+
+    const recentMetrics = this.metrics.filter(m => m.timestamp > lastHour);
+    const recentEvents = this.events.filter(e => e.timestamp > lastHour);
+    const recentConversions = this.conversions.filter(c => c.timestamp > lastDay);
 
     return {
-      metrics,
-      totalDuration,
-      slowOperations,
-      errors: [...this.errors],
-      timestamp: Date.now()
+      metrics: {
+        total: this.metrics.length,
+        lastHour: recentMetrics.length,
+        averageLoadTime: this.calculateAverage(recentMetrics.filter(m => m.name === 'page_load_time')),
+        averageMemoryUsage: this.calculateAverage(recentMetrics.filter(m => m.name === 'memory_used'))
+      },
+      events: {
+        total: this.events.length,
+        lastHour: recentEvents.length,
+        byType: this.groupBy(recentEvents, 'event')
+      },
+      conversions: {
+        total: this.conversions.length,
+        lastDay: recentConversions.length,
+        byFunnel: this.groupBy(recentConversions, 'funnel')
+      }
     };
   }
 
-  clear(): void {
-    this.metrics.clear();
-    this.errors = [];
+  private calculateAverage(metrics: PerformanceMetric[]): number {
+    if (metrics.length === 0) return 0;
+    const sum = metrics.reduce((acc, m) => acc + m.value, 0);
+    return sum / metrics.length;
   }
 
-  private monitorMemoryUsage(): void {
-    if ('memory' in performance) {
-      setInterval(() => {
-        const memory = (performance as any).memory;
-        if (memory.usedJSHeapSize > 50 * 1024 * 1024) { // 50MB
-          Logger.warn('High memory usage detected:', {
-            used: memory.usedJSHeapSize,
-            total: memory.totalJSHeapSize,
-            limit: memory.jsHeapSizeLimit
-          });
-        }
-      }, 30000); // Check every 30 seconds
-    }
+  private groupBy<T>(items: T[], key: keyof T): Record<string, number> {
+    return items.reduce((acc, item) => {
+      const value = String(item[key]);
+      acc[value] = (acc[value] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
   }
 
-  private monitorLongTasks(): void {
-    if ('PerformanceObserver' in window) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) {
-            if (entry.duration > 50) { // 50ms threshold
-              Logger.warn('Long task detected:', {
-                name: entry.name,
-                duration: entry.duration,
-                startTime: entry.startTime
-              });
-            }
-          }
-        });
-
-        observer.observe({ entryTypes: ['longtask'] });
-      } catch (error) {
-        console.warn('PerformanceObserver not supported:', error);
-      }
-    }
+  // Export data for analytics
+  async exportData() {
+    return {
+      metrics: this.metrics,
+      events: this.events,
+      conversions: this.conversions,
+      summary: this.getPerformanceSummary(),
+      exportTimestamp: Date.now()
+    };
   }
 
-  // Monitor React render performance
-  monitorReactRenders(componentName: string): () => void {
-    const startTime = performance.now();
+  // Clear old data
+  clearOldData() {
+    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     
-    return () => {
-      const duration = performance.now() - startTime;
-      if (duration > 16) { // 16ms = 60fps threshold
-        Logger.warn('Slow React render detected:', {
-          component: componentName,
-          duration
-        });
-      }
-    };
-  }
-
-  // Monitor network requests
-  monitorNetworkRequest(url: string): () => void {
-    const startTime = performance.now();
+    this.metrics = this.metrics.filter(m => m.timestamp > oneWeekAgo);
+    this.events = this.events.filter(e => e.timestamp > oneWeekAgo);
+    this.conversions = this.conversions.filter(c => c.timestamp > oneWeekAgo);
     
-    return () => {
-      const duration = performance.now() - startTime;
-      if (duration > 5000) { // 5 second threshold
-        Logger.warn('Slow network request detected:', {
-          url,
-          duration
-        });
-      }
-    };
+    console.log('🧹 Cleared old performance data');
   }
 }
 
-export const performanceMonitor = PerformanceMonitor.getInstance();
+// Create singleton instance
+export const performanceMonitor = new PerformanceMonitor();
 
-// Global performance monitoring
+// Auto-initialize when imported
 if (typeof window !== 'undefined') {
-  (window as any).performanceMonitor = performanceMonitor;
-  
-  // Monitor unhandled errors
-  window.addEventListener('error', (event) => {
-    performanceMonitor.recordError(`Unhandled error: ${event.error?.message || event.message}`);
-  });
-
-  // Monitor unhandled promise rejections
-  window.addEventListener('unhandledrejection', (event) => {
-    performanceMonitor.recordError(`Unhandled promise rejection: ${event.reason}`);
-  });
+  performanceMonitor.initialize();
 }
