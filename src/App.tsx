@@ -58,6 +58,38 @@ const AppRoutes = () => {
     retryCount: 0
   });
 
+  // iOS-specific handling for app state changes
+  useEffect(() => {
+    const handleAppStateChange = () => {
+      // Check if we have cached onboarding progress when app becomes active
+      try {
+        const cachedProgress = localStorage.getItem('dripify_onboarding_progress');
+        const cachedCompletion = localStorage.getItem('dripify_onboarding_completed');
+        
+        if (cachedProgress && !cachedCompletion) {
+          console.log('📱 iOS: App became active, found cached onboarding progress');
+          // Force a re-check of onboarding status
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error handling iOS app state change:', error);
+      }
+    };
+
+    // Listen for visibility change (iOS Safari)
+    document.addEventListener('visibilitychange', handleAppStateChange);
+    
+    // Listen for focus events (iOS app)
+    window.addEventListener('focus', handleAppStateChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleAppStateChange);
+      window.removeEventListener('focus', handleAppStateChange);
+    };
+  }, []);
+
   // Add timeout protection for infinite loading
   useEffect(() => {
     const timeout = setTimeout(() => {
