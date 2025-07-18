@@ -14,7 +14,7 @@ export const useRevenueCat = () => {
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
 
-  const purchaseProduct = useCallback(async (productId: string) => {
+  const purchaseProduct = useCallback(async (productId: string, allowGuest = false) => {
     if (isPurchasing) return false;
     
     setIsPurchasing(true);
@@ -35,7 +35,7 @@ export const useRevenueCat = () => {
         return false;
       }
       
-      const result = await managerPurchase(product); // Pass the full product object
+      const result = await managerPurchase(product, allowGuest); // Pass the allowGuest flag
       if (result) {
         toast({
           title: "Success!",

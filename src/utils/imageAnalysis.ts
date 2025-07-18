@@ -21,7 +21,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
+const uploadImageToSupabase = async (imageFile: File, isOnboarding = false): Promise<string> => {
   try {
     const validation = validateImageFile(imageFile);
     if (!validation.isValid) {
@@ -35,6 +35,11 @@ const uploadImageToSupabase = async (imageFile: File): Promise<string> => {
     
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
+      if (isOnboarding) {
+        // For onboarding, create a blob URL and don't require authentication
+        Logger.info('Guest user during onboarding - using blob URL');
+        return URL.createObjectURL(imageFile);
+      }
       throw new Error('User must be authenticated to upload images');
     }
     
@@ -104,11 +109,11 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     
     Logger.info(`${isOnboarding ? 'Onboarding' : 'Main'} AI analysis successful`, { overallScore });
 
-    // Handle image URL - ALWAYS upload to Supabase for authenticated users
+    // Handle image URL - use appropriate method based on authentication status
     let imageUrl: string;
     try {
-      imageUrl = await uploadImageToSupabase(imageFile);
-      Logger.info('Image uploaded to Supabase:', imageUrl);
+      imageUrl = await uploadImageToSupabase(imageFile, isOnboarding);
+      Logger.info('Image upload successful:', imageUrl);
     } catch (uploadError) {
       Logger.warn('Image upload failed, using local URL:', uploadError);
       imageUrl = URL.createObjectURL(imageFile);

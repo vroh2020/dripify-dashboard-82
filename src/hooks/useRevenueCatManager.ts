@@ -81,8 +81,8 @@ export const useRevenueCatManager = () => {
     await fetchSubscriptionStatus();
   }, [fetchSubscriptionStatus]);
 
-  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
-    if (!user) return false;
+  const purchaseProduct = useCallback(async (product: PurchasesPackage['product'], allowGuest = false) => {
+    if (!user && !allowGuest) return false;
 
     // Prevent rapid purchase attempts
     if (lastPurchaseAttempt.current) {
@@ -96,6 +96,18 @@ export const useRevenueCatManager = () => {
     if (!Capacitor.isNativePlatform()) {
       try {
         setIsLoading(true);
+        console.log('🌐 Starting web payment flow for:', product.identifier);
+        console.log('🔍 Current subscription status:', subscription);
+        
+        // Check if already subscribed to prevent duplicate purchases
+        if (subscription.isActive) {
+          console.log('✅ User already has active subscription');
+          toast({ 
+            title: "Already Subscribed", 
+            description: "You already have an active subscription!" 
+          });
+          return true; // Return true since user already has subscription
+        }
         
         // Show payment confirmation dialog
         const confirmed = window.confirm(
@@ -103,6 +115,7 @@ export const useRevenueCatManager = () => {
         );
         
         if (!confirmed) {
+          console.log('❌ User cancelled payment');
           toast({ 
             title: "Payment Cancelled", 
             description: "You can try again anytime." 
@@ -111,6 +124,7 @@ export const useRevenueCatManager = () => {
         }
         
         // Simulate payment processing
+        console.log('💳 Processing payment simulation...');
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         const expiryDate = new Date();
@@ -123,15 +137,24 @@ export const useRevenueCatManager = () => {
           offeringId: 'web-simulation'
         };
         
-        // Update Supabase profile
-        const { error: profileError } = await supabase.from('profiles').update({
-          onboarding_completed: true,
-          subscription_status: 'active',
-          subscription_expiry: expiryDate.toISOString()
-        }).eq('id', user.id);
+        // Update Supabase profile if user is authenticated
+        if (user?.id) {
+          console.log('📝 Updating Supabase profile with subscription...');
+          const { error: profileError } = await supabase.from('profiles').update({
+            onboarding_completed: true,
+            subscription_status: 'active',
+            subscription_expiry: expiryDate.toISOString()
+          }).eq('id', user.id);
 
-        if (profileError) throw profileError;
+          if (profileError) {
+            console.error('❌ Failed to update profile:', profileError);
+            throw profileError;
+          }
+        } else {
+          console.log('📝 Guest user purchase - skipping profile update');
+        }
         
+        console.log('✅ Payment simulation successful!');
         setSubscription(newSubscription);
         toast({ 
           title: "Welcome to Pro! 🎉", 
@@ -338,6 +361,34 @@ export const useRevenueCatManager = () => {
             offeringId: 'web'
           });
           
+          // Create mock offerings for web platform
+          const mockOfferings = [{
+            identifier: 'web-offering',
+            description: 'Web Platform Offering',
+            metadata: {},
+            availablePackages: [{
+              identifier: 'web-package',
+              offeringIdentifier: 'web-offering',
+              packageType: 'CUSTOM',
+              product: {
+                identifier: 'dripify_pro_monthly',
+                description: 'Dripify Pro Monthly Subscription',
+                title: 'Dripify Pro',
+                price: 9.99,
+                priceString: '$9.99',
+                currencyCode: 'USD',
+                introPrice: null,
+                discounts: []
+              },
+              presentedOfferingContext: {
+                offeringIdentifier: 'web-offering',
+                placementIdentifier: null,
+                targetingContext: null
+              }
+            }]
+          }];
+          
+          setOfferings(mockOfferings);
           hasInitialized.current = true;
           return;
         }

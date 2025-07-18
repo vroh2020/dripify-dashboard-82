@@ -5,7 +5,7 @@ import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
 
 interface PaywallStepProps {
-  onPurchase: () => void;
+  onPurchase: (success: boolean) => void;
 }
 
 export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
@@ -23,18 +23,19 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       return;
     }
     try {
-      const success = await purchaseProduct(product.identifier);
+      const success = await purchaseProduct(product.identifier, true); // Allow guest purchases during onboarding
       if (success) {
         toast({
           title: "Welcome to Premium! 🎉",
           description: "Your subscription is now active. Enjoy unlimited style analyses!",
         });
-        onPurchase();
+        onPurchase(true);
       } else {
         toast({
           title: "Purchase Cancelled",
           description: "Please try again to unlock premium features.",
         });
+        onPurchase(false);
       }
     } catch (error) {
       toast({
@@ -42,6 +43,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         description: "Something went wrong. Please try again.",
         variant: "destructive"
       });
+      onPurchase(false);
     }
   };
 

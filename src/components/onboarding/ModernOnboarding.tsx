@@ -352,9 +352,19 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
 
   const handlePaywallComplete = (purchased: boolean) => {
     setShowPaywall(false);
-    // Mark onboarding as completed
-    markOnboardingComplete();
-    onComplete();
+    if (purchased) {
+      // Only mark onboarding as completed if purchase was successful
+      markOnboardingComplete();
+      onComplete();
+    } else {
+      // If purchase was cancelled/failed, allow user to try again
+      console.log('Purchase was cancelled or failed, staying in onboarding');
+      toast({
+        title: "Purchase Required",
+        description: "You need to complete the purchase to continue. You can try again anytime.",
+        variant: "default",
+      });
+    }
   };
 
   const markOnboardingComplete = async () => {
@@ -494,7 +504,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   if (showPaywall) {
     return (
       <PaywallStep
-        onPurchase={() => handlePaywallComplete(true)}
+        onPurchase={handlePaywallComplete}
       />
     );
   }
