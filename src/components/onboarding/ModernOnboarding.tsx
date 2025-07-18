@@ -45,6 +45,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccountChoice, setShowAccountChoice] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -184,12 +185,119 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   };
 
   const handleAccountChoice = async (choice: 'Sign In with Apple' | 'Continue as Guest') => {
-    await saveProgress({ account_choice: choice });
-    onComplete();
+    setIsAuthenticating(true);
+    
+    try {
+      if (choice === 'Sign In with Apple') {
+        // Handle Apple Sign-In
+        const { handleAppleSignIn } = await import('./utils/auth');
+        const success = await handleAppleSignIn();
+        
+        if (success) {
+          // Wait a moment for auth state to update
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Check if user is authenticated
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            // Save onboarding data to user profile
+            await saveOnboardingToProfile(user.id);
+            toast({
+              title: "Welcome! 🎉",
+              description: "You're all set up and ready to go!",
+            });
+          } else {
+            throw new Error('Authentication failed');
+          }
+        } else {
+          throw new Error('Apple Sign-In failed');
+        }
+      } else {
+        // Continue as guest - save to temp table
+        await saveProgress({ account_choice: choice });
+      }
+      
+      // Mark onboarding as completed
+      await markOnboardingComplete();
+      
+      // Complete onboarding
+      onComplete();
+      
+    } catch (error) {
+      console.error('Account choice error:', error);
+      toast({
+        title: "Authentication Error",
+        description: "Please try again or continue as guest.",
+        variant: "destructive",
+      });
+      // Fallback to guest mode
+      await saveProgress({ account_choice: 'Continue as Guest' });
+      await markOnboardingComplete();
+      onComplete();
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const saveOnboardingToProfile = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          onboarding_completed: true,
+          onboarding_data: data,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving to profile:', error);
+    }
+  };
+
+  const markOnboardingComplete = async () => {
+    try {
+      if (deviceId) {
+        // Mark temp onboarding as complete
+        await supabase
+          .from('temp_onboard_users')
+          .update({ completed: true })
+          .eq('device_id', deviceId);
+      }
+    } catch (error) {
+      console.error('Error marking onboarding complete:', error);
+    }
   };
 
   if (isAnalyzing) {
     return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
+  }
+
+  if (isAuthenticating) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col justify-center items-center">
+        <motion.div
+          animate={{ 
+            rotate: [0, 360],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ 
+            duration: 2, 
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="mb-6"
+        >
+          <Sparkles className="w-16 h-16 text-orange-400" />
+        </motion.div>
+        <h2 className="text-2xl font-bold text-white mb-4">Setting up your account...</h2>
+        <p className="text-white/70 text-center max-w-sm">
+          Please wait while we complete your setup
+        </p>
+      </div>
+    );
   }
 
   if (showPaywall) {

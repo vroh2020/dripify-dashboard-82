@@ -115,43 +115,15 @@ const AppRoutes = () => {
     }
   }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]); // Fixed dependencies
 
-  // Memoize routes to prevent unnecessary re-renders
-  const protectedRoutes = (
-    <>
-      <Route 
-        path="/dashboard" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/scan" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading scanner..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/tips" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/profile" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading profile..." />}>
-            <Profile />
-          </Suspense>
-        } 
-      />
-    </>
-  );
+  // Show loading screen while determining route
+  if (authLoading || onboardingLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-400 mb-4"></div>
+        <p className="text-white/70">Loading your experience...</p>
+      </div>
+    );
+  }
 
   // Add debugging for routing decisions
   console.log('🔍 Current routing state:', {
@@ -165,23 +137,30 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Onboarding always accessible if not completed */}
-      {!hasCompletedOnboarding ? (
-        <Route path="/*" element={<CalOnboarding onComplete={() => window.location.reload()} />} />
-      ) : (
+      {/* Auth routes - always accessible */}
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/auth/*" element={<Auth />} />
+      <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
+      <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
+      
+      {/* Onboarding route - accessible if not completed */}
+      {!hasCompletedOnboarding && (
+        <Route path="/onboarding" element={<CalOnboarding onComplete={() => window.location.reload()} />} />
+      )}
+      
+      {/* Main app routes - only accessible after onboarding */}
+      {hasCompletedOnboarding ? (
         <>
-          {/* Main app routes after onboarding */}
           <Route path="/dashboard" element={<Index />} />
           <Route path="/scan" element={<Index />} />
           <Route path="/tips" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/auth/*" element={<Auth />} />
-          <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
-          <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </>
+      ) : (
+        // Redirect to onboarding if not completed
+        <Route path="/*" element={<Navigate to="/onboarding" replace />} />
       )}
     </Routes>
   );
