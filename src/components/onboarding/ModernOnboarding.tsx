@@ -16,6 +16,8 @@ import { useStrategicPrompts } from '@/hooks/useStrategicPrompts';
 import { AppleSignIn } from '@/components/auth/AppleSignIn';
 import { StrategicUpgradePrompt } from '@/components/upgrade/StrategicUpgradePrompt';
 import { engagementTracker } from '@/utils/engagementTracker';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { getDeviceId, resetDeviceId } from '@/utils/device';
 
 interface OnboardingData {
   heard_about?: string;
@@ -37,9 +39,86 @@ interface OnboardingData {
 const TOTAL_STEPS = 15; // Updated to remove account choice step
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const {
+    onboarding,
+    isLoading: onboardingLoading,
+    isError: onboardingError,
+    saveOnboarding,
+    resetOnboarding,
+    refetch: refetchOnboarding
+  } = useOnboarding();
+
   const [currentStep, setCurrentStep] = useState(0);
-  const [data, setData] = useState<OnboardingData>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [stepData, setStepData] = useState<Partial<OnboardingData>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (onboardingLoading) return;
+    if (onboardingError) {
+      setError('Failed to load onboarding state. Please try again.');
+      return;
+    }
+    if (onboarding && onboarding.onboarding_complete && onboarding.subscription_active) {
+      // User is done, go to dashboard
+      onComplete();
+    } else if (onboarding) {
+      // Resume at first incomplete step
+      setCurrentStep(0); // Or use logic to resume at last incomplete step if desired
+      setStepData(onboarding);
+    } else {
+      setCurrentStep(0);
+      setStepData({});
+    }
+  }, [onboarding, onboardingLoading, onboardingError, onComplete]);
+
+  const handleStepSave = async (updates: Partial<OnboardingData>) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await saveOnboarding.mutateAsync(updates);
+      setStepData(prev => ({ ...prev, ...updates }));
+      setCurrentStep(prev => prev + 1);
+    } catch (e: any) {
+      setError(e.message || 'Failed to save. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePaywallSuccess = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await saveOnboarding.mutateAsync({ onboarding_complete: true, subscription_active: true });
+      refetchOnboarding();
+      onComplete();
+    } catch (e: any) {
+      setError(e.message || 'Failed to complete onboarding.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await resetOnboarding.mutateAsync();
+      await resetDeviceId();
+      refetchOnboarding();
+      setCurrentStep(0);
+      setStepData({});
+    } catch (e: any) {
+      setError(e.message || 'Failed to reset.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (onboardingLoading || isSaving) return <StyleLoadingOverlay isAnalyzing={true} />;
+  if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
+
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [textInput, setTextInput] = useState('');
   const [multiSelect, setMultiSelect] = useState<string[]>([]);
