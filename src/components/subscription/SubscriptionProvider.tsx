@@ -70,9 +70,14 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     }
     
     refreshTimeoutRef.current = setTimeout(async () => {
-      await refreshRevenueCat();
-      lastRefreshRef.current = null;
-      refreshTimeoutRef.current = null;
+      try {
+        await refreshRevenueCat();
+      } catch (error) {
+        console.error('Failed to refresh subscription:', error);
+      } finally {
+        lastRefreshRef.current = null;
+        refreshTimeoutRef.current = null;
+      }
     }, 1000);
   }, [refreshRevenueCat]);
 
@@ -97,6 +102,16 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     offerings,
     subscription
   ]);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <SubscriptionContext.Provider value={value}>
