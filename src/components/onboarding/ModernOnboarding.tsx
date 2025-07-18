@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Star, Check, Zap, Crown } from 'lucide-react';
+import { ModernRatingsDisplay } from '../ModernRatingsDisplay';
 
 interface OnboardingData {
   heard_about?: string;
@@ -50,7 +51,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       styleCoherence: 0,
       trendAlignment: 0,
       confidence: 0
-    }
+    },
+    fullAnalysis: null as any // Store the full analysis result
   });
   const { toast } = useToast();
 
@@ -255,10 +257,10 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       const { analyzeStyle } = await import('@/utils/imageAnalysis');
       
       console.log('Starting onboarding image analysis...');
-      const analysisResult = await analyzeStyle(selectedImage, false);
+      const analysisResult = await analyzeStyle(selectedImage, true); // Set isOnboarding to true
       console.log('Onboarding analysis result received:', analysisResult);
       
-      // Generate analysis results similar to ScanView
+      // Store the full analysis result for the ModernRatingsDisplay
       setAnalysisResults({
         score: analysisResult.overallScore,
         breakdown: {
@@ -266,7 +268,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
           styleCoherence: Math.floor(Math.random() * 20) + 80,
           trendAlignment: Math.floor(Math.random() * 20) + 80,
           confidence: Math.floor(Math.random() * 20) + 80
-        }
+        },
+        // Store the full analysis result for proper display
+        fullAnalysis: analysisResult
       });
       
       setShowResults(true);
@@ -312,17 +316,17 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       }
 
       // If user is authenticated, also mark in profiles table
-      const { user } = await supabase.auth.getUser();
-      if (user?.user?.id) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
         await supabase
           .from('profiles')
           .update({ 
             onboarding_completed: true,
             onboarding_completed_at: new Date().toISOString()
           })
-          .eq('id', user.user.id);
+          .eq('id', user.id);
         
-        console.log('✅ Authenticated user onboarding marked complete:', user.user.id);
+        console.log('✅ Authenticated user onboarding marked complete:', user.id);
       }
       
       // Cache onboarding completion in localStorage
@@ -389,44 +393,21 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
             </p>
           </motion.div>
 
-          {/* Score Display */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="bg-gradient-to-r from-purple-900/40 to-purple-700/40 rounded-2xl p-6 border border-purple-500/30"
-          >
-            <div className="text-center">
-              <div className="text-5xl font-bold text-white mb-2">{analysisResults.score}</div>
-              <div className="text-white/60 text-lg">Style Score</div>
-              <div className="text-white/40 text-sm mt-2">Out of 100</div>
-            </div>
-          </motion.div>
-
-          {/* Breakdown */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-            className="space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 text-sm">Color Harmony</span>
-              <span className="text-white font-semibold">{analysisResults.breakdown.colorHarmony}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 text-sm">Style Coherence</span>
-              <span className="text-white font-semibold">{analysisResults.breakdown.styleCoherence}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 text-sm">Trend Alignment</span>
-              <span className="text-white font-semibold">{analysisResults.breakdown.trendAlignment}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 text-sm">Confidence</span>
-              <span className="text-white font-semibold">{analysisResults.breakdown.confidence}%</span>
-            </div>
-          </motion.div>
+          {/* Modern Ratings Display - Same as ScanView */}
+          {analysisResults.fullAnalysis && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              <ModernRatingsDisplay
+                overallScore={analysisResults.fullAnalysis.overallScore}
+                profileImage={analysisResults.fullAnalysis.imageUrl}
+                breakdown={analysisResults.fullAnalysis.breakdown || []}
+                isOnboarding={true}
+              />
+            </motion.div>
+          )}
 
           {/* Continue Button */}
           <motion.div
