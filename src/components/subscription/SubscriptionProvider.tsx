@@ -1,3 +1,4 @@
+import React from 'react';
 import { createContext, useContext, ReactNode, useRef, useCallback, useMemo, useState } from 'react';
 import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
 import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
