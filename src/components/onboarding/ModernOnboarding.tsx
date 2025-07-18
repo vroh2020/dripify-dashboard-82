@@ -52,73 +52,6 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [stepData, setStepData] = useState<Partial<OnboardingData>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (onboardingLoading) return;
-    if (onboardingError) {
-      setError('Failed to load onboarding state. Please try again.');
-      return;
-    }
-    if (onboarding && onboarding.onboarding_complete && onboarding.subscription_active) {
-      // User is done, go to dashboard
-      onComplete();
-    } else if (onboarding) {
-      // Resume at first incomplete step
-      setCurrentStep(0); // Or use logic to resume at last incomplete step if desired
-      setStepData(onboarding);
-    } else {
-      setCurrentStep(0);
-      setStepData({});
-    }
-  }, [onboarding, onboardingLoading, onboardingError, onComplete]);
-
-  const handleStepSave = async (updates: Partial<OnboardingData>) => {
-    setIsSaving(true);
-    setError(null);
-    try {
-      await saveOnboarding.mutateAsync(updates);
-      setStepData(prev => ({ ...prev, ...updates }));
-      setCurrentStep(prev => prev + 1);
-    } catch (e: any) {
-      setError(e.message || 'Failed to save. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handlePaywallSuccess = async () => {
-    setIsSaving(true);
-    setError(null);
-    try {
-      await saveOnboarding.mutateAsync({ onboarding_complete: true, subscription_active: true });
-      refetchOnboarding();
-      onComplete();
-    } catch (e: any) {
-      setError(e.message || 'Failed to complete onboarding.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    setIsSaving(true);
-    setError(null);
-    try {
-      await resetOnboarding.mutateAsync();
-      await resetDeviceId();
-      refetchOnboarding();
-      setCurrentStep(0);
-      setStepData({});
-    } catch (e: any) {
-      setError(e.message || 'Failed to reset.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (onboardingLoading || isSaving) return <StyleLoadingOverlay isAnalyzing={true} />;
-  if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
-
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [textInput, setTextInput] = useState('');
   const [multiSelect, setMultiSelect] = useState<string[]>([]);
@@ -127,10 +60,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [showPaywall, setShowPaywall] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<{
-    fullAnalysis: any | null; // Store the full analysis result
-  }>({
-    fullAnalysis: null
-  });
+    fullAnalysis: any | null;
+  }>({ fullAnalysis: null });
   const { toast } = useToast();
 
   // Strategic prompts hook
@@ -162,7 +93,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         if (progress && !progress.completed && progress.currentStep > 0) {
           console.log('🔄 Restoring onboarding progress from cache:', progress);
           setCurrentStep(progress.currentStep - 1); // Adjust for 0-based index
-          setData(prev => ({ ...prev, ...progress.stepData }));
+          setStepData(prev => ({ ...prev, ...progress.stepData }));
           
           // Track onboarding resume
           engagementTracker.trackEvent('interaction', { 
@@ -210,7 +141,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
             if (supabaseData.color_palette) restoredData.color_palette = supabaseData.color_palette;
             if (supabaseData.shop_frequency) restoredData.shop_frequency = supabaseData.shop_frequency;
             
-            setData(prev => ({ ...prev, ...restoredData }));
+            setStepData(prev => ({ ...prev, ...restoredData }));
           }
         }
       } catch (error) {
@@ -222,7 +153,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   }, []);
 
   const saveProgress = async (stepData: Partial<OnboardingData>) => {
-    setIsLoading(true);
+    setIsSaving(true);
+    setError(null);
     try {
       const deviceInfo = persistenceManager.getDeviceInfo();
       if (!deviceInfo?.deviceId) {
@@ -245,7 +177,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       if (error) throw error;
 
       // Update local state
-      setData(prev => ({ ...prev, ...stepData }));
+      setStepData(prev => ({ ...prev, ...stepData }));
 
       // Save to persistence manager
       await persistenceManager.saveOnboardingProgress({
@@ -263,7 +195,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -470,6 +402,20 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
+  if (onboardingLoading || isSaving) return <StyleLoadingOverlay isAnalyzing={true} />;
+  if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
+
+  // Strategic prompts hook
+  const {
+    showAppleSignIn,
+    showUpgradePrompt,
+    hideAppleSignIn,
+    hideUpgradePrompt,
+    trackFeatureUsage,
+    trackAnalysis,
+    userProgress: strategicUserProgress
+  } = useStrategicPrompts();
+
   if (isAnalyzing) {
     return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
   }
@@ -566,7 +512,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
 
   const renderStep = () => {
     const stepProps = {
-      isLoading,
+      isLoading: isSaving,
       currentStep: currentStep + 1,
       totalSteps: TOTAL_STEPS
     };
