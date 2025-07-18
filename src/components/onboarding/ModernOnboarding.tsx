@@ -12,6 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles } from 'lucide-react';
+import { analyzeStyle } from '@/utils/imageAnalysis';
+import { ModernRatingsDisplay } from '../ModernRatingsDisplay';
+import { StyleTips } from '../analysis/StyleTips';
+import type { ScoreBreakdown, StyleTip } from '@/types/styleTypes';
 
 interface OnboardingData {
   heard_about?: string;
@@ -31,7 +35,7 @@ interface OnboardingData {
   account_choice?: string;
 }
 
-const TOTAL_STEPS = 16; // Updated to include paywall and account steps
+const TOTAL_STEPS = 17; // Updated to include analysis results step
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -45,6 +49,13 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showAccountChoice, setShowAccountChoice] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState<{
+    overallScore: number;
+    imageUrl: string;
+    breakdown?: ScoreBreakdown[];
+    tips?: StyleTip[];
+    summary?: string;
+  } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -127,6 +138,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         break;
       case 10: // Test photo upload
         break;
+      case 10.5: // Analysis results - skip data saving, just continue
+        break;
       case 11: // Weekly reports
         stepData = { weekly_reports: selectedOption === 'Yes' };
         break;
@@ -161,11 +174,13 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
 
     setIsAnalyzing(true);
     try {
-      // Simulate analysis
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      const analysisResult = await analyzeStyle(selectedImage, true); // true for onboarding
+      setAnalysisResults(analysisResult);
+      setData(prev => ({ ...prev, selfie_url: analysisResult.imageUrl }));
+      await saveProgress({ selfie_url: analysisResult.imageUrl });
       
-      // Continue to next step after analysis
-      handleNext();
+      // Go to analysis results step instead of next step
+      setCurrentStep(10.5);
     } catch (error) {
       console.error('Error analyzing image:', error);
       toast({
@@ -546,6 +561,58 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                 </Button>
               </motion.div>
             )}
+          </motion.div>
+        );
+
+      case 10.5: // Analysis Results Step
+        return (
+          <motion.div
+            key="analysis-results"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -30 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col overflow-y-auto"
+          >
+            <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
+              {analysisResults && (
+                <div className="w-full max-w-2xl mx-auto space-y-6">
+                  {/* Modern Ratings Display */}
+                  <ModernRatingsDisplay
+                    overallScore={analysisResults.overallScore}
+                    profileImage={analysisResults.imageUrl}
+                    breakdown={analysisResults.breakdown || []}
+                    isOnboarding={true}
+                  />
+
+                  {/* Tips Section */}
+                  {analysisResults.tips && analysisResults.tips.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3, duration: 0.5 }}
+                      className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 border border-white/10"
+                    >
+                      <StyleTips tips={analysisResults.tips} />
+                    </motion.div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="px-6 pb-8"
+            >
+              <Button
+                onClick={handleNext}
+                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+              >
+                Continue
+              </Button>
+            </motion.div>
           </motion.div>
         );
 
