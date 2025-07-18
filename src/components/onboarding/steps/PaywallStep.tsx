@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Crown, Check, Star, Zap, Sparkles } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
+import { SubscriptionDescription } from '@/components/subscription/SubscriptionDescription';
+import { OptionalRegistration } from '@/components/auth/OptionalRegistration';
 
 interface PaywallStepProps {
   onPurchase: () => void;
@@ -87,6 +89,10 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
 
       {/* Main Content */}
       <div className="relative z-10 w-full max-w-sm space-y-8">
+        {/* Subscription Description */}
+        <SubscriptionDescription />
+        {/* Optional Registration */}
+        <OptionalRegistration onPurchase={handlePurchase} />
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

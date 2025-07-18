@@ -10,9 +10,11 @@ import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { useAuth } from "./hooks/useAuth";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
+import { useAppStateHandler } from "./hooks/useAppStateHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { DebugOverlay } from "./components/DebugOverlay";
 import { CalOnboarding } from "./components/onboarding/CalOnboarding";
+import { persistenceManager } from "./utils/persistenceManager";
 
 // Lazy load non-critical components
 const Index = lazy(() => {
@@ -58,69 +60,11 @@ const AppRoutes = () => {
     retryCount: 0
   });
 
-  // iOS-specific handling for app state changes
-  useEffect(() => {
-    const handleAppStateChange = () => {
-      // Check if we have cached onboarding progress when app becomes active
-      try {
-        const cachedProgress = localStorage.getItem('dripify_onboarding_progress');
-        const cachedCompletion = localStorage.getItem('dripify_onboarding_completed');
-        
-        if (cachedProgress && !cachedCompletion) {
-          console.log('📱 iOS: App became active, found cached onboarding progress');
-          // Force a re-check of onboarding status
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
-        }
-      } catch (error) {
-        console.error('Error handling iOS app state change:', error);
-      }
-    };
-
-    // Listen for visibility change (iOS Safari)
-    document.addEventListener('visibilitychange', handleAppStateChange);
-    
-    // Listen for focus events (iOS app)
-    window.addEventListener('focus', handleAppStateChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleAppStateChange);
-      window.removeEventListener('focus', handleAppStateChange);
-    };
-  }, []);
-
-  // Add timeout protection for infinite loading
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (authLoading || onboardingLoading) {
-        console.warn('⚠️ App loading timeout - forcing state resolution');
-        console.log('Current state:', {
-          authLoading,
-          onboardingLoading,
-          isAuthenticated,
-          hasCompletedOnboarding,
-          user: !!user,
-          retryCount,
-          currentPath: window.location.pathname
-        });
-        
-        // Force navigation to auth if stuck
-        if (!isAuthenticated && !user) {
-          console.log('🔄 Force navigating to auth due to timeout');
-          window.location.href = '/auth';
-        } else if (isAuthenticated && user && !hasCompletedOnboarding) {
-          console.log('🔄 Force navigating to onboarding due to timeout');
-          window.location.href = '/onboarding';
-        }
-      }
-    }, 15000); // Increased from 10s to 15s
-
-    return () => clearTimeout(timeout);
-  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, user, retryCount]);
-
   // Handle deep link auth callbacks
   useAppUrlHandler();
+  
+  // Handle app state changes without causing refreshes
+  useAppStateHandler();
 
   // Log routing decisions only when they change
   useEffect(() => {
@@ -145,7 +89,7 @@ const AppRoutes = () => {
       });
       routingDecisionRef.current = newDecision;
     }
-  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]); // Fixed dependencies
+  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]);
 
   // Show loading screen while determining route
   if (authLoading || onboardingLoading) {
@@ -223,6 +167,10 @@ const App = () => {
       console.log('Auth State:', authState);
       console.log('Onboarding State:', onboardingState);
       
+      // Check persistence manager state
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      console.log('Device Info:', deviceInfo);
+      
       // Check if we're stuck in a loop
       const performanceEntries = performance.getEntriesByType('measure');
       const recentChecks = performanceEntries.filter(entry => 
@@ -244,6 +192,19 @@ const App = () => {
       console.groupEnd();
     };
     
+    (window as any).forceOnboarding = () => {
+      console.log('🔄 Force navigating to onboarding...');
+      localStorage.removeItem('dripify_onboarding_completed');
+      localStorage.removeItem('dripify_onboarding_progress');
+      window.location.href = '/onboarding';
+    };
+    
+    (window as any).forceDashboard = () => {
+      console.log('🔄 Force navigating to dashboard...');
+      localStorage.setItem('dripify_onboarding_completed', 'true');
+      window.location.href = '/dashboard';
+    };
+    
     (window as any).forceNavigateToDashboard = () => {
       console.log('🔄 Force navigating to dashboard...');
       window.location.href = '/dashboard';
@@ -253,9 +214,9 @@ const App = () => {
       console.log('🔍 Manual routing state check - use debugAppState() instead');
     };
     
-    (window as any).resetOnboarding = () => {
+    (window as any).resetOnboarding = async () => {
       console.log('🔄 Resetting onboarding state...');
-      localStorage.removeItem('onboarding_completed');
+      await persistenceManager.clearOnboardingProgress();
       window.location.reload();
     };
   }, []);
