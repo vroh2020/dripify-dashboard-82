@@ -104,14 +104,21 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     
     Logger.info(`${isOnboarding ? 'Onboarding' : 'Main'} AI analysis successful`, { overallScore });
 
-    // Handle image URL - ALWAYS upload to Supabase for authenticated users
+    // Handle image URL - Skip Supabase upload for onboarding users
     let imageUrl: string;
-    try {
-      imageUrl = await uploadImageToSupabase(imageFile);
-      Logger.info('Image uploaded to Supabase:', imageUrl);
-    } catch (uploadError) {
-      Logger.warn('Image upload failed, using local URL:', uploadError);
+    if (isOnboarding) {
+      // For onboarding, use local blob URL since user isn't authenticated yet
       imageUrl = URL.createObjectURL(imageFile);
+      Logger.info('Using local blob URL for onboarding image');
+    } else {
+      // For authenticated users, upload to Supabase
+      try {
+        imageUrl = await uploadImageToSupabase(imageFile);
+        Logger.info('Image uploaded to Supabase:', imageUrl);
+      } catch (uploadError) {
+        Logger.warn('Image upload failed, using local URL:', uploadError);
+        imageUrl = URL.createObjectURL(imageFile);
+      }
     }
     
     // Save to database if not onboarding and user is authenticated  

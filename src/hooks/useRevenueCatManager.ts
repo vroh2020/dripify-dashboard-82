@@ -382,6 +382,7 @@ export const useRevenueCatManager = () => {
         hasInitialized.current = true;
 
         const offeringsData = await Purchases.getOfferings();
+        console.log('🍎 RevenueCat offerings loaded:', offeringsData);
         setOfferings(Object.values(offeringsData.all || {}));
       } catch (error) {
         console.error('RevenueCat initialization failed:', error);
