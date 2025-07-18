@@ -198,7 +198,13 @@ export const CalOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete
         return;
       }
 
-      const result = await SignInWithApple.authorize();
+      const result = await SignInWithApple.authorize({
+        clientId: 'service.com.genstyle.app',
+        redirectURI: 'com.genstyle.app://auth/callback',
+        scopes: 'email name',
+        state: 'native-ios',
+        nonce: 'onboarding-' + Date.now()
+      });
 
       if (result.response) {
         const { response } = result;

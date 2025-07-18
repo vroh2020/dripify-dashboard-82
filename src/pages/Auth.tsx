@@ -1,7 +1,7 @@
-import { CalOnboarding } from "@/components/onboarding/CalOnboarding";
+import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
 
 export const Auth = () => {
-  return <CalOnboarding onComplete={() => window.location.href = '/dashboard'} />;
+  return <ModernOnboarding onComplete={() => window.location.href = '/'} />;
 };
 
 export default Auth;

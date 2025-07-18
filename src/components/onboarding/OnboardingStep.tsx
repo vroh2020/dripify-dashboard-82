@@ -1,6 +1,6 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 
 interface OnboardingStepProps {
   title: string;
@@ -26,47 +26,36 @@ export const OnboardingStep: React.FC<OnboardingStepProps> = ({
   totalSteps
 }) => {
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm mx-auto">
-        {/* Progress dots */}
-        {currentStep && totalSteps && (
-          <div className="flex justify-center mb-8">
-            <div className="flex space-x-2">
-              {Array.from({ length: totalSteps }, (_, i) => (
-                <div
-                  key={i}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    i < currentStep ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
-              ))}
-            </div>
+    <motion.div
+      key={title}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -30 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="flex flex-col h-screen bg-gradient-to-br from-black via-purple-900/20 to-black"
+    >
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
+        <div className="w-full max-w-md space-y-6 text-center">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white">{title}</h2>
+            {subtitle && <p className="text-white/70">{subtitle}</p>}
           </div>
-        )}
-
-        {/* Content */}
-        <Card className="p-8 border-0 shadow-none bg-transparent">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-foreground mb-2">{title}</h1>
-            {subtitle && (
-              <p className="text-muted-foreground text-sm">{subtitle}</p>
-            )}
-          </div>
-
-          <div className="mb-8">
+          
+          <div className="mt-8">
             {children}
           </div>
-
-          <Button
-            onClick={onNext}
-            disabled={nextButtonDisabled || isLoading}
-            className="w-full h-12 text-lg font-medium rounded-xl"
-            size="lg"
-          >
-            {isLoading ? 'Saving...' : nextButtonText}
-          </Button>
-        </Card>
+        </div>
       </div>
-    </div>
+
+      <div className="flex-shrink-0 px-6 pb-8">
+        <Button
+          onClick={onNext}
+          disabled={nextButtonDisabled || isLoading}
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+        >
+          {isLoading ? 'Loading...' : nextButtonText}
+        </Button>
+      </div>
+    </motion.div>
   );
 };

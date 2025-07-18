@@ -1,188 +1,777 @@
 import React, { useState, useEffect } from 'react';
-import { onboardingSteps } from './data/constants';
-import {
-  HeardAboutStep,
-  AgeRangeStep,
-  GenderStep,
-  StyleGoalStep,
-  CategoryStep,
-  BudgetStep,
-  BrandsStep,
-  ColorVibeStep,
-  OccasionsStep,
-  SelfieStep,
-  WeeklyReportsStep,
-  InstantSuggestionsStep,
-  PaletteStep,
-  ShopFrequencyStep,
-  FinalConfirmStep,
-  AccountChoiceStep,
-  PaywallStep,
-  WelcomeStep
-} from './steps';
+import { Device } from '@capacitor/device';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { useRevenueCat } from '@/hooks/useRevenueCat';
-// import { Capacitor } from '@capacitor/core';
-// import { Device } from '@capacitor/device';
+import { OnboardingStep } from './OnboardingStep';
+import { OnboardingOption } from './OnboardingOption';
+import { OnboardingPhotoPicker } from './OnboardingPhotoPicker';
+import { StyleLoadingOverlay } from '../StyleLoadingOverlay';
+import { Paywall } from '../Paywall';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { handleAppleSignIn } from './utils/auth';
+import { Sparkles, Crown } from 'lucide-react';
 
-const getDeviceId = async () => {
-  // Use Capacitor Device API in real app
-  // const info = await Device.getId();
-  // return info.identifier;
-  return 'mock-device-id'; // placeholder for dev
-};
+interface OnboardingData {
+  heard_about?: string;
+  age_range?: string;
+  gender?: string;
+  style_goal?: string;
+  clothing_category?: string;
+  budget?: string;
+  favorite_brands?: string[];
+  color_preference?: string;
+  occasions?: string[];
+  selfie_url?: string;
+  weekly_reports?: boolean;
+  instant_suggestions?: boolean;
+  color_palette?: string;
+  shop_frequency?: string;
+  account_choice?: string;
+}
 
-export const ModernOnboarding = ({ onComplete }) => {
-  const [stepIndex, setStepIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [deviceId, setDeviceId] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [paywallShown, setPaywallShown] = useState(false);
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+const TOTAL_STEPS = 18; // Updated to include paywall and account steps
 
-  const {
-    isLoading: isRevCatLoading,
-    offerings,
-    purchaseProduct,
-  } = useRevenueCat();
+export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [deviceId, setDeviceId] = useState<string>('');
+  const [data, setData] = useState<OnboardingData>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<string>('');
+  const [textInput, setTextInput] = useState('');
+  const [multiSelect, setMultiSelect] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    getDeviceId().then(id => {
-      setDeviceId(id);
-      setLoading(false);
-    });
+    const initDevice = async () => {
+      try {
+        const info = await Device.getId();
+        setDeviceId(info.identifier);
+      } catch (error) {
+        console.error('Failed to get device ID:', error);
+        setDeviceId('web-fallback-' + Date.now());
+      }
+    };
+    initDevice();
   }, []);
 
-  const saveStep = async (stepId, value) => {
-    setSaving(true);
-    setError('');
-    let saveValue = value;
+  const saveProgress = async (stepData: Partial<OnboardingData>) => {
+    if (!deviceId) return;
+
+    setIsLoading(true);
     try {
-      // If selfie, upload to Supabase storage and save URL
-      if (stepId === 'selfie' && value instanceof File) {
-        const filePath = `${deviceId}/selfie_${Date.now()}.jpg`;
-        const { data, error: uploadError } = await supabase.storage
-          .from('onboarding-selfies')
-          .upload(filePath, value);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('onboarding-selfies').getPublicUrl(filePath);
-        saveValue = urlData?.publicUrl || '';
-      }
-      // Upsert into temp_onboard_users
-      const updateObj = {
+      const updateData = {
         device_id: deviceId,
-        onboarding_step: stepIndex + 1,
-        [stepId]: saveValue
+        onboarding_step: currentStep + 1,
+        ...stepData,
+        ...(currentStep === TOTAL_STEPS - 1 && { completed: true })
       };
-      // If last step, mark completed
-      if (stepIndex + 1 === onboardingSteps.length) {
-        (updateObj as any).completed = true;
-      }
-      // temp_onboard_users is not typed in Supabase client, so use 'as any' to avoid type error
-      const { error: dbError } = await (supabase as any)
+
+      const { error } = await supabase
         .from('temp_onboard_users')
-        .upsert(updateObj, { onConflict: 'device_id' });
-      if (dbError) throw dbError;
-      setAnswers(prev => ({ ...prev, [stepId]: saveValue }));
-    } catch (e) {
-      setError('Failed to save. Please try again.');
-      console.error('Onboarding save error:', e);
+        .upsert(updateData, { onConflict: 'device_id' });
+
+      if (error) throw error;
+
+      setData(prev => ({ ...prev, ...stepData }));
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save your progress. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setSaving(false);
+      setIsLoading(false);
     }
   };
 
-  const handleNext = async (value) => {
-    const step = onboardingSteps[stepIndex];
-    await saveStep(step.id, value);
-    if (stepIndex < onboardingSteps.length - 1) {
-      setStepIndex(stepIndex + 1);
+  const handleNext = async () => {
+    let stepData: Partial<OnboardingData> = {};
+
+    // Save current step data
+    switch (currentStep) {
+      case 0: // Welcome
+        break;
+      case 1: // Where did you hear about us
+        stepData = { heard_about: selectedOption };
+        break;
+      case 2: // Age range
+        stepData = { age_range: selectedOption };
+        break;
+      case 3: // Gender
+        stepData = { gender: selectedOption };
+        break;
+      case 4: // Style goal
+        stepData = { style_goal: selectedOption };
+        break;
+      case 5: // Clothing category
+        stepData = { clothing_category: selectedOption };
+        break;
+      case 6: // Budget
+        stepData = { budget: selectedOption };
+        break;
+      case 7: // Favorite brands
+        stepData = { favorite_brands: textInput.split(',').map(b => b.trim()).filter(Boolean) };
+        break;
+      case 8: // Color preference
+        stepData = { color_preference: selectedOption };
+        break;
+      case 9: // Occasions
+        stepData = { occasions: multiSelect };
+        break;
+      case 10: // Test photo upload
+        break;
+      case 11: // Weekly reports
+        stepData = { weekly_reports: selectedOption === 'Yes' };
+        break;
+      case 12: // Instant suggestions
+        stepData = { instant_suggestions: selectedOption === 'Yes' };
+        break;
+      case 13: // Color palette
+        stepData = { color_palette: selectedOption };
+        break;
+      case 14: // Shop frequency
+        stepData = { shop_frequency: selectedOption };
+        break;
+      case 15: // Final confirmation
+        // Show paywall after onboarding
+        setShowPaywall(true);
+        return;
+      case 16: // Paywall handled separately
+        break;
+      case 17: // Account choice - final step
+        if (currentStep === TOTAL_STEPS - 1) {
+          onComplete();
+          return;
+        }
+        break;
+    }
+
+    await saveProgress(stepData);
+    
+    if (currentStep < TOTAL_STEPS - 1) {
+      setCurrentStep(prev => prev + 1);
+      setSelectedOption('');
+      setTextInput('');
+      setMultiSelect([]);
     } else {
-      setPaywallShown(true);
+      onComplete();
     }
   };
 
-  const handleAccountChoice = async (choice) => {
-    await saveStep('account_choice', choice);
-    setStepIndex(stepIndex + 1);
-  };
+  const handleImageUpload = async () => {
+    if (!selectedImage) return;
 
-  const handlePaywallPurchase = async () => {
-    if (!offerings || offerings.length === 0) {
-      setError('No subscription options available. Please try again later.');
-      return;
-    }
-    // Pick the first available product (can be improved to let user choose)
-    const product = offerings[0]?.availablePackages?.[0]?.product;
-    if (!product) {
-      setError('No subscription product found.');
-      return;
-    }
-    setSaving(true);
-    const result = await purchaseProduct(product.identifier);
-    setSaving(false);
-    if (result) {
-      setPaywallShown(false);
-      onComplete({ ...answers, premium: true });
-    } else {
-      setError('Purchase failed or was cancelled.');
+    setIsAnalyzing(true);
+    try {
+      // Simulate analysis
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Continue to next step after analysis
+      handleNext();
+    } catch (error) {
+      console.error('Error analyzing image:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Failed to analyze your photo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  const handlePaywallContinueFree = () => {
-    setPaywallShown(false);
-    onComplete({ ...answers, premium: false });
+  const handlePaywallComplete = () => {
+    setShowPaywall(false);
+    setCurrentStep(16); // Move to account choice
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (saving) return <div>Saving your answer...</div>;
-  if (error) return <div className="text-red-500 text-center p-4">{error}</div>;
+  const handleSignInWithApple = async () => {
+    try {
+      const success = await handleAppleSignIn();
+      if (success) {
+        await saveProgress({ account_choice: 'Sign In with Apple' });
+        onComplete();
+      }
+    } catch (error) {
+      console.error('Apple sign in error:', error);
+      toast({
+        title: "Sign In Failed",
+        description: "Failed to sign in with Apple. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
-  if (paywallShown) {
-    if (isRevCatLoading || saving) return <div>Loading subscription options...</div>;
-    return <PaywallStep onPurchase={handlePaywallPurchase} onContinueFree={handlePaywallContinueFree} />;
+  const handleContinueAsGuest = async () => {
+    await saveProgress({ account_choice: 'Continue as Guest' });
+    onComplete();
+  };
+
+  if (isAnalyzing) {
+    return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
   }
 
-  const step = onboardingSteps[stepIndex];
-  switch (step.id) {
-    case 'welcome':
-      return <WelcomeStep onNext={() => setStepIndex(stepIndex + 1)} />;
-    case 'heard-about':
-      return <HeardAboutStep onNext={handleNext} />;
-    case 'age-range':
-      return <AgeRangeStep onNext={handleNext} />;
-    case 'gender':
-      return <GenderStep onNext={handleNext} />;
-    case 'style-goal':
-      return <StyleGoalStep onNext={handleNext} />;
-    case 'category':
-      return <CategoryStep onNext={handleNext} />;
-    case 'budget':
-      return <BudgetStep onNext={handleNext} />;
-    case 'brands':
-      return <BrandsStep onNext={handleNext} />;
-    case 'color-vibe':
-      return <ColorVibeStep onNext={handleNext} />;
-    case 'occasions':
-      return <OccasionsStep onNext={handleNext} />;
-    case 'selfie':
-      return <SelfieStep onNext={handleNext} />;
-    case 'weekly-reports':
-      return <WeeklyReportsStep onNext={handleNext} />;
-    case 'instant-suggestions':
-      return <InstantSuggestionsStep onNext={handleNext} />;
-    case 'palette':
-      return <PaletteStep onNext={handleNext} />;
-    case 'shop-frequency':
-      return <ShopFrequencyStep onNext={handleNext} />;
-    case 'final-confirm':
-      return <FinalConfirmStep onNext={() => setStepIndex(stepIndex + 1)} />;
-    case 'account-choice':
-      return <AccountChoiceStep onNext={handleAccountChoice} />;
-    case 'paywall':
-      return <PaywallStep onPurchase={handlePaywallPurchase} onContinueFree={handlePaywallContinueFree} />;
-    default:
-      return <div>Unknown step</div>;
+  if (showPaywall) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex-1 flex flex-col justify-center items-center px-6 py-8"
+        >
+          <motion.div
+            animate={{ 
+              rotate: [0, 10, -10, 0],
+              scale: [1, 1.1, 1]
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="mb-6"
+          >
+            <Crown className="w-16 h-16 text-orange-400 mx-auto" />
+          </motion.div>
+          
+          <h2 className="text-3xl font-bold text-white mb-4 text-center">
+            Unlock Your Style Potential
+          </h2>
+          <p className="text-white/80 text-center mb-8 max-w-sm">
+            Get unlimited outfit analyses, personalized style reports, and early access to trends. Cancel anytime.
+          </p>
+          
+          <div className="w-full max-w-sm space-y-4">
+            <Button
+              className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
+              onClick={handlePaywallComplete}
+            >
+              <Crown className="mr-3 h-6 w-6" />
+              Unlock Premium
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-16 text-lg font-medium rounded-2xl border-white/20 text-white hover:bg-white/10"
+              onClick={handlePaywallComplete}
+            >
+              Continue with Free
+            </Button>
+          </div>
+          
+          <p className="text-white/50 text-sm text-center mt-6">
+            7-day free trial • Cancel anytime
+          </p>
+        </motion.div>
+      </div>
+    );
   }
+
+  const renderStep = () => {
+    const stepProps = {
+      isLoading,
+      currentStep: currentStep + 1,
+      totalSteps: TOTAL_STEPS
+    };
+
+    switch (currentStep) {
+      case 0:
+        return (
+          <OnboardingStep
+            title="Welcome to Dripify AI"
+            subtitle="Your personal AI style assistant"
+            onNext={handleNext}
+            nextButtonText="Let's get started"
+            {...stepProps}
+          >
+            <div className="text-center">
+              <motion.div
+                animate={{ 
+                  rotate: [0, 10, -10, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="mb-6"
+              >
+                <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
+              </motion.div>
+              <p className="text-white/70 text-lg">
+                Get personalized style recommendations powered by AI
+              </p>
+            </div>
+          </OnboardingStep>
+        );
+
+      case 1:
+        return (
+          <OnboardingStep
+            title="Where did you hear about Dripify AI?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                { icon: '📱', title: 'Instagram' },
+                { icon: '👥', title: 'Facebook' },
+                { icon: '🎵', title: 'TikTok' },
+                { icon: '📺', title: 'YouTube' },
+                { icon: '🔍', title: 'Google' },
+                { icon: '📺', title: 'TV' },
+                { icon: '👨‍👩‍👧‍👦', title: 'Friend or family' },
+              ].map((option) => (
+                <OnboardingOption
+                  key={option.title}
+                  icon={option.icon}
+                  title={option.title}
+                  selected={selectedOption === option.title}
+                  onClick={() => setSelectedOption(option.title)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 2:
+        return (
+          <OnboardingStep
+            title="What's your age range?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Under 18',
+                '18-24',
+                '25-34',
+                '35-44',
+                '45+'
+              ].map((age) => (
+                <OnboardingOption
+                  key={age}
+                  title={age}
+                  selected={selectedOption === age}
+                  onClick={() => setSelectedOption(age)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 3:
+        return (
+          <OnboardingStep
+            title="What's your gender identity?"
+            subtitle="This helps us personalize your recommendations"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Male',
+                'Female',
+                'Non-binary',
+                'Prefer not to say'
+              ].map((gender) => (
+                <OnboardingOption
+                  key={gender}
+                  title={gender}
+                  selected={selectedOption === gender}
+                  onClick={() => setSelectedOption(gender)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 4:
+        return (
+          <OnboardingStep
+            title="What's your primary style goal?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Be more fashionable',
+                'Save time getting dressed',
+                'Discover new outfits',
+                'Build confidence',
+                'Express my personality'
+              ].map((goal) => (
+                <OnboardingOption
+                  key={goal}
+                  title={goal}
+                  selected={selectedOption === goal}
+                  onClick={() => setSelectedOption(goal)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 5:
+        return (
+          <OnboardingStep
+            title="Which clothing category fits you best?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Casual',
+                'Business',
+                'Streetwear',
+                'Active/Athletic',
+                'Formal'
+              ].map((category) => (
+                <OnboardingOption
+                  key={category}
+                  title={category}
+                  selected={selectedOption === category}
+                  onClick={() => setSelectedOption(category)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 6:
+        return (
+          <OnboardingStep
+            title="What's your monthly fashion budget?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Under $100',
+                '$100-$250',
+                '$250-$500',
+                '$500-$1000',
+                'Over $1000'
+              ].map((budget) => (
+                <OnboardingOption
+                  key={budget}
+                  title={budget}
+                  selected={selectedOption === budget}
+                  onClick={() => setSelectedOption(budget)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 7:
+        return (
+          <OnboardingStep
+            title="Name your top 3 favorite brands"
+            subtitle="Separate with commas"
+            onNext={handleNext}
+            nextButtonDisabled={!textInput.trim()}
+            {...stepProps}
+          >
+            <Input
+              placeholder="e.g., Nike, Zara, H&M"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              className="w-full h-12 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+            />
+          </OnboardingStep>
+        );
+
+      case 8:
+        return (
+          <OnboardingStep
+            title="Do you prefer vibrant or neutral colors?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Vibrant colors',
+                'Neutral colors',
+                'Both equally'
+              ].map((preference) => (
+                <OnboardingOption
+                  key={preference}
+                  title={preference}
+                  selected={selectedOption === preference}
+                  onClick={() => setSelectedOption(preference)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 9:
+        return (
+          <OnboardingStep
+            title="Which occasions do you dress for most?"
+            subtitle="Select all that apply"
+            onNext={handleNext}
+            nextButtonDisabled={multiSelect.length === 0}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Work/Office',
+                'Date nights',
+                'Travel',
+                'Gym/Fitness',
+                'Social events',
+                'Casual outings'
+              ].map((occasion) => (
+                <OnboardingOption
+                  key={occasion}
+                  title={occasion}
+                  selected={multiSelect.includes(occasion)}
+                  onClick={() => {
+                    if (multiSelect.includes(occasion)) {
+                      setMultiSelect(prev => prev.filter(item => item !== occasion));
+                    } else {
+                      setMultiSelect(prev => [...prev, occasion]);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 10:
+        return (
+          <motion.div
+            key="test-photo"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -30 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col"
+          >
+            <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
+              <motion.div
+                animate={{ 
+                  rotate: [0, 10, -10, 0],
+                  scale: [1, 1.1, 1]
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="mb-6"
+              >
+                <Sparkles className="w-12 h-12 text-orange-400 mx-auto" />
+              </motion.div>
+              
+              <div className="space-y-4 text-center mb-8">
+                <h2 className="text-2xl font-bold text-white">Let's test it out!</h2>
+                <p className="text-white/70 text-base leading-relaxed max-w-sm">
+                  Upload a photo to get your first style rating and see the magic in action
+                </p>
+              </div>
+
+              <div className="w-full max-w-sm">
+                <OnboardingPhotoPicker 
+                  selectedImage={selectedImage}
+                  onImageSelect={setSelectedImage}
+                />
+              </div>
+            </div>
+
+            {selectedImage && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="px-6 pb-8"
+              >
+                <Button
+                  onClick={handleImageUpload}
+                  className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+                >
+                  <Sparkles className="mr-3 h-5 w-5" />
+                  Get My Style Rating
+                </Button>
+              </motion.div>
+            )}
+          </motion.div>
+        );
+
+      case 11:
+        return (
+          <OnboardingStep
+            title="Would you like weekly AI style reports?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {['Yes', 'No'].map((option) => (
+                <OnboardingOption
+                  key={option}
+                  title={option}
+                  selected={selectedOption === option}
+                  onClick={() => setSelectedOption(option)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 12:
+        return (
+          <OnboardingStep
+            title="Would you like instant AI outfit suggestions?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {['Yes', 'No'].map((option) => (
+                <OnboardingOption
+                  key={option}
+                  title={option}
+                  selected={selectedOption === option}
+                  onClick={() => setSelectedOption(option)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 13:
+        return (
+          <OnboardingStep
+            title="What's your favorite color palette?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Earth Tones',
+                'Monochrome',
+                'Pastels',
+                'Bold & Bright'
+              ].map((palette) => (
+                <OnboardingOption
+                  key={palette}
+                  title={palette}
+                  selected={selectedOption === palette}
+                  onClick={() => setSelectedOption(palette)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 14:
+        return (
+          <OnboardingStep
+            title="How often do you shop for clothes?"
+            onNext={handleNext}
+            nextButtonDisabled={!selectedOption}
+            {...stepProps}
+          >
+            <div className="space-y-3">
+              {[
+                'Weekly',
+                'Monthly',
+                'Quarterly',
+                'Rarely'
+              ].map((frequency) => (
+                <OnboardingOption
+                  key={frequency}
+                  title={frequency}
+                  selected={selectedOption === frequency}
+                  onClick={() => setSelectedOption(frequency)}
+                />
+              ))}
+            </div>
+          </OnboardingStep>
+        );
+
+      case 15:
+        return (
+          <OnboardingStep
+            title="Perfect! You're all set"
+            subtitle="Time to unlock your style potential"
+            onNext={handleNext}
+            nextButtonText="Continue"
+            {...stepProps}
+          >
+            <div className="text-center">
+              <motion.div
+                animate={{ 
+                  rotate: [0, 360],
+                  scale: [1, 1.2, 1]
+                }}
+                transition={{ 
+                  duration: 3, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="mb-6"
+              >
+                <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
+              </motion.div>
+              <p className="text-white/70 text-lg">
+                Ready to see your personalized style recommendations?
+              </p>
+            </div>
+          </OnboardingStep>
+        );
+
+      case 16:
+        return (
+          <OnboardingStep
+            title="Save your style profile?"
+            subtitle="Sign in to sync your preferences across devices"
+            onNext={handleContinueAsGuest}
+            nextButtonText="Continue as Guest"
+            {...stepProps}
+          >
+            <div className="space-y-4">
+              <Button
+                onClick={handleSignInWithApple}
+                className="w-full h-16 text-lg font-medium rounded-2xl bg-black text-white hover:bg-gray-800 border border-white/20"
+              >
+                🍎 Sign In with Apple
+              </Button>
+              <p className="text-xs text-white/50 text-center">
+                Sign in to sync your preferences across devices and never lose your style profile
+              </p>
+            </div>
+          </OnboardingStep>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black">
+      <AnimatePresence mode="wait">
+        {renderStep()}
+      </AnimatePresence>
+    </div>
+  );
 };
