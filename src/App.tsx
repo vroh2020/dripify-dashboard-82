@@ -192,6 +192,19 @@ const App = () => {
       console.groupEnd();
     };
     
+    (window as any).forceOnboarding = () => {
+      console.log('🔄 Force navigating to onboarding...');
+      localStorage.removeItem('dripify_onboarding_completed');
+      localStorage.removeItem('dripify_onboarding_progress');
+      window.location.href = '/onboarding';
+    };
+    
+    (window as any).forceDashboard = () => {
+      console.log('🔄 Force navigating to dashboard...');
+      localStorage.setItem('dripify_onboarding_completed', 'true');
+      window.location.href = '/dashboard';
+    };
+    
     (window as any).forceNavigateToDashboard = () => {
       console.log('🔄 Force navigating to dashboard...');
       window.location.href = '/dashboard';
