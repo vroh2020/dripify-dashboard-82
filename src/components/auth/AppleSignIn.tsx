@@ -7,7 +7,7 @@ import { Apple, Shield, Loader2, Zap, Check } from 'lucide-react';
 import { persistenceManager } from '@/utils/persistenceManager';
 
 interface AppleSignInProps {
-  onSuccess?: (user: any) => void;
+  onSuccess?: (user: unknown) => void;
   onCancel?: () => void;
   trigger: 'onboarding' | 'paywall' | 'completion' | 'reinstall';
   userProgress?: {

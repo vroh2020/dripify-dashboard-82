@@ -5,8 +5,27 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error('Supabase environment variables are missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+if (!SUPABASE_URL) {
+  throw new Error(
+    'Missing VITE_SUPABASE_URL environment variable. ' +
+    'Please add VITE_SUPABASE_URL to your .env file with your Supabase project URL.'
+  );
+}
+
+if (!SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    'Missing VITE_SUPABASE_ANON_KEY environment variable. ' +
+    'Please add VITE_SUPABASE_ANON_KEY to your .env file with your Supabase anonymous key.'
+  );
+}
+
+// Validate URL format
+try {
+  new URL(SUPABASE_URL);
+} catch {
+  throw new Error(
+    'Invalid VITE_SUPABASE_URL format. Please ensure it is a valid URL (e.g., https://your-project.supabase.co)'
+  );
 }
 
 export const supabase = createClient(/*<Database>*/ SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);

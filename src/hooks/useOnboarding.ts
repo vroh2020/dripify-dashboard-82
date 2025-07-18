@@ -8,7 +8,7 @@ export interface OnboardingData {
   device_id: string;
   selfie_url?: string;
   style_choice?: string;
-  preferences?: any;
+  preferences?: Record<string, unknown>;
   onboarding_complete: boolean;
   subscription_active: boolean;
 }

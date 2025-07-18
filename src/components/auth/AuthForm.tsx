@@ -77,8 +77,8 @@ export const AuthForm = ({ onSuccess }: AuthFormProps) => {
       });
 
       onSuccess();
-    } catch (error: any) {
-      const errorMessage = error.message.includes('Invalid login credentials') 
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && error.message.includes('Invalid login credentials') 
         ? 'Invalid email or password'
         : 'Sign in failed. Please try again.';
         
@@ -134,8 +134,8 @@ export const AuthForm = ({ onSuccess }: AuthFormProps) => {
         title: "Account created!",
         description: "Please check your email to verify your account.",
       });
-    } catch (error: any) {
-      const errorMessage = error.message.includes('already registered')
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && error.message.includes('already registered')
         ? 'This email is already registered. Please sign in instead.'
         : 'Account creation failed. Please try again.';
         

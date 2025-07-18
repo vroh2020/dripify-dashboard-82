@@ -11,7 +11,7 @@ interface SubscriptionContextType {
   refreshSubscription: () => Promise<void>;
   purchaseProduct: (product: PurchasesPackage['product']) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
-  offerings: any[];
+  offerings: unknown[];
   subscription: SubscriptionStatus;
 }
 

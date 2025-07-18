@@ -204,15 +204,16 @@ export const useRevenueCatManager = () => {
         return false;
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Native purchase failed:', error);
       
-      if (error.message?.includes('cancelled')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage?.includes('cancelled')) {
         toast({ 
           title: "Payment Cancelled", 
           description: "You can try again anytime." 
         });
-      } else if (error.message?.includes('already active')) {
+      } else if (errorMessage?.includes('already active')) {
         // Handle existing subscription case
         toast({ 
           title: "Subscription Already Active", 

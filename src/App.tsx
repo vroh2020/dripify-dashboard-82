@@ -89,7 +89,7 @@ const AppRoutes = () => {
       });
       routingDecisionRef.current = newDecision;
     }
-  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]);
+  }, [isAuthenticated, hasCompletedOnboarding, user, authError, retryCount]);
 
   // Show loading screen while determining route
   if (authLoading || onboardingLoading) {
@@ -145,7 +145,15 @@ const AppRoutes = () => {
 const App = () => {
   // Add global debug function
   useEffect(() => {
-    (window as any).debugAppState = async () => {
+    interface DebugWindow extends Window {
+      debugAppState: () => Promise<void>;
+      forceOnboarding: () => void;
+      forceDashboard: () => void;
+      forceNavigateToDashboard: () => void;
+      checkRoutingState: () => void;
+      resetOnboarding: () => Promise<void>;
+    }
+    (window as DebugWindow).debugAppState = async () => {
       console.group('🔍 DEBUG: Current App State');
       console.log('Current URL:', window.location.href);
       console.log('Current Path:', window.location.pathname);
@@ -192,29 +200,29 @@ const App = () => {
       console.groupEnd();
     };
     
-    (window as any).forceOnboarding = () => {
+    (window as DebugWindow).forceOnboarding = () => {
       console.log('🔄 Force navigating to onboarding...');
       localStorage.removeItem('dripify_onboarding_completed');
       localStorage.removeItem('dripify_onboarding_progress');
       window.location.href = '/onboarding';
     };
     
-    (window as any).forceDashboard = () => {
+    (window as DebugWindow).forceDashboard = () => {
       console.log('🔄 Force navigating to dashboard...');
       localStorage.setItem('dripify_onboarding_completed', 'true');
       window.location.href = '/dashboard';
     };
     
-    (window as any).forceNavigateToDashboard = () => {
+    (window as DebugWindow).forceNavigateToDashboard = () => {
       console.log('🔄 Force navigating to dashboard...');
       window.location.href = '/dashboard';
     };
     
-    (window as any).checkRoutingState = () => {
+    (window as DebugWindow).checkRoutingState = () => {
       console.log('🔍 Manual routing state check - use debugAppState() instead');
     };
     
-    (window as any).resetOnboarding = async () => {
+    (window as DebugWindow).resetOnboarding = async () => {
       console.log('🔄 Resetting onboarding state...');
       await persistenceManager.clearOnboardingProgress();
       window.location.reload();
