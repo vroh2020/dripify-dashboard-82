@@ -44,15 +44,10 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState({
-    score: 0,
-    breakdown: {
-      colorHarmony: 0,
-      styleCoherence: 0,
-      trendAlignment: 0,
-      confidence: 0
-    },
-    fullAnalysis: null as any // Store the full analysis result
+  const [analysisResults, setAnalysisResults] = useState<{
+    fullAnalysis: any | null; // Store the full analysis result
+  }>({
+    fullAnalysis: null
   });
   const { toast } = useToast();
 
@@ -262,14 +257,6 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       
       // Store the full analysis result for the ModernRatingsDisplay
       setAnalysisResults({
-        score: analysisResult.overallScore,
-        breakdown: {
-          colorHarmony: Math.floor(Math.random() * 20) + 80,
-          styleCoherence: Math.floor(Math.random() * 20) + 80,
-          trendAlignment: Math.floor(Math.random() * 20) + 80,
-          confidence: Math.floor(Math.random() * 20) + 80
-        },
-        // Store the full analysis result for proper display
         fullAnalysis: analysisResult
       });
       
