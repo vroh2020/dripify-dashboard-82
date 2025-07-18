@@ -8,7 +8,6 @@ import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 
 interface PaywallProps {
-  onClose?: () => void;
   onPurchaseSuccess?: () => void;
 }
 
@@ -180,7 +179,7 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
             {/* Legal Text */}
             <div className="text-center mt-6">
               <p className="text-white/40 text-xs leading-relaxed">
-                By continuing, you agree to our Terms of Service and Privacy Policy. ${monthlyOffering?.product?.price || '12.99'}/month.
+                By continuing, you agree to our Terms of Service and Privacy Policy. {monthlyOffering?.product?.price || '12.99'}/month.
               </p>
             </div>
           </div>
