@@ -25,7 +25,7 @@ export const StrategicUpgradePrompt: React.FC<StrategicUpgradePromptProps> = ({
   const [isVisible, setIsVisible] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const { toast } = useToast();
-  const { purchaseProduct, offerings } = useSubscription();
+  const { purchaseProduct, offerings, isPro } = useSubscription();
 
   const getTriggerContent = () => {
     switch (trigger) {

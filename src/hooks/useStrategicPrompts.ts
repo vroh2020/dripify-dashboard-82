@@ -33,7 +33,7 @@ export const useStrategicPrompts = () => {
   });
 
   const { user } = useAuth();
-  const { isSubscribed } = useSubscription();
+  const { isPro } = useSubscription();
 
   // Track user progress and behavior
   const updateUserProgress = useCallback(async () => {
@@ -71,7 +71,7 @@ export const useStrategicPrompts = () => {
     const { userProgress } = promptState;
     
     // Don't show prompts if user is already subscribed or authenticated
-    if (isSubscribed || user) {
+    if (isPro || user) {
       return;
     }
 
@@ -116,7 +116,7 @@ export const useStrategicPrompts = () => {
       appleSignInTrigger,
       upgradePromptTrigger
     }));
-  }, [promptState.userProgress, isSubscribed, user]);
+  }, [promptState.userProgress, isPro, user]);
 
   // Show Apple Sign-in prompt
   const showAppleSignIn = useCallback((trigger: StrategicPromptState['appleSignInTrigger']) => {

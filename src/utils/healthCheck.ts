@@ -40,6 +40,8 @@ class HealthChecker {
   private static instance: HealthChecker;
   private lastCheck: number = 0;
   private checkInterval: number = 30000; // 30 seconds
+  private _lastResult: HealthCheckResult | null = null;
+  private _intervalId: any = null;
 
   private constructor() {}
 
@@ -252,11 +254,12 @@ class HealthChecker {
       Logger.info('Health check passed');
     }
 
+    this._lastResult = result;
     return result;
   }
 
   private getLastResult(): HealthCheckResult {
-    return {
+    return this._lastResult || {
       isHealthy: true,
       checks: {
         database: true,
@@ -273,13 +276,21 @@ class HealthChecker {
 
   // Start periodic health checks
   startPeriodicChecks(): void {
-    setInterval(async () => {
+    if (this._intervalId) clearInterval(this._intervalId);
+    this._intervalId = setInterval(async () => {
       try {
         await this.performHealthCheck();
       } catch (error) {
         Logger.error('Health check failed:', error);
       }
     }, this.checkInterval);
+  }
+
+  stopPeriodicChecks(): void {
+    if (this._intervalId) {
+      clearInterval(this._intervalId);
+      this._intervalId = null;
+    }
   }
 
   // Emergency health check (bypasses frequency limit)
