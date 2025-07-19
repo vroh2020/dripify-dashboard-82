@@ -13,8 +13,6 @@ import { Sparkles, Star, Check, Zap, Crown } from 'lucide-react';
 import { ModernRatingsDisplay } from '../ModernRatingsDisplay';
 import { persistenceManager } from '@/utils/persistenceManager';
 import { useStrategicPrompts } from '@/hooks/useStrategicPrompts';
-import { AppleSignIn } from '@/components/auth/AppleSignIn';
-import { StrategicUpgradePrompt } from '@/components/upgrade/StrategicUpgradePrompt';
 import { engagementTracker } from '@/utils/engagementTracker';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { getDeviceId, resetDeviceId } from '@/utils/device';
@@ -64,12 +62,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   }>({ fullAnalysis: null });
   const { toast } = useToast();
 
-  // Strategic prompts hook - must be declared before any conditional returns
+  // Strategic prompts hook - simplified without Apple Sign-In
   const {
-    showAppleSignIn,
-    showUpgradePrompt,
-    hideAppleSignIn,
-    hideUpgradePrompt,
     trackFeatureUsage,
     trackAnalysis,
     userProgress: strategicUserProgress
@@ -197,6 +191,26 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Auto-navigation function for option selection
+  const handleOptionSelect = async (value: string, multiSelectMode = false) => {
+    if (multiSelectMode) {
+      // Handle multi-select (occasions step)
+      const newSelection = multiSelect.includes(value) 
+        ? multiSelect.filter(item => item !== value)
+        : [...multiSelect, value];
+      setMultiSelect(newSelection);
+      return; // Don't auto-advance for multi-select
+    }
+    
+    // Single select - set option and auto-advance after a brief delay
+    setSelectedOption(value);
+    
+    // Auto-advance after 800ms for better UX
+    setTimeout(async () => {
+      await handleNext();
+    }, 800);
   };
 
   const handleNext = async () => {
@@ -372,6 +386,42 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
           .eq('device_id', deviceInfo.deviceId);
         
         console.log('✅ Guest onboarding marked complete for device:', deviceInfo.deviceId);
+
+        // Create anonymous user profile with onboarding data
+        try {
+          const profileData = {
+            device_id: deviceInfo.deviceId,
+            created_at: new Date().toISOString(),
+            onboarding_complete: true,
+            onboarding_data: {
+              heard_about: stepData.heard_about,
+              age_range: stepData.age_range,
+              gender: stepData.gender,
+              style_goal: stepData.style_goal,
+              clothing_category: stepData.clothing_category,
+              budget: stepData.budget,
+              favorite_brands: stepData.favorite_brands,
+              color_preference: stepData.color_preference,
+              occasions: stepData.occasions,
+              weekly_reports: stepData.weekly_reports,
+              instant_suggestions: stepData.instant_suggestions,
+              color_palette: stepData.color_palette,
+              shop_frequency: stepData.shop_frequency
+            }
+          };
+
+          const { error } = await supabase
+            .from('user_profiles')
+            .upsert(profileData, { onConflict: 'device_id' });
+
+          if (error) {
+            console.error('Failed to create user profile:', error);
+          } else {
+            console.log('✅ Anonymous user profile created successfully');
+          }
+        } catch (profileError) {
+          console.error('Error creating user profile:', profileError);
+        }
       }
 
       // If user is authenticated, also mark in profiles table
@@ -402,12 +452,12 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
-  if (onboardingLoading || isSaving) return <StyleLoadingOverlay isAnalyzing={true} />;
-  if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
-
+  // Only show StyleLoadingOverlay when actually analyzing photos, not during onboarding data loading
   if (isAnalyzing) {
     return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
   }
+  
+  if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
 
   if (showResults) {
     return (
@@ -500,10 +550,17 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   }
 
   const renderStep = () => {
+    // Steps that should auto-advance (single-select steps)
+    const autoAdvanceSteps = [1, 2, 3, 4, 5, 6, 8, 11, 12, 13, 14];
+    // Steps that need manual Next button (welcome, multi-select, photo upload)
+    const manualSteps = [0, 7, 9, 10];
+    
     const stepProps = {
       isLoading: isSaving,
       currentStep: currentStep + 1,
-      totalSteps: TOTAL_STEPS
+      totalSteps: TOTAL_STEPS,
+      showNextButton: manualSteps.includes(currentStep),
+      autoAdvance: autoAdvanceSteps.includes(currentStep)
     };
 
     switch (currentStep) {
@@ -561,7 +618,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   icon={option.icon}
                   title={option.title}
                   selected={selectedOption === option.title}
-                  onClick={() => setSelectedOption(option.title)}
+                  onClick={() => handleOptionSelect(option.title)}
                 />
               ))}
             </div>
@@ -588,7 +645,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={age}
                   title={age}
                   selected={selectedOption === age}
-                  onClick={() => setSelectedOption(age)}
+                  onClick={() => handleOptionSelect(age)}
                 />
               ))}
             </div>
@@ -615,7 +672,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={gender}
                   title={gender}
                   selected={selectedOption === gender}
-                  onClick={() => setSelectedOption(gender)}
+                  onClick={() => handleOptionSelect(gender)}
                 />
               ))}
             </div>
@@ -642,7 +699,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={goal}
                   title={goal}
                   selected={selectedOption === goal}
-                  onClick={() => setSelectedOption(goal)}
+                  onClick={() => handleOptionSelect(goal)}
                 />
               ))}
             </div>
@@ -669,7 +726,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={category}
                   title={category}
                   selected={selectedOption === category}
-                  onClick={() => setSelectedOption(category)}
+                  onClick={() => handleOptionSelect(category)}
                 />
               ))}
             </div>
@@ -696,7 +753,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={budget}
                   title={budget}
                   selected={selectedOption === budget}
-                  onClick={() => setSelectedOption(budget)}
+                  onClick={() => handleOptionSelect(budget)}
                 />
               ))}
             </div>
@@ -739,7 +796,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={preference}
                   title={preference}
                   selected={selectedOption === preference}
-                  onClick={() => setSelectedOption(preference)}
+                  onClick={() => handleOptionSelect(preference)}
                 />
               ))}
             </div>
@@ -768,13 +825,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={occasion}
                   title={occasion}
                   selected={multiSelect.includes(occasion)}
-                  onClick={() => {
-                    if (multiSelect.includes(occasion)) {
-                      setMultiSelect(prev => prev.filter(item => item !== occasion));
-                    } else {
-                      setMultiSelect(prev => [...prev, occasion]);
-                    }
-                  }}
+                  onClick={() => handleOptionSelect(occasion, true)}
                 />
               ))}
             </div>
@@ -855,7 +906,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={option}
                   title={option}
                   selected={selectedOption === option}
-                  onClick={() => setSelectedOption(option)}
+                  onClick={() => handleOptionSelect(option)}
                 />
               ))}
             </div>
@@ -876,7 +927,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={option}
                   title={option}
                   selected={selectedOption === option}
-                  onClick={() => setSelectedOption(option)}
+                  onClick={() => handleOptionSelect(option)}
                 />
               ))}
             </div>
@@ -902,7 +953,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={palette}
                   title={palette}
                   selected={selectedOption === palette}
-                  onClick={() => setSelectedOption(palette)}
+                  onClick={() => handleOptionSelect(palette)}
                 />
               ))}
             </div>
@@ -928,7 +979,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
                   key={frequency}
                   title={frequency}
                   selected={selectedOption === frequency}
-                  onClick={() => setSelectedOption(frequency)}
+                  onClick={() => handleOptionSelect(frequency)}
                 />
               ))}
             </div>
@@ -952,33 +1003,10 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       {/* Strategic Prompts */}
       <AnimatePresence>
         {/* Apple Sign-in Prompt */}
-        {showAppleSignIn && appleSignInTrigger && (
-          <AppleSignIn
-            trigger={appleSignInTrigger}
-            userProgress={strategicUserProgress}
-            onSuccess={(user) => {
-              hideAppleSignIn();
-              toast({
-                title: "Welcome!",
-                description: "Your progress has been saved securely.",
-              });
-            }}
-            onCancel={hideAppleSignIn}
-          />
-        )}
+        {/* Removed Apple Sign-in */}
         
         {/* Upgrade Prompt */}
-        {showUpgradePrompt && upgradePromptTrigger && (
-          <StrategicUpgradePrompt
-            trigger={upgradePromptTrigger}
-            userContext={strategicUserProgress}
-            onUpgrade={() => {
-              hideUpgradePrompt();
-              // Continue with onboarding or show success
-            }}
-            onSkip={hideUpgradePrompt}
-          />
-        )}
+        {/* Removed StrategicUpgradePrompt */}
       </AnimatePresence>
     </div>
   );

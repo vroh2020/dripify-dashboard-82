@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Crown, Check, Star, Zap, Sparkles } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
+import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 
 interface PaywallStepProps {
   onPurchase: () => void;
@@ -13,37 +14,72 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
   const { toast } = useToast();
 
   const handlePurchase = async () => {
-    const product = offerings?.[0]?.availablePackages?.[0]?.product;
-    if (!product) {
-      toast({
-        title: "Product Error",
-        description: "Subscription product not found. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
     try {
-      const success = await purchaseProduct(product.identifier);
-      if (success) {
-        toast({
-          title: "Welcome to Premium! 🎉",
-          description: "Your subscription is now active. Enjoy unlimited style analyses!",
-        });
-        onPurchase();
+      // First try to find the product from offerings
+      const product = offerings?.[0]?.availablePackages?.find(pkg => 
+        pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
+      )?.product;
+
+      if (product) {
+        console.log('✅ Found product from offerings:', product.identifier);
+        const success = await purchaseProduct(product.identifier);
+        if (success) {
+          toast({
+            title: "Welcome to Premium! 🎉",
+            description: "Your subscription is now active. Enjoy unlimited style analyses!",
+          });
+          onPurchase();
+        } else {
+          toast({
+            title: "Purchase Cancelled",
+            description: "Please try again to unlock premium features.",
+          });
+        }
       } else {
-        toast({
-          title: "Purchase Cancelled",
-          description: "Please try again to unlock premium features.",
-        });
+        // Fallback: try with the configured product ID directly
+        console.log('⚠️ Product not found in offerings, trying direct purchase with:', REVENUECAT_CONFIG.products.monthly);
+        const success = await purchaseProduct(REVENUECAT_CONFIG.products.monthly);
+        if (success) {
+          toast({
+            title: "Welcome to Premium! 🎉",
+            description: "Your subscription is now active. Enjoy unlimited style analyses!",
+          });
+          onPurchase();
+        } else {
+          throw new Error('Product not available');
+        }
       }
     } catch (error) {
+      console.error('Purchase error:', error);
       toast({
         title: "Purchase Failed",
-        description: "Something went wrong. Please try again.",
+        description: "Product temporarily unavailable. Please try again later or contact support.",
         variant: "destructive"
       });
     }
   };
+
+  // Show loading state during RevenueCat initialization
+  if (isLoading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen bg-gradient-to-b from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 py-8"
+      >
+        <div className="text-center text-white space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400 mx-auto"></div>
+          <p>Loading subscription options...</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Get pricing from offerings or use fallback
+  const monthlyPackage = offerings?.[0]?.availablePackages?.find(pkg => 
+    pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
+  );
+  const priceString = monthlyPackage?.product?.priceString || "$12.99";
 
   return (
     <motion.div
@@ -121,7 +157,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           className="bg-gradient-to-r from-purple-900/40 to-purple-700/40 rounded-2xl p-4 border border-purple-500/30"
         >
           <div className="text-center">
-            <div className="text-3xl font-bold text-white mb-1">$12.99/month</div>
+            <div className="text-3xl font-bold text-white mb-1">{priceString}/month</div>
             <div className="text-white/60 text-xs">Cancel anytime</div>
           </div>
         </motion.div>
@@ -135,20 +171,11 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         >
           <Button
             onClick={handlePurchase}
-            disabled={isLoading}
+            disabled={false} // Always enable the button, handle errors in the function
             className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
           >
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Processing...</span>
-              </div>
-            ) : (
-              <>
-                <Crown className="mr-3 h-6 w-6" />
-                Unlock Premium
-              </>
-            )}
+            <Crown className="mr-3 h-6 w-6" />
+            Unlock Premium
           </Button>
         </motion.div>
 
@@ -160,7 +187,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           className="text-center"
         >
           <p className="text-white/40 text-xs leading-relaxed">
-            By continuing, you agree to our Terms of Service and Privacy Policy. $12.99/month.
+            By continuing, you agree to our Terms of Service and Privacy Policy. {priceString}/month.
           </p>
         </motion.div>
       </div>
