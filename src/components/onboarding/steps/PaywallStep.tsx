@@ -6,10 +6,11 @@ import { useToast } from "@/hooks/use-toast";
 
 interface PaywallStepProps {
   onPurchase: () => void;
+  onContinueFree: () => void;
 }
 
-export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
-  const { purchaseProduct, offerings, isLoading, initializationError } = useRevenueCat();
+export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) => {
+  const { offerings, purchaseProduct, isLoading, initializationError } = useRevenueCat();
   const { toast } = useToast();
 
   const handlePurchase = async () => {
@@ -22,13 +23,10 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       packages: o.availablePackages?.length || 0
     })));
 
-    const product = offerings?.[0]?.availablePackages?.[0]?.product;
-    
-    if (!product) {
-      console.error('🛒 PaywallStep: No product found in offerings');
+    if (!offerings || offerings.length === 0) {
+      console.error('🛒 PaywallStep: No subscription options available');
       console.error('🛒 Debug info:', {
         offeringsCount: offerings?.length || 0,
-        firstOfferingPackages: offerings?.[0]?.availablePackages?.length || 0,
         isLoading,
         initializationError
       });
@@ -37,14 +35,32 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         title: "Loading Subscription Options...",
         description: initializationError 
           ? "Subscription service is temporarily unavailable. Please check your internet connection and try again."
-          : offerings?.length === 0 
-            ? "Please wait while we load subscription options. If this persists, check your internet connection."
-            : "Subscription configuration issue. Please try again or contact support.",
+          : "Please wait while we load subscription options. If this persists, check your internet connection.",
         variant: "destructive"
       });
       return;
     }
-
+    
+    const product = offerings[0]?.availablePackages?.[0]?.product;
+    if (!product) {
+      console.error('🛒 PaywallStep: No subscription product found');
+      console.error('🛒 Debug info:', {
+        offeringsCount: offerings?.length || 0,
+        firstOfferingPackages: offerings?.[0]?.availablePackages?.length || 0,
+        isLoading,
+        initializationError
+      });
+      
+      toast({
+        title: "Product Configuration Error",
+        description: initializationError 
+          ? "Subscription service is temporarily unavailable. Please check your internet connection and try again."
+          : "Subscription configuration issue. Please try again or contact support.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     console.log('🛒 PaywallStep: Attempting purchase for product:', product.identifier);
     
     try {
@@ -58,14 +74,14 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       } else {
         toast({
           title: "Purchase Cancelled",
-          description: "Please try again to unlock premium features.",
+          description: "You can continue with the free version or try again later.",
         });
       }
     } catch (error) {
       console.error('🛒 PaywallStep: Purchase error:', error);
       toast({
         title: "Purchase Failed",
-        description: "Something went wrong. Please try again.",
+        description: "Something went wrong. Please try again or continue with the free version.",
         variant: "destructive"
       });
     }
@@ -83,12 +99,12 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         key="paywall-loading"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800 flex items-center justify-center p-6"
+        className="h-full flex flex-col justify-center items-center px-6"
       >
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <h3 className="text-xl font-semibold mb-2">Loading Subscription Options...</h3>
-          <p className="text-purple-200">Please wait while we prepare your premium experience</p>
+          <p className="text-white/70">Please wait while we prepare your premium experience</p>
         </div>
       </motion.div>
     );
@@ -101,14 +117,14 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         key="paywall-error"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800 flex items-center justify-center p-6"
+        className="h-full flex flex-col justify-center items-center px-6"
       >
         <div className="max-w-md w-full text-center text-white">
-          <Crown className="h-16 w-16 text-yellow-400 mx-auto mb-6" />
+          <Crown className="h-16 w-16 text-orange-400 mx-auto mb-6" />
           <h3 className="text-2xl font-bold mb-4">
             {initializationError ? "Connection Issue" : "Subscription Setup"}
           </h3>
-          <p className="text-purple-200 mb-6">
+          <p className="text-white/70 mb-6">
             {initializationError 
               ? "We're having trouble connecting to our subscription service. Please check your internet connection."
               : "We're setting up your subscription options. This usually takes just a moment."
@@ -123,14 +139,14 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
               Try Again
             </Button>
             <Button 
-              onClick={onPurchase}
+              onClick={onContinueFree}
               variant="outline"
-              className="w-full border-white text-white hover:bg-white hover:text-purple-900"
+              className="w-full border-white/20 text-white hover:bg-white/10"
             >
-              Continue Without Premium
+              Continue with Free
             </Button>
           </div>
-          <p className="text-xs text-purple-300 mt-4">
+          <p className="text-xs text-white/40 mt-4">
             {initializationError 
               ? "Error: Subscription service unavailable"
               : "Having trouble? Make sure you're connected to the internet."
@@ -141,6 +157,18 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
     );
   }
 
+  const features = [
+    { icon: Zap, text: 'Unlimited outfit analyses' },
+    { icon: Sparkles, text: 'Personalized style reports' },
+    { icon: Star, text: 'Early-access trends' },
+    { icon: Crown, text: 'Advanced color palette analysis' },
+    { icon: Check, text: 'Priority customer support' },
+    { icon: Check, text: 'Export your style profiles' }
+  ];
+
+  const price = offerings?.[0]?.availablePackages?.[0]?.product?.priceString || "$12.99/month";
+  const trialText = "7-day free trial"; // Default trial text
+
   return (
     <motion.div
       key="paywall"
@@ -148,104 +176,109 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="min-h-screen bg-gradient-to-b from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 py-8 relative overflow-hidden"
+      className="h-full flex flex-col"
     >
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)`,
-        }} />
-      </div>
-
-      {/* Main Content */}
-      <div className="relative z-10 w-full max-w-sm space-y-8">
-        {/* Header Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center space-y-4"
-        >
+      {/* Content Area - Centered */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
+        <div className="space-y-6 text-center mb-8">
           <motion.div
-            animate={{ 
-              rotate: [0, 10, -10, 0],
-              scale: [1, 1.1, 1]
-            }}
-            transition={{ 
-              duration: 2, 
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="flex justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
           >
-            <Crown className="w-16 h-16 text-orange-400" />
+            <motion.div
+              animate={{ 
+                rotate: [0, 10, -10, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="mb-6"
+            >
+              <Crown className="w-16 h-16 text-orange-400 mx-auto" />
+            </motion.div>
+            
+            <h2 className="text-3xl font-bold text-white mb-4">Unlock Your Style Potential</h2>
+            <p className="text-white/70 text-base leading-relaxed max-w-sm">
+              Get unlimited outfit analyses, personalized style reports, and early access to trends
+            </p>
           </motion.div>
-          <h2 className="text-3xl font-bold text-white leading-tight">
-            Unlock Your Style Potential
-          </h2>
-          <p className="text-white/70 text-base leading-relaxed">
-            Get unlimited outfit analyses, personalized style reports, and early access to trends
-          </p>
-        </motion.div>
+        </div>
 
         {/* Features List */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="space-y-3"
+          className="w-full max-w-sm space-y-3 mb-8"
         >
-          {["Unlimited outfit analyses", "Personalized style reports", "Early-access trends", "Advanced color palette analysis", "Priority customer support", "Export your style profiles"].map((feature, index) => (
+          {features.map((feature, index) => (
             <motion.div
-              key={feature}
+              key={feature.text}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 + index * 0.1, duration: 0.5 }}
               className="flex items-center space-x-3"
             >
-              <Check className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <span className="text-white/80 text-sm">{feature}</span>
+              <feature.icon className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <span className="text-white/80 text-sm">{feature.text}</span>
             </motion.div>
           ))}
         </motion.div>
 
-        {/* Pricing Box */}
+        {/* Pricing */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="bg-gradient-to-r from-purple-900/40 to-purple-700/40 rounded-2xl p-4 border border-purple-500/30"
+          className="w-full max-w-sm space-y-4"
         >
-          <div className="text-center">
-            <div className="text-3xl font-bold text-white mb-1">$12.99/month</div>
-            <div className="text-white/60 text-xs">Cancel anytime</div>
+          <div className="bg-gradient-to-r from-orange-500/20 to-purple-500/20 rounded-2xl p-4 border border-orange-500/30">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-white mb-1">{price}</div>
+              {trialText && (
+                <div className="text-orange-400 text-sm font-medium">{trialText}</div>
+              )}
+              <div className="text-white/60 text-xs mt-1">Cancel anytime</div>
+            </div>
           </div>
-        </motion.div>
 
-        {/* Action Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.5 }}
-          className="space-y-3"
-        >
-          <Button
-            onClick={handlePurchase}
-            disabled={isLoading}
-            className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
+          {/* Action Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+            className="space-y-3"
           >
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Processing...</span>
-              </div>
-            ) : (
-              <>
-                <Crown className="mr-3 h-6 w-6" />
-                Unlock Premium
-              </>
-            )}
-          </Button>
+            <Button
+              onClick={handlePurchase}
+              disabled={isLoading}
+              className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Processing...</span>
+                </div>
+              ) : (
+                <>
+                  <Crown className="mr-3 h-6 w-6" />
+                  Unlock Premium
+                </>
+              )}
+            </Button>
+            
+            <Button
+              onClick={onContinueFree}
+              variant="outline"
+              className="w-full h-14 text-base font-medium rounded-2xl border-white/20 text-white hover:bg-white/10 transition-all duration-300"
+            >
+              Continue with Free
+            </Button>
+          </motion.div>
         </motion.div>
 
         {/* Legal Text */}
@@ -253,10 +286,11 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8, duration: 0.5 }}
-          className="text-center"
+          className="text-center mt-6"
         >
           <p className="text-white/40 text-xs leading-relaxed">
-            By continuing, you agree to our Terms of Service and Privacy Policy. $12.99/month.
+            By continuing, you agree to our Terms of Service and Privacy Policy. 
+            {trialText && ` ${trialText} then ${price}.`}
           </p>
         </motion.div>
       </div>
