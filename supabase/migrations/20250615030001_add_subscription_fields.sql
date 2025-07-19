@@ -1,4 +1,7 @@
--- Add subscription expiry field to profiles
+-- Add subscription fields to profiles
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive';
+
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS subscription_expiry TIMESTAMPTZ;
 

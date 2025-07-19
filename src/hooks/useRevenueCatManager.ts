@@ -13,6 +13,20 @@ export type SubscriptionStatus = {
   offeringId: string | null;
 };
 
+// Cryptographically secure password generation
+const generateSecurePassword = (): string => {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(36)).join('').substring(0, 16);
+};
+
+// Generate unique email with timestamp to avoid duplicates
+const generateUniqueEmail = (deviceId: string): string => {
+  const timestamp = Date.now();
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  return `user-${deviceId}-${timestamp}-${randomSuffix}@dripify.app`;
+};
+
 export const useRevenueCatManager = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [offerings, setOfferings] = useState<PurchasesOffering[]>([]);
@@ -81,97 +95,113 @@ export const useRevenueCatManager = () => {
     await fetchSubscriptionStatus();
   }, [fetchSubscriptionStatus]);
 
-  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
-    // In paywall-first approach, we create the user during purchase
-    console.log('🎯 RevenueCat: Starting purchase flow', { hasUser: !!user, productId: product.identifier });
+  const createUserAccount = useCallback(async (deviceId: string) => {
+    try {
+      // Get onboarding data from temp_onboard_users
+      const { data: tempData, error: tempError } = await supabase
+        .from('temp_onboard_users')
+        .select('*')
+        .eq('device_id', deviceId)
+        .single();
 
-    // Prevent rapid purchase attempts
-    if (lastPurchaseAttempt.current) {
-      const timeSinceLastAttempt = Date.now() - lastPurchaseAttempt.current.getTime();
-      if (timeSinceLastAttempt < 2000) { // 2 seconds
-        return false;
+      if (tempError) {
+        console.error('Error fetching onboarding data:', tempError);
+        throw new Error('Could not find your onboarding data. Please complete onboarding first.');
       }
-    }
-    lastPurchaseAttempt.current = new Date();
 
-    if (!Capacitor.isNativePlatform()) {
-      try {
-        setIsLoading(true);
-        
-        // Get device ID to fetch onboarding data
-        const { Device } = await import('@capacitor/device');
-        const deviceInfo = await Device.getId();
-        const deviceId = deviceInfo.identifier;
-        
-        // Get onboarding data from temp_onboard_users
-        const { data: tempData, error: tempError } = await supabase
-          .from('temp_onboard_users')
-          .select('*')
-          .eq('device_id', deviceId)
-          .single();
+      // Generate unique credentials
+      const email = generateUniqueEmail(deviceId);
+      const password = generateSecurePassword();
+      
+      console.log('🎯 Creating user account with email:', email);
+      
+      // Check if user already exists and try to sign in first
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (tempError) {
-          console.error('Error fetching onboarding data:', tempError);
-          toast({
-            title: "Error",
-            description: "Could not find your onboarding data. Please complete onboarding first.",
-            variant: "destructive"
-          });
-          return false;
-        }
-        
-        // Show payment confirmation dialog
-        const confirmed = window.confirm(
-          'This will create your premium account and process payment. Continue?'
-        );
-        
-        if (!confirmed) {
-          toast({ 
-            title: "Payment Cancelled", 
-            description: "You can try again anytime." 
-          });
-          return false;
-        }
-        
-        // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Create user account with email (in production, this would be from payment provider)
-        const email = `user-${deviceId}@dripify.app`; // Temporary email
-        const password = Math.random().toString(36).substring(2, 15); // Random password
-        
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: `StyleUser${Date.now()}`,
-              age_range: tempData.age_range,
-              main_goal: tempData.style_goal,
-              onboarding_completed: true
-            }
+      if (signInData.user) {
+        console.log('✅ User already exists, signed in successfully');
+        return signInData.user;
+      }
+
+      // If sign in failed, create new account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: `StyleUser${Date.now()}`,
+            age_range: tempData.age_range,
+            main_goal: tempData.style_goal,
+            onboarding_completed: true
           }
-        });
+        }
+      });
 
-        if (authError) {
+      if (authError) {
+        // If it's a duplicate email error, try with a new email
+        if (authError.message?.includes('already been registered')) {
+          console.log('📧 Email already exists, generating new one...');
+          const newEmail = generateUniqueEmail(deviceId);
+          const newPassword = generateSecurePassword();
+          
+          const { data: retryData, error: retryError } = await supabase.auth.signUp({
+            email: newEmail,
+            password: newPassword,
+            options: {
+              data: {
+                username: `StyleUser${Date.now()}`,
+                age_range: tempData.age_range,
+                main_goal: tempData.style_goal,
+                onboarding_completed: true
+              }
+            }
+          });
+
+          if (retryError) {
+            console.error('Error creating user account on retry:', retryError);
+            throw new Error('Could not create your premium account. Please try again.');
+          }
+
+          if (!retryData.user) {
+            throw new Error('Could not create your premium account. Please try again.');
+          }
+
+          return retryData.user;
+        } else {
           console.error('Error creating user account:', authError);
-          toast({
-            title: "Account Creation Failed",
-            description: "Could not create your premium account. Please try again.",
-            variant: "destructive"
-          });
-          return false;
+          throw new Error('Could not create your premium account. Please try again.');
         }
+      }
 
-        if (!authData.user) {
-          toast({
-            title: "Account Creation Failed",
-            description: "Could not create your premium account. Please try again.",
-            variant: "destructive"
-          });
-          return false;
-        }
-        
+      if (!authData.user) {
+        throw new Error('Could not create your premium account. Please try again.');
+      }
+
+      return authData.user;
+    } catch (error) {
+      console.error('Account creation failed:', error);
+      throw error;
+    }
+  }, []);
+
+  const transferOnboardingData = useCallback(async (userId: string, deviceId: string) => {
+    try {
+      // Get onboarding data from temp_onboard_users
+      const { data: tempData, error: tempError } = await supabase
+        .from('temp_onboard_users')
+        .select('*')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (tempError) {
+        console.error('Error fetching temp onboarding data:', tempError);
+        return;
+      }
+
+      if (tempData) {
         const expiryDate = new Date();
         expiryDate.setDate(expiryDate.getDate() + 7); // 7 days trial
 
@@ -196,18 +226,72 @@ export const useRevenueCatManager = () => {
             shop_frequency: tempData.shop_frequency,
             selfie_url: tempData.selfie_url
           }
-        }).eq('id', authData.user.id);
+        }).eq('id', userId);
 
         if (profileError) {
           console.error('Error updating profile:', profileError);
+        } else {
+          console.log('✅ Successfully transferred onboarding data to user profile');
+          
+          // Clean up temp data
+          await supabase.from('temp_onboard_users').delete().eq('device_id', deviceId);
         }
+      }
+    } catch (error) {
+      console.error('Error transferring onboarding data:', error);
+    }
+  }, []);
 
-        // Clean up temp data
-        await supabase.from('temp_onboard_users').delete().eq('device_id', deviceId);
+  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
+    // In premium-only model, we create user during purchase if needed
+    console.log('🎯 RevenueCat: Starting purchase flow', { hasUser: !!user, productId: product.identifier });
+
+    // Prevent rapid purchase attempts
+    if (lastPurchaseAttempt.current) {
+      const timeSinceLastAttempt = Date.now() - lastPurchaseAttempt.current.getTime();
+      if (timeSinceLastAttempt < 2000) { // 2 seconds
+        return false;
+      }
+    }
+    lastPurchaseAttempt.current = new Date();
+
+    if (!Capacitor.isNativePlatform()) {
+      try {
+        setIsLoading(true);
+        
+        // Get device ID to fetch onboarding data
+        const { Device } = await import('@capacitor/device');
+        const deviceInfo = await Device.getId();
+        const deviceId = deviceInfo.identifier;
+        
+        // Show payment confirmation dialog
+        const confirmed = window.confirm(
+          'This will create your premium account and process payment. Continue?'
+        );
+        
+        if (!confirmed) {
+          toast({ 
+            title: "Payment Cancelled", 
+            description: "You can try again anytime." 
+          });
+          return false;
+        }
+        
+        // Simulate payment processing
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Create user account if needed
+        let currentUser = user;
+        if (!currentUser) {
+          currentUser = await createUserAccount(deviceId);
+        }
+        
+        // Transfer onboarding data
+        await transferOnboardingData(currentUser.id, deviceId);
 
         const newSubscription = {
           isActive: true,
-          expirationDate: expiryDate,
+          expirationDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
           productId: product.identifier,
           offeringId: 'web-premium'
         };
@@ -223,7 +307,7 @@ export const useRevenueCatManager = () => {
         toast({ 
           variant: "destructive", 
           title: "Payment Failed", 
-          description: "Please try again or contact support if the issue persists." 
+          description: error instanceof Error ? error.message : "Please try again or contact support if the issue persists." 
         });
         return false;
       } finally {
@@ -246,7 +330,19 @@ export const useRevenueCatManager = () => {
       setIsLoading(true);
       console.log('🔄 Starting native purchase flow for:', product.identifier);
       
-      // CRITICAL FIX: Always attempt actual purchase, don't assume existing subscription
+      // Get device ID for data transfer
+      const { Device } = await import('@capacitor/device');
+      const deviceInfo = await Device.getId();
+      const deviceId = deviceInfo.identifier;
+      
+      // CRITICAL FIX: Create user account BEFORE purchase if needed
+      let currentUser = user;
+      if (!currentUser) {
+        console.log('🎯 No user found, creating account before purchase...');
+        currentUser = await createUserAccount(deviceId);
+      }
+      
+      // Now attempt the purchase with a valid user
       const result = await Purchases.purchaseStoreProduct(product);
       console.log('✅ Purchase result:', result);
       
@@ -257,16 +353,8 @@ export const useRevenueCatManager = () => {
       console.log('🔍 Purchase validation:', { isPro, hasNewPurchase, productId: product.identifier });
       
       if (isPro && hasNewPurchase) {
-        // Update Supabase profile
-        const { error: profileError } = await supabase.from('profiles').update({
-          onboarding_completed: true,
-          subscription_status: 'active',
-          subscription_expiry: new Date(result.customerInfo.latestExpirationDate).toISOString()
-        }).eq('id', user.id);
-
-        if (profileError) {
-          console.error('Failed to update profile after purchase:', profileError);
-        }
+        // Transfer onboarding data to user profile
+        await transferOnboardingData(currentUser.id, deviceId);
 
         toast({ 
           title: "Welcome to Pro! 🎉", 
@@ -311,7 +399,7 @@ export const useRevenueCatManager = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, fetchSubscriptionStatus, user]);
+  }, [toast, fetchSubscriptionStatus, user, createUserAccount, transferOnboardingData]);
 
   const restorePurchases = useCallback(async () => {
     if (!user) return false;
