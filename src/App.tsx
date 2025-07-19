@@ -159,8 +159,8 @@ const AppRoutes = () => {
     hasCompletedOnboarding,
     user: !!user,
     currentPath: window.location.pathname,
-    shouldShowDashboard: isAuthenticated && user && hasCompletedOnboarding,
-    shouldShowOnboarding: isAuthenticated && user && !hasCompletedOnboarding
+    shouldShowDashboard: hasCompletedOnboarding,
+    shouldShowOnboarding: !hasCompletedOnboarding
   });
 
   return (

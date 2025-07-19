@@ -7,7 +7,6 @@ import { OnboardingOption } from './OnboardingOption';
 import { OnboardingPhotoPicker } from './OnboardingPhotoPicker';
 import { StyleLoadingOverlay } from '../StyleLoadingOverlay';
 import { PaywallStep } from './steps/PaywallStep';
-import { AccountChoiceStep } from './steps/AccountChoiceStep';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -32,10 +31,9 @@ interface OnboardingData {
   instant_suggestions?: boolean;
   color_palette?: string;
   shop_frequency?: string;
-  account_choice?: string;
 }
 
-const TOTAL_STEPS = 17; // Updated to include analysis results step
+const TOTAL_STEPS = 16; // 15 onboarding steps + paywall
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -48,7 +46,6 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [showAccountChoice, setShowAccountChoice] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<{
     overallScore: number;
     imageUrl: string;
@@ -79,8 +76,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       const updateData = {
         device_id: deviceId,
         onboarding_step: currentStep + 1,
-        ...stepData,
-        ...(currentStep === TOTAL_STEPS - 1 && { completed: true })
+        ...stepData
       };
 
       const { error } = await supabase
@@ -128,7 +124,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         stepData = { budget: selectedOption };
         break;
       case 7: // Favorite brands
-        stepData = { favorite_brands: textInput.split(',').map(b => b.trim()).filter(Boolean) };
+        stepData = { favorite_brands: multiSelect };
         break;
       case 8: // Color preference
         stepData = { color_preference: selectedOption };
@@ -136,8 +132,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       case 9: // Occasions
         stepData = { occasions: multiSelect };
         break;
-      case 10: // Test photo upload
-        break;
+      case 10: // Selfie upload - handled separately
+        return;
       case 10.5: // Analysis results - skip data saving, just continue
         break;
       case 11: // Weekly reports
@@ -153,6 +149,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         stepData = { shop_frequency: selectedOption };
         break;
       case 15: // Final confirmation - show paywall
+        console.log('🎯 ModernOnboarding: Triggering paywall from step 15');
         setShowPaywall(true);
         return;
     }
@@ -193,13 +190,13 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
-  const handlePaywallComplete = (purchased: boolean) => {
-    setShowPaywall(false);
-    setShowAccountChoice(true);
-  };
-
-  const handleAccountChoice = async (choice: 'Sign In with Apple' | 'Continue as Guest') => {
-    await saveProgress({ account_choice: choice });
+  const handlePaywallComplete = async () => {
+    // Payment completed - user account created in RevenueCat manager
+    console.log('🎯 Payment completed, redirecting to dashboard...');
+    toast({
+      title: "Welcome to Dripify! 🎉",
+      description: "Your premium account is now active!",
+    });
     onComplete();
   };
 
@@ -208,17 +205,12 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   }
 
   if (showPaywall) {
+    console.log('🎯 ModernOnboarding: Rendering PaywallStep, showPaywall =', showPaywall);
     return (
       <PaywallStep
-        onPurchase={() => handlePaywallComplete(true)}
-        onContinueFree={() => handlePaywallComplete(false)}
+        onPurchase={handlePaywallComplete}
+        onContinueFree={() => {}} // No free option - disabled
       />
-    );
-  }
-
-  if (showAccountChoice) {
-    return (
-      <AccountChoiceStep onNext={handleAccountChoice} />
     );
   }
 
@@ -432,15 +424,34 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
             title="Name your top 3 favorite brands"
             subtitle="Separate with commas"
             onNext={handleNext}
-            nextButtonDisabled={!textInput.trim()}
+            nextButtonDisabled={multiSelect.length === 0}
             {...stepProps}
           >
-            <Input
-              placeholder="e.g., Nike, Zara, H&M"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              className="w-full h-12 bg-white/10 border-white/20 text-white placeholder:text-white/50"
-            />
+            <div className="space-y-3">
+              {[
+                'Nike',
+                'Zara',
+                'H&M',
+                'Adidas',
+                'Gucci',
+                'Prada',
+                'Louis Vuitton',
+                'Chanel'
+              ].map((brand) => (
+                <OnboardingOption
+                  key={brand}
+                  title={brand}
+                  selected={multiSelect.includes(brand)}
+                  onClick={() => {
+                    if (multiSelect.includes(brand)) {
+                      setMultiSelect(prev => prev.filter(item => item !== brand));
+                    } else {
+                      setMultiSelect(prev => [...prev, brand]);
+                    }
+                  }}
+                />
+              ))}
+            </div>
           </OnboardingStep>
         );
 

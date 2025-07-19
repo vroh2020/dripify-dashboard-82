@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useSubscription } from '@/components/subscription/SubscriptionProvider';
-import { Capacitor } from '@capacitor/core';
 
 interface OnboardingStatus {
   isLoading: boolean;
@@ -16,8 +14,6 @@ export function useOnboardingStatus(): OnboardingStatus {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const { isAuthenticated, user } = useAuth();
-  const { isPro, subscription } = useSubscription();
-  const [deviceId, setDeviceId] = useState<string | null>(null);
   
   // Add state tracking to prevent loops
   const lastCheckRef = useRef<{
@@ -26,25 +22,9 @@ export function useOnboardingStatus(): OnboardingStatus {
     result: boolean;
   }>({ userId: null, timestamp: 0, result: false });
 
-  useEffect(() => {
-    // Get device ID for guest mode
-    import('@capacitor/device').then(({ Device }) => {
-      Device.getId().then(info => setDeviceId(info.identifier));
-    }).catch(() => {
-      // Fallback for web
-      setDeviceId('web-fallback-' + Date.now());
-    });
-  }, []);
-
   const checkOnboardingStatus = useCallback(async () => {
+    // In premium-only model, onboarding is complete when user is authenticated
     if (isAuthenticated && user?.id) {
-      // Authenticated user: check profiles table
-      if (!isAuthenticated || !user?.id) {
-        setIsLoading(false);
-        setHasCompletedOnboarding(false);
-        return;
-      }
-
       // Prevent rapid successive checks
       const now = Date.now();
       const lastCheck = lastCheckRef.current;
@@ -56,6 +36,7 @@ export function useOnboardingStatus(): OnboardingStatus {
       try {
         setIsLoading(true);
         
+        // Premium user: check profiles table
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('onboarding_completed, subscription_status')
@@ -87,13 +68,10 @@ export function useOnboardingStatus(): OnboardingStatus {
           result: onboardingCompleted
         };
         
-        console.log('📊 Onboarding Status Check:', {
+        console.log('📊 Premium User Onboarding Status:', {
           userId: user.id,
           onboardingCompleted,
-          platform: Capacitor.isNativePlatform() ? 'native' : 'web',
-          revenueCatStatus: subscription.isActive,
-          supabaseStatus: profile?.subscription_status,
-          finalResult: onboardingCompleted,
+          subscriptionStatus: profile?.subscription_status,
           retryCount,
           timestamp: new Date().toISOString()
         });
@@ -116,33 +94,17 @@ export function useOnboardingStatus(): OnboardingStatus {
       } finally {
         setIsLoading(false);
       }
-    } else if (deviceId) {
-      // Guest/anonymous: check temp_onboard_users by device_id
-      try {
-        setIsLoading(true);
-        const { data, error } = await supabase
-          .from('temp_onboard_users')
-          .select('completed')
-          .eq('device_id', deviceId)
-          .maybeSingle();
-        if (error) throw error;
-        const completed = data?.completed === true;
-        setHasCompletedOnboarding(completed);
-      } catch (error) {
-        setHasCompletedOnboarding(false);
-      } finally {
-        setIsLoading(false);
-      }
     } else {
+      // No user = still in onboarding
       setIsLoading(false);
       setHasCompletedOnboarding(false);
     }
-  }, [isAuthenticated, user?.id, deviceId, retryCount, subscription.isActive]);
+  }, [isAuthenticated, user?.id, retryCount]);
 
   useEffect(() => {
     setRetryCount(0);
     checkOnboardingStatus();
-  }, [isAuthenticated, user?.id, deviceId]);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -151,7 +113,7 @@ export function useOnboardingStatus(): OnboardingStatus {
         setIsLoading(false);
         setHasCompletedOnboarding(false);
       }
-    }, 5000); // Increased from 3s to 5s
+    }, 5000);
 
     return () => clearTimeout(timeout);
   }, [isLoading]);
