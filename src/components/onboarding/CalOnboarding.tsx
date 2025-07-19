@@ -24,7 +24,6 @@ interface OnboardingData {
   instant_suggestions?: boolean;
   color_palette?: string;
   shop_frequency?: string;
-  user_type?: 'free' | 'premium';
 }
 
 const TOTAL_STEPS = 15; // Updated for paywall-first approach
@@ -128,11 +127,10 @@ export const CalOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete
       case 13: // Color palette
         stepData = { color_palette: selectedOption };
         break;
-      case 14: // Shop frequency - final step
+      case 14: // Shop frequency - final step, triggers paywall
         stepData = { shop_frequency: selectedOption };
-        // Mark onboarding as complete and go directly to paywall
-        await saveProgress({ ...stepData, completed: true });
-        onComplete();
+        await saveProgress(stepData);
+        onComplete(); // Triggers paywall
         return;
     }
 

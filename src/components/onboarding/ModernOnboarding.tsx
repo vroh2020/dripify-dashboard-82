@@ -31,10 +31,9 @@ interface OnboardingData {
   instant_suggestions?: boolean;
   color_palette?: string;
   shop_frequency?: string;
-  user_type?: 'free' | 'premium';
 }
 
-const TOTAL_STEPS = 16; // Updated to remove account choice step
+const TOTAL_STEPS = 16; // 15 onboarding steps + paywall
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -77,8 +76,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       const updateData = {
         device_id: deviceId,
         onboarding_step: currentStep + 1,
-        ...stepData,
-        ...(currentStep === TOTAL_STEPS - 1 && { completed: true })
+        ...stepData
       };
 
       const { error } = await supabase
@@ -192,34 +190,13 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
-  const handlePaywallComplete = async (purchased: boolean) => {
-    setShowPaywall(false);
-    
-    if (purchased) {
-      // User purchased - mark as premium and complete onboarding
-      await saveProgress({ 
-        user_type: 'premium',
-        completed: true 
-      });
-      
-      toast({
-        title: "Welcome to Premium! 🎉",
-        description: "You now have unlimited access to all style features!",
-      });
-    } else {
-      // User chose free - mark as free user and complete onboarding
-      await saveProgress({ 
-        user_type: 'free',
-        completed: true 
-      });
-      
-      toast({
-        title: "Welcome! 👋",
-        description: "You can always upgrade to premium later for unlimited features!",
-      });
-    }
-    
-    // Complete onboarding for both cases
+  const handlePaywallComplete = async () => {
+    // Payment completed - user account created in RevenueCat manager
+    console.log('🎯 Payment completed, redirecting to dashboard...');
+    toast({
+      title: "Welcome to Dripify! 🎉",
+      description: "Your premium account is now active!",
+    });
     onComplete();
   };
 
@@ -231,8 +208,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     console.log('🎯 ModernOnboarding: Rendering PaywallStep, showPaywall =', showPaywall);
     return (
       <PaywallStep
-        onPurchase={() => handlePaywallComplete(true)}
-        onContinueFree={() => handlePaywallComplete(false)}
+        onPurchase={handlePaywallComplete}
+        onContinueFree={() => {}} // No free option - disabled
       />
     );
   }

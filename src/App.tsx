@@ -49,7 +49,7 @@ const queryClient = new QueryClient({
 
 const AppRoutes = () => {
   const { isLoading: authLoading, isAuthenticated, user, error: authError } = useAuth();
-  const { isLoading: onboardingLoading, hasCompletedOnboarding, userType, retryCount } = useOnboardingStatus();
+  const { isLoading: onboardingLoading, hasCompletedOnboarding, retryCount } = useOnboardingStatus();
   const routingDecisionRef = useRef({
     isAuthenticated: false,
     hasCompletedOnboarding: false,
@@ -157,7 +157,6 @@ const AppRoutes = () => {
   console.log('🔍 Current routing state:', {
     isAuthenticated,
     hasCompletedOnboarding,
-    userType,
     user: !!user,
     currentPath: window.location.pathname,
     shouldShowDashboard: hasCompletedOnboarding,

@@ -9,7 +9,7 @@ import { Device } from "@capacitor/device";
 
 interface PaywallStepProps {
   onPurchase: () => void;
-  onContinueFree: () => void;
+  onContinueFree: () => void; // Keep for interface compatibility but won't be used
 }
 
 export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) => {
@@ -57,75 +57,16 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
     }
   }, [isLoading, offerings?.length, loadingTimeout]);
 
-  const transferOnboardingData = async (userId: string) => {
-    try {
-      // Get onboarding data from temp_onboard_users
-      const { data: tempData, error: tempError } = await supabase
-        .from('temp_onboard_users')
-        .select('*')
-        .eq('device_id', deviceId)
-        .single();
-
-      if (tempError) {
-        console.error('Error fetching temp onboarding data:', tempError);
-        return;
-      }
-
-      if (tempData) {
-        // Transfer data to user profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            onboarding_completed: true,
-            subscription_status: 'active',
-            age_range: tempData.age_range,
-            main_goal: tempData.style_goal,
-            // Store additional onboarding data as JSON
-            onboarding_data: {
-              heard_about: tempData.heard_about,
-              gender: tempData.gender,
-              clothing_category: tempData.clothing_category,
-              budget: tempData.budget,
-              favorite_brands: tempData.favorite_brands,
-              color_preference: tempData.color_preference,
-              occasions: tempData.occasions,
-              weekly_reports: tempData.weekly_reports,
-              instant_suggestions: tempData.instant_suggestions,
-              color_palette: tempData.color_palette,
-              shop_frequency: tempData.shop_frequency,
-              selfie_url: tempData.selfie_url
-            }
-          })
-          .eq('id', userId);
-
-        if (profileError) {
-          console.error('Error updating profile with onboarding data:', profileError);
-        } else {
-          console.log('✅ Successfully transferred onboarding data to user profile');
-          
-          // Clean up temp data
-          await supabase
-            .from('temp_onboard_users')
-            .delete()
-            .eq('device_id', deviceId);
-        }
-      }
-    } catch (error) {
-      console.error('Error transferring onboarding data:', error);
-    }
-  };
-
   const handlePurchase = async () => {
     if (isPurchasing) return;
     
-    // If no offerings available, show fallback purchase flow
-    if (!offerings || offerings.length === 0 || showFallback) {
+    // If no offerings available, show error
+    if (!offerings || offerings.length === 0) {
       toast({
-        title: "Continue with Free",
-        description: "Subscription options are currently unavailable. You can upgrade later from your profile.",
-        variant: "default"
+        title: "Service Unavailable",
+        description: "Payment system is currently unavailable. Please try again later.",
+        variant: "destructive"
       });
-      onContinueFree();
       return;
     }
     
@@ -143,30 +84,24 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
     setIsPurchasing(true);
     
     try {
-      console.log('🎯 PaywallStep: Starting purchase process...');
+      console.log('🎯 PaywallStep: Starting premium purchase...');
       const success = await purchaseProduct(product.identifier);
       
       if (success) {
-        console.log('🎯 PaywallStep: Purchase successful, checking for new user...');
-        
-        // Check if a new user was created (will happen in RevenueCat manager)
-        // The user creation and profile transfer is handled in useRevenueCatManager
-        toast({
-          title: "Welcome to Premium! 🎉",
-          description: "Your subscription is now active. Enjoy unlimited style analyses!",
-        });
+        console.log('🎯 PaywallStep: Purchase successful, account created!');
         onPurchase();
       } else {
         toast({
-          title: "Purchase Cancelled",
-          description: "You can continue with the free version or try again later.",
+          title: "Purchase Failed",
+          description: "Payment was cancelled or failed. Please try again to access the app.",
+          variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Purchase failed:', error);
       toast({
         title: "Purchase Failed",
-        description: "Something went wrong. Please try again or continue with the free version.",
+        description: "Something went wrong with the payment. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -191,11 +126,11 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
 
   const features = [
     { icon: Zap, text: 'Unlimited outfit analyses' },
-    { icon: Sparkles, text: 'Personalized style reports' },
-    { icon: Star, text: 'Early-access trends' },
+    { icon: Sparkles, text: 'AI-powered style recommendations' },
+    { icon: Star, text: 'Personal style insights & trends' },
     { icon: Crown, text: 'Advanced color palette analysis' },
-    { icon: Check, text: 'Priority customer support' },
-    { icon: Check, text: 'Export your style profiles' }
+    { icon: Check, text: 'Sync across all your devices' },
+    { icon: Check, text: 'Priority customer support' }
   ];
 
   // Use fallback price if offerings not available
@@ -231,10 +166,10 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
             </motion.div>
             
             <h2 className="text-3xl font-bold text-white mb-4">
-              {isPurchasing ? "Processing Purchase..." : "Loading Subscription Options"}
+              {isPurchasing ? "Creating Your Account..." : "Loading Premium Options"}
             </h2>
             <p className="text-white/70 text-base leading-relaxed max-w-sm">
-              {isPurchasing ? "Please wait while we set up your premium account..." : "Setting up your premium options..."}
+              {isPurchasing ? "Setting up your premium account and transferring your style preferences..." : "Preparing your personalized style experience..."}
             </p>
             
             <div className="flex items-center justify-center gap-2 text-white/50">
@@ -279,15 +214,15 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
               <Crown className="w-16 h-16 text-orange-400 mx-auto" />
             </motion.div>
             
-            <h2 className="text-3xl font-bold text-white mb-4">Unlock Your Style Potential</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">Get Your AI Style Account</h2>
             <p className="text-white/70 text-base leading-relaxed max-w-sm">
-              Upgrade to premium for unlimited style analyses and personalized recommendations
+              Complete your purchase to create your premium account and access unlimited AI-powered style insights
             </p>
             
             {showFallback && (
               <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-xl">
                 <p className="text-yellow-300 text-sm">
-                  Subscription options are taking longer than usual to load.
+                  Payment system is loading. Please wait or try refreshing.
                 </p>
               </div>
             )}
@@ -346,7 +281,7 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
                 className="w-full h-12 text-sm font-medium rounded-2xl border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition-all duration-300"
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
-                Retry Loading Subscription
+                Retry Loading Payment
               </Button>
             )}
             
@@ -368,18 +303,9 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
               ) : (
                 <>
                   <Crown className="mr-3 h-6 w-6" />
-                  {showFallback ? "Continue with Free" : "Get Premium Account"}
+                  Create Premium Account
                 </>
               )}
-            </Button>
-            
-            <Button
-              onClick={onContinueFree}
-              variant="outline"
-              disabled={isPurchasing}
-              className="w-full h-14 text-base font-medium rounded-2xl border-white/20 text-white hover:bg-white/10 transition-all duration-300"
-            >
-              Continue with Free (Limited Features)
             </Button>
           </motion.div>
         </motion.div>
@@ -392,8 +318,8 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
           className="text-center mt-6"
         >
           <p className="text-white/40 text-xs leading-relaxed">
-            Premium includes a user account for syncing across devices.
-            {trialText && !showFallback && ` ${trialText} then ${price}.`}
+            Payment required to access the app. Account includes sync across devices.
+            {trialText && ` ${trialText} then ${price}.`}
           </p>
         </motion.div>
       </div>
