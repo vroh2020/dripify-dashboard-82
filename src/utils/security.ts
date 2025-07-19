@@ -101,8 +101,8 @@ export const validateFileUpload = (file: File): { isValid: boolean; errors: stri
   return { isValid: errors.length === 0, errors };
 };
 
-export const sanitizeUserMetadata = (metadata: Record<string, any>): Record<string, any> => {
-  const sanitized: Record<string, any> = {};
+export const sanitizeUserMetadata = (metadata: Record<string, unknown>): Record<string, unknown> => {
+  const sanitized: Record<string, unknown> = {};
   
   Object.entries(metadata).forEach(([key, value]) => {
     if (typeof value === 'string') {

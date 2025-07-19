@@ -10,9 +10,11 @@ import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { useAuth } from "./hooks/useAuth";
 import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
+import { useAppStateHandler } from "./hooks/useAppStateHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { DebugOverlay } from "./components/DebugOverlay";
 import { CalOnboarding } from "./components/onboarding/CalOnboarding";
+import { persistenceManager } from "./utils/persistenceManager";
 
 // Lazy load non-critical components
 const Index = lazy(() => {
@@ -58,37 +60,11 @@ const AppRoutes = () => {
     retryCount: 0
   });
 
-  // Add timeout protection for infinite loading
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (authLoading || onboardingLoading) {
-        console.warn('⚠️ App loading timeout - forcing state resolution');
-        console.log('Current state:', {
-          authLoading,
-          onboardingLoading,
-          isAuthenticated,
-          hasCompletedOnboarding,
-          user: !!user,
-          retryCount,
-          currentPath: window.location.pathname
-        });
-        
-        // Force navigation to auth if stuck
-        if (!isAuthenticated && !user) {
-          console.log('🔄 Force navigating to auth due to timeout');
-          window.location.href = '/auth';
-        } else if (isAuthenticated && user && !hasCompletedOnboarding) {
-          console.log('🔄 Force navigating to onboarding due to timeout');
-          window.location.href = '/onboarding';
-        }
-      }
-    }, 15000); // Increased from 10s to 15s
-
-    return () => clearTimeout(timeout);
-  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, user, retryCount]);
-
   // Handle deep link auth callbacks
   useAppUrlHandler();
+  
+  // Handle app state changes without causing refreshes
+  useAppStateHandler();
 
   // Log routing decisions only when they change
   useEffect(() => {
@@ -113,45 +89,17 @@ const AppRoutes = () => {
       });
       routingDecisionRef.current = newDecision;
     }
-  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]); // Fixed dependencies
+  }, [isAuthenticated, hasCompletedOnboarding, user, authError, retryCount]);
 
-  // Memoize routes to prevent unnecessary re-renders
-  const protectedRoutes = (
-    <>
-      <Route 
-        path="/dashboard" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/scan" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading scanner..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/tips" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/profile" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading profile..." />}>
-            <Profile />
-          </Suspense>
-        } 
-      />
-    </>
-  );
+  // Show loading screen while determining route
+  if (authLoading || onboardingLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-400 mb-4"></div>
+        <p className="text-white/70">Loading your experience...</p>
+      </div>
+    );
+  }
 
   // Add debugging for routing decisions
   console.log('🔍 Current routing state:', {
@@ -159,29 +107,36 @@ const AppRoutes = () => {
     hasCompletedOnboarding,
     user: !!user,
     currentPath: window.location.pathname,
-    shouldShowDashboard: hasCompletedOnboarding,
-    shouldShowOnboarding: !hasCompletedOnboarding
+    shouldShowDashboard: isAuthenticated && user && hasCompletedOnboarding,
+    shouldShowOnboarding: isAuthenticated && user && !hasCompletedOnboarding
   });
 
   return (
     <Routes>
-      {/* Onboarding always accessible if not completed */}
-      {!hasCompletedOnboarding ? (
-        <Route path="/*" element={<CalOnboarding onComplete={() => window.location.reload()} />} />
-      ) : (
+      {/* Auth routes - always accessible */}
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/auth/*" element={<Auth />} />
+      <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
+      <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
+      
+      {/* Onboarding route - accessible if not completed */}
+      {!hasCompletedOnboarding && (
+        <Route path="/onboarding" element={<CalOnboarding onComplete={() => window.location.reload()} />} />
+      )}
+      
+      {/* Main app routes - only accessible after onboarding */}
+      {hasCompletedOnboarding ? (
         <>
-          {/* Main app routes after onboarding */}
           <Route path="/dashboard" element={<Index />} />
           <Route path="/scan" element={<Index />} />
           <Route path="/tips" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/auth/*" element={<Auth />} />
-          <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
-          <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </>
+      ) : (
+        // Redirect to onboarding if not completed
+        <Route path="/*" element={<Navigate to="/onboarding" replace />} />
       )}
     </Routes>
   );
@@ -190,7 +145,15 @@ const AppRoutes = () => {
 const App = () => {
   // Add global debug function
   useEffect(() => {
-    (window as any).debugAppState = async () => {
+    interface DebugWindow extends Window {
+      debugAppState: () => Promise<void>;
+      forceOnboarding: () => void;
+      forceDashboard: () => void;
+      forceNavigateToDashboard: () => void;
+      checkRoutingState: () => void;
+      resetOnboarding: () => Promise<void>;
+    }
+    (window as DebugWindow).debugAppState = async () => {
       console.group('🔍 DEBUG: Current App State');
       console.log('Current URL:', window.location.href);
       console.log('Current Path:', window.location.pathname);
@@ -211,6 +174,10 @@ const App = () => {
       
       console.log('Auth State:', authState);
       console.log('Onboarding State:', onboardingState);
+      
+      // Check persistence manager state
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      console.log('Device Info:', deviceInfo);
       
       // Check if we're stuck in a loop
       const performanceEntries = performance.getEntriesByType('measure');
@@ -233,18 +200,31 @@ const App = () => {
       console.groupEnd();
     };
     
-    (window as any).forceNavigateToDashboard = () => {
+    (window as DebugWindow).forceOnboarding = () => {
+      console.log('🔄 Force navigating to onboarding...');
+      localStorage.removeItem('dripify_onboarding_completed');
+      localStorage.removeItem('dripify_onboarding_progress');
+      window.location.href = '/onboarding';
+    };
+    
+    (window as DebugWindow).forceDashboard = () => {
+      console.log('🔄 Force navigating to dashboard...');
+      localStorage.setItem('dripify_onboarding_completed', 'true');
+      window.location.href = '/dashboard';
+    };
+    
+    (window as DebugWindow).forceNavigateToDashboard = () => {
       console.log('🔄 Force navigating to dashboard...');
       window.location.href = '/dashboard';
     };
     
-    (window as any).checkRoutingState = () => {
+    (window as DebugWindow).checkRoutingState = () => {
       console.log('🔍 Manual routing state check - use debugAppState() instead');
     };
     
-    (window as any).resetOnboarding = () => {
+    (window as DebugWindow).resetOnboarding = async () => {
       console.log('🔄 Resetting onboarding state...');
-      localStorage.removeItem('onboarding_completed');
+      await persistenceManager.clearOnboardingProgress();
       window.location.reload();
     };
   }, []);

@@ -126,7 +126,7 @@ export const DashboardView = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]); // Removed toast from dependencies
+  }, [user, toast]);
 
   useEffect(() => {
     fetchAnalyses();
@@ -153,18 +153,6 @@ export const DashboardView = () => {
       transition={{ duration: 0.5 }}
       className="w-full max-w-sm mx-auto px-4 pb-6"
     >
-      {/* Premium Badge */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-4 text-center"
-      >
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-500/20 text-orange-400 border border-orange-500/30">
-          👑 Premium Member
-        </span>
-      </motion.div>
-
         {!hasScans ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -180,7 +168,7 @@ export const DashboardView = () => {
                   </div>
                 </div>
                 <p className="text-white/70 mb-6 leading-relaxed">
-                  Welcome to Dripify Premium! Take your first style scan to get unlimited AI-powered fashion insights and start building your style streak.
+                  Welcome to Drip Check! Take your first style scan to get personalized fashion insights and start building your style streak.
                 </p>
                 <Button 
                   onClick={() => navigate('/scan')} 

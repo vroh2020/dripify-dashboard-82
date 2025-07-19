@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ImageUpload } from "@/components/ImageUpload";
 import { StyleSelector } from "@/components/StyleSelector";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { useScanStore } from "@/store/scanStore";
-import { Sparkles, Camera } from "lucide-react";
+import { Sparkles, Camera, RotateCcw, Share2, Download } from "lucide-react";
 import { StyleTips } from "./analysis/StyleTips";
 import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
 import { ModernRatingsDisplay } from "./ModernRatingsDisplay";
@@ -18,6 +18,7 @@ export const ScanView = () => {
   const [selectedStyle, setSelectedStyle] = useState("casual");
   const [analyzing, setAnalyzing] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
   const { toast } = useToast();
   const addScan = useScanStore((state) => state.addScan);
   const [result, setResult] = useState<{ 
@@ -29,9 +30,29 @@ export const ScanView = () => {
     summary?: string;
   } | null>(null);
 
+  // Prevent page refresh during analysis
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (analyzing) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    if (analyzing) {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [analyzing]);
+
   const handleAnalyzeTimeout = () => {
     console.log('Analysis timeout triggered');
     setAnalyzing(false);
+    setAnalysisComplete(false);
     toast({
       title: "Analysis timed out",
       description: "The style analysis is taking too long. Please try again with a different image.",
@@ -52,6 +73,7 @@ export const ScanView = () => {
     console.log('Starting analysis process...');
     setAnalyzing(true);
     setShowResults(false);
+    setAnalysisComplete(false);
     
     try {
       console.log('Calling analyzeStyle function...');
@@ -60,17 +82,16 @@ export const ScanView = () => {
       
       setResult(analysisResult);
       addScan(analysisResult); // Use addScan to save to history
+      setAnalysisComplete(true);
       
       toast({
         title: "Analysis Complete! 🎉",
         description: `Your style scored ${analysisResult.overallScore}/100!`,
       });
       
-      // Show results after a brief delay
-      setTimeout(() => {
-        setShowResults(true);
-        setAnalyzing(false);
-      }, 1000);
+      // Show results immediately after analysis completes
+      setShowResults(true);
+      setAnalyzing(false);
       
     } catch (error) {
       console.error("Analysis error:", error);
@@ -81,6 +102,7 @@ export const ScanView = () => {
         fullError: error
       });
       setAnalyzing(false);
+      setAnalysisComplete(false);
       
       toast({
         title: "Analysis failed",
@@ -96,13 +118,28 @@ export const ScanView = () => {
     setSelectedImage(null);
     setResult(null);
     setAnalyzing(false);
+    setAnalysisComplete(false);
   };
 
   const handleShare = () => {
-    toast({
-      title: "Shared! 📸",
-      description: "Your style analysis has been shared!",
-    });
+    if (navigator.share && result) {
+      navigator.share({
+        title: 'My Dripify AI Style Analysis',
+        text: `My style scored ${result.overallScore}/100! Check out Dripify AI for your own analysis.`,
+        url: window.location.href
+      }).catch(() => {
+        // Fallback to toast
+        toast({
+          title: "Shared! 📸",
+          description: "Your style analysis has been shared!",
+        });
+      });
+    } else {
+      toast({
+        title: "Shared! 📸",
+        description: "Your style analysis has been shared!",
+      });
+    }
   };
 
   const handleSave = () => {
@@ -119,12 +156,14 @@ export const ScanView = () => {
       transition={{ duration: 0.5 }}
       className="px-4 relative pt-4"
     >
-      {/* Style Loading Overlay */}
-      <StyleLoadingOverlay 
-        isAnalyzing={analyzing} 
-        onTimeout={handleAnalyzeTimeout}
-        timeoutDuration={90000}
-      />
+      {/* Style Loading Overlay - Only show when actually analyzing */}
+      {analyzing && !analysisComplete && (
+        <StyleLoadingOverlay 
+          isAnalyzing={analyzing} 
+          onTimeout={handleAnalyzeTimeout}
+          timeoutDuration={90000}
+        />
+      )}
 
       {!showResults ? (
         <Card className="backdrop-blur-xl bg-black/30 border-white/10">
@@ -198,23 +237,45 @@ export const ScanView = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3, duration: 0.5 }}
-                  className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 border border-white/10"
                 >
                   <StyleTips tips={result.tips} />
                 </motion.div>
               )}
 
               {/* Action Buttons */}
-              <div className="p-6 bg-zinc-900/50 rounded-b-2xl">
-                <Button 
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="flex gap-3 pt-4"
+              >
+                <Button
                   onClick={handleRestart}
                   variant="outline"
-                  className="w-full h-14 text-lg"
+                  className="flex-1 h-12 border-white/20 text-white hover:bg-white/10"
                 >
-                  <Camera className="mr-2" />
-                  Retake
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  New Analysis
                 </Button>
-              </div>
+                
+                <Button
+                  onClick={handleShare}
+                  variant="outline"
+                  className="flex-1 h-12 border-white/20 text-white hover:bg-white/10"
+                >
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Share
+                </Button>
+                
+                <Button
+                  onClick={handleSave}
+                  variant="outline"
+                  className="flex-1 h-12 border-white/20 text-white hover:bg-white/10"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Save
+                </Button>
+              </motion.div>
             </div>
           )}
         </motion.div>

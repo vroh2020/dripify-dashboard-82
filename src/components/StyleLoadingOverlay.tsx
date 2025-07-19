@@ -62,11 +62,13 @@ export const StyleLoadingOverlay = ({
   useEffect(() => {
     if (!isAnalyzing) return;
     
+    let hideDripFactTimer: NodeJS.Timeout;
+    
     // Show drip fact around halfway
     const dripFactTimer = setTimeout(() => {
       setDripFactIndex(Math.floor(Math.random() * dripFacts.length));
       setShowDripFact(true);
-      setTimeout(() => setShowDripFact(false), 8000);
+      hideDripFactTimer = setTimeout(() => setShowDripFact(false), 8000);
     }, 30000);
     
     // Progress bar update
@@ -93,6 +95,7 @@ export const StyleLoadingOverlay = ({
       clearInterval(progressInterval);
       clearTimeout(timeoutTimer);
       clearTimeout(dripFactTimer);
+      clearTimeout(hideDripFactTimer);
     };
   }, [isAnalyzing, onTimeout, timeoutDuration]);
 

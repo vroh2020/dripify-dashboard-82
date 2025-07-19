@@ -32,7 +32,11 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Set up environment variables
+cp .env.example .env
+# Edit .env with your actual Supabase credentials
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
@@ -67,3 +71,23 @@ Simply open [Lovable](https://lovable.dev/projects/af482284-564d-433b-a95f-8b114
 ## I want to use a custom domain - is that possible?
 
 We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+
+## Troubleshooting
+
+### Missing Supabase Environment Variables
+
+If you see an error like "Missing VITE_SUPABASE_URL environment variable":
+
+1. Copy the environment template: `cp .env.example .env`
+2. Update `.env` with your actual Supabase project URL and anon key
+3. For this project, the Supabase URL should be: `https://jjqwhxamjxsiotnhhqco.supabase.co`
+4. Restart your development server
+
+### Development Mode
+
+The app includes a development mode that works without API keys:
+- All premium features are enabled for testing
+- AI analysis uses mock data when API is unavailable
+- Authentication works with test credentials
+
+See `DEVELOPMENT_SETUP.md` for detailed setup instructions.

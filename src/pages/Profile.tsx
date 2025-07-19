@@ -174,6 +174,9 @@ const Profile = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Account Deletion Section */}
+        <AccountDeletion />
       </motion.div>
     </div>
   );

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Device } from '@capacitor/device';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { OnboardingStep } from './OnboardingStep';
@@ -10,11 +9,15 @@ import { PaywallStep } from './steps/PaywallStep';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles } from 'lucide-react';
-import { analyzeStyle } from '@/utils/imageAnalysis';
+import { Sparkles, Star, Check, Zap, Crown } from 'lucide-react';
 import { ModernRatingsDisplay } from '../ModernRatingsDisplay';
-import { StyleTips } from '../analysis/StyleTips';
-import type { ScoreBreakdown, StyleTip } from '@/types/styleTypes';
+import { persistenceManager } from '@/utils/persistenceManager';
+import { useStrategicPrompts } from '@/hooks/useStrategicPrompts';
+import { AppleSignIn } from '@/components/auth/AppleSignIn';
+import { StrategicUpgradePrompt } from '@/components/upgrade/StrategicUpgradePrompt';
+import { engagementTracker } from '@/utils/engagementTracker';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import { getDeviceId, resetDeviceId } from '@/utils/device';
 
 interface OnboardingData {
   heard_about?: string;
@@ -33,59 +36,157 @@ interface OnboardingData {
   shop_frequency?: string;
 }
 
-const TOTAL_STEPS = 16; // 15 onboarding steps + paywall
+const TOTAL_STEPS = 15; // Updated to remove account choice step
 
 export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const {
+    onboarding,
+    isLoading: onboardingLoading,
+    isError: onboardingError,
+    saveOnboarding,
+    resetOnboarding,
+    refetch: refetchOnboarding
+  } = useOnboarding();
+
   const [currentStep, setCurrentStep] = useState(0);
-  const [deviceId, setDeviceId] = useState<string>('');
-  const [data, setData] = useState<OnboardingData>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [stepData, setStepData] = useState<Partial<OnboardingData>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [textInput, setTextInput] = useState('');
   const [multiSelect, setMultiSelect] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<{
-    overallScore: number;
-    imageUrl: string;
-    breakdown?: ScoreBreakdown[];
-    tips?: StyleTip[];
-    summary?: string;
-  } | null>(null);
+    fullAnalysis: unknown | null;
+  }>({ fullAnalysis: null });
   const { toast } = useToast();
 
+  // Strategic prompts hook - must be declared before any conditional returns
+  const {
+    showAppleSignIn,
+    showUpgradePrompt,
+    hideAppleSignIn,
+    hideUpgradePrompt,
+    trackFeatureUsage,
+    trackAnalysis,
+    userProgress: strategicUserProgress
+  } = useStrategicPrompts();
+
+  // Initialize and restore progress
   useEffect(() => {
-    const initDevice = async () => {
+    const initializeAndRestore = async () => {
       try {
-        const info = await Device.getId();
-        setDeviceId(info.identifier);
+        // Initialize persistence manager
+        await persistenceManager.initialize();
+        
+        // Initialize engagement tracker
+        await engagementTracker.initialize();
+        
+        // Track onboarding start
+        engagementTracker.trackEvent('view', { page: 'onboarding_start' });
+        
+        // Restore progress from localStorage
+        const progress = await persistenceManager.getOnboardingProgress();
+        if (progress && !progress.completed && progress.currentStep > 0) {
+          console.log('🔄 Restoring onboarding progress from cache:', progress);
+          setCurrentStep(progress.currentStep - 1); // Adjust for 0-based index
+          setStepData(prev => ({ ...prev, ...progress.stepData }));
+          
+          // Track onboarding resume
+          engagementTracker.trackEvent('interaction', { 
+            type: 'onboarding_resume',
+            step: progress.currentStep 
+          });
+        }
+
+        // Also try to restore from Supabase for additional data
+        const deviceInfo = persistenceManager.getDeviceInfo();
+        if (deviceInfo?.deviceId) {
+          const { data: supabaseData, error } = await supabase
+            .from('temp_onboard_users')
+            .select('*')
+            .eq('device_id', deviceInfo.deviceId)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Error restoring from Supabase:', error);
+            return;
+          }
+
+          if (supabaseData && supabaseData.onboarding_step) {
+            console.log('🔄 Restoring onboarding progress from Supabase:', supabaseData);
+            
+            // Only update if Supabase has more recent data
+            if (supabaseData.onboarding_step > progress?.currentStep || 0) {
+              setCurrentStep(supabaseData.onboarding_step - 1); // Adjust for 0-based index
+            }
+            
+            // Restore all saved data
+            const restoredData: Partial<OnboardingData> = {};
+            if (supabaseData.heard_about) restoredData.heard_about = supabaseData.heard_about;
+            if (supabaseData.age_range) restoredData.age_range = supabaseData.age_range;
+            if (supabaseData.gender) restoredData.gender = supabaseData.gender;
+            if (supabaseData.style_goal) restoredData.style_goal = supabaseData.style_goal;
+            if (supabaseData.clothing_category) restoredData.clothing_category = supabaseData.clothing_category;
+            if (supabaseData.budget) restoredData.budget = supabaseData.budget;
+            if (supabaseData.favorite_brands) restoredData.favorite_brands = supabaseData.favorite_brands;
+            if (supabaseData.color_preference) restoredData.color_preference = supabaseData.color_preference;
+            if (supabaseData.occasions) restoredData.occasions = supabaseData.occasions;
+            if (supabaseData.selfie_url) restoredData.selfie_url = supabaseData.selfie_url;
+            if (supabaseData.weekly_reports !== undefined) restoredData.weekly_reports = supabaseData.weekly_reports;
+            if (supabaseData.instant_suggestions !== undefined) restoredData.instant_suggestions = supabaseData.instant_suggestions;
+            if (supabaseData.color_palette) restoredData.color_palette = supabaseData.color_palette;
+            if (supabaseData.shop_frequency) restoredData.shop_frequency = supabaseData.shop_frequency;
+            
+            setStepData(prev => ({ ...prev, ...restoredData }));
+          }
+        }
       } catch (error) {
-        console.error('Failed to get device ID:', error);
-        setDeviceId('web-fallback-' + Date.now());
+        console.error('Error restoring progress:', error);
       }
     };
-    initDevice();
+
+    initializeAndRestore();
   }, []);
 
   const saveProgress = async (stepData: Partial<OnboardingData>) => {
-    if (!deviceId) return;
-
-    setIsLoading(true);
+    setIsSaving(true);
+    setError(null);
     try {
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      if (!deviceInfo?.deviceId) {
+        console.error('No device ID available for saving progress');
+        return;
+      }
+
       const updateData = {
-        device_id: deviceId,
+        device_id: deviceInfo.deviceId,
         onboarding_step: currentStep + 1,
-        ...stepData
+        ...stepData,
+        ...(currentStep === TOTAL_STEPS - 1 && { completed: true })
       };
 
+      // Save to Supabase
       const { error } = await supabase
         .from('temp_onboard_users')
         .upsert(updateData, { onConflict: 'device_id' });
 
       if (error) throw error;
 
-      setData(prev => ({ ...prev, ...stepData }));
+      // Update local state
+      setStepData(prev => ({ ...prev, ...stepData }));
+
+      // Save to persistence manager
+      await persistenceManager.saveOnboardingProgress({
+        currentStep: currentStep + 1,
+        stepData,
+        completed: currentStep === TOTAL_STEPS - 1
+      });
+
+      console.log('✅ Onboarding progress saved:', updateData);
     } catch (error) {
       console.error('Error saving progress:', error);
       toast({
@@ -94,12 +195,18 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
   const handleNext = async () => {
     let stepData: Partial<OnboardingData> = {};
+
+    // Track step completion
+    engagementTracker.trackConversion('onboarding', `step_${currentStep + 1}_complete`, {
+      step: currentStep + 1,
+      stepName: getStepName(currentStep + 1)
+    });
 
     // Save current step data
     switch (currentStep) {
@@ -124,7 +231,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         stepData = { budget: selectedOption };
         break;
       case 7: // Favorite brands
-        stepData = { favorite_brands: multiSelect };
+        stepData = { favorite_brands: textInput.split(',').map(b => b.trim()).filter(Boolean) };
         break;
       case 8: // Color preference
         stepData = { color_preference: selectedOption };
@@ -132,10 +239,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       case 9: // Occasions
         stepData = { occasions: multiSelect };
         break;
-      case 10: // Selfie upload - handled separately
+      case 10: // Test photo upload - show results instead of continuing
+        setShowResults(true);
         return;
-      case 10.5: // Analysis results - skip data saving, just continue
-        break;
       case 11: // Weekly reports
         stepData = { weekly_reports: selectedOption === 'Yes' };
         break;
@@ -145,11 +251,9 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       case 13: // Color palette
         stepData = { color_palette: selectedOption };
         break;
-      case 14: // Shop frequency
+      case 14: // Shop frequency - save data first, then show paywall
         stepData = { shop_frequency: selectedOption };
-        break;
-      case 15: // Final confirmation - show paywall
-        console.log('🎯 ModernOnboarding: Triggering paywall from step 15');
+        await saveProgress(stepData);
         setShowPaywall(true);
         return;
     }
@@ -166,20 +270,70 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
+  const getStepName = (step: number): string => {
+    const stepNames = [
+      'welcome',
+      'heard_about',
+      'age_range',
+      'gender',
+      'style_goal',
+      'clothing_category',
+      'budget',
+      'favorite_brands',
+      'color_preference',
+      'occasions',
+      'photo_upload',
+      'weekly_reports',
+      'instant_suggestions',
+      'color_palette',
+      'shop_frequency'
+    ];
+    return stepNames[step - 1] || 'unknown';
+  };
+
   const handleImageUpload = async () => {
     if (!selectedImage) return;
 
     setIsAnalyzing(true);
     try {
-      const analysisResult = await analyzeStyle(selectedImage, true); // true for onboarding
-      setAnalysisResults(analysisResult);
-      setData(prev => ({ ...prev, selfie_url: analysisResult.imageUrl }));
-      await saveProgress({ selfie_url: analysisResult.imageUrl });
+      // Track feature usage
+      trackFeatureUsage('photo_upload');
       
-      // Go to analysis results step instead of next step
-      setCurrentStep(10.5);
+      // Track analysis start
+      engagementTracker.trackEvent('interaction', { 
+        type: 'analysis_start',
+        step: currentStep + 1
+      });
+      
+      // Use the actual image analysis from ScanView
+      const { analyzeStyle } = await import('@/utils/imageAnalysis');
+      
+      console.log('Starting onboarding image analysis...');
+      const analysisResult = await analyzeStyle(selectedImage, true); // Set isOnboarding to true
+      console.log('Onboarding analysis result received:', analysisResult);
+      
+      // Store the full analysis result for the ModernRatingsDisplay
+      setAnalysisResults({
+        fullAnalysis: analysisResult
+      });
+      
+      setShowResults(true);
+      
+      // Track analysis completion
+      trackAnalysis();
+      engagementTracker.trackConversion('analysis', 'onboarding_analysis_complete', {
+        step: currentStep + 1,
+        hasResults: true
+      });
     } catch (error) {
       console.error('Error analyzing image:', error);
+      
+      // Track analysis error
+      engagementTracker.trackError('analysis_failed', {
+        step: currentStep + 1,
+        error: error.message
+      });
+      
       toast({
         title: "Analysis Failed",
         description: "Failed to analyze your photo. Please try again.",
@@ -190,33 +344,164 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     }
   };
 
-  const handlePaywallComplete = async () => {
-    // Payment completed - user account created in RevenueCat manager
-    console.log('🎯 Payment completed, redirecting to dashboard...');
-    toast({
-      title: "Welcome to Dripify! 🎉",
-      description: "Your premium account is now active!",
-    });
+  const handleContinueFromResults = async () => {
+    setShowResults(false);
+    await saveProgress({ selfie_url: 'uploaded' });
+    setCurrentStep(prev => prev + 1);
+  };
+
+  const handlePaywallComplete = (purchased: boolean) => {
+    setShowPaywall(false);
+    // Mark onboarding as completed
+    markOnboardingComplete();
     onComplete();
   };
+
+  const markOnboardingComplete = async () => {
+    try {
+      // Mark temp onboarding as complete for guest users
+      const deviceInfo = persistenceManager.getDeviceInfo();
+      if (deviceInfo?.deviceId) {
+        await supabase
+          .from('temp_onboard_users')
+          .update({ 
+            completed: true,
+            onboarding_step: TOTAL_STEPS,
+            completed_at: new Date().toISOString()
+          })
+          .eq('device_id', deviceInfo.deviceId);
+        
+        console.log('✅ Guest onboarding marked complete for device:', deviceInfo.deviceId);
+      }
+
+      // If user is authenticated, also mark in profiles table
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        await supabase
+          .from('profiles')
+          .update({ 
+            onboarding_completed: true,
+            onboarding_completed_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+        
+        console.log('✅ Authenticated user onboarding marked complete:', user.id);
+      }
+      
+              // Cache onboarding completion in localStorage
+        try {
+          await persistenceManager.saveOnboardingProgress({
+            completed: true
+          });
+          console.log('✅ Onboarding completion cached in localStorage');
+        } catch (error) {
+          console.error('Error caching onboarding completion:', error);
+        }
+    } catch (error) {
+      console.error('Error marking onboarding complete:', error);
+    }
+  };
+
+  if (onboardingLoading || isSaving) return <StyleLoadingOverlay isAnalyzing={true} />;
+  if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
 
   if (isAnalyzing) {
     return <StyleLoadingOverlay isAnalyzing={isAnalyzing} />;
   }
 
+  if (showResults) {
+    return (
+      <motion.div
+        key="results"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -30 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="min-h-screen bg-gradient-to-b from-purple-900/40 via-purple-800/20 to-black flex flex-col justify-center items-center px-6 py-8 relative overflow-hidden"
+      >
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(255,255,255,0.1) 2px, rgba(255,255,255,0.1) 4px)`,
+          }} />
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 w-full max-w-md space-y-6">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="text-center"
+          >
+            <motion.div
+              animate={{ 
+                rotate: [0, 10, -10, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="mb-6"
+            >
+              <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
+            </motion.div>
+            
+            <h2 className="text-3xl font-bold text-white mb-4">Your Style Analysis</h2>
+            <p className="text-white/70 text-base">
+              Here's what our AI discovered about your style
+            </p>
+          </motion.div>
+
+          {/* Modern Ratings Display - Same as ScanView */}
+          {analysisResults.fullAnalysis && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              <ModernRatingsDisplay
+                overallScore={analysisResults.fullAnalysis.overallScore}
+                profileImage={analysisResults.fullAnalysis.imageUrl}
+                breakdown={analysisResults.fullAnalysis.breakdown || []}
+                isOnboarding={true}
+              />
+            </motion.div>
+          )}
+
+          {/* Continue Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <Button
+              onClick={handleContinueFromResults}
+              className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
+            >
+              <Sparkles className="mr-3 h-5 w-5" />
+              Continue to Premium
+            </Button>
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
   if (showPaywall) {
-    console.log('🎯 ModernOnboarding: Rendering PaywallStep, showPaywall =', showPaywall);
     return (
       <PaywallStep
-        onPurchase={handlePaywallComplete}
-        onContinueFree={() => {}} // No free option - disabled
+        onPurchase={() => handlePaywallComplete(true)}
       />
     );
   }
 
   const renderStep = () => {
     const stepProps = {
-      isLoading,
+      isLoading: isSaving,
       currentStep: currentStep + 1,
       totalSteps: TOTAL_STEPS
     };
@@ -424,34 +709,15 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
             title="Name your top 3 favorite brands"
             subtitle="Separate with commas"
             onNext={handleNext}
-            nextButtonDisabled={multiSelect.length === 0}
+            nextButtonDisabled={!textInput.trim()}
             {...stepProps}
           >
-            <div className="space-y-3">
-              {[
-                'Nike',
-                'Zara',
-                'H&M',
-                'Adidas',
-                'Gucci',
-                'Prada',
-                'Louis Vuitton',
-                'Chanel'
-              ].map((brand) => (
-                <OnboardingOption
-                  key={brand}
-                  title={brand}
-                  selected={multiSelect.includes(brand)}
-                  onClick={() => {
-                    if (multiSelect.includes(brand)) {
-                      setMultiSelect(prev => prev.filter(item => item !== brand));
-                    } else {
-                      setMultiSelect(prev => [...prev, brand]);
-                    }
-                  }}
-                />
-              ))}
-            </div>
+            <Input
+              placeholder="e.g., Nike, Zara, H&M"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              className="w-full h-12 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+            />
           </OnboardingStep>
         );
 
@@ -575,58 +841,6 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
           </motion.div>
         );
 
-      case 10.5: // Analysis Results Step
-        return (
-          <motion.div
-            key="analysis-results"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex flex-col overflow-y-auto"
-          >
-            <div className="flex-1 flex flex-col justify-center items-center px-6 py-8">
-              {analysisResults && (
-                <div className="w-full max-w-2xl mx-auto space-y-6">
-                  {/* Modern Ratings Display */}
-                  <ModernRatingsDisplay
-                    overallScore={analysisResults.overallScore}
-                    profileImage={analysisResults.imageUrl}
-                    breakdown={analysisResults.breakdown || []}
-                    isOnboarding={true}
-                  />
-
-                  {/* Tips Section */}
-                  {analysisResults.tips && analysisResults.tips.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3, duration: 0.5 }}
-                      className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 border border-white/10"
-                    >
-                      <StyleTips tips={analysisResults.tips} />
-                    </motion.div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
-              className="px-6 pb-8"
-            >
-              <Button
-                onClick={handleNext}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
-              >
-                Continue
-              </Button>
-            </motion.div>
-          </motion.div>
-        );
-
       case 11:
         return (
           <OnboardingStep
@@ -721,46 +935,50 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
           </OnboardingStep>
         );
 
-      case 15:
-        return (
-          <OnboardingStep
-            title="Perfect! You're all set"
-            subtitle="Time to unlock your style potential"
-            onNext={handleNext}
-            nextButtonText="Continue"
-            {...stepProps}
-          >
-            <div className="text-center">
-              <motion.div
-                animate={{ 
-                  rotate: [0, 360],
-                  scale: [1, 1.2, 1]
-                }}
-                transition={{ 
-                  duration: 3, 
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                className="mb-6"
-              >
-                <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
-              </motion.div>
-              <p className="text-white/70 text-lg">
-                Ready to see your personalized style recommendations?
-              </p>
-            </div>
-          </OnboardingStep>
-        );
-
       default:
         return null;
     }
   };
 
+  const appleSignInTrigger = strategicUserProgress.isPro;
+  const upgradePromptTrigger = strategicUserProgress.isPro;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black">
       <AnimatePresence mode="wait">
         {renderStep()}
+      </AnimatePresence>
+      
+      {/* Strategic Prompts */}
+      <AnimatePresence>
+        {/* Apple Sign-in Prompt */}
+        {showAppleSignIn && appleSignInTrigger && (
+          <AppleSignIn
+            trigger={appleSignInTrigger}
+            userProgress={strategicUserProgress}
+            onSuccess={(user) => {
+              hideAppleSignIn();
+              toast({
+                title: "Welcome!",
+                description: "Your progress has been saved securely.",
+              });
+            }}
+            onCancel={hideAppleSignIn}
+          />
+        )}
+        
+        {/* Upgrade Prompt */}
+        {showUpgradePrompt && upgradePromptTrigger && (
+          <StrategicUpgradePrompt
+            trigger={upgradePromptTrigger}
+            userContext={strategicUserProgress}
+            onUpgrade={() => {
+              hideUpgradePrompt();
+              // Continue with onboarding or show success
+            }}
+            onSkip={hideUpgradePrompt}
+          />
+        )}
       </AnimatePresence>
     </div>
   );

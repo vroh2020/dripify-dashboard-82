@@ -202,9 +202,10 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
         };
         input.click();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('📷 Camera error:', error);
-      if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage?.includes('User cancelled') || errorMessage?.includes('cancelled')) {
         console.log('👤 User cancelled camera');
         // User cancelled, don't show error
       } else {
@@ -274,13 +275,14 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
         };
         input.click();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('📷 Gallery error:', error);
-      if (error.message?.includes('User cancelled') || error.message?.includes('cancelled')) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage?.includes('User cancelled') || errorMessage?.includes('cancelled')) {
         console.log('👤 User cancelled photo selection');
         // User cancelled, don't show error
       } else {
-        setError(`Photo selection error: ${error.message || 'Please try again.'}`);
+        setError(`Photo selection error: ${errorMessage || 'Please try again.'}`);
       }
     } finally {
       setIsProcessing(false);
