@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Crown, Check, Star, Zap, Sparkles } from "lucide-react";
+import { Crown, Check, Star, Zap, Sparkles, RefreshCw } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
 
@@ -9,19 +9,44 @@ interface PaywallStepProps {
 }
 
 export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
-  const { purchaseProduct, offerings, isLoading } = useRevenueCat();
+  const { purchaseProduct, offerings, isLoading, initializationError } = useRevenueCat();
   const { toast } = useToast();
 
   const handlePurchase = async () => {
+    // Enhanced debugging
+    console.log('🛒 PaywallStep: Purchase attempt started');
+    console.log('🛒 Offerings available:', offerings?.length || 0);
+    console.log('🛒 Initialization error:', initializationError);
+    console.log('🛒 Offerings data:', offerings?.map(o => ({
+      id: o.identifier,
+      packages: o.availablePackages?.length || 0
+    })));
+
     const product = offerings?.[0]?.availablePackages?.[0]?.product;
+    
     if (!product) {
+      console.error('🛒 PaywallStep: No product found in offerings');
+      console.error('🛒 Debug info:', {
+        offeringsCount: offerings?.length || 0,
+        firstOfferingPackages: offerings?.[0]?.availablePackages?.length || 0,
+        isLoading,
+        initializationError
+      });
+      
       toast({
-        title: "Product Error",
-        description: "Subscription product not found. Please try again.",
+        title: "Loading Subscription Options...",
+        description: initializationError 
+          ? "Subscription service is temporarily unavailable. Please check your internet connection and try again."
+          : offerings?.length === 0 
+            ? "Please wait while we load subscription options. If this persists, check your internet connection."
+            : "Subscription configuration issue. Please try again or contact support.",
         variant: "destructive"
       });
       return;
     }
+
+    console.log('🛒 PaywallStep: Attempting purchase for product:', product.identifier);
+    
     try {
       const success = await purchaseProduct(product.identifier);
       if (success) {
@@ -37,6 +62,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         });
       }
     } catch (error) {
+      console.error('🛒 PaywallStep: Purchase error:', error);
       toast({
         title: "Purchase Failed",
         description: "Something went wrong. Please try again.",
@@ -44,6 +70,76 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       });
     }
   };
+
+  const handleRefresh = () => {
+    console.log('🛒 PaywallStep: Refresh requested');
+    window.location.reload();
+  };
+
+  // Show loading state while offerings are being fetched
+  if (isLoading) {
+    return (
+      <motion.div
+        key="paywall-loading"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800 flex items-center justify-center p-6"
+      >
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <h3 className="text-xl font-semibold mb-2">Loading Subscription Options...</h3>
+          <p className="text-purple-200">Please wait while we prepare your premium experience</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Show error state if no offerings are available or there's an initialization error
+  if (!offerings || offerings.length === 0 || initializationError) {
+    return (
+      <motion.div
+        key="paywall-error"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800 flex items-center justify-center p-6"
+      >
+        <div className="max-w-md w-full text-center text-white">
+          <Crown className="h-16 w-16 text-yellow-400 mx-auto mb-6" />
+          <h3 className="text-2xl font-bold mb-4">
+            {initializationError ? "Connection Issue" : "Subscription Setup"}
+          </h3>
+          <p className="text-purple-200 mb-6">
+            {initializationError 
+              ? "We're having trouble connecting to our subscription service. Please check your internet connection."
+              : "We're setting up your subscription options. This usually takes just a moment."
+            }
+          </p>
+          <div className="space-y-3">
+            <Button 
+              onClick={handleRefresh}
+              className="w-full bg-white text-purple-900 hover:bg-purple-100 font-semibold py-3"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+            <Button 
+              onClick={onPurchase}
+              variant="outline"
+              className="w-full border-white text-white hover:bg-white hover:text-purple-900"
+            >
+              Continue Without Premium
+            </Button>
+          </div>
+          <p className="text-xs text-purple-300 mt-4">
+            {initializationError 
+              ? "Error: Subscription service unavailable"
+              : "Having trouble? Make sure you're connected to the internet."
+            }
+          </p>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

@@ -8,7 +8,8 @@ export const useRevenueCat = () => {
     subscription,
     offerings,
     purchaseProduct: managerPurchase,
-    restorePurchases: managerRestore
+    restorePurchases: managerRestore,
+    initializationError
   } = useRevenueCatManager();
   
   const { toast } = useToast();
@@ -19,6 +20,9 @@ export const useRevenueCat = () => {
     
     setIsPurchasing(true);
     try {
+      console.log('🛒 useRevenueCat: Looking for product:', productId);
+      console.log('🛒 Available offerings:', offerings?.length || 0);
+      
       // Find the product object from offerings using the productId
       const product = offerings
         ?.flatMap(offering => offering.availablePackages)
@@ -26,15 +30,36 @@ export const useRevenueCat = () => {
         ?.product;
       
       if (!product) {
-        console.error(`Product not found with ID: ${productId}`);
-        toast({
-          title: "Product Error",
-          description: "Product not available for purchase.",
-          variant: "destructive"
-        });
+        console.error(`🛒 useRevenueCat: Product not found with ID: ${productId}`);
+        console.error('🛒 Available products:', offerings
+          ?.flatMap(offering => offering.availablePackages)
+          ?.map(pkg => pkg.product.identifier)
+        );
+        
+        // Show more specific error based on the issue
+        if (initializationError) {
+          toast({
+            title: "Subscription Service Unavailable",
+            description: "We're having trouble connecting to our subscription service. Please check your internet connection and try again.",
+            variant: "destructive"
+          });
+        } else if (!offerings || offerings.length === 0) {
+          toast({
+            title: "Loading Subscription Options",
+            description: "Still loading subscription options. Please wait a moment and try again.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Product Configuration Error",
+            description: "Product not available for purchase. Please contact support if this persists.",
+            variant: "destructive"
+          });
+        }
         return false;
       }
       
+      console.log('🛒 useRevenueCat: Purchasing product:', product.identifier);
       const result = await managerPurchase(product); // Pass the full product object
       if (result) {
         toast({
@@ -49,7 +74,7 @@ export const useRevenueCat = () => {
     } finally {
       setIsPurchasing(false);
     }
-  }, [managerPurchase, isPurchasing, toast, offerings]);
+  }, [managerPurchase, isPurchasing, toast, offerings, initializationError]);
 
   const restorePurchases = useCallback(async () => {
     if (isPurchasing) return false;
@@ -71,6 +96,7 @@ export const useRevenueCat = () => {
     subscription,
     offerings,
     purchaseProduct,
-    restorePurchases
+    restorePurchases,
+    initializationError
   };
 };
