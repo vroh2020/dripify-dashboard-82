@@ -10,42 +10,33 @@ interface StyleLoadingOverlayProps {
 }
 
 const loadingMessages = [
-  { text: "Scanning for cuffed jeans violations… 👖", emoji: "👖" },
-  { text: "Checking for excessive H&M energy… 🕵🏽‍♂️", emoji: "🕵️" },
-  { text: "Consulting with the fashion gods 👼🏾", emoji: "✨" },
-  { text: "Measuring drip levels… Might need goggles 😎", emoji: "💧" },
-  { text: "If this outfit talks back, we're running 😳", emoji: "🏃" },
-  { text: "Assembling roast or praise… 🔥", emoji: "📝" },
-  { text: "Calculating fashion-forward coefficient… 📊", emoji: "📈" },
-  { text: "Analyzing color coordination… 🎨", emoji: "🌈" },
-  { text: "Checking if those shoes still in season… 👞", emoji: "👠" },
-  { text: "Comparing to last season's lookbook… 📚", emoji: "📖" },
-  { text: "Ranking outfit on the drip scale… 💦", emoji: "🌊" },
+  { emoji: "👁️", text: "Analyzing your outfit..." },
+  { emoji: "🧠", text: "AI is thinking..." },
+  { emoji: "🎨", text: "Checking color harmony..." },
+  { emoji: "👗", text: "Evaluating style elements..." },
+  { emoji: "✨", text: "Creating your style profile..." },
+  { emoji: "📊", text: "Calculating your drip score..." }
 ];
 
 const dripFacts = [
-  "The term 'drip' originated in Atlanta's hip-hop scene in the early 2010s",
-  "The average person will spend over $275,000 on clothes in their lifetime",
-  "Blue jeans were invented in 1871 by Jacob Davis and Levi Strauss",
-  "The concept of 'fashion seasons' dates back to Charles Frederick Worth in the 1860s",
-  "The Nike swoosh logo was designed for just $35 in 1971",
-  "The fashion industry is responsible for 10% of global carbon emissions",
-  "Coco Chanel introduced the 'little black dress' in the 1920s",
-  "The first fashion magazine was published in Germany in 1586",
-  "High heels were originally worn by men in the 17th century",
-  "The world's most expensive pair of shoes cost $17 million",
+  "The color wheel was invented in 1666 by Sir Isaac Newton",
+  "Wearing red can actually make you more confident",
+  "The 'rule of three' suggests limiting outfits to 3 colors max",
+  "Your personal style should reflect your personality",
+  "Good fit is more important than expensive brands"
 ];
 
 export const StyleLoadingOverlay = ({ 
   isAnalyzing, 
   onTimeout, 
-  timeoutDuration = 90000 
+  timeoutDuration = 60000  // Reduced from 90s to 60s
 }: StyleLoadingOverlayProps) => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [showDripFact, setShowDripFact] = useState(false);
   const [dripFactIndex, setDripFactIndex] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [hasTimedOut, setHasTimedOut] = useState(false);
 
   // Message rotation
   useEffect(() => {
@@ -53,40 +44,56 @@ export const StyleLoadingOverlay = ({
     
     const messageInterval = setInterval(() => {
       setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-    }, 5000);
+    }, 4000); // Faster rotation for better UX
     
     return () => clearInterval(messageInterval);
   }, [isAnalyzing]);
 
-  // Progress bar simulation
+  // Progress bar simulation and timeout handling
   useEffect(() => {
     if (!isAnalyzing) return;
     
-    // Show drip fact around halfway
-    const dripFactTimer = setTimeout(() => {
-      setDripFactIndex(Math.floor(Math.random() * dripFacts.length));
-      setShowDripFact(true);
-      setTimeout(() => setShowDripFact(false), 8000);
-    }, 30000);
+    let progressInterval: NodeJS.Timeout;
+    let timeoutTimer: NodeJS.Timeout;
+    let dripFactTimer: NodeJS.Timeout;
+
+    // Show drip fact after 20 seconds instead of 30
+    dripFactTimer = setTimeout(() => {
+      if (isAnalyzing && !hasTimedOut) {
+        setDripFactIndex(Math.floor(Math.random() * dripFacts.length));
+        setShowDripFact(true);
+        setTimeout(() => setShowDripFact(false), 6000); // Show for 6 seconds
+      }
+    }, 20000);
     
-    // Progress bar update
-    const progressInterval = setInterval(() => {
+    // Progress bar update - more realistic progression
+    progressInterval = setInterval(() => {
       setProgress((prev) => {
-        // Cap at 95% to show it's still "thinking"
-        if (prev < 95) {
-          // Make progress faster at first, then slower 
-          const increment = prev < 60 ? 0.8 : 0.3;
-          return prev + increment;
+        if (prev < 90) {
+          // Faster initial progress, then slower
+          const increment = prev < 30 ? 1.2 : prev < 60 ? 0.8 : 0.3;
+          return Math.min(prev + increment, 90);
         }
         return prev;
       });
       
-      setTimeElapsed((prev) => prev + 100);
-    }, 100);
+      setTimeElapsed((prev) => prev + 200);
+    }, 200);
     
-    // Timeout handling
-    const timeoutTimer = setTimeout(() => {
-      if (onTimeout) onTimeout();
+    // Timeout handling with user feedback
+    timeoutTimer = setTimeout(() => {
+      if (isAnalyzing && !hasTimedOut) {
+        console.warn('⚠️ StyleLoadingOverlay timeout reached');
+        setHasTimedOut(true);
+        setProgress(100);
+        
+        // Give user a moment to see completion before calling timeout
+        setTimeout(() => {
+          if (onTimeout) {
+            onTimeout();
+          }
+        }, 1500);
+      }
     }, timeoutDuration);
     
     return () => {
@@ -94,14 +101,16 @@ export const StyleLoadingOverlay = ({
       clearTimeout(timeoutTimer);
       clearTimeout(dripFactTimer);
     };
-  }, [isAnalyzing, onTimeout, timeoutDuration]);
+  }, [isAnalyzing, onTimeout, timeoutDuration, hasTimedOut]);
 
-  // Reset when analysis stops
+  // Reset state when analysis stops
   useEffect(() => {
     if (!isAnalyzing) {
       setProgress(0);
       setTimeElapsed(0);
       setShowDripFact(false);
+      setHasTimedOut(false);
+      setCurrentMessageIndex(0);
     }
   }, [isAnalyzing]);
 
@@ -112,7 +121,7 @@ export const StyleLoadingOverlay = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-lg"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-lg"
     >
       <div className="w-full max-w-md p-8 space-y-8 text-center">
         {/* Drip loading animation */}
@@ -131,65 +140,91 @@ export const StyleLoadingOverlay = ({
                 "radial-gradient(circle, rgba(155,135,245,0.4) 0%, rgba(155,135,245,0) 50%)"
               ]
             }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
           />
         </div>
         
-        {/* Loading messages */}
-        <div className="h-24 flex items-center justify-center">
+        {/* Loading messages with timeout handling */}
+        <div className="min-h-[80px] flex items-center justify-center">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={currentMessageIndex}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.5 }}
-              className="flex flex-col items-center"
-            >
-              <span className="text-2xl mb-2">{loadingMessages[currentMessageIndex].emoji}</span>
-              <p className="text-lg font-medium text-white">{loadingMessages[currentMessageIndex].text}</p>
-            </motion.div>
+            {hasTimedOut ? (
+              <motion.div
+                key="timeout"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.5 }}
+                className="flex flex-col items-center"
+              >
+                <span className="text-2xl mb-2">⏰</span>
+                <p className="text-lg font-medium text-white">Analysis complete!</p>
+                <p className="text-sm text-white/60 mt-1">Processing results...</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={currentMessageIndex}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.5 }}
+                className="flex flex-col items-center"
+              >
+                <span className="text-2xl mb-2">{loadingMessages[currentMessageIndex].emoji}</span>
+                <p className="text-lg font-medium text-white">{loadingMessages[currentMessageIndex].text}</p>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
         
-        {/* Heat meter */}
+        {/* Progress bar with enhanced styling */}
         <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
           <motion.div 
-            className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-            style={{ width: `${progress}%` }}
-            animate={{ boxShadow: ["0 0 10px #9b87f5", "0 0 20px #9b87f5", "0 0 10px #9b87f5"] }}
+            className={`h-full rounded-full transition-all duration-300 ${
+              hasTimedOut 
+                ? 'bg-gradient-to-r from-green-500 to-green-400' 
+                : 'bg-gradient-to-r from-purple-500 to-pink-500'
+            }`}
+            style={{ width: `${Math.min(progress, 100)}%` }}
+            animate={{ 
+              boxShadow: hasTimedOut 
+                ? ["0 0 10px #10b981", "0 0 20px #10b981", "0 0 10px #10b981"]
+                : ["0 0 10px #9b87f5", "0 0 20px #9b87f5", "0 0 10px #9b87f5"] 
+            }}
             transition={{ duration: 1.5, repeat: Infinity }}
           />
         </div>
+        
         <div className="flex justify-between text-xs text-gray-400">
-          <span>AI style analysis...</span>
-          <span>{Math.min(Math.round(progress), 99)}%</span>
+          <span>{hasTimedOut ? 'Finalizing...' : 'AI style analysis...'}</span>
+          <span>{Math.min(Math.round(progress), 100)}%</span>
         </div>
         
-        {/* Drip fact */}
+        {/* Drip fact with improved timing */}
         <AnimatePresence>
-          {showDripFact && (
+          {showDripFact && !hasTimedOut && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               className="mt-6 p-4 rounded-lg bg-[#1A1F2C]/80 border border-[#403E43]"
             >
-              <h4 className="text-sm font-bold text-[#9b87f5] mb-2">✨ DRIP FACT ✨</h4>
+              <h4 className="text-sm font-bold text-[#9b87f5] mb-2">✨ STYLE TIP ✨</h4>
               <p className="text-sm text-white/80">{dripFacts[dripFactIndex]}</p>
             </motion.div>
           )}
         </AnimatePresence>
         
-        {/* Timeout warning */}
-        {timeElapsed > 80000 && (
-          <motion.p 
+        {/* Emergency timeout info */}
+        {timeElapsed > 45000 && !hasTimedOut && (
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-amber-400 text-sm mt-4"
+            className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20"
           >
-            This is taking longer than usual. Hang tight...
-          </motion.p>
+            <p className="text-xs text-orange-200">
+              Taking longer than usual? Don't worry, our AI is working hard on your analysis!
+            </p>
+          </motion.div>
         )}
       </div>
     </motion.div>

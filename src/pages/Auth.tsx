@@ -1,7 +1,7 @@
-import { ModernOnboarding } from "@/components/onboarding/ModernOnboarding";
+import { SimpleOnboarding } from "@/components/onboarding/SimpleOnboarding";
 
 export const Auth = () => {
-  return <ModernOnboarding onComplete={() => window.location.href = '/'} />;
+  return <SimpleOnboarding onComplete={() => window.location.href = '/dashboard'} />;
 };
 
 export default Auth;

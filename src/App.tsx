@@ -8,11 +8,9 @@ import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { useAuth } from "./hooks/useAuth";
-import { useOnboardingStatus } from "./hooks/useOnboardingStatus";
 import { useAppUrlHandler } from "./hooks/useAppUrlHandler";
 import { LoadingScreen } from "./components/LoadingScreen";
-import { DebugOverlay } from "./components/DebugOverlay";
-import { CalOnboarding } from "./components/onboarding/CalOnboarding";
+import { SimpleOnboarding } from "./components/onboarding/SimpleOnboarding";
 
 // Lazy load non-critical components
 const Index = lazy(() => {
@@ -49,132 +47,145 @@ const queryClient = new QueryClient({
 
 const AppRoutes = () => {
   const { isLoading: authLoading, isAuthenticated, user, error: authError } = useAuth();
-  const { isLoading: onboardingLoading, hasCompletedOnboarding, retryCount } = useOnboardingStatus();
-  const routingDecisionRef = useRef({
-    isAuthenticated: false,
-    hasCompletedOnboarding: false,
-    user: false,
-    authError: null,
-    retryCount: 0
-  });
-
-  // Add timeout protection for infinite loading
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (authLoading || onboardingLoading) {
-        console.warn('⚠️ App loading timeout - forcing state resolution');
-        console.log('Current state:', {
-          authLoading,
-          onboardingLoading,
-          isAuthenticated,
-          hasCompletedOnboarding,
-          user: !!user,
-          retryCount,
-          currentPath: window.location.pathname
-        });
-        
-        // Force navigation to auth if stuck
-        if (!isAuthenticated && !user) {
-          console.log('🔄 Force navigating to auth due to timeout');
-          window.location.href = '/auth';
-        } else if (isAuthenticated && user && !hasCompletedOnboarding) {
-          console.log('🔄 Force navigating to onboarding due to timeout');
-          window.location.href = '/onboarding';
-        }
-      }
-    }, 15000); // Increased from 10s to 15s
-
-    return () => clearTimeout(timeout);
-  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, user, retryCount]);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
 
   // Handle deep link auth callbacks
   useAppUrlHandler();
 
-  // Log routing decisions only when they change
+  // Check onboarding status
   useEffect(() => {
-    const newDecision = {
-      isAuthenticated,
-      hasCompletedOnboarding,
-      user: !!user,
-      authError,
-      retryCount
+    const checkOnboardingStatus = async () => {
+      setIsCheckingOnboarding(true);
+      
+      try {
+        // Check localStorage first for immediate response
+        const localOnboardingComplete = localStorage.getItem('onboarding_completed') === 'true';
+        
+        if (localOnboardingComplete) {
+          setHasCompletedOnboarding(true);
+          setIsCheckingOnboarding(false);
+          return;
+        }
+
+        // If user is authenticated, check Supabase
+        if (isAuthenticated && user?.id) {
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (!error && profile?.onboarding_completed) {
+            setHasCompletedOnboarding(true);
+            localStorage.setItem('onboarding_completed', 'true');
+          } else {
+            setHasCompletedOnboarding(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+        setHasCompletedOnboarding(false);
+      } finally {
+        setIsCheckingOnboarding(false);
+      }
     };
 
-    if (JSON.stringify(newDecision) !== JSON.stringify(routingDecisionRef.current)) {
-      console.log('🔍 App Routing Decision:', {
-        isAuthenticated,
-        hasCompletedOnboarding,
-        user: !!user,
-        authError,
-        retryCount,
-        userId: user?.id || 'NO_USER',
-        userEmail: user?.email || 'NO_EMAIL',
-        currentPath: window.location.pathname
-      });
-      routingDecisionRef.current = newDecision;
-    }
-  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]); // Fixed dependencies
+    checkOnboardingStatus();
+  }, [isAuthenticated, user?.id]);
 
-  // Memoize routes to prevent unnecessary re-renders
-  const protectedRoutes = (
-    <>
-      <Route 
-        path="/dashboard" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/scan" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading scanner..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/tips" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
-            <Index />
-          </Suspense>
-        } 
-      />
-      <Route 
-        path="/profile" 
-        element={
-          <Suspense fallback={<LoadingScreen message="Loading profile..." />}>
-            <Profile />
-          </Suspense>
-        } 
-      />
-    </>
-  );
+  // Add timeout protection for infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (authLoading || isCheckingOnboarding) {
+        console.warn('⚠️ App loading timeout - forcing state resolution');
+        console.log('Current state:', {
+          authLoading,
+          isCheckingOnboarding,
+          isAuthenticated,
+          hasCompletedOnboarding,
+          user: !!user,
+          currentPath: window.location.pathname
+        });
+        
+        // Force resolution
+        setIsCheckingOnboarding(false);
+      }
+    }, 10000); // 10 second timeout
 
-  // Add debugging for routing decisions
+    return () => clearTimeout(timeout);
+  }, [authLoading, isCheckingOnboarding, isAuthenticated, hasCompletedOnboarding, user]);
+
+  // Show loading while checking auth or onboarding
+  if (authLoading || isCheckingOnboarding) {
+    return <LoadingScreen message="Loading your style journey..." />;
+  }
+
+  // Show error state if auth failed
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-purple-900/20 to-black flex items-center justify-center p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Authentication Error</h1>
+          <p className="text-white/70 mb-6">{authError}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   console.log('🔍 Current routing state:', {
     isAuthenticated,
     hasCompletedOnboarding,
     user: !!user,
-    currentPath: window.location.pathname,
-    shouldShowDashboard: isAuthenticated && user && hasCompletedOnboarding,
-    shouldShowOnboarding: isAuthenticated && user && !hasCompletedOnboarding
+    currentPath: window.location.pathname
   });
 
   return (
     <Routes>
-      {/* Onboarding always accessible if not completed */}
+      {/* Show onboarding if not completed */}
       {!hasCompletedOnboarding ? (
-        <Route path="/*" element={<CalOnboarding onComplete={() => window.location.reload()} />} />
+        <Route 
+          path="/*" 
+          element={
+            <SimpleOnboarding 
+              onComplete={() => {
+                setHasCompletedOnboarding(true);
+                localStorage.setItem('onboarding_completed', 'true');
+                window.location.href = '/dashboard';
+              }} 
+            />
+          } 
+        />
       ) : (
         <>
           {/* Main app routes after onboarding */}
-          <Route path="/dashboard" element={<Index />} />
-          <Route path="/scan" element={<Index />} />
-          <Route path="/tips" element={<Index />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/dashboard" element={
+            <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
+              <Index />
+            </Suspense>
+          } />
+          <Route path="/scan" element={
+            <Suspense fallback={<LoadingScreen message="Loading scanner..." />}>
+              <Index />
+            </Suspense>
+          } />
+          <Route path="/tips" element={
+            <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
+              <Index />
+            </Suspense>
+          } />
+          <Route path="/profile" element={
+            <Suspense fallback={<LoadingScreen message="Loading profile..." />}>
+              <Profile />
+            </Suspense>
+          } />
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/*" element={<Auth />} />
           <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
@@ -188,64 +199,31 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  // Add global debug function
+  // Add debug functions for development
   useEffect(() => {
-    (window as any).debugAppState = async () => {
-      console.group('🔍 DEBUG: Current App State');
-      console.log('Current URL:', window.location.href);
-      console.log('Current Path:', window.location.pathname);
-      
-      // Get auth state
-      const authState = {
-        isAuthenticated: false,
-        user: null,
-        isLoading: false
-      };
-      
-      // Get onboarding state
-      const onboardingState = {
-        hasCompletedOnboarding: false,
-        isLoading: false,
-        retryCount: 0
-      };
-      
-      console.log('Auth State:', authState);
-      console.log('Onboarding State:', onboardingState);
-      
-      // Check if we're stuck in a loop
-      const performanceEntries = performance.getEntriesByType('measure');
-      const recentChecks = performanceEntries.filter(entry => 
-        entry.name.includes('Onboarding Status Check') && 
-        entry.startTime > performance.now() - 10000 // Last 10 seconds
-      );
-      
-      console.log('Recent Onboarding Checks (last 10s):', recentChecks.length);
-      
-      // Add database health check
-      try {
-        const { checkDatabaseHealth } = await import('./utils/databaseHealthCheck');
-        const health = await checkDatabaseHealth(authState.user?.id);
-        console.log('Database Health:', health);
-      } catch (error) {
-        console.log('Database health check failed:', error);
-      }
-      
-      console.groupEnd();
-    };
-    
-    (window as any).forceNavigateToDashboard = () => {
-      console.log('🔄 Force navigating to dashboard...');
-      window.location.href = '/dashboard';
-    };
-    
-    (window as any).checkRoutingState = () => {
-      console.log('🔍 Manual routing state check - use debugAppState() instead');
-    };
-    
+    // Reset onboarding function
     (window as any).resetOnboarding = () => {
       console.log('🔄 Resetting onboarding state...');
       localStorage.removeItem('onboarding_completed');
+      localStorage.removeItem('onboarding_data');
       window.location.reload();
+    };
+
+    // Force complete onboarding function
+    (window as any).completeOnboarding = () => {
+      console.log('✅ Force completing onboarding...');
+      localStorage.setItem('onboarding_completed', 'true');
+      window.location.href = '/dashboard';
+    };
+
+    // Debug current state
+    (window as any).debugOnboarding = () => {
+      console.log('🔍 Onboarding Debug Info:', {
+        localStorageComplete: localStorage.getItem('onboarding_completed'),
+        localStorageData: localStorage.getItem('onboarding_data'),
+        currentPath: window.location.pathname,
+        userAgent: navigator.userAgent
+      });
     };
   }, []);
 
@@ -263,7 +241,6 @@ const App = () => {
               }}
             >
               <AppRoutes />
-              {/* <DebugOverlay /> */}
             </BrowserRouter>
           </SubscriptionProvider>
         </AuthErrorBoundary>
