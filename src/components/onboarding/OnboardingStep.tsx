@@ -43,9 +43,14 @@ export const OnboardingStep: React.FC<OnboardingStepProps> = ({
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-white">{title}</h2>
             {subtitle && <p className="text-white/70">{subtitle}</p>}
-            {autoAdvance && (
+            {autoAdvance && !isLoading && (
               <p className="text-orange-400/80 text-sm">
                 Select an option to continue automatically
+              </p>
+            )}
+            {isLoading && autoAdvance && (
+              <p className="text-green-400/80 text-sm">
+                Advancing to next step...
               </p>
             )}
           </div>

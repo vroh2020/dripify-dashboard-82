@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { OnboardingStep } from './OnboardingStep';
@@ -60,6 +60,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [analysisResults, setAnalysisResults] = useState<{
     fullAnalysis: unknown | null;
   }>({ fullAnalysis: null });
+  const [isAutoAdvancing, setIsAutoAdvancing] = useState(false); // Prevent multiple auto-advances
+  const autoAdvanceTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track timeout for cleanup
   const { toast } = useToast();
 
   // Strategic prompts hook - simplified without Apple Sign-In
@@ -146,6 +148,16 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     initializeAndRestore();
   }, []);
 
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimeoutRef.current) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const saveProgress = async (stepData: Partial<OnboardingData>) => {
     setIsSaving(true);
     setError(null);
@@ -204,16 +216,48 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       return; // Don't auto-advance for multi-select
     }
     
+    // Prevent multiple auto-advances
+    if (isAutoAdvancing) {
+      return;
+    }
+    
+    // Clear any existing timeout
+    if (autoAdvanceTimeoutRef.current) {
+      clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
+    }
+    
     // Single select - set option and auto-advance after a brief delay
     setSelectedOption(value);
+    setIsAutoAdvancing(true);
     
     // Auto-advance after 800ms for better UX
-    setTimeout(async () => {
-      await handleNext();
+    autoAdvanceTimeoutRef.current = setTimeout(() => {
+      // Handle the async operation properly
+      handleNext()
+        .catch((error) => {
+          console.error('Auto-advance failed:', error);
+          toast({
+            title: "Navigation Error",
+            description: "Failed to advance to next step. Please try again.",
+            variant: "destructive",
+          });
+        })
+        .finally(() => {
+          setIsAutoAdvancing(false);
+          autoAdvanceTimeoutRef.current = null;
+        });
     }, 800);
   };
 
   const handleNext = async () => {
+    // Clear any pending auto-advance to prevent double navigation
+    if (autoAdvanceTimeoutRef.current) {
+      clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
+    }
+    setIsAutoAdvancing(false);
+
     let stepData: Partial<OnboardingData> = {};
 
     // Track step completion
@@ -279,6 +323,8 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
       setSelectedOption('');
       setTextInput('');
       setMultiSelect([]);
+      // Reset auto-advance state for new step
+      setIsAutoAdvancing(false);
     } else {
       onComplete();
     }
@@ -556,7 +602,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
     const manualSteps = [0, 7, 9, 10];
     
     const stepProps = {
-      isLoading: isSaving,
+      isLoading: isSaving || isAutoAdvancing,
       currentStep: currentStep + 1,
       totalSteps: TOTAL_STEPS,
       showNextButton: manualSteps.includes(currentStep),
