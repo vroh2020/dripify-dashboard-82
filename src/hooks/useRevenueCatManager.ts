@@ -324,6 +324,7 @@ export const useRevenueCatManager = () => {
       try {
         if (!Capacitor.isNativePlatform()) {
           // Web platform initialization
+          console.log('🎯 RevenueCat: Initializing web platform with mock offerings');
           const { data: profile } = await supabase
             .from('profiles')
             .select('subscription_status, subscription_expiry')
@@ -336,6 +337,28 @@ export const useRevenueCatManager = () => {
             productId: null,
             offeringId: 'web'
           });
+          
+          // Set mock offerings for web platform to ensure paywall can render
+          setOfferings([{
+            identifier: 'web-offering',
+            serverDescription: 'Web platform offering',
+            metadata: {},
+            availablePackages: [{
+              identifier: 'gs_1299_1m',
+              packageType: 'MONTHLY',
+              offeringIdentifier: 'web-offering',
+              product: {
+                identifier: 'gs_1299_1m',
+                description: 'Premium Monthly Subscription',
+                title: 'Premium Monthly',
+                price: 12.99,
+                priceString: '$12.99',
+                currencyCode: 'USD',
+                introPrice: null,
+                discounts: []
+              }
+            }]
+          } as any]);
           
           hasInitialized.current = true;
           return;
@@ -381,7 +404,10 @@ export const useRevenueCatManager = () => {
         hasInitialized.current = true;
 
         const offeringsData = await Purchases.getOfferings();
-        setOfferings(Object.values(offeringsData.all || {}));
+        console.log('🎯 RevenueCat: Fetched offerings:', offeringsData);
+        const allOfferings = Object.values(offeringsData.all || {});
+        console.log('🎯 RevenueCat: All offerings:', allOfferings);
+        setOfferings(allOfferings);
       } catch (error) {
         console.error('RevenueCat initialization failed:', error);
         setSubscription({

@@ -153,6 +153,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
         stepData = { shop_frequency: selectedOption };
         break;
       case 15: // Final confirmation - show paywall
+        console.log('🎯 ModernOnboarding: Triggering paywall from step 15');
         setShowPaywall(true);
         return;
     }
@@ -208,6 +209,7 @@ export const ModernOnboarding: React.FC<{ onComplete: () => void }> = ({ onCompl
   }
 
   if (showPaywall) {
+    console.log('🎯 ModernOnboarding: Rendering PaywallStep, showPaywall =', showPaywall);
     return (
       <PaywallStep
         onPurchase={() => handlePaywallComplete(true)}
