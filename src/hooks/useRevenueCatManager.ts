@@ -82,7 +82,8 @@ export const useRevenueCatManager = () => {
   }, [fetchSubscriptionStatus]);
 
   const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
-    if (!user) return false;
+    // In paywall-first approach, we create the user during purchase
+    console.log('🎯 RevenueCat: Starting purchase flow', { hasUser: !!user, productId: product.identifier });
 
     // Prevent rapid purchase attempts
     if (lastPurchaseAttempt.current) {
@@ -97,9 +98,31 @@ export const useRevenueCatManager = () => {
       try {
         setIsLoading(true);
         
+        // Get device ID to fetch onboarding data
+        const { Device } = await import('@capacitor/device');
+        const deviceInfo = await Device.getId();
+        const deviceId = deviceInfo.identifier;
+        
+        // Get onboarding data from temp_onboard_users
+        const { data: tempData, error: tempError } = await supabase
+          .from('temp_onboard_users')
+          .select('*')
+          .eq('device_id', deviceId)
+          .single();
+
+        if (tempError) {
+          console.error('Error fetching onboarding data:', tempError);
+          toast({
+            title: "Error",
+            description: "Could not find your onboarding data. Please complete onboarding first.",
+            variant: "destructive"
+          });
+          return false;
+        }
+        
         // Show payment confirmation dialog
         const confirmed = window.confirm(
-          'This is a web demo. In production, this would open a payment flow. Would you like to simulate a successful payment?'
+          'This will create your premium account and process payment. Continue?'
         );
         
         if (!confirmed) {
@@ -111,31 +134,88 @@ export const useRevenueCatManager = () => {
         }
         
         // Simulate payment processing
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Create user account with email (in production, this would be from payment provider)
+        const email = `user-${deviceId}@dripify.app`; // Temporary email
+        const password = Math.random().toString(36).substring(2, 15); // Random password
+        
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: `StyleUser${Date.now()}`,
+              age_range: tempData.age_range,
+              main_goal: tempData.style_goal,
+              onboarding_completed: true
+            }
+          }
+        });
+
+        if (authError) {
+          console.error('Error creating user account:', authError);
+          toast({
+            title: "Account Creation Failed",
+            description: "Could not create your premium account. Please try again.",
+            variant: "destructive"
+          });
+          return false;
+        }
+
+        if (!authData.user) {
+          toast({
+            title: "Account Creation Failed",
+            description: "Could not create your premium account. Please try again.",
+            variant: "destructive"
+          });
+          return false;
+        }
         
         const expiryDate = new Date();
         expiryDate.setDate(expiryDate.getDate() + 7); // 7 days trial
+
+        // Transfer onboarding data to the new user profile
+        const { error: profileError } = await supabase.from('profiles').update({
+          onboarding_completed: true,
+          subscription_status: 'active',
+          subscription_expiry: expiryDate.toISOString(),
+          age_range: tempData.age_range,
+          main_goal: tempData.style_goal,
+          onboarding_data: {
+            heard_about: tempData.heard_about,
+            gender: tempData.gender,
+            clothing_category: tempData.clothing_category,
+            budget: tempData.budget,
+            favorite_brands: tempData.favorite_brands,
+            color_preference: tempData.color_preference,
+            occasions: tempData.occasions,
+            weekly_reports: tempData.weekly_reports,
+            instant_suggestions: tempData.instant_suggestions,
+            color_palette: tempData.color_palette,
+            shop_frequency: tempData.shop_frequency,
+            selfie_url: tempData.selfie_url
+          }
+        }).eq('id', authData.user.id);
+
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+        }
+
+        // Clean up temp data
+        await supabase.from('temp_onboard_users').delete().eq('device_id', deviceId);
 
         const newSubscription = {
           isActive: true,
           expirationDate: expiryDate,
           productId: product.identifier,
-          offeringId: 'web-simulation'
+          offeringId: 'web-premium'
         };
-        
-        // Update Supabase profile
-        const { error: profileError } = await supabase.from('profiles').update({
-          onboarding_completed: true,
-          subscription_status: 'active',
-          subscription_expiry: expiryDate.toISOString()
-        }).eq('id', user.id);
-
-        if (profileError) throw profileError;
         
         setSubscription(newSubscription);
         toast({ 
-          title: "Welcome to Pro! 🎉", 
-          description: "Your 7-day trial is now active." 
+          title: "Welcome to Premium! 🎉", 
+          description: "Your premium account is now active!" 
         });
         return true;
       } catch (error) {

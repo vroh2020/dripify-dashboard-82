@@ -4,6 +4,8 @@ import { Crown, Check, Star, Zap, Sparkles, RefreshCw } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Device } from "@capacitor/device";
 
 interface PaywallStepProps {
   onPurchase: () => void;
@@ -15,6 +17,22 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
   const { toast } = useToast();
   const [showFallback, setShowFallback] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [deviceId, setDeviceId] = useState<string>('');
+  const [isPurchasing, setIsPurchasing] = useState(false);
+
+  // Get device ID for onboarding data transfer
+  useEffect(() => {
+    const initDevice = async () => {
+      try {
+        const info = await Device.getId();
+        setDeviceId(info.identifier);
+      } catch (error) {
+        console.error('Failed to get device ID:', error);
+        setDeviceId('web-fallback-' + Date.now());
+      }
+    };
+    initDevice();
+  }, []);
 
   // Set a timeout to show fallback UI if offerings don't load within 10 seconds
   useEffect(() => {
@@ -39,7 +57,67 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
     }
   }, [isLoading, offerings?.length, loadingTimeout]);
 
+  const transferOnboardingData = async (userId: string) => {
+    try {
+      // Get onboarding data from temp_onboard_users
+      const { data: tempData, error: tempError } = await supabase
+        .from('temp_onboard_users')
+        .select('*')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (tempError) {
+        console.error('Error fetching temp onboarding data:', tempError);
+        return;
+      }
+
+      if (tempData) {
+        // Transfer data to user profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            onboarding_completed: true,
+            subscription_status: 'active',
+            age_range: tempData.age_range,
+            main_goal: tempData.style_goal,
+            // Store additional onboarding data as JSON
+            onboarding_data: {
+              heard_about: tempData.heard_about,
+              gender: tempData.gender,
+              clothing_category: tempData.clothing_category,
+              budget: tempData.budget,
+              favorite_brands: tempData.favorite_brands,
+              color_preference: tempData.color_preference,
+              occasions: tempData.occasions,
+              weekly_reports: tempData.weekly_reports,
+              instant_suggestions: tempData.instant_suggestions,
+              color_palette: tempData.color_palette,
+              shop_frequency: tempData.shop_frequency,
+              selfie_url: tempData.selfie_url
+            }
+          })
+          .eq('id', userId);
+
+        if (profileError) {
+          console.error('Error updating profile with onboarding data:', profileError);
+        } else {
+          console.log('✅ Successfully transferred onboarding data to user profile');
+          
+          // Clean up temp data
+          await supabase
+            .from('temp_onboard_users')
+            .delete()
+            .eq('device_id', deviceId);
+        }
+      }
+    } catch (error) {
+      console.error('Error transferring onboarding data:', error);
+    }
+  };
+
   const handlePurchase = async () => {
+    if (isPurchasing) return;
+    
     // If no offerings available, show fallback purchase flow
     if (!offerings || offerings.length === 0 || showFallback) {
       toast({
@@ -62,9 +140,17 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
       return;
     }
     
+    setIsPurchasing(true);
+    
     try {
+      console.log('🎯 PaywallStep: Starting purchase process...');
       const success = await purchaseProduct(product.identifier);
+      
       if (success) {
+        console.log('🎯 PaywallStep: Purchase successful, checking for new user...');
+        
+        // Check if a new user was created (will happen in RevenueCat manager)
+        // The user creation and profile transfer is handled in useRevenueCatManager
         toast({
           title: "Welcome to Premium! 🎉",
           description: "Your subscription is now active. Enjoy unlimited style analyses!",
@@ -83,6 +169,8 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
         description: "Something went wrong. Please try again or continue with the free version.",
         variant: "destructive"
       });
+    } finally {
+      setIsPurchasing(false);
     }
   };
 
@@ -115,7 +203,7 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
   const trialText = "7-day free trial"; // Default trial text
 
   // Show loading state for initial few seconds
-  if (isLoading && !showFallback && (!offerings || offerings.length === 0)) {
+  if ((isLoading || isPurchasing) && !showFallback && (!offerings || offerings.length === 0)) {
     return (
       <motion.div
         key="paywall-loading"
@@ -142,9 +230,11 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
               <Crown className="w-16 h-16 text-orange-400 mx-auto" />
             </motion.div>
             
-            <h2 className="text-3xl font-bold text-white mb-4">Loading Subscription Options</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">
+              {isPurchasing ? "Processing Purchase..." : "Loading Subscription Options"}
+            </h2>
             <p className="text-white/70 text-base leading-relaxed max-w-sm">
-              Setting up your premium options...
+              {isPurchasing ? "Please wait while we set up your premium account..." : "Setting up your premium options..."}
             </p>
             
             <div className="flex items-center justify-center gap-2 text-white/50">
@@ -191,7 +281,7 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
             
             <h2 className="text-3xl font-bold text-white mb-4">Unlock Your Style Potential</h2>
             <p className="text-white/70 text-base leading-relaxed max-w-sm">
-              Get unlimited outfit analyses, personalized style reports, and early access to trends
+              Upgrade to premium for unlimited style analyses and personalized recommendations
             </p>
             
             {showFallback && (
@@ -262,10 +352,15 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
             
             <Button
               onClick={handlePurchase}
-              disabled={isLoading && !showFallback}
+              disabled={(isLoading && !showFallback) || isPurchasing}
               className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
             >
-              {isLoading && !showFallback ? (
+              {isPurchasing ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Creating Account...</span>
+                </div>
+              ) : (isLoading && !showFallback) ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                   <span>Loading...</span>
@@ -273,7 +368,7 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
               ) : (
                 <>
                   <Crown className="mr-3 h-6 w-6" />
-                  {showFallback ? "Continue with Free" : "Unlock Premium"}
+                  {showFallback ? "Continue with Free" : "Get Premium Account"}
                 </>
               )}
             </Button>
@@ -281,9 +376,10 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
             <Button
               onClick={onContinueFree}
               variant="outline"
+              disabled={isPurchasing}
               className="w-full h-14 text-base font-medium rounded-2xl border-white/20 text-white hover:bg-white/10 transition-all duration-300"
             >
-              Continue with Free
+              Continue with Free (Limited Features)
             </Button>
           </motion.div>
         </motion.div>
@@ -296,7 +392,7 @@ export const PaywallStep = ({ onPurchase, onContinueFree }: PaywallStepProps) =>
           className="text-center mt-6"
         >
           <p className="text-white/40 text-xs leading-relaxed">
-            By continuing, you agree to our Terms of Service and Privacy Policy. 
+            Premium includes a user account for syncing across devices.
             {trialText && !showFallback && ` ${trialText} then ${price}.`}
           </p>
         </motion.div>

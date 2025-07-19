@@ -7,7 +7,6 @@ import { OnboardingOption } from './OnboardingOption';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { SignInWithApple } from '@capacitor-community/apple-sign-in';
 import { Capacitor } from '@capacitor/core';
 
 interface OnboardingData {
@@ -25,10 +24,10 @@ interface OnboardingData {
   instant_suggestions?: boolean;
   color_palette?: string;
   shop_frequency?: string;
-  account_choice?: string;
+  user_type?: 'free' | 'premium';
 }
 
-const TOTAL_STEPS = 16;
+const TOTAL_STEPS = 15; // Updated for paywall-first approach
 
 export const CalOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -129,15 +128,12 @@ export const CalOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete
       case 13: // Color palette
         stepData = { color_palette: selectedOption };
         break;
-      case 14: // Shop frequency
+      case 14: // Shop frequency - final step
         stepData = { shop_frequency: selectedOption };
-        break;
-      case 15: // Final confirmation
-        if (currentStep === TOTAL_STEPS - 1) {
-          onComplete();
-          return;
-        }
-        break;
+        // Mark onboarding as complete and go directly to paywall
+        await saveProgress({ ...stepData, completed: true });
+        onComplete();
+        return;
     }
 
     await saveProgress(stepData);
@@ -187,48 +183,7 @@ export const CalOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete
     }
   };
 
-  const handleSignInWithApple = async () => {
-    try {
-      if (!Capacitor.isNativePlatform()) {
-        toast({
-          title: "Sign In with Apple",
-          description: "Sign In with Apple is only available on iOS devices.",
-          variant: "destructive",
-        });
-        return;
-      }
 
-      const result = await SignInWithApple.authorize({
-        clientId: 'service.com.genstyle.app',
-        redirectURI: 'com.genstyle.app://auth/callback',
-        scopes: 'email name',
-        state: 'native-ios',
-        nonce: 'onboarding-' + Date.now()
-      });
-
-      if (result.response) {
-        const { response } = result;
-        
-        // Sign in with Supabase
-        const { error } = await supabase.auth.signInWithIdToken({
-          provider: 'apple',
-          token: response.identityToken,
-        });
-
-        if (error) throw error;
-
-        await saveProgress({ account_choice: 'Sign In with Apple' });
-        onComplete();
-      }
-    } catch (error) {
-      console.error('Apple sign in error:', error);
-      toast({
-        title: "Sign In Failed",
-        description: "Failed to sign in with Apple. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const renderStep = () => {
     switch (currentStep) {
@@ -638,30 +593,7 @@ export const CalOnboarding: React.FC<{ onComplete: () => void }> = ({ onComplete
           </OnboardingStep>
         );
 
-      case 15:
-        return (
-          <OnboardingStep
-            title="Ready to get styled by AI?"
-            subtitle="Choose how you'd like to continue"
-            onNext={handleNext}
-            nextButtonText="Continue as Guest"
-            isLoading={isLoading}
-            currentStep={currentStep + 1}
-            totalSteps={TOTAL_STEPS}
-          >
-            <div className="space-y-4">
-              <Button
-                onClick={handleSignInWithApple}
-                className="w-full h-12 text-lg font-medium rounded-xl bg-black text-white hover:bg-gray-800"
-              >
-                Sign In with Apple
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Sign in to sync your preferences across devices
-              </p>
-            </div>
-          </OnboardingStep>
-        );
+
 
       default:
         return null;

@@ -11,6 +11,7 @@ import { StyleAnalysesList } from "./dashboard/StyleAnalysesList";
 import { QuickStartSection } from "./dashboard/QuickStartSection";
 import { StyleAnalysis, ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
 
 export const DashboardView = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export const DashboardView = () => {
   });
   const { toast } = useToast();
   const { user } = useAuth();
+  const { userType } = useOnboardingStatus();
   
   // Add render counter to prevent infinite loops
   const renderCountRef = useRef(0);
@@ -153,6 +155,24 @@ export const DashboardView = () => {
       transition={{ duration: 0.5 }}
       className="w-full max-w-sm mx-auto px-4 pb-6"
     >
+      {/* User Type Badge */}
+      {userType && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-4 text-center"
+        >
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+            userType === 'premium' 
+              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
+              : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+          }`}>
+            {userType === 'premium' ? '👑 Premium User' : '🆓 Free User'}
+          </span>
+        </motion.div>
+      )}
+
         {!hasScans ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -169,6 +189,11 @@ export const DashboardView = () => {
                 </div>
                 <p className="text-white/70 mb-6 leading-relaxed">
                   Welcome to Drip Check! Take your first style scan to get personalized fashion insights and start building your style streak.
+                  {userType === 'free' && (
+                    <span className="block mt-2 text-yellow-300 text-sm">
+                      📱 Free users get 3 scans per day. Upgrade for unlimited scans!
+                    </span>
+                  )}
                 </p>
                 <Button 
                   onClick={() => navigate('/scan')} 

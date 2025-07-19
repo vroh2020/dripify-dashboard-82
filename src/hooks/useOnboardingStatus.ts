@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 import { Capacitor } from '@capacitor/core';
 
 interface OnboardingStatus {
   isLoading: boolean;
   hasCompletedOnboarding: boolean;
+  userType: 'free' | 'premium' | null;
   checkOnboardingStatus: () => Promise<void>;
   retryCount: number;
 }
@@ -14,17 +14,18 @@ interface OnboardingStatus {
 export function useOnboardingStatus(): OnboardingStatus {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [userType, setUserType] = useState<'free' | 'premium' | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const { isAuthenticated, user } = useAuth();
-  const { isPro, subscription } = useSubscription();
   const [deviceId, setDeviceId] = useState<string | null>(null);
   
   // Add state tracking to prevent loops
   const lastCheckRef = useRef<{
     userId: string | null;
+    deviceId: string | null;
     timestamp: number;
     result: boolean;
-  }>({ userId: null, timestamp: 0, result: false });
+  }>({ userId: null, deviceId: null, timestamp: 0, result: false });
 
   useEffect(() => {
     // Get device ID for guest mode
@@ -37,25 +38,25 @@ export function useOnboardingStatus(): OnboardingStatus {
   }, []);
 
   const checkOnboardingStatus = useCallback(async () => {
-    if (isAuthenticated && user?.id) {
-      // Authenticated user: check profiles table
-      if (!isAuthenticated || !user?.id) {
-        setIsLoading(false);
-        setHasCompletedOnboarding(false);
-        return;
-      }
+    if (!deviceId) {
+      setIsLoading(false);
+      return;
+    }
 
-      // Prevent rapid successive checks
-      const now = Date.now();
-      const lastCheck = lastCheckRef.current;
-      if (lastCheck.userId === user.id && now - lastCheck.timestamp < 1000) {
-        console.log('🔄 Skipping rapid onboarding check');
-        return;
-      }
+    // Prevent rapid successive checks
+    const now = Date.now();
+    const lastCheck = lastCheckRef.current;
+    const checkKey = user?.id || deviceId;
+    if (lastCheck.userId === checkKey && now - lastCheck.timestamp < 1000) {
+      console.log('🔄 Skipping rapid onboarding check');
+      return;
+    }
 
-      try {
-        setIsLoading(true);
-        
+    try {
+      setIsLoading(true);
+      
+      if (isAuthenticated && user?.id) {
+        // Premium user: check profiles table
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('onboarding_completed, subscription_status')
@@ -74,74 +75,87 @@ export function useOnboardingStatus(): OnboardingStatus {
           }
           
           setHasCompletedOnboarding(false);
+          setUserType(null);
           setIsLoading(false);
           return;
         }
 
         const onboardingCompleted = profile?.onboarding_completed === true;
+        const userTypeValue = profile?.subscription_status === 'active' ? 'premium' : 'free';
         
         // Update last check tracking
         lastCheckRef.current = {
           userId: user.id,
+          deviceId,
           timestamp: now,
           result: onboardingCompleted
         };
         
-        console.log('📊 Onboarding Status Check:', {
+        console.log('📊 Premium User Onboarding Status:', {
           userId: user.id,
           onboardingCompleted,
-          platform: Capacitor.isNativePlatform() ? 'native' : 'web',
-          revenueCatStatus: subscription.isActive,
-          supabaseStatus: profile?.subscription_status,
-          finalResult: onboardingCompleted,
+          subscriptionStatus: profile?.subscription_status,
+          userType: userTypeValue,
           retryCount,
           timestamp: new Date().toISOString()
         });
 
         setHasCompletedOnboarding(onboardingCompleted);
+        setUserType(userTypeValue);
         setRetryCount(0);
         
-      } catch (error) {
-        console.error('Error checking onboarding:', error);
-        
-        if (retryCount < 2) {
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-            checkOnboardingStatus();
-          }, 500);
-          return;
-        }
-        
-        setHasCompletedOnboarding(false);
-      } finally {
-        setIsLoading(false);
-      }
-    } else if (deviceId) {
-      // Guest/anonymous: check temp_onboard_users by device_id
-      try {
-        setIsLoading(true);
-        const { data, error } = await supabase
+      } else {
+        // Free/Guest user: check temp_onboard_users table
+        const { data: tempUser, error } = await supabase
           .from('temp_onboard_users')
-          .select('completed')
+          .select('completed, user_type')
           .eq('device_id', deviceId)
           .maybeSingle();
-        if (error) throw error;
-        const completed = data?.completed === true;
-        setHasCompletedOnboarding(completed);
-      } catch (error) {
-        setHasCompletedOnboarding(false);
-      } finally {
-        setIsLoading(false);
+
+        if (error) {
+          console.error('Temp user check error:', error);
+          setHasCompletedOnboarding(false);
+          setUserType(null);
+        } else {
+          const completed = tempUser?.completed === true;
+          const userTypeValue = tempUser?.user_type || null;
+          
+          console.log('📊 Free User Onboarding Status:', {
+            deviceId,
+            completed,
+            userType: userTypeValue,
+            tempUserData: tempUser,
+            timestamp: new Date().toISOString()
+          });
+          
+          setHasCompletedOnboarding(completed);
+          setUserType(userTypeValue as 'free' | 'premium' | null);
+        }
       }
-    } else {
-      setIsLoading(false);
+      
+    } catch (error) {
+      console.error('Error checking onboarding:', error);
+      
+      if (retryCount < 2) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          checkOnboardingStatus();
+        }, 500);
+        return;
+      }
+      
       setHasCompletedOnboarding(false);
+      setUserType(null);
+    } finally {
+      setIsLoading(false);
     }
-  }, [isAuthenticated, user?.id, deviceId, retryCount, subscription.isActive]);
+  }, [isAuthenticated, user?.id, deviceId, retryCount]);
 
   useEffect(() => {
     setRetryCount(0);
-    checkOnboardingStatus();
+    if (deviceId) {
+      checkOnboardingStatus();
+    }
   }, [isAuthenticated, user?.id, deviceId]);
 
   useEffect(() => {
@@ -150,8 +164,9 @@ export function useOnboardingStatus(): OnboardingStatus {
         console.warn('⚠️ Onboarding status check timeout - forcing completion');
         setIsLoading(false);
         setHasCompletedOnboarding(false);
+        setUserType(null);
       }
-    }, 5000); // Increased from 3s to 5s
+    }, 5000);
 
     return () => clearTimeout(timeout);
   }, [isLoading]);
@@ -159,6 +174,7 @@ export function useOnboardingStatus(): OnboardingStatus {
   return {
     isLoading,
     hasCompletedOnboarding,
+    userType,
     checkOnboardingStatus,
     retryCount
   };
