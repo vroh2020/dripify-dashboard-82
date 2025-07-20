@@ -220,29 +220,50 @@ export const useRevenueCatManager = () => {
       
       // Find the package using the product ID
       let targetPackage: PurchasesPackage | null = null;
+      let targetOffering: PurchasesOffering | null = null;
       for (const offering of offerings) {
         for (const pkg of offering.availablePackages) {
           if (pkg.product.identifier === productId) {
             targetPackage = pkg;
+            targetOffering = offering;
             break;
           }
         }
         if (targetPackage) break;
       }
 
-      if (!targetPackage) {
-        throw new Error(`Package not found for product ID: ${productId}`);
+      let result: any;
+      if (targetPackage && targetOffering) {
+        console.log('✅ Found package, using purchasePackage:', targetPackage.identifier);
+        // Use package-based purchase (preferred)
+        result = await Purchases.purchasePackage({
+          offeringIdentifier: targetOffering.identifier,
+          packageIdentifier: targetPackage.identifier
+        });
+      } else {
+        console.warn('⚠️ Package not found for product', productId, '- fetching product info via getProducts');
+
+        // Fetch a valid StoreProduct directly from the store
+        const { products } = await Purchases.getProducts({ productIdentifiers: [productId] });
+
+        if (!products || products.length === 0) {
+          throw new Error(`Product ${productId} not found via getProducts()`);
+        }
+
+        const storeProduct = products[0];
+        console.log('🔍 Retrieved StoreProduct:', storeProduct);
+
+        result = await Purchases.purchaseStoreProduct(storeProduct);
       }
 
-      const { customerInfo } = await Purchases.purchasePackage(targetPackage);
-      const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+      const isPro = Boolean(result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
 
       if (isPro) {
         await supabase
           .from('profiles')
           .update({
             subscription_status: 'active',
-            subscription_expiry: new Date(customerInfo.latestExpirationDate).toISOString()
+            subscription_expiry: new Date(result.customerInfo.latestExpirationDate).toISOString()
           })
           .eq('id', user.id);
 
