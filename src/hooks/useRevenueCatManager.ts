@@ -139,6 +139,7 @@ export const useRevenueCatManager = () => {
   }, [fetchSubscriptionStatus]);
 
   const purchaseProduct = useCallback(async (productOrId: PurchasesPackage['product'] | string) => {
+    console.log('💰 Purchase Product called!', { productOrId, user: !!user });
     if (!user) return false;
 
     // Prevent rapid purchase attempts
@@ -368,7 +369,10 @@ export const useRevenueCatManager = () => {
 
   // Initialize RevenueCat and fetch initial data
   useEffect(() => {
+    console.log('🚀 RevenueCat Manager useEffect triggered', { user: !!user, hasInitialized: hasInitialized.current });
+    
     if (!user) {
+      console.log('❌ No user found, skipping RevenueCat initialization');
       setSubscription({
         isActive: false,
         expirationDate: null,
@@ -379,13 +383,16 @@ export const useRevenueCatManager = () => {
     }
 
     if (hasInitialized.current) {
+      console.log('⏭️ RevenueCat already initialized, skipping');
       return;
     }
     
     const init = async () => {
+      console.log('🔧 Starting RevenueCat initialization...');
       setIsLoading(true);
       try {
         if (!Capacitor.isNativePlatform()) {
+          console.log('🌐 Web platform detected');
           // Web platform initialization with mock offerings
           console.log('🌐 Initializing web platform with demo offerings');
           
@@ -410,6 +417,7 @@ export const useRevenueCatManager = () => {
         }
 
         // Native platform initialization
+        console.log('📱 Native platform detected - fetching RevenueCat config...');
         const { data, error } = await supabase.functions.invoke('revenuecat-config');
         if (error || !data?.publicKey) {
           throw new Error('No API key');
