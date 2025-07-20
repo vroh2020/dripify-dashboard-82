@@ -19,13 +19,13 @@ const createWebOfferings = (): PurchasesOffering[] => {
   
   return [
     {
-      identifier: 'web_demo',
+      identifier: 'offering_1',
       serverDescription: 'Web Demo Offering',
       metadata: {},
       availablePackages: [
         {
-          identifier: 'web_weekly',
-          offeringIdentifier: 'web_demo',
+          identifier: '$rc_weekly',
+          offeringIdentifier: 'offering_1',
           packageType: 'WEEKLY' as any,
           product: {
             identifier: REVENUECAT_CONFIG.products.weekly,
@@ -41,13 +41,13 @@ const createWebOfferings = (): PurchasesOffering[] => {
           localizedIntroductoryPriceString: null
         } as any,
         {
-          identifier: 'web_monthly',
-          offeringIdentifier: 'web_demo',
+          identifier: '$rc_monthly',
+          offeringIdentifier: 'offering_1',
           packageType: 'MONTHLY' as any,
           product: {
             identifier: REVENUECAT_CONFIG.products.monthly,
             description: 'Monthly Premium Subscription',
-            title: 'Monthly Premium',
+            title: 'Gen Style Premium',
             priceString: '$10.99',
             price: 10.99,
             currencyCode: 'USD',

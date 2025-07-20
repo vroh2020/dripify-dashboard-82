@@ -106,11 +106,27 @@ class SubscriptionService {
 
   private async purchaseNative(pkg: PurchasesPackage): Promise<PurchaseResult> {
     try {
+      console.log('🔍 Starting native purchase for package:', pkg.identifier);
+      console.log('🔍 Available offerings:', this.offerings.map(o => ({
+        identifier: o.identifier,
+        packages: o.availablePackages.map(p => p.identifier)
+      })));
+
       // Find the offering this package belongs to
-      const offering = this.offerings.find(o => o.availablePackages.includes(pkg));
+      let offering = this.offerings.find(o => 
+        o.availablePackages.some(p => p.identifier === pkg.identifier)
+      );
+
       if (!offering) {
-        throw new Error(`Could not find offering for package ${pkg.identifier}`);
+        console.warn('⚠️ Could not find offering for package, using first available offering');
+        offering = this.offerings[0];
       }
+
+      if (!offering) {
+        throw new Error(`No offerings available. Make sure RevenueCat is properly configured.`);
+      }
+
+      console.log('✅ Using offering:', offering.identifier, 'for package:', pkg.identifier);
 
       const result = await Purchases.purchasePackage({
         offeringIdentifier: offering.identifier,
