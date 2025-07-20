@@ -1,12 +1,19 @@
 
 export const REVENUECAT_CONFIG = {
   ENTITLEMENT_IDENTIFIER: 'pro',
+  offering: {
+    identifier: 'offering_1',  // Your RevenueCat offering ID
+  },
+  packages: {
+    weekly: '$rc_weekly',     // Package ID from RevenueCat dashboard
+    monthly: '$rc_monthly',   // Package ID from RevenueCat dashboard
+  },
   products: {
-    weekly: 'gs_499_1w',   // Weekly subscription at $4.99
-    monthly: 'gs_1099_1m', // Monthly subscription at $10.99
+    weekly: 'gs_499_1w',     // Actual product IDs for reference
+    monthly: 'gs_1099_1m',   // Actual product IDs for reference
   },
   developmentMode: {
     enabled: process.env.NODE_ENV === 'development',
-    mockSubscription: false, // Disable mock to use real RevenueCat
+    mockSubscription: false,
   }
 };

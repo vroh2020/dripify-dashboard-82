@@ -218,43 +218,45 @@ export const useRevenueCatManager = () => {
       
       const productId = typeof productOrId === 'string' ? productOrId : productOrId.identifier;
       
-      // Find the package using the product ID
-      let targetPackage: PurchasesPackage | null = null;
-      let targetOffering: PurchasesOffering | null = null;
-      for (const offering of offerings) {
-        for (const pkg of offering.availablePackages) {
-          if (pkg.product.identifier === productId) {
-            targetPackage = pkg;
-            targetOffering = offering;
-            break;
-          }
-        }
-        if (targetPackage) break;
+      // Find the correct package ID based on product ID
+      let packageId: string | null = null;
+      if (productId === REVENUECAT_CONFIG.products.weekly) {
+        packageId = REVENUECAT_CONFIG.packages.weekly;
+      } else if (productId === REVENUECAT_CONFIG.products.monthly) {
+        packageId = REVENUECAT_CONFIG.packages.monthly;
       }
 
-      let result: any;
-      if (targetPackage && targetOffering) {
-        console.log('✅ Found package, using purchasePackage:', targetPackage.identifier);
-        // Use package-based purchase (preferred)
-        result = await Purchases.purchasePackage({
-          offeringIdentifier: targetOffering.identifier,
-          packageIdentifier: targetPackage.identifier
+      if (!packageId) {
+        console.error('❌ No package mapping for product:', productId);
+        toast({
+          variant: "destructive",
+          title: "Product Error", 
+          description: "Invalid subscription type selected."
         });
-      } else {
-        console.warn('⚠️ Package not found for product', productId, '- fetching product info via getProducts');
-
-        // Fetch a valid StoreProduct directly from the store
-        const { products } = await Purchases.getProducts({ productIdentifiers: [productId] });
-
-        if (!products || products.length === 0) {
-          throw new Error(`Product ${productId} not found via getProducts()`);
-        }
-
-        const storeProduct = products[0];
-        console.log('🔍 Retrieved StoreProduct:', storeProduct);
-
-        result = await Purchases.purchaseStoreProduct(storeProduct);
+        return false;
       }
+
+      // Find the specific offering (offering_1)
+      const targetOffering = offerings.find(o => o.identifier === REVENUECAT_CONFIG.offering.identifier);
+      
+      if (!targetOffering) {
+        console.error('❌ Offering not found:', REVENUECAT_CONFIG.offering.identifier);
+        console.log('🔍 Available offerings:', offerings.map(o => o.identifier));
+        toast({
+          variant: "destructive",
+          title: "Service Unavailable",
+          description: "Subscription service is not available right now."
+        });
+        return false;
+      }
+
+      console.log('✅ Found offering:', targetOffering.identifier, 'purchasing package:', packageId);
+      
+      // Use package-based purchase with correct identifiers
+      const result = await Purchases.purchasePackage({
+        offeringIdentifier: targetOffering.identifier,
+        packageIdentifier: packageId
+      });
 
       const isPro = Boolean(result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
 
@@ -423,12 +425,12 @@ export const useRevenueCatManager = () => {
         await Purchases.logIn(user.id);
         
         // Set log level for debugging
-        await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+        await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
 
         // Get offerings
-        const { offerings: fetchedOfferings } = await Purchases.getOfferings();
-        const offeringsArray = Object.values(fetchedOfferings || {});
-        setOfferings(offeringsArray);
+        const offeringsData = await Purchases.getOfferings();
+        const offeringsArray = Object.values(offeringsData.all || {});
+        setOfferings(offeringsArray as PurchasesOffering[]);
 
         // Get initial subscription status
         await fetchSubscriptionStatus();
