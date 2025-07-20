@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Crown, Check, Sparkles, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
 
 interface OnboardingStepProps {
   title: string;
@@ -104,18 +105,31 @@ const OptionButton: React.FC<{
 };
 
 const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
-  const [selectedProduct, setSelectedProduct] = useState<string>('gs_1099_1m');
+  const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const products = subscriptionService.getAvailableProducts();
-  const monthlyProduct = products.find(p => p.id === 'gs_1099_1m');
-  const weeklyProduct = products.find(p => p.id === 'gs_499_1w');
+  const packages = subscriptionService.getAvailablePackages();
+  const monthlyPackage = packages.find(p => p.product.identifier.includes('1m'));
+  const weeklyPackage = packages.find(p => p.product.identifier.includes('1w'));
+  
+  // Set default selection
+  useEffect(() => {
+    if (monthlyPackage) {
+      setSelectedPackage(monthlyPackage);
+    } else if (weeklyPackage) {
+      setSelectedPackage(weeklyPackage);
+    }
+  }, [monthlyPackage, weeklyPackage]);
 
   const handlePurchase = async () => {
+    if (!selectedPackage) {
+      toast({ title: "Please select a plan", variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
     try {
-      const result = await subscriptionService.purchaseProduct(selectedProduct);
+      const result = await subscriptionService.purchasePackage(selectedPackage);
       
       if (result.success) {
         toast({
@@ -184,27 +198,27 @@ const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
 
         {/* Plan Selection */}
         <div className="space-y-3">
-          {weeklyProduct && (
+          {weeklyPackage && (
             <button
-              onClick={() => setSelectedProduct(weeklyProduct.id)}
+              onClick={() => setSelectedPackage(weeklyPackage)}
               className={`w-full p-4 rounded-xl border-2 transition-all ${
-                selectedProduct === weeklyProduct.id
+                selectedPackage?.product.identifier === weeklyPackage.product.identifier
                   ? 'border-orange-500 bg-orange-500/20'
                   : 'border-white/20 bg-white/5'
               }`}
             >
               <div className="flex justify-between items-center text-white">
-                <span>{weeklyProduct.name}</span>
-                <span className="font-bold">{weeklyProduct.price}{weeklyProduct.period}</span>
+                <span>{weeklyPackage.product.title}</span>
+                <span className="font-bold">{weeklyPackage.product.priceString}</span>
               </div>
             </button>
           )}
           
-          {monthlyProduct && (
+          {monthlyPackage && (
             <button
-              onClick={() => setSelectedProduct(monthlyProduct.id)}
+              onClick={() => setSelectedPackage(monthlyPackage)}
               className={`w-full p-4 rounded-xl border-2 transition-all relative ${
-                selectedProduct === monthlyProduct.id
+                selectedPackage?.product.identifier === monthlyPackage.product.identifier
                   ? 'border-orange-500 bg-orange-500/20'
                   : 'border-white/20 bg-white/5'
               }`}
@@ -215,8 +229,8 @@ const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
                 </span>
               </div>
               <div className="flex justify-between items-center text-white pt-2">
-                <span>{monthlyProduct.name}</span>
-                <span className="font-bold">{monthlyProduct.price}{monthlyProduct.period}</span>
+                <span>{monthlyPackage.product.title}</span>
+                <span className="font-bold">{monthlyPackage.product.priceString}</span>
               </div>
             </button>
           )}
@@ -225,7 +239,7 @@ const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
         {/* Purchase Button */}
         <Button
           onClick={handlePurchase}
-          disabled={isLoading}
+          disabled={isLoading || !selectedPackage}
           className="w-full h-16 text-lg font-bold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
         >
           {isLoading ? (

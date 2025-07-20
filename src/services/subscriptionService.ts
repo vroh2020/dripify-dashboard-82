@@ -1,14 +1,7 @@
 import { Capacitor } from '@capacitor/core';
-import { Purchases, PurchasesOffering } from '@revenuecat/purchases-capacitor';
+import { Purchases, PurchasesOffering, PurchasesPackage } from '@revenuecat/purchases-capacitor';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppStore } from '@/store/appStore';
-
-export interface Product {
-  id: string;
-  price: string;
-  period: string;
-  name: string;
-}
 
 export interface PurchaseResult {
   success: boolean;
@@ -34,26 +27,17 @@ class SubscriptionService {
       console.log('✅ Subscription service initialized');
     } catch (error) {
       console.error('❌ Subscription service initialization failed:', error);
-      // Continue without subscription service for now
       this.isInitialized = true;
     }
   }
 
   private async initializeNative(): Promise<void> {
     try {
-      // Get API key from Supabase function
       const { data, error } = await supabase.functions.invoke('revenuecat-config');
-      if (error || !data?.publicKey) {
-        throw new Error('Failed to get RevenueCat API key');
-      }
+      if (error || !data?.publicKey) throw new Error('Failed to get RevenueCat API key');
 
-      // Configure RevenueCat
-      await Purchases.configure({
-        apiKey: data.publicKey,
-        appUserID: null
-      });
+      await Purchases.configure({ apiKey: data.publicKey, appUserID: null });
 
-      // Get offerings
       const offeringsData = await Purchases.getOfferings();
       this.offerings = Object.values(offeringsData.all || {});
       
@@ -65,69 +49,51 @@ class SubscriptionService {
   }
 
   private async initializeWeb(): Promise<void> {
-    // Web platform - use simulation mode
     console.log('🌐 Web platform subscription service ready');
   }
 
-  getAvailableProducts(): Product[] {
-    const products: Product[] = [];
-
+  getAvailablePackages(): PurchasesPackage[] {
     if (this.isNative && this.offerings.length > 0) {
-      // Extract products from RevenueCat offerings
-      for (const offering of this.offerings) {
-        for (const pkg of offering.availablePackages) {
-          const product = pkg.product;
-          products.push({
-            id: product.identifier,
-            price: product.priceString,
-            period: this.getPeriodFromProduct(product.identifier),
-            name: this.getNameFromProduct(product.identifier)
-          });
-        }
-      }
-    } else {
-      // Fallback products for web or when RevenueCat fails
-      products.push(
-        {
-          id: 'gs_499_1w',
-          price: '$4.99',
-          period: '/week',
-          name: 'Weekly Premium'
-        },
-        {
-          id: 'gs_1099_1m',
-          price: '$10.99',
-          period: '/month',
-          name: 'Monthly Premium'
-        }
-      );
+      return this.offerings.flatMap(offering => offering.availablePackages);
     }
-
-    return products;
-  }
-
-  private getPeriodFromProduct(productId: string): string {
-    if (productId.includes('1w')) return '/week';
-    if (productId.includes('1m')) return '/month';
-    if (productId.includes('1y')) return '/year';
-    return '/month';
-  }
-
-  private getNameFromProduct(productId: string): string {
-    if (productId.includes('1w')) return 'Weekly Premium';
-    if (productId.includes('1m')) return 'Monthly Premium';
-    if (productId.includes('1y')) return 'Yearly Premium';
-    return 'Premium';
-  }
-
-  async purchaseProduct(productId: string): Promise<PurchaseResult> {
-    const store = useAppStore.getState();
     
+    // Fallback mock packages for web or when RevenueCat fails
+    return [
+      {
+        identifier: '$rc_weekly',
+        packageType: 'CUSTOM',
+        product: {
+          identifier: 'gs_499_1w',
+          description: 'Weekly Premium',
+          title: 'Weekly Premium',
+          price: 4.99,
+          priceString: '$4.99',
+          currencyCode: 'USD',
+          subscriptionPeriod: 'P1W',
+        },
+      },
+      {
+        identifier: '$rc_monthly',
+        packageType: 'CUSTOM',
+        product: {
+          identifier: 'gs_1099_1m',
+          description: 'Monthly Premium',
+          title: 'Monthly Premium',
+          price: 10.99,
+          priceString: '$10.99',
+          currencyCode: 'USD',
+          subscriptionPeriod: 'P1M',
+        },
+      },
+    ] as PurchasesPackage[];
+  }
+
+  async purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
     try {
       if (this.isNative) {
-        return await this.purchaseNative(productId);
+        return await this.purchaseNative(pkg);
       } else {
-        return await this.purchaseWeb(productId);
+        return await this.purchaseWeb(pkg);
       }
     } catch (error) {
       console.error('Purchase failed:', error);
@@ -138,51 +104,33 @@ class SubscriptionService {
     }
   }
 
-  private async purchaseNative(productId: string): Promise<PurchaseResult> {
+  private async purchaseNative(pkg: PurchasesPackage): Promise<PurchaseResult> {
     try {
-      // Find the package containing this product
-      let targetPackage = null;
-      let targetOffering = null;
-
-      for (const offering of this.offerings) {
-        for (const pkg of offering.availablePackages) {
-          if (pkg.product.identifier === productId) {
-            targetPackage = pkg;
-            targetOffering = offering;
-            break;
-          }
-        }
-        if (targetPackage) break;
+      // Find the offering this package belongs to
+      const offering = this.offerings.find(o => o.availablePackages.includes(pkg));
+      if (!offering) {
+        throw new Error(`Could not find offering for package ${pkg.identifier}`);
       }
 
-      if (!targetPackage || !targetOffering) {
-        throw new Error(`Product ${productId} not found in offerings`);
-      }
-
-      // Make the purchase
       const result = await Purchases.purchasePackage({
-        offeringIdentifier: targetOffering.identifier,
-        packageIdentifier: targetPackage.identifier
+        offeringIdentifier: offering.identifier,
+        packageIdentifier: pkg.identifier
       });
 
-      // Check if purchase was successful
       const isPro = result.customerInfo.entitlements.active?.['pro']?.isActive || false;
 
       if (isPro) {
-        // Update app store
         useAppStore.getState().setSubscription({
           isActive: true,
-          productId,
+          productId: pkg.product.identifier,
           expirationDate: result.customerInfo.latestExpirationDate 
             ? new Date(result.customerInfo.latestExpirationDate) 
             : null
         });
-
-        return { success: true, productId };
+        return { success: true, productId: pkg.product.identifier };
       } else {
         throw new Error('Purchase verification failed');
       }
-
     } catch (error) {
       console.error('Native purchase failed:', error);
       return {
@@ -192,38 +140,32 @@ class SubscriptionService {
     }
   }
 
-  private async purchaseWeb(productId: string): Promise<PurchaseResult> {
-    // Web simulation
+  private async purchaseWeb(pkg: PurchasesPackage): Promise<PurchaseResult> {
     const confirmed = window.confirm(
-      `Would you like to simulate purchasing ${productId}?\n\nThis is a demo environment.`
+      `Simulate purchasing ${pkg.product.title} for ${pkg.product.priceString}?`
     );
 
-    if (!confirmed) {
-      return { success: false, error: 'Purchase cancelled' };
-    }
+    if (!confirmed) return { success: false, error: 'Purchase cancelled' };
 
-    // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Update app store
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7); // 7 day trial
+    expirationDate.setDate(expirationDate.getDate() + 7);
 
     useAppStore.getState().setSubscription({
       isActive: true,
-      productId,
+      productId: pkg.product.identifier,
       expirationDate
     });
 
     console.log('✅ Web purchase simulation successful');
-    return { success: true, productId };
+    return { success: true, productId: pkg.product.identifier };
   }
 
   async restorePurchases(): Promise<PurchaseResult> {
     if (!this.isNative) {
       return { success: false, error: 'Restore not available on web' };
     }
-
     try {
       const { customerInfo } = await Purchases.restorePurchases();
       const isPro = customerInfo.entitlements.active?.['pro']?.isActive || false;
@@ -235,7 +177,6 @@ class SubscriptionService {
             ? new Date(customerInfo.latestExpirationDate) 
             : null
         });
-
         return { success: true };
       } else {
         return { success: false, error: 'No active subscriptions found' };
@@ -249,19 +190,13 @@ class SubscriptionService {
   }
 
   isSubscriptionActive(): boolean {
-    const store = useAppStore.getState();
-    const subscription = store.subscription;
-    
+    const { subscription } = useAppStore.getState();
     if (!subscription.isActive) return false;
-    
-    // Check expiration date
     if (subscription.expirationDate) {
       return new Date() < subscription.expirationDate;
     }
-    
     return subscription.isActive;
   }
 }
 
-// Export singleton instance
 export const subscriptionService = new SubscriptionService();
