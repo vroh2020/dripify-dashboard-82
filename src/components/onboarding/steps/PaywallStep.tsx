@@ -4,6 +4,7 @@ import { Crown, Check, Star, Zap, Sparkles } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
 import { REVENUECAT_CONFIG } from "@/config/revenueCat";
+import { useState } from "react";
 
 interface PaywallStepProps {
   onPurchase: () => void;
@@ -12,12 +13,21 @@ interface PaywallStepProps {
 export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
   const { purchaseProduct, offerings, isLoading } = useRevenueCat();
   const { toast } = useToast();
+  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('monthly'); // Default to monthly
+  const [isPurchasing, setIsPurchasing] = useState(false);
 
   const handlePurchase = async () => {
+    if (isPurchasing) return;
+    setIsPurchasing(true);
+
     try {
+      const productId = selectedPlan === 'weekly' 
+        ? REVENUECAT_CONFIG.products.weekly 
+        : REVENUECAT_CONFIG.products.monthly;
+
       // First try to find the product from offerings
       const product = offerings?.[0]?.availablePackages?.find(pkg => 
-        pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
+        pkg.product.identifier === productId
       )?.product;
 
       if (product) {
@@ -37,8 +47,8 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         }
       } else {
         // Fallback: try with the configured product ID directly
-        console.log('⚠️ Product not found in offerings, trying direct purchase with:', REVENUECAT_CONFIG.products.monthly);
-        const success = await purchaseProduct(REVENUECAT_CONFIG.products.monthly);
+        console.log('⚠️ Product not found in offerings, trying direct purchase with:', productId);
+        const success = await purchaseProduct(productId);
         if (success) {
           toast({
             title: "Welcome to Premium! 🎉",
@@ -56,6 +66,8 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         description: "Product temporarily unavailable. Please try again later or contact support.",
         variant: "destructive"
       });
+    } finally {
+      setIsPurchasing(false);
     }
   };
 
@@ -75,11 +87,35 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
     );
   }
 
-  // Get pricing from offerings or use fallback
+  // Get pricing from offerings or use fallbacks
+  const weeklyPackage = offerings?.[0]?.availablePackages?.find(pkg => 
+    pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
+  );
   const monthlyPackage = offerings?.[0]?.availablePackages?.find(pkg => 
     pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
   );
-  const priceString = monthlyPackage?.product?.priceString || "$12.99";
+
+  const weeklyPrice = weeklyPackage?.product?.priceString || "$4.99";
+  const monthlyPrice = monthlyPackage?.product?.priceString || "$10.99";
+
+  const plans = [
+    {
+      id: 'weekly' as const,
+      name: 'Weekly',
+      price: weeklyPrice,
+      period: '/week',
+      description: 'Perfect for trying out premium features',
+      popular: false
+    },
+    {
+      id: 'monthly' as const,
+      name: 'Monthly',
+      price: monthlyPrice,
+      period: '/month',
+      description: 'Best value for regular users',
+      popular: true
+    }
+  ];
 
   return (
     <motion.div
@@ -149,17 +185,44 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           ))}
         </motion.div>
 
-        {/* Pricing Box */}
+        {/* Plan Selection */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="bg-gradient-to-r from-purple-900/40 to-purple-700/40 rounded-2xl p-4 border border-purple-500/30"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="space-y-3"
         >
-          <div className="text-center">
-            <div className="text-3xl font-bold text-white mb-1">{priceString}/month</div>
-            <div className="text-white/60 text-xs">Cancel anytime</div>
-          </div>
+          {plans.map((plan) => (
+            <motion.button
+              key={plan.id}
+              onClick={() => setSelectedPlan(plan.id)}
+              className={`w-full p-4 rounded-2xl border-2 transition-all duration-300 relative ${
+                selectedPlan === plan.id
+                  ? 'border-orange-500 bg-gradient-to-r from-orange-500/20 to-orange-400/20 scale-105'
+                  : 'border-white/20 bg-white/5 hover:border-white/30'
+              }`}
+              whileHover={{ scale: selectedPlan === plan.id ? 1.05 : 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {plan.popular && (
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-orange-500 text-white text-xs px-3 py-1 rounded-full font-bold">
+                    POPULAR
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <div className="text-white font-bold text-lg">{plan.name}</div>
+                  <div className="text-white/60 text-sm">{plan.description}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-bold text-xl">{plan.price}</div>
+                  <div className="text-white/60 text-sm">{plan.period}</div>
+                </div>
+              </div>
+            </motion.button>
+          ))}
         </motion.div>
 
         {/* Action Button */}
@@ -171,11 +234,20 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         >
           <Button
             onClick={handlePurchase}
-            disabled={false} // Always enable the button, handle errors in the function
+            disabled={isPurchasing}
             className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-2xl"
           >
-            <Crown className="mr-3 h-6 w-6" />
-            Unlock Premium
+            {isPurchasing ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Processing...</span>
+              </div>
+            ) : (
+              <>
+                <Crown className="mr-3 h-6 w-6" />
+                Start {selectedPlan === 'weekly' ? 'Weekly' : 'Monthly'} Plan
+              </>
+            )}
           </Button>
         </motion.div>
 
@@ -187,7 +259,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           className="text-center"
         >
           <p className="text-white/40 text-xs leading-relaxed">
-            By continuing, you agree to our Terms of Service and Privacy Policy. {priceString}/month.
+            By continuing, you agree to our Terms of Service and Privacy Policy. {selectedPlan === 'weekly' ? weeklyPrice + '/week' : monthlyPrice + '/month'}. Cancel anytime.
           </p>
         </motion.div>
       </div>

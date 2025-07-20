@@ -1,32 +1,14 @@
 
 {
-  "identifier" : "B6A95D58",
+  "identifier" : "A123F4567",
   "nonRenewingSubscriptions" : [
 
   ],
   "products" : [
-    {
-      "displayPrice" : "4.99",
-      "familyShareable" : false,
-      "internalID" : "6239194218",
-      "localizations" : [
-        {
-          "description" : "Unlock all features",
-          "displayName" : "Dripify AI Pro",
-          "locale" : "en_US"
-        }
-      ],
-      "name" : "Dripify AI Pro",
-      "productID" : "drip_pro_monthly",
-      "recurringSubscriptionPeriod" : "P1M",
-      "type" : "RecurringSubscription"
-    }
+
   ],
   "settings" : {
-    "_applicationInternalID" : "6737845367",
-    "_developerTeamID" : "TN748MMP9M",
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 762577434.07644594,
     "_locale" : "en_US",
     "_storefront" : "USA",
     "_storeKitErrors" : [
@@ -83,7 +65,7 @@
       "localizations" : [
 
       ],
-      "name" : "Drip Check Pro",
+      "name" : "Gen Style Premium",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -92,10 +74,39 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "12.99",
+          "displayPrice" : "4.99",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "6741270016",
+          "internalID" : "6748323539",
+          "introductoryOffer" : {
+            "internalID" : "70612344",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P3D"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock all pro features with the weekly subscription",
+              "displayName" : "Weekly Premium",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "gs_499_1w",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Weekly Premium",
+          "subscriptionGroupID" : "21672094",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "10.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6748885583",
           "introductoryOffer" : {
             "internalID" : "70612345",
             "paymentMode" : "free",
@@ -104,13 +115,13 @@
           "localizations" : [
             {
               "description" : "Unlock all pro features with the monthly subscription",
-              "displayName" : "Dripify AI Pro Monthly",
+              "displayName" : "Monthly Premium",
               "locale" : "en_US"
             }
           ],
-          "productID" : "gs_1299_1m",
+          "productID" : "gs_1099_1m",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Pro Monthly",
+          "referenceName" : "Monthly Premium",
           "subscriptionGroupID" : "21672094",
           "type" : "RecurringSubscription"
         }

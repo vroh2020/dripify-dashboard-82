@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCw } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
+import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -12,17 +13,55 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const { offerings, purchaseProduct, isPro, isLoading } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('monthly');
 
-  // Find the Pro product - look for gs_1299_1m specifically
-  const proProduct = offerings?.[0]?.availablePackages?.find(
-    (pkg) =>
-      pkg.product.identifier === "gs_1299_1m" ||
-      pkg.product.identifier.includes("pro") ||
-      pkg.product.title.toLowerCase().includes("pro")
+  // Find the products using the new product IDs
+  const weeklyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
+  );
+  
+  const monthlyProduct = offerings?.[0]?.availablePackages?.find(
+    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
   );
 
-  // Format the price
-  const formattedPrice = proProduct?.product.priceString || "$12.99";
+  // Format the prices
+  const weeklyPrice = weeklyProduct?.product.priceString || "$4.99";
+  const monthlyPrice = monthlyProduct?.product.priceString || "$10.99";
+
+  const plans = [
+    {
+      id: 'weekly' as const,
+      name: 'Weekly',
+      price: weeklyPrice,
+      period: '/week',
+      product: weeklyProduct,
+      fallback: {
+        identifier: REVENUECAT_CONFIG.products.weekly,
+        title: "Pro Weekly",
+        description: "Pro weekly subscription",
+        price: 4.99,
+        priceString: "$4.99",
+        currencyCode: "USD",
+        subscriptionPeriod: "P1W",
+      }
+    },
+    {
+      id: 'monthly' as const,
+      name: 'Monthly',
+      price: monthlyPrice,
+      period: '/month',
+      product: monthlyProduct,
+      fallback: {
+        identifier: REVENUECAT_CONFIG.products.monthly,
+        title: "Pro Monthly",
+        description: "Pro monthly subscription",
+        price: 10.99,
+        priceString: "$10.99",
+        currencyCode: "USD",
+        subscriptionPeriod: "P1M",
+      }
+    }
+  ];
 
   const handleStartTrial = async () => {
     if (isProcessing) return;
@@ -34,82 +73,103 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       // CRITICAL FIX: Always show payment flow, even if isPro is detected
       // This prevents bypass vulnerability from cached/existing subscriptions
       
-      const product = proProduct || {
-        identifier: "gs_1299_1m",
-        title: "Pro Monthly",
-        description: "Pro subscription",
-        price: 12.99,
-        priceString: "$12.99",
-        currencyCode: "USD",
-        subscriptionPeriod: "P1M",
-      };
+      const selectedPlanData = plans.find(p => p.id === selectedPlan);
+      const product = selectedPlanData?.product || selectedPlanData?.fallback;
+      
+      if (!product) {
+        throw new Error('No product available');
+      }
       
       const success = await purchaseProduct(product);
       
       if (success) {
         // Payment succeeded - proceed to completion
-        setTimeout(onContinue, 1000);
+        onContinue();
       } else {
-        // Payment failed - show error
         setHasError(true);
       }
     } catch (error) {
-      console.error("Purchase error:", error);
+      console.error("Purchase failed:", error);
       setHasError(true);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // CRITICAL FIX: Remove auto-complete bypass
-  // Always show payment screen regardless of isPro status
-  // This prevents users from skipping payment due to cached/test subscriptions
+  const selectedPlanData = plans.find(p => p.id === selectedPlan);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 px-4 py-8">
-      <div className="w-full max-w-md mx-auto flex flex-col items-center bg-black/70 rounded-3xl shadow-2xl p-8 border border-white/10">
-        <span className="text-5xl mb-6">🚀</span>
-        <h1 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-4 tracking-tight">Get Drip AI Pro</h1>
-        <p className="text-lg text-white/80 text-center mb-8">Unlock your full style potential with unlimited analyses and recommendations.</p>
-        <div className="w-full flex flex-col items-center mb-8">
-          <span className="text-3xl font-bold text-orange-400 mb-1">$12.99</span>
-          <span className="text-base text-white/70 mb-2">per month</span>
+    <Card className="bg-gradient-to-br from-purple-900/20 via-purple-700/10 to-transparent border-purple-500/30 shadow-2xl backdrop-blur-sm">
+      <CardContent className="p-8 text-center space-y-6">
+        <div className="space-y-4">
+          <div className="flex justify-center">
+            <Sparkles className="h-16 w-16 text-orange-400" />
+          </div>
+          
+          <div>
+            <h3 className="text-2xl font-bold text-white mb-2">
+              Unlock Premium Features
+            </h3>
+            <p className="text-white/70 text-sm">
+              Get unlimited style analyses and personalized recommendations
+            </p>
+          </div>
         </div>
-        {hasError && (
-          <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mb-6 text-center">
-            <p className="text-red-300 font-medium text-sm">
-              Payment didn't go through. Please try again.
-            </p>
-          </div>
-        )}
-        {isPro && (
-          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4 mb-6 text-center">
-            <p className="text-yellow-300 font-medium text-sm">
-              ⚠️ Existing subscription detected. Complete payment to verify access.
-            </p>
-          </div>
-        )}
-        <Button
-          onClick={handleStartTrial}
-          disabled={isProcessing || isLoading}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-extrabold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white mb-4"
-        >
-          {isProcessing ? (
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Subscribing...
+
+        {/* Plan Selection */}
+        <div className="space-y-3">
+          {plans.map((plan) => (
+            <button
+              key={plan.id}
+              onClick={() => setSelectedPlan(plan.id)}
+              className={`w-full p-3 rounded-xl border transition-all duration-300 ${
+                selectedPlan === plan.id
+                  ? 'border-orange-500 bg-orange-500/20 text-white'
+                  : 'border-white/20 bg-white/5 text-white/80 hover:border-white/30'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{plan.name}</span>
+                <span className="font-bold">{plan.price}{plan.period}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          <Button
+            onClick={handleStartTrial}
+            disabled={isProcessing || isLoading}
+            className="w-full h-14 text-lg font-bold rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-300 hover:scale-105 shadow-xl"
+          >
+            {isProcessing ? (
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 animate-spin" />
+                <span>Processing...</span>
+              </div>
+            ) : (
+              <>
+                <Sparkles className="mr-3 h-5 w-5" />
+                Start {selectedPlanData?.name} Plan
+              </>
+            )}
+          </Button>
+
+          {hasError && (
+            <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-lg border border-red-500/30">
+              <p className="font-medium">Payment failed</p>
+              <p className="text-xs opacity-80 mt-1">Please try again or contact support</p>
             </div>
-          ) : hasError ? (
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5" />
-              Try Again
-            </div>
-          ) : (
-            "Subscribe Now"
           )}
-        </Button>
-        <div className="text-white/40 text-xs text-center mt-2">Cancel anytime. No hidden fees.</div>
-      </div>
-    </div>
+
+          <div className="text-white/40 text-xs">
+            <p>Cancel anytime • No commitment</p>
+            <p className="mt-1">
+              {selectedPlanData?.price}{selectedPlanData?.period} after trial
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
