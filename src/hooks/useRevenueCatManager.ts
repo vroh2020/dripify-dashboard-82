@@ -81,7 +81,7 @@ export const useRevenueCatManager = () => {
     await fetchSubscriptionStatus();
   }, [fetchSubscriptionStatus]);
 
-  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
+  const purchaseProduct = useCallback(async (productOrId: PurchasesPackage['product'] | string) => {
     if (!user) return false;
 
     // Prevent rapid purchase attempts
@@ -98,8 +98,9 @@ export const useRevenueCatManager = () => {
         setIsLoading(true);
         
         // Show payment confirmation dialog
+        const productId = typeof productOrId === 'string' ? productOrId : productOrId.identifier;
         const confirmed = window.confirm(
-          'This is a web demo. In production, this would open a payment flow. Would you like to simulate a successful payment?'
+          `This is a web demo. In production, this would open a payment flow for ${productId}. Would you like to simulate a successful payment?`
         );
         
         if (!confirmed) {
@@ -119,7 +120,7 @@ export const useRevenueCatManager = () => {
         const newSubscription = {
           isActive: true,
           expirationDate: expiryDate,
-          productId: product.identifier,
+          productId: productId,
           offeringId: 'web-simulation'
         };
         
@@ -164,17 +165,50 @@ export const useRevenueCatManager = () => {
 
     try {
       setIsLoading(true);
-      console.log('🔄 Starting native purchase flow for:', product.identifier);
+      const productId = typeof productOrId === 'string' ? productOrId : productOrId.identifier;
+      console.log('🔄 Starting native purchase flow for:', productId);
       
-      // CRITICAL FIX: Always attempt actual purchase, don't assume existing subscription
-      const result = await Purchases.purchaseStoreProduct(product);
+      // Try to find the package first (preferred method)
+      let targetPackage = null;
+      let targetOffering = null;
+      
+      for (const offering of offerings) {
+        for (const pkg of offering.availablePackages) {
+          if (pkg.product.identifier === productId) {
+            targetPackage = pkg;
+            targetOffering = offering;
+            break;
+          }
+        }
+        if (targetPackage) break;
+      }
+      
+      let result;
+      
+      if (targetPackage && targetOffering) {
+        console.log('✅ Found package, using purchasePackage:', targetPackage.identifier);
+        // Use package-based purchase (preferred)
+        result = await Purchases.purchasePackage({
+          offeringIdentifier: targetOffering.identifier,
+          packageIdentifier: targetPackage.identifier
+        });
+      } else {
+        console.log('⚠️ Package not found, attempting direct product purchase');
+        // Fallback to direct product purchase
+        const productObj = typeof productOrId === 'string' 
+          ? { identifier: productOrId, price: 0, priceString: '', currencyCode: '' }
+          : productOrId;
+        
+        result = await Purchases.purchaseStoreProduct(productObj);
+      }
+      
       console.log('✅ Purchase result:', result);
       
       // Validate the purchase was actually completed
       const isPro = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false;
       const hasNewPurchase = result.customerInfo.latestExpirationDate;
       
-      console.log('🔍 Purchase validation:', { isPro, hasNewPurchase, productId: product.identifier });
+      console.log('🔍 Purchase validation:', { isPro, hasNewPurchase, productId });
       
       if (isPro && hasNewPurchase) {
         // Update Supabase profile
@@ -198,41 +232,23 @@ export const useRevenueCatManager = () => {
         console.log('❌ Purchase validation failed - no new subscription detected');
         toast({ 
           variant: "destructive", 
-          title: "Purchase Validation Failed", 
-          description: "Please try again or contact support." 
+          title: "Purchase Failed", 
+          description: "The purchase didn't complete successfully. Please try again." 
         });
         return false;
       }
-      
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Native purchase failed:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage?.includes('cancelled')) {
-        toast({ 
-          title: "Payment Cancelled", 
-          description: "You can try again anytime." 
-        });
-      } else if (errorMessage?.includes('already active')) {
-        // Handle existing subscription case
-        toast({ 
-          title: "Subscription Already Active", 
-          description: "You already have an active subscription!" 
-        });
-        await fetchSubscriptionStatus();
-        return true;
-      } else {
-        toast({ 
-          variant: "destructive", 
-          title: "Purchase Failed", 
-          description: "Please try again or contact support if the issue persists." 
-        });
-      }
+      toast({ 
+        variant: "destructive", 
+        title: "Purchase Failed", 
+        description: "Please try again or contact support if the issue persists." 
+      });
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [toast, fetchSubscriptionStatus, user]);
+  }, [toast, fetchSubscriptionStatus, user, offerings]);
 
   const restorePurchases = useCallback(async () => {
     if (!user) return false;

@@ -25,14 +25,30 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         ? REVENUECAT_CONFIG.products.weekly 
         : REVENUECAT_CONFIG.products.monthly;
 
-      // First try to find the product from offerings
-      const product = offerings?.[0]?.availablePackages?.find(pkg => 
-        pkg.product.identifier === productId
-      )?.product;
+      console.log('🔍 Looking for product ID:', productId);
+      console.log('📦 Available offerings:', offerings);
 
-      if (product) {
-        console.log('✅ Found product from offerings:', product.identifier);
-        const success = await purchaseProduct(product.identifier);
+      // Search through all packages to find the product with matching identifier
+      let targetProduct = null;
+      let targetPackage = null;
+
+      if (offerings && offerings.length > 0) {
+        for (const offering of offerings) {
+          for (const pkg of offering.availablePackages) {
+            console.log('🔍 Checking package:', pkg.identifier, 'Product ID:', pkg.product.identifier);
+            if (pkg.product.identifier === productId) {
+              targetProduct = pkg.product;
+              targetPackage = pkg;
+              break;
+            }
+          }
+          if (targetProduct) break;
+        }
+      }
+
+      if (targetProduct) {
+        console.log('✅ Found product from offerings:', targetProduct.identifier);
+        const success = await purchaseProduct(targetProduct.identifier);
         if (success) {
           toast({
             title: "Welcome to Premium! 🎉",
@@ -46,8 +62,14 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           });
         }
       } else {
-        // Fallback: try with the configured product ID directly
+        // Enhanced fallback: try with the configured product ID directly
         console.log('⚠️ Product not found in offerings, trying direct purchase with:', productId);
+        console.log('🔍 Available packages:', offerings?.[0]?.availablePackages?.map(pkg => ({
+          identifier: pkg.identifier,
+          productId: pkg.product.identifier,
+          price: pkg.product.priceString
+        })));
+        
         const success = await purchaseProduct(productId);
         if (success) {
           toast({
@@ -87,16 +109,38 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
     );
   }
 
-  // Get pricing from offerings or use fallbacks
-  const weeklyPackage = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
-  );
-  const monthlyPackage = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
-  );
+  // Enhanced product finding - search through all packages for the actual product IDs
+  let weeklyPackage = null;
+  let monthlyPackage = null;
+
+  if (offerings && offerings.length > 0) {
+    for (const offering of offerings) {
+      for (const pkg of offering.availablePackages) {
+        if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
+          weeklyPackage = pkg;
+        }
+        if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
+          monthlyPackage = pkg;
+        }
+      }
+    }
+  }
 
   const weeklyPrice = weeklyPackage?.product?.priceString || "$4.99";
   const monthlyPrice = monthlyPackage?.product?.priceString || "$10.99";
+
+  console.log('💰 Pricing determined:', { weeklyPrice, monthlyPrice, weeklyPackage, monthlyPackage });
+
+  // Debug info for development
+  if (process.env.NODE_ENV === 'development' && offerings) {
+    console.log('🔍 DEBUG - Full offerings structure:', JSON.stringify(offerings, null, 2));
+    offerings.forEach((offering, offeringIndex) => {
+      console.log(`📦 Offering ${offeringIndex}: ${offering.identifier}`);
+      offering.availablePackages.forEach((pkg, pkgIndex) => {
+        console.log(`  📦 Package ${pkgIndex}: ${pkg.identifier} -> Product: ${pkg.product.identifier} (${pkg.product.priceString})`);
+      });
+    });
+  }
 
   const plans = [
     {

@@ -15,14 +15,23 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [hasError, setHasError] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('monthly');
 
-  // Find the products using the new product IDs
-  const weeklyProduct = offerings?.[0]?.availablePackages?.find(
-    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
-  );
-  
-  const monthlyProduct = offerings?.[0]?.availablePackages?.find(
-    (pkg) => pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
-  );
+  // Find the products using the new product IDs - Enhanced search
+  let weeklyProduct = null;
+  let monthlyProduct = null;
+
+  if (offerings && offerings.length > 0) {
+    for (const offering of offerings) {
+      for (const pkg of offering.availablePackages) {
+        console.log('🔍 ProOfferCard - Checking package:', pkg.identifier, 'Product ID:', pkg.product.identifier);
+        if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
+          weeklyProduct = pkg;
+        }
+        if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
+          monthlyProduct = pkg;
+        }
+      }
+    }
+  }
 
   // Format the prices
   const weeklyPrice = weeklyProduct?.product.priceString || "$4.99";

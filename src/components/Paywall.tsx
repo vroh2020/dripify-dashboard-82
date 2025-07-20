@@ -79,17 +79,28 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
     );
   }
 
-  // Find offerings using the new product IDs
-  const weeklyOffering = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier === REVENUECAT_CONFIG.products.weekly
-  );
-  
-  const monthlyOffering = offerings?.[0]?.availablePackages?.find(pkg => 
-    pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
-  );
+  // Find offerings using the new product IDs - Enhanced search
+  let weeklyOffering = null;
+  let monthlyOffering = null;
+
+  if (offerings && offerings.length > 0) {
+    for (const offering of offerings) {
+      for (const pkg of offering.availablePackages) {
+        console.log('🔍 Main Paywall - Checking package:', pkg.identifier, 'Product ID:', pkg.product.identifier);
+        if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
+          weeklyOffering = pkg;
+        }
+        if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
+          monthlyOffering = pkg;
+        }
+      }
+    }
+  }
 
   const weeklyPrice = weeklyOffering?.product?.priceString || "$4.99";
   const monthlyPrice = monthlyOffering?.product?.priceString || "$10.99";
+
+  console.log('💰 Main Paywall pricing determined:', { weeklyPrice, monthlyPrice, weeklyOffering, monthlyOffering });
 
   const plans = [
     {
