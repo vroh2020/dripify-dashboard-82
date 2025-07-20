@@ -201,10 +201,25 @@ class SubscriptionService {
   async purchasePackageByIds(offeringId: string, packageId: string): Promise<PurchaseResult> {
     // Helper for hard-coded flow requested by the team
     try {
-      // Find the package first in current offerings
-      const pkg = this.offerings
-        .find(o => o.identifier === offeringId)
-        ?.availablePackages.find(p => p.identifier === packageId);
+      let pkg: PurchasesPackage | undefined;
+      let off: PurchasesOffering | undefined;
+
+      // Try direct match on offeringId first
+      const directOffering = this.offerings.find(o => o.identifier === offeringId);
+      pkg = directOffering?.availablePackages.find(p => p.identifier === packageId);
+      off = directOffering;
+
+      // Fallback: search any offering that contains the packageId
+      if (!pkg) {
+        for (const o of this.offerings) {
+          const found = o.availablePackages.find(p => p.identifier === packageId);
+          if (found) {
+            pkg = found;
+            off = o;
+            break;
+          }
+        }
+      }
 
       if (pkg) {
         return this.purchasePackage(pkg);
