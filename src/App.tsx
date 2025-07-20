@@ -59,6 +59,7 @@ const AppRoutes = () => {
     authError: null,
     retryCount: 0
   });
+  const [hasLoggedDecision, setHasLoggedDecision] = useState(false);
 
   // Handle deep link auth callbacks
   useAppUrlHandler();
@@ -66,7 +67,7 @@ const AppRoutes = () => {
   // Handle app state changes without causing refreshes
   useAppStateHandler();
 
-  // Log routing decisions only when they change
+  // Log routing decisions only when they change and limit frequency
   useEffect(() => {
     const newDecision = {
       isAuthenticated,
@@ -76,7 +77,9 @@ const AppRoutes = () => {
       retryCount
     };
 
-    if (JSON.stringify(newDecision) !== JSON.stringify(routingDecisionRef.current)) {
+    const hasChanged = JSON.stringify(newDecision) !== JSON.stringify(routingDecisionRef.current);
+    
+    if (hasChanged && !hasLoggedDecision) {
       console.log('🔍 App Routing Decision:', {
         isAuthenticated,
         hasCompletedOnboarding,
@@ -88,8 +91,12 @@ const AppRoutes = () => {
         currentPath: window.location.pathname
       });
       routingDecisionRef.current = newDecision;
+      setHasLoggedDecision(true);
+      
+      // Reset the logging flag after a delay to allow periodic updates
+      setTimeout(() => setHasLoggedDecision(false), 5000);
     }
-  }, [isAuthenticated, hasCompletedOnboarding, user, authError, retryCount]);
+  }, [isAuthenticated, hasCompletedOnboarding, user, authError, retryCount, hasLoggedDecision]);
 
   // Show loading screen while determining route
   if (authLoading || onboardingLoading) {
@@ -101,15 +108,21 @@ const AppRoutes = () => {
     );
   }
 
-  // Add debugging for routing decisions
-  console.log('🔍 Current routing state:', {
-    isAuthenticated,
-    hasCompletedOnboarding,
-    user: !!user,
-    currentPath: window.location.pathname,
-    shouldShowDashboard: isAuthenticated && user && hasCompletedOnboarding,
-    shouldShowOnboarding: isAuthenticated && user && !hasCompletedOnboarding
-  });
+  // Add debugging for routing decisions but limit frequency
+  const debugLog = () => {
+    if (!hasLoggedDecision) {
+      console.log('🔍 Current routing state:', {
+        isAuthenticated,
+        hasCompletedOnboarding,
+        user: !!user,
+        currentPath: window.location.pathname,
+        shouldShowDashboard: hasCompletedOnboarding,
+        shouldShowOnboarding: !hasCompletedOnboarding,
+        authError: authError?.message || null
+      });
+    }
+  };
+  debugLog();
 
   return (
     <Routes>
@@ -119,12 +132,19 @@ const AppRoutes = () => {
       <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
       <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
       
-      {/* Onboarding route - accessible if not completed */}
-      {!hasCompletedOnboarding && (
-        <Route path="/onboarding" element={<CalOnboarding onComplete={() => window.location.reload()} />} />
-      )}
+      {/* Onboarding route - accessible when onboarding is not completed */}
+      <Route 
+        path="/onboarding" 
+        element={
+          hasCompletedOnboarding ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <CalOnboarding onComplete={() => window.location.reload()} />
+          )
+        } 
+      />
       
-      {/* Main app routes - only accessible after onboarding */}
+      {/* Main app routes - only accessible after onboarding completion */}
       {hasCompletedOnboarding ? (
         <>
           <Route path="/dashboard" element={<Index />} />

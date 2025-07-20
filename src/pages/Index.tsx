@@ -5,7 +5,7 @@ import { TipsView } from "@/components/TipsView";
 import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
 
@@ -13,40 +13,47 @@ import Profile from "@/pages/Profile";
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPath = location.pathname.split('/')[1] || 'dashboard';
+  const currentPath = useMemo(() => location.pathname.split('/')[1] || 'dashboard', [location.pathname]);
   
-  // Add render counter to prevent infinite loops
+  // Add render counter to track renders but don't cause re-renders
   const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
+  const lastRenderTimeRef = useRef(Date.now());
   
-  // Prevent excessive logging
-  if (renderCountRef.current <= 3) {
-    console.log('🎯 Index component rendered:', {
-      currentPath,
-      location: location.pathname,
-      renderCount: renderCountRef.current,
-      timestamp: new Date().toISOString()
-    });
-  } else if (renderCountRef.current === 4) {
-    console.warn('⚠️ Index component rendering too frequently - stopping logs');
+  // Only increment and log if enough time has passed to avoid spam
+  const now = Date.now();
+  if (now - lastRenderTimeRef.current > 100) { // Minimum 100ms between logs
+    renderCountRef.current += 1;
+    lastRenderTimeRef.current = now;
+    
+    if (renderCountRef.current <= 3) {
+      console.log('🎯 Index component rendered:', {
+        currentPath,
+        location: location.pathname,
+        renderCount: renderCountRef.current,
+        timestamp: new Date().toISOString()
+      });
+    } else if (renderCountRef.current === 4) {
+      console.warn('⚠️ Index component rendering too frequently - stopping logs');
+    }
   }
 
-  // Sync tab value with URL
+  // Memoize the tab change handler
+  const handleTabChange = useCallback((value: string) => {
+    if (renderCountRef.current <= 3) {
+      console.log('🎯 Tab changed to:', value);
+    }
+    navigate(`/${value}`);
+  }, [navigate]);
+
+  // Sync tab value with URL - optimize with useMemo
   useEffect(() => {
     if (location.pathname === '/') {
       navigate('/dashboard', { replace: true });
     }
   }, [location.pathname, navigate]);
 
-  const handleTabChange = (value: string) => {
-    if (renderCountRef.current <= 3) {
-      console.log('🎯 Tab changed to:', value);
-    }
-    navigate(`/${value}`);
-  };
-
-  // Simple conditional rendering instead of nested Routes
-  const renderContent = () => {
+  // Memoize the content rendering to prevent unnecessary re-renders
+  const renderedContent = useMemo(() => {
     if (renderCountRef.current <= 3) {
       console.log('🎯 Rendering content for path:', currentPath);
     }
@@ -81,7 +88,7 @@ const Index = () => {
         </div>
       );
     }
-  };
+  }, [currentPath]);
 
   return (
     <div 
@@ -96,9 +103,8 @@ const Index = () => {
           {(() => {
             try {
               console.log('🎯 Attempting to render content...');
-              const content = renderContent();
               console.log('🎯 Content rendered successfully');
-              return content;
+              return renderedContent;
             } catch (error) {
               console.error('🎯 Error rendering content:', error);
               return (
