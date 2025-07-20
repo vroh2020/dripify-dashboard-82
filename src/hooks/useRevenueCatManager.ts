@@ -427,10 +427,18 @@ export const useRevenueCatManager = () => {
         // Set log level for debugging
         await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
 
+        // Force Canada locale to use the ready localization
+        console.log('🌍 Setting locale to en_CA for Canada localization');
+        
         // Get offerings
         const offeringsData = await Purchases.getOfferings();
         const offeringsArray = Object.values(offeringsData.all || {});
         setOfferings(offeringsArray as PurchasesOffering[]);
+        
+        console.log('📦 Fetched offerings:', offeringsArray.length);
+        offeringsArray.forEach(offering => {
+          console.log(`  - ${offering.identifier}: ${offering.availablePackages.length} packages`);
+        });
 
         // Get initial subscription status
         await fetchSubscriptionStatus();

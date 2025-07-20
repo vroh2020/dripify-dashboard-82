@@ -12,6 +12,8 @@ export const REVENUECAT_CONFIG = {
     weekly: 'gs_499_1w',     // Actual product IDs for reference
     monthly: 'gs_1099_1m',   // Actual product IDs for reference
   },
+  // Force Canada locale for testing
+  locale: 'en_CA', // Use Canada localization which is ready
   developmentMode: {
     enabled: process.env.NODE_ENV === 'development',
     mockSubscription: false,
