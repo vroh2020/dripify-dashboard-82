@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,10 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
   const [purchasing, setPurchasing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('monthly');
   const { toast } = useToast();
+  
+  // Add logging throttle
+  const lastLogTimeRef = useRef(0);
+  const logCountRef = useRef(0);
 
   const handlePurchase = async (productId: string) => {
     setPurchasing(true);
@@ -28,16 +32,21 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
       if (success) {
         toast({
           title: "Purchase Successful!",
-          description: "Welcome to Dripify AI Premium! Enjoy unlimited style analyses.",
+          description: "Welcome to Premium! 🎉"
         });
         onPurchaseSuccess?.();
+      } else {
+        toast({
+          title: "Purchase Cancelled",
+          description: "No worries, you can upgrade anytime!",
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      console.error('Purchase failed:', error);
       toast({
         title: "Purchase Failed",
-        description: "Please try again or contact support.",
-        variant: "destructive",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setPurchasing(false);
@@ -45,20 +54,97 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
   };
 
   const handleRestore = async () => {
+    setPurchasing(true);
     try {
-      await restorePurchases();
-      toast({
-        title: "Purchases Restored",
-        description: "Your previous purchases have been restored.",
-      });
+      const success = await restorePurchases();
+      if (success) {
+        toast({
+          title: "Purchases Restored!",
+          description: "Your premium features have been restored."
+        });
+        onPurchaseSuccess?.();
+      } else {
+        toast({
+          title: "No Purchases Found",
+          description: "We couldn't find any previous purchases to restore.",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       toast({
         title: "Restore Failed",
-        description: "No purchases found to restore.",
-        variant: "destructive",
+        description: "Unable to restore purchases. Please try again.",
+        variant: "destructive"
       });
+    } finally {
+      setPurchasing(false);
     }
   };
+
+  // Memoize the pricing calculation to prevent excessive re-computation
+  const pricingData = useMemo(() => {
+    let weeklyOffering = null;
+    let monthlyOffering = null;
+
+    if (offerings && offerings.length > 0) {
+      for (const offering of offerings) {
+        for (const pkg of offering.availablePackages) {
+          if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
+            weeklyOffering = pkg;
+          }
+          if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
+            monthlyOffering = pkg;
+          }
+        }
+      }
+    }
+
+    const weeklyPrice = weeklyOffering?.product?.priceString || "$4.99";
+    const monthlyPrice = monthlyOffering?.product?.priceString || "$10.99";
+
+    // Throttled logging to prevent console spam
+    const now = Date.now();
+    if (now - lastLogTimeRef.current > 1000) { // Log at most once per second
+      logCountRef.current += 1;
+      lastLogTimeRef.current = now;
+      
+      if (logCountRef.current <= 5) { // Limit to 5 logs total
+        console.log('💰 Main Paywall pricing determined:', { weeklyPrice, monthlyPrice, weeklyOffering, monthlyOffering });
+      } else if (logCountRef.current === 6) {
+        console.warn('⚠️ Paywall pricing logs throttled - preventing console spam');
+      }
+    }
+
+    return {
+      weeklyPrice,
+      monthlyPrice,
+      weeklyOffering,
+      monthlyOffering
+    };
+  }, [offerings]); // Only recalculate when offerings change
+
+  const plans = [
+    {
+      id: 'weekly' as const,
+      name: 'Weekly Premium',
+      price: pricingData.weeklyPrice,
+      period: '/week',
+      productId: REVENUECAT_CONFIG.products.weekly,
+      description: 'Perfect for trying premium features',
+      popular: false,
+      savings: null
+    },
+    {
+      id: 'monthly' as const,
+      name: 'Monthly Premium',
+      price: pricingData.monthlyPrice,
+      period: '/month',
+      productId: REVENUECAT_CONFIG.products.monthly,
+      description: 'Best value for serious users',
+      popular: true,
+      savings: 'Save 60%'
+    }
+  ];
 
   const features = [
     { icon: Zap, text: 'Unlimited outfit analyses' },
@@ -78,52 +164,6 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
       </div>
     );
   }
-
-  // Find offerings using the new product IDs - Enhanced search
-  let weeklyOffering = null;
-  let monthlyOffering = null;
-
-  if (offerings && offerings.length > 0) {
-    for (const offering of offerings) {
-      for (const pkg of offering.availablePackages) {
-        console.log('🔍 Main Paywall - Checking package:', pkg.identifier, 'Product ID:', pkg.product.identifier);
-        if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
-          weeklyOffering = pkg;
-        }
-        if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
-          monthlyOffering = pkg;
-        }
-      }
-    }
-  }
-
-  const weeklyPrice = weeklyOffering?.product?.priceString || "$4.99";
-  const monthlyPrice = monthlyOffering?.product?.priceString || "$10.99";
-
-  console.log('💰 Main Paywall pricing determined:', { weeklyPrice, monthlyPrice, weeklyOffering, monthlyOffering });
-
-  const plans = [
-    {
-      id: 'weekly' as const,
-      name: 'Weekly Premium',
-      price: weeklyPrice,
-      period: '/week',
-      productId: REVENUECAT_CONFIG.products.weekly,
-      description: 'Perfect for trying premium features',
-      popular: false,
-      savings: null
-    },
-    {
-      id: 'monthly' as const,
-      name: 'Monthly Premium',
-      price: monthlyPrice,
-      period: '/month',
-      productId: REVENUECAT_CONFIG.products.monthly,
-      description: 'Best value for regular users',
-      popular: true,
-      savings: 'Save 20%'
-    }
-  ];
 
   return (
     <motion.div 

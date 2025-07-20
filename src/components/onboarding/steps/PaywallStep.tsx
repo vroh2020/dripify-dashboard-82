@@ -4,7 +4,7 @@ import { Crown, Check, Star, Zap, Sparkles } from "lucide-react";
 import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
 import { REVENUECAT_CONFIG } from "@/config/revenueCat";
-import { useState } from "react";
+import { useState, useMemo, useRef } from "react";
 
 interface PaywallStepProps {
   onPurchase: () => void;
@@ -15,6 +15,10 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('monthly'); // Default to monthly
   const [isPurchasing, setIsPurchasing] = useState(false);
+  
+  // Add logging throttle
+  const lastLogTimeRef = useRef(0);
+  const logCountRef = useRef(0);
 
   const handlePurchase = async () => {
     if (isPurchasing) return;
@@ -58,42 +62,30 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         } else {
           toast({
             title: "Purchase Cancelled",
-            description: "Please try again to unlock premium features.",
+            description: "No worries! You can try again anytime.",
+            variant: "destructive",
           });
         }
       } else {
-        // Enhanced fallback: try with the configured product ID directly
-        console.log('⚠️ Product not found in offerings, trying direct purchase with:', productId);
-        console.log('🔍 Available packages:', offerings?.[0]?.availablePackages?.map(pkg => ({
-          identifier: pkg.identifier,
-          productId: pkg.product.identifier,
-          price: pkg.product.priceString
-        })));
-        
-        const success = await purchaseProduct(productId);
-        if (success) {
-          toast({
-            title: "Welcome to Premium! 🎉",
-            description: "Your subscription is now active. Enjoy unlimited style analyses!",
-          });
-          onPurchase();
-        } else {
-          throw new Error('Product not available');
-        }
+        console.warn('⚠️ Product not found in offerings:', productId);
+        toast({
+          title: "Purchase Error",
+          description: "Subscription option not available. Please try again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Purchase error:', error);
       toast({
         title: "Purchase Failed",
-        description: "Product temporarily unavailable. Please try again later or contact support.",
-        variant: "destructive"
+        description: "There was an error processing your purchase. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsPurchasing(false);
     }
   };
 
-  // Show loading state during RevenueCat initialization
   if (isLoading) {
     return (
       <motion.div
@@ -109,55 +101,77 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
     );
   }
 
-  // Enhanced product finding - search through all packages for the actual product IDs
-  let weeklyPackage = null;
-  let monthlyPackage = null;
+  // Memoize the pricing calculation to prevent excessive re-computation
+  const pricingData = useMemo(() => {
+    let weeklyPackage = null;
+    let monthlyPackage = null;
 
-  if (offerings && offerings.length > 0) {
-    for (const offering of offerings) {
-      for (const pkg of offering.availablePackages) {
-        if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
-          weeklyPackage = pkg;
-        }
-        if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
-          monthlyPackage = pkg;
+    if (offerings && offerings.length > 0) {
+      for (const offering of offerings) {
+        for (const pkg of offering.availablePackages) {
+          if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
+            weeklyPackage = pkg;
+          }
+          if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
+            monthlyPackage = pkg;
+          }
         }
       }
     }
-  }
 
-  const weeklyPrice = weeklyPackage?.product?.priceString || "$4.99";
-  const monthlyPrice = monthlyPackage?.product?.priceString || "$10.99";
+    const weeklyPrice = weeklyPackage?.product?.priceString || "$4.99";
+    const monthlyPrice = monthlyPackage?.product?.priceString || "$10.99";
 
-  console.log('💰 Pricing determined:', { weeklyPrice, monthlyPrice, weeklyPackage, monthlyPackage });
+    // Throttled logging to prevent console spam
+    const now = Date.now();
+    if (now - lastLogTimeRef.current > 1000) { // Log at most once per second
+      logCountRef.current += 1;
+      lastLogTimeRef.current = now;
+      
+      if (logCountRef.current <= 5) { // Limit to 5 logs total
+        console.log('💰 Pricing determined:', { weeklyPrice, monthlyPrice, weeklyPackage, monthlyPackage });
+      } else if (logCountRef.current === 6) {
+        console.warn('⚠️ PaywallStep pricing logs throttled - preventing console spam');
+      }
+    }
 
-  // Debug info for development
-  if (process.env.NODE_ENV === 'development' && offerings) {
-    console.log('🔍 DEBUG - Full offerings structure:', JSON.stringify(offerings, null, 2));
-    offerings.forEach((offering, offeringIndex) => {
-      console.log(`📦 Offering ${offeringIndex}: ${offering.identifier}`);
-      offering.availablePackages.forEach((pkg, pkgIndex) => {
-        console.log(`  📦 Package ${pkgIndex}: ${pkg.identifier} -> Product: ${pkg.product.identifier} (${pkg.product.priceString})`);
+    // Debug info for development (throttled)
+    if (process.env.NODE_ENV === 'development' && offerings && logCountRef.current <= 2) {
+      console.log('🔍 DEBUG - Full offerings structure:', JSON.stringify(offerings, null, 2));
+      offerings.forEach((offering, offeringIndex) => {
+        console.log(`📦 Offering ${offeringIndex}: ${offering.identifier}`);
+        offering.availablePackages.forEach((pkg, pkgIndex) => {
+          console.log(`  📦 Package ${pkgIndex}: ${pkg.identifier} -> Product: ${pkg.product.identifier} (${pkg.product.priceString})`);
+        });
       });
-    });
-  }
+    }
+
+    return {
+      weeklyPrice,
+      monthlyPrice,
+      weeklyPackage,
+      monthlyPackage
+    };
+  }, [offerings]); // Only recalculate when offerings change
 
   const plans = [
     {
       id: 'weekly' as const,
       name: 'Weekly',
-      price: weeklyPrice,
+      price: pricingData.weeklyPrice,
       period: '/week',
-      description: 'Perfect for trying out premium features',
-      popular: false
+      savings: null,
+      popular: false,
+      features: ['Unlimited style analyses', '7-day free trial', 'Cancel anytime']
     },
     {
       id: 'monthly' as const,
       name: 'Monthly',
-      price: monthlyPrice,
+      price: pricingData.monthlyPrice,
       period: '/month',
-      description: 'Best value for regular users',
-      popular: true
+      savings: 'Save 60%',
+      popular: true,
+      features: ['Unlimited style analyses', 'Priority support', 'Advanced insights', 'Cancel anytime']
     }
   ];
 
@@ -303,7 +317,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           className="text-center"
         >
           <p className="text-white/40 text-xs leading-relaxed">
-            By continuing, you agree to our Terms of Service and Privacy Policy. {selectedPlan === 'weekly' ? weeklyPrice + '/week' : monthlyPrice + '/month'}. Cancel anytime.
+            By continuing, you agree to our Terms of Service and Privacy Policy. {selectedPlan === 'weekly' ? pricingData.weeklyPrice + '/week' : pricingData.monthlyPrice + '/month'}. Cancel anytime.
           </p>
         </motion.div>
       </div>
