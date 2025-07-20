@@ -5,6 +5,7 @@ import { useRevenueCat } from "@/hooks/useRevenueCat";
 import { useToast } from "@/hooks/use-toast";
 import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 import { useState, useMemo, useRef } from "react";
+import { subscriptionService } from '@/services/subscriptionService';
 
 interface PaywallStepProps {
   onPurchase: () => void;
@@ -50,9 +51,8 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
         }
       }
 
-      if (targetProduct) {
-        console.log('✅ Found product from offerings:', targetProduct.identifier);
-        const success = await purchaseProduct(targetProduct.identifier);
+      if (targetPackage && targetOffering) {
+        const { success } = await subscriptionService.purchasePackageByIds(targetOffering.identifier, targetPackage.identifier);
         if (success) {
           toast({
             title: "Welcome to Premium! 🎉",

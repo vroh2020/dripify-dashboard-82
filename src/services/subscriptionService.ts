@@ -197,6 +197,43 @@ class SubscriptionService {
     }
     return subscription.isActive;
   }
+
+  async purchasePackageByIds(offeringId: string, packageId: string): Promise<PurchaseResult> {
+    // Helper for hard-coded flow requested by the team
+    try {
+      // Find the package first in current offerings
+      const pkg = this.offerings
+        .find(o => o.identifier === offeringId)
+        ?.availablePackages.find(p => p.identifier === packageId);
+
+      if (pkg) {
+        return this.purchasePackage(pkg);
+      }
+
+      // Fallback – if offerings array is empty (web or failed fetch) create mock package
+      const mockPkg: PurchasesPackage = {
+        identifier: packageId,
+        packageType: 'CUSTOM',
+        offeringIdentifier: offeringId,
+        product: {
+          identifier: packageId === '$rc_weekly' ? 'gs_499_1w' : 'gs_1099_1m',
+          title: packageId === '$rc_weekly' ? 'Weekly Premium' : 'Monthly Premium',
+          description: '',
+          price: packageId === '$rc_weekly' ? 4.99 : 10.99,
+          priceString: packageId === '$rc_weekly' ? '$4.99' : '$10.99',
+          currencyCode: 'USD',
+          subscriptionPeriod: packageId === '$rc_weekly' ? 'P1W' : 'P1M',
+        },
+      } as PurchasesPackage;
+
+      return this.purchasePackage(mockPkg);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Purchase failed',
+      };
+    }
+  }
 }
 
 export const subscriptionService = new SubscriptionService();
