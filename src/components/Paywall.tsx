@@ -13,16 +13,16 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Find the Pro product - look for gs_1299_1m specifically
+  // Find the Pro product - look for gs_1099_1m specifically
   const proProduct = offerings?.[0]?.availablePackages?.find(
     (pkg) =>
-      pkg.product.identifier === "gs_1099_1m" ||
-      pkg.product.identifier.includes("pro") ||
-      pkg.product.title.toLowerCase().includes("pro")
-  );
+      pkg.product.identifier === 'gs_1099_1m' ||
+      pkg.product.identifier.includes('pro') ||
+      pkg.product.title.toLowerCase().includes('pro')
+  )?.product;
 
   // Format the price
-  const formattedPrice = proProduct?.product.priceString || "$12.99";
+  const formattedPrice = proProduct?.priceString || "$12.99";
 
   const handleStartTrial = async () => {
     if (isProcessing) return;
