@@ -24,19 +24,12 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
   const handlePurchase = async () => {
     if (isPurchasing) return;
     setIsPurchasing(true);
-
     try {
       const productId = selectedPlan === 'weekly' 
         ? REVENUECAT_CONFIG.products.weekly 
         : REVENUECAT_CONFIG.products.monthly;
-
-      console.log('🔍 Looking for product ID:', productId);
-      console.log('📦 Available offerings:', offerings);
-
-      // Search through all packages to find the product with matching identifier
       let targetPackage = null;
       let targetOffering = null;
-
       if (offerings && offerings.length > 0) {
         for (const offering of offerings) {
           const foundPackage = offering.availablePackages.find(
@@ -49,28 +42,27 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
           }
         }
       }
-
-      if (targetPackage && targetOffering) {
-        const { success } = await subscriptionService.purchaseProduct(targetPackage.product);
-        if (success) {
-          toast({
-            title: "Welcome to Premium! 🎉",
-            description:
-              "Your subscription is now active. Enjoy unlimited style analyses!",
-          });
-          onPurchase();
-        } else {
-          toast({
-            title: "Purchase Cancelled",
-            description: "No worries! You can try again anytime.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        console.warn('⚠️ Product not found in offerings:', productId);
+      if (!targetPackage) {
+        console.error('No valid product found in offerings for purchase.');
         toast({
           title: "Purchase Error",
           description: "Subscription option not available. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const { success } = await subscriptionService.purchaseProduct(targetPackage.product);
+      if (success) {
+        toast({
+          title: "Welcome to Premium! 🎉",
+          description:
+            "Your subscription is now active. Enjoy unlimited style analyses!",
+        });
+        onPurchase();
+      } else {
+        toast({
+          title: "Purchase Cancelled",
+          description: "No worries! You can try again anytime.",
           variant: "destructive",
         });
       }

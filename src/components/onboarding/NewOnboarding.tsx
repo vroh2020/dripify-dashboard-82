@@ -152,6 +152,12 @@ const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
       toast({ title: "Please select a plan", variant: "destructive" });
       return;
     }
+    // Defensive: ensure selectedPackage is a real package from offerings
+    if (!selectedPackage.product || !selectedPackage.product.identifier) {
+      toast({ title: "No valid product found for purchase.", variant: "destructive" });
+      console.error('No valid product found in selectedPackage for purchase.', selectedPackage);
+      return;
+    }
     setIsLoading(true);
     try {
       const result = await subscriptionService.purchaseProduct(selectedPackage.product);

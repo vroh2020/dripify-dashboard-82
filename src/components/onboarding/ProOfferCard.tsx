@@ -27,28 +27,16 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
 
   const handleStartTrial = async () => {
     if (isProcessing) return;
-    
     setIsProcessing(true);
     setHasError(false);
-    
     try {
-      // CRITICAL FIX: Always show payment flow, even if isPro is detected
-      // This prevents bypass vulnerability from cached/existing subscriptions
-      
-      const product = proProduct || {
-        identifier: REVENUECAT_CONFIG.products.monthly,
-        title: "Pro Monthly",
-        description: "Pro subscription",
-        price: 10.99,
-        priceString: "$10.99",
-        currencyCode: "USD",
-        subscriptionPeriod: "P1M",
-      };
-      
-      const success = await purchaseProduct(product);
-      
+      if (!proProduct) {
+        setHasError(true);
+        console.error('No valid product found in offerings for purchase.');
+        return;
+      }
+      const success = await purchaseProduct(proProduct.product);
       if (success) {
-        // Payment succeeded - proceed to completion
         onContinue();
       } else {
         setHasError(true);
