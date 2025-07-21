@@ -107,9 +107,34 @@ const OptionButton: React.FC<{
 const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [packages, setPackages] = useState<PurchasesPackage[]>([]);
+  const [isFetching, setIsFetching] = useState(true);
   const { toast } = useToast();
 
-  const packages = subscriptionService.getAvailablePackages();
+  useEffect(() => {
+    const fetchPackages = async () => {
+      setIsFetching(true);
+      try {
+        // Give RC a moment to initialize if needed
+        await new Promise(res => setTimeout(res, 500));
+        const availablePackages = subscriptionService.getAvailablePackages();
+        if (availablePackages.length === 0) {
+          // Retry after a short delay, as initialization might still be in progress
+          await new Promise(res => setTimeout(res, 2000));
+          const refreshedPackages = subscriptionService.getAvailablePackages();
+          setPackages(refreshedPackages);
+        } else {
+          setPackages(availablePackages);
+        }
+      } catch (error) {
+        console.error("Error fetching packages:", error);
+      } finally {
+        setIsFetching(false);
+      }
+    };
+    fetchPackages();
+  }, []);
+
   const monthlyPackage = packages.find(p => p.product.identifier.includes('1m'));
   const weeklyPackage = packages.find(p => p.product.identifier.includes('1w'));
   
@@ -154,6 +179,99 @@ const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
       setIsLoading(false);
     }
   };
+
+  if (isFetching) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-400 mb-4"></div>
+        <p className="text-white/70">Loading subscription options...</p>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Subscriptions Unavailable</h2>
+        <p className="text-white/70 mb-6">We couldn't load subscription options at this time. This can happen if the App Store is slow. Please try again in a few moments.</p>
+        <Button onClick={() => window.location.reload()} className="bg-orange-500 hover:bg-orange-600">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Subscriptions Unavailable</h2>
+        <p className="text-white/70 mb-6">We couldn't load subscription options at this time. This can happen if the App Store is slow. Please try again in a few moments.</p>
+        <Button onClick={() => window.location.reload()} className="bg-orange-500 hover:bg-orange-600">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Subscriptions Unavailable</h2>
+        <p className="text-white/70 mb-6">We couldn't load subscription options at this time. This can happen if the App Store is slow. Please try again in a few moments.</p>
+        <Button onClick={() => window.location.reload()} className="bg-orange-500 hover:bg-orange-600">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Subscriptions Unavailable</h2>
+        <p className="text-white/70 mb-6">We couldn't load subscription options at this time. This can happen if the App Store is slow. Please try again in a few moments.</p>
+        <Button onClick={() => window.location.reload()} className="bg-orange-500 hover:bg-orange-600">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Subscriptions Unavailable</h2>
+        <p className="text-white/70 mb-6">We couldn't load subscription options at this time. This can happen if the App Store is slow. Please try again in a few moments.</p>
+        <Button onClick={() => window.location.reload()} className="bg-orange-500 hover:bg-orange-600">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Subscriptions Unavailable</h2>
+        <p className="text-white/70 mb-6">We couldn't load subscription options at this time. This can happen if the App Store is slow. Please try again in a few moments.</p>
+        <Button onClick={() => window.location.reload()} className="bg-orange-500 hover:bg-orange-600">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900/60 via-purple-800/40 to-black flex flex-col justify-center items-center px-6 text-center">
+        <h2 className="text-2xl font-bold text-white mb-4">Subscriptions Unavailable</h2>
+        <p className="text-white/70 mb-6">We couldn't load subscription options at this time. This can happen if the App Store is slow. Please try again in a few moments.</p>
+        <Button onClick={() => window.location.reload()} className="bg-orange-500 hover:bg-orange-600">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <motion.div
