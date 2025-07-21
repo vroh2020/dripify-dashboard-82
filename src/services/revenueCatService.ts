@@ -73,10 +73,8 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage) => {
 
   try {
     const { Purchases } = await import('@revenuecat/purchases-capacitor');
-    const { customerInfo } = await Purchases.purchasePackage({ 
-      offeringIdentifier: packageToPurchase.offeringIdentifier,
-      packageIdentifier: packageToPurchase.identifier
-    });
+    // FIXED: Pass the actual package object, not identifiers
+    const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
     return customerInfo;
   } catch (error) {
     console.error('Failed to purchase package:', error);
