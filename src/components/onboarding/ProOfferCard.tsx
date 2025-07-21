@@ -13,10 +13,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Find the Pro product - look for gs_1299_1m specifically
+  // Find the Pro product - look for gs_1099_1m specifically
   const proProduct = offerings?.[0]?.availablePackages?.find(
     (pkg) =>
-      pkg.product.identifier === "gs_1299_1m" ||
+      pkg.product.identifier === "gs_1099_1m" ||
       pkg.product.identifier.includes("pro") ||
       pkg.product.title.toLowerCase().includes("pro")
   );
@@ -35,7 +35,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       // This prevents bypass vulnerability from cached/existing subscriptions
       
       const product = proProduct || {
-        identifier: "gs_1299_1m",
+        identifier: "gs_1099_1m",
         title: "Pro Monthly",
         description: "Pro subscription",
         price: 12.99,
