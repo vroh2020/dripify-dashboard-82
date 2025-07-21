@@ -89,7 +89,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         throw new Error('No product available');
       }
       
-      const success = await purchaseProduct(product);
+      const success = await purchaseProduct(product.identifier);
       
       if (success) {
         // Payment succeeded - proceed to completion

@@ -239,18 +239,19 @@ class SubscriptionService {
       }
 
       // Fallback – if offerings array is empty (web or failed fetch) create mock package
-      const mockPkg: PurchasesPackage = {
+      const mockPkg = {
         identifier: packageId,
-        packageType: 'CUSTOM',
         offeringIdentifier: offeringId,
         product: {
           identifier: packageId === '$rc_weekly' ? 'gs_499_1w' : 'gs_1099_1m',
           title: packageId === '$rc_weekly' ? 'Weekly Premium' : 'Monthly Premium',
-          description: '',
+          description: 'Premium subscription',
           price: packageId === '$rc_weekly' ? 4.99 : 10.99,
           priceString: packageId === '$rc_weekly' ? '$4.99' : '$10.99',
           currencyCode: 'USD',
           subscriptionPeriod: packageId === '$rc_weekly' ? 'P1W' : 'P1M',
+          introPrice: null,
+          discounts: []
         },
       } as PurchasesPackage;
 
