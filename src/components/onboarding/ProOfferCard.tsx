@@ -17,9 +17,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   // Find the Pro product - look for gs_1099_1m specifically
   const proProduct = offerings?.[0]?.availablePackages?.find(
     (pkg) =>
-      pkg.product.identifier === REVENUECAT_CONFIG.products.monthly ||
-      pkg.product.identifier === "gs_1099_1m" ||
-      pkg.product.identifier.includes("pro")
+      pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
   );
 
   // Format the price

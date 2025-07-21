@@ -33,17 +33,36 @@ class SubscriptionService {
 
   private async initializeNative(): Promise<void> {
     try {
+      console.log('🔄 Starting native RevenueCat initialization...');
+      
       const { data, error } = await supabase.functions.invoke('revenuecat-config');
-      if (error || !data?.publicKey) throw new Error('Failed to get RevenueCat API key');
+      if (error) {
+        console.error('❌ Failed to get RevenueCat config:', error);
+        throw new Error(`Failed to get RevenueCat API key: ${error.message}`);
+      }
+      if (!data?.publicKey) {
+        console.error('❌ No public key in config response:', data);
+        throw new Error('No public key returned from revenuecat-config');
+      }
 
+      console.log('✅ Got RevenueCat config, configuring SDK...');
       await Purchases.configure({ apiKey: data.publicKey, appUserID: null });
 
+      console.log('🔄 Fetching offerings...');
       const offeringsData = await Purchases.getOfferings();
       this.offerings = Object.values(offeringsData.all || {});
       
-      console.log('🔍 RevenueCat offerings loaded:', this.offerings.length);
+      console.log('🔍 RevenueCat offerings loaded:', {
+        count: this.offerings.length,
+        current: offeringsData.current?.identifier || 'none',
+        all: this.offerings.map(o => ({ id: o.identifier, packages: o.availablePackages.length }))
+      });
+
+      if (this.offerings.length === 0) {
+        console.warn('⚠️ No offerings found! Check RevenueCat dashboard and App Store Connect configuration');
+      }
     } catch (error) {
-      console.error('Native RevenueCat initialization failed:', error);
+      console.error('❌ Native RevenueCat initialization failed:', error);
       throw error;
     }
   }

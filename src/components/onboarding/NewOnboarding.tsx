@@ -115,6 +115,9 @@ const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
     const fetchPackages = async () => {
       setIsFetching(true);
       try {
+        // Initialize subscription service first
+        await subscriptionService.initialize();
+        
         // Give RC a moment to initialize if needed
         await new Promise(res => setTimeout(res, 500));
         const availablePackages = subscriptionService.getAvailablePackages();

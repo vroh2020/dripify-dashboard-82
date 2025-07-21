@@ -16,9 +16,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   // Find the Pro product - look for gs_1099_1m specifically
   const proProduct = offerings?.[0]?.availablePackages?.find(
     (pkg) =>
-      pkg.product.identifier === 'gs_1099_1m' ||
-      pkg.product.identifier.includes('pro') ||
-      pkg.product.title.toLowerCase().includes('pro')
+      pkg.product.identifier === 'gs_1099_1m'
   )?.product;
 
   // Format the price
@@ -31,10 +29,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     try {
       if (!proProduct) {
         setHasError(true);
-        console.error('No valid product found in offerings for purchase. Offerings:', offerings);
+        console.error('No valid product found in offerings for purchase.');
         return;
       }
-      const success = await purchaseProduct(proProduct.identifier);
+      const success = await purchaseProduct(proProduct);
       if (success) {
         setTimeout(onContinue, 1000);
       } else {
