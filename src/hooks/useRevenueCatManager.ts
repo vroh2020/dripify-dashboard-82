@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
-import { debugRevenueCatSetup, validateRevenueCatConfig } from '@/utils/revenueCatDebug';
 
 export type SubscriptionStatus = {
   isActive: boolean;
@@ -13,8 +12,6 @@ export type SubscriptionStatus = {
   productId: string | null;
   offeringId: string | null;
 };
-
-// Removed web fallback - only native RevenueCat now
 
 export const useRevenueCatManager = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -29,21 +26,11 @@ export const useRevenueCatManager = () => {
   const { user } = useAuth();
   const hasInitialized = useRef(false);
   const lastPurchaseAttempt = useRef<Date | null>(null);
-  const lastStatusCheck = useRef<Date | null>(null);
 
   const fetchSubscriptionStatus = useCallback(async () => {
     if (!user) {
       return { isActive: false, expirationDate: null, productId: null, offeringId: null };
     }
-
-    // Throttle status checks to prevent excessive API calls
-    if (lastStatusCheck.current) {
-      const timeSinceLastCheck = Date.now() - lastStatusCheck.current.getTime();
-      if (timeSinceLastCheck < 5000) { // 5 seconds minimum between checks
-        return subscription;
-      }
-    }
-    lastStatusCheck.current = new Date();
 
     try {
       if (Capacitor.isNativePlatform()) {
@@ -61,56 +48,41 @@ export const useRevenueCatManager = () => {
           productId: subscription.productId,
           offeringId: subscription.offeringId
         };
-
+        
         setSubscription(newStatus);
         return newStatus;
       } else {
-        // Web platform - no RevenueCat available
-        console.log('🌐 Web platform - no RevenueCat subscription status available');
-        return { isActive: false, expirationDate: null, productId: null, offeringId: null };
+        // Web platform - check Supabase for subscription status
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('subscription_status, subscription_expiry')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const newStatus = {
+          isActive: profile?.subscription_status === 'active',
+          expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
+          productId: subscription.productId,
+          offeringId: 'web'
+        };
+
+        setSubscription(newStatus);
+        return newStatus;
       }
     } catch (error) {
       console.error('fetchSubscriptionStatus failed:', error);
       return subscription;
     }
-  }, [user?.id, subscription]); // Include subscription in dependencies but with throttling
+  }, [user?.id]); // FIXED: Only depend on user.id, not the entire subscription object
 
   const refreshSubscription = useCallback(async () => {
     await fetchSubscriptionStatus();
   }, [fetchSubscriptionStatus]);
 
-  const purchaseProduct = useCallback(async (productOrId: PurchasesPackage['product'] | string) => {
-    console.log('💰 Purchase Product called!', { productOrId, user: !!user, offeringsLength: offerings.length });
-    console.log('🔍 Current offerings state:', offerings.map(o => ({ id: o.identifier, packages: o.availablePackages.length })));
-    
-    if (!user) {
-      console.log('❌ No user, aborting purchase');
-      return false;
-    }
-    
-    if (offerings.length === 0) {
-      console.log('❌ CRITICAL: No offerings available! This will cause aPackage error.');
-      toast({
-        variant: "destructive",
-        title: "Products Not Available",
-        description: "Please wait for products to load and try again."
-      });
-      return false;
-    }
-
-    // CRITICAL: Check if we have a current offering (this is what RevenueCat uses by default)
-    const currentOffering = offerings.find(o => o.identifier === REVENUECAT_CONFIG.offering.identifier);
-    if (!currentOffering) {
-      console.error('❌ CRITICAL: Current offering not found!');
-      console.error('🔍 Expected offering:', REVENUECAT_CONFIG.offering.identifier);
-      console.error('🔍 Available offerings:', offerings.map(o => o.identifier));
-      toast({
-        variant: "destructive",
-        title: "Configuration Error",
-        description: "Subscription service is not properly configured."
-      });
-      return false;
-    }
+  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
+    if (!user) return false;
 
     // Prevent rapid purchase attempts
     if (lastPurchaseAttempt.current) {
@@ -122,127 +94,184 @@ export const useRevenueCatManager = () => {
     lastPurchaseAttempt.current = new Date();
 
     if (!Capacitor.isNativePlatform()) {
-      console.log('❌ Web platform detected - RevenueCat purchases only work on native platforms');
-      toast({
-        title: "Not Available",
-        description: "Purchases are only available on mobile devices.",
-        variant: "destructive"
+      try {
+        setIsLoading(true);
+        
+        // Show payment confirmation dialog
+        const confirmed = window.confirm(
+          'This is a web demo. In production, this would open a payment flow. Would you like to simulate a successful payment?'
+        );
+        
+        if (!confirmed) {
+          toast({ 
+            title: "Payment Cancelled", 
+            description: "You can try again anytime." 
+          });
+          return false;
+        }
+        
+        // Simulate payment processing
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 7); // 7 days trial
+
+        const newSubscription = {
+          isActive: true,
+          expirationDate: expiryDate,
+          productId: product.identifier,
+          offeringId: 'web-simulation'
+        };
+        
+        // Update Supabase profile
+        const { error: profileError } = await supabase.from('profiles').update({
+          onboarding_completed: true,
+          subscription_status: 'active',
+          subscription_expiry: expiryDate.toISOString()
+        }).eq('id', user.id);
+
+        if (profileError) throw profileError;
+        
+        setSubscription(newSubscription);
+        toast({ 
+          title: "Welcome to Pro! 🎉", 
+          description: "Your 7-day trial is now active." 
+        });
+        return true;
+      } catch (error) {
+        console.error('Web purchase simulation failed:', error);
+        toast({ 
+          variant: "destructive", 
+          title: "Payment Failed", 
+          description: "Please try again or contact support if the issue persists." 
+        });
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // Native iOS RevenueCat flow
+    if (!hasInitialized.current) {
+      console.error('RevenueCat not initialized');
+      toast({ 
+        variant: "destructive", 
+        title: "Payment Error", 
+        description: "Payment system not ready. Please try again." 
       });
       return false;
     }
 
-    // Native platform purchase logic
     try {
       setIsLoading(true);
+      console.log('🔄 Starting native purchase flow for:', product.identifier);
       
-      const productId = typeof productOrId === 'string' ? productOrId : productOrId.identifier;
+      // CRITICAL FIX: Always attempt actual purchase, don't assume existing subscription
+      const result = await Purchases.purchaseStoreProduct(product);
+      console.log('✅ Purchase result:', result);
       
-      // Find the correct package ID based on product ID
-      let packageId: string | null = null;
-      if (productId === REVENUECAT_CONFIG.products.weekly) {
-        packageId = REVENUECAT_CONFIG.packages.weekly;
-      } else if (productId === REVENUECAT_CONFIG.products.monthly) {
-        packageId = REVENUECAT_CONFIG.packages.monthly;
-      }
-
-      if (!packageId) {
-        console.error('❌ No package mapping for product:', productId);
-        toast({
-          variant: "destructive",
-          title: "Product Error", 
-          description: "Invalid subscription type selected."
-        });
-        return false;
-      }
-
-      // Find the specific offering (offering_1)
-      const targetOffering = offerings.find(o => o.identifier === REVENUECAT_CONFIG.offering.identifier);
+      // Validate the purchase was actually completed
+      const isPro = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false;
+      const hasNewPurchase = result.customerInfo.latestExpirationDate;
       
-      if (!targetOffering) {
-        console.error('❌ Offering not found:', REVENUECAT_CONFIG.offering.identifier);
-        console.log('🔍 Available offerings:', offerings.map(o => o.identifier));
-        toast({
-          variant: "destructive",
-          title: "Service Unavailable",
-          description: "Subscription service is not available right now."
-        });
-        return false;
-      }
-
-      // Verify the package exists in the offering first
-      const targetPackage = targetOffering.availablePackages.find(
-        pkg => pkg.identifier === packageId
-      );
-
-      if (!targetPackage) {
-        console.error('❌ No matching package found in offering:', packageId);
-        console.log('🔍 Available packages:', targetOffering.availablePackages.map(p => p.identifier));
-        toast({
-          variant: "destructive",
-          title: "Purchase Failed",
-          description: "No valid package found. Try again later."
-        });
-        return false;
-      }
-
-      console.log('✅ Found package:', targetPackage.identifier, 'in offering:', targetOffering.identifier);
+      console.log('🔍 Purchase validation:', { isPro, hasNewPurchase, productId: product.identifier });
       
-      // Use package-based purchase with PACKAGE OBJECT (not identifiers!)
-      const result = await Purchases.purchasePackage(targetPackage);
+      if (isPro && hasNewPurchase) {
+        // Update Supabase profile
+        const { error: profileError } = await supabase.from('profiles').update({
+          onboarding_completed: true,
+          subscription_status: 'active',
+          subscription_expiry: new Date(result.customerInfo.latestExpirationDate).toISOString()
+        }).eq('id', user.id);
 
-      const isPro = Boolean(result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+        if (profileError) {
+          console.error('Failed to update profile after purchase:', profileError);
+        }
 
-      if (isPro) {
-        await supabase
-          .from('profiles')
-          .update({
-            subscription_status: 'active',
-            subscription_expiry: new Date(result.customerInfo.latestExpirationDate).toISOString()
-          })
-          .eq('id', user.id);
-
-        toast({
-          title: "Welcome to Premium! 🎉",
-          description: "Your subscription is now active!"
+        toast({ 
+          title: "Welcome to Pro! 🎉", 
+          description: "Your subscription is now active!" 
         });
         await fetchSubscriptionStatus();
         return true;
       } else {
         console.log('❌ Purchase validation failed - no new subscription detected');
+        toast({ 
+          variant: "destructive", 
+          title: "Purchase Validation Failed", 
+          description: "Please try again or contact support." 
+        });
         return false;
       }
-    } catch (error) {
-      console.error('Purchase failed:', error);
-      if (error.code === '1') { // User cancelled
-        toast({
-          title: "Purchase Cancelled",
-          description: "You can try again anytime."
+      
+    } catch (error: any) {
+      console.error('Native purchase failed:', error);
+      
+      if (error.message?.includes('cancelled')) {
+        toast({ 
+          title: "Payment Cancelled", 
+          description: "You can try again anytime." 
         });
+      } else if (error.message?.includes('already active')) {
+        // Handle existing subscription case
+        toast({ 
+          title: "Subscription Already Active", 
+          description: "You already have an active subscription!" 
+        });
+        await fetchSubscriptionStatus();
+        return true;
       } else {
-        toast({
-          title: "Purchase Failed",
-          description: "Please try again or contact support.",
-          variant: "destructive"
+        toast({ 
+          variant: "destructive", 
+          title: "Purchase Failed", 
+          description: "Please try again or contact support if the issue persists." 
         });
       }
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [toast, fetchSubscriptionStatus, user, offerings]);
+  }, [toast, fetchSubscriptionStatus, user]);
 
   const restorePurchases = useCallback(async () => {
     if (!user) return false;
 
     if (!Capacitor.isNativePlatform()) {
-      console.log('❌ Web platform detected - RevenueCat restore only works on native platforms');
-      toast({
-        title: "Not Available",
-        description: "Restore purchases is only available on mobile devices.",
-        variant: "destructive"
-      });
-      return false;
+      try {
+        setIsLoading(true);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('subscription_status, subscription_expiry')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.subscription_status === 'active') {
+          toast({ 
+            title: "Subscription Active", 
+            description: "Your Pro subscription is already active." 
+          });
+          return true;
+        }
+
+        toast({ 
+          title: "No Active Subscription", 
+          description: "We couldn't find any active subscriptions." 
+        });
+        return false;
+      } catch (error) {
+        console.error('Web restore failed:', error);
+        toast({ 
+          variant: "destructive", 
+          title: "Restore Failed", 
+          description: "Please try again or contact support." 
+        });
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
     }
+
+    if (!hasInitialized.current) return false;
 
     try {
       setIsLoading(true);
@@ -250,34 +279,24 @@ export const useRevenueCatManager = () => {
       const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
 
       if (isPro) {
-        const expiryDate = new Date(customerInfo.latestExpirationDate);
-        await supabase
-          .from('profiles')
-          .update({
-            subscription_status: 'active',
-            subscription_expiry: expiryDate.toISOString()
-          })
-          .eq('id', user.id);
-
-        toast({
-          title: "Purchases Restored! 🎉",
-          description: "Your Pro subscription has been restored."
+        toast({ 
+          title: "Purchases Restored!", 
+          description: "Your Pro subscription has been restored." 
         });
         await fetchSubscriptionStatus();
         return true;
       } else {
-        toast({
-          title: "No Purchases Found",
-          description: "We couldn't find any previous subscriptions."
+        toast({ 
+          title: "No Purchases Found", 
+          description: "We couldn't find any previous subscriptions." 
         });
         return false;
       }
     } catch (error) {
-      console.error('Restore failed:', error);
-      toast({
-        title: "Restore Failed",
-        description: "Unable to restore purchases. Please try again.",
-        variant: "destructive"
+      toast({ 
+        variant: "destructive", 
+        title: "Restore Failed", 
+        description: "Please try again or contact support." 
       });
       return false;
     } finally {
@@ -285,12 +304,8 @@ export const useRevenueCatManager = () => {
     }
   }, [toast, fetchSubscriptionStatus, user]);
 
-  // Initialize RevenueCat and fetch initial data
   useEffect(() => {
-    console.log('🚀 RevenueCat Manager useEffect triggered', { user: !!user, hasInitialized: hasInitialized.current });
-    
     if (!user) {
-      console.log('❌ No user found, skipping RevenueCat initialization');
       setSubscription({
         isActive: false,
         expirationDate: null,
@@ -301,115 +316,92 @@ export const useRevenueCatManager = () => {
     }
 
     if (hasInitialized.current) {
-      console.log('⏭️ RevenueCat already initialized, skipping');
       return;
     }
     
     const init = async () => {
-      console.log('🔧 Starting RevenueCat initialization...');
       setIsLoading(true);
       try {
         if (!Capacitor.isNativePlatform()) {
-          console.log('🌐 Web platform detected - RevenueCat only works on native platforms');
-          console.log('❌ Skipping RevenueCat initialization on web');
+          // Web platform initialization
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('subscription_status, subscription_expiry')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          setSubscription({
+            isActive: profile?.subscription_status === 'active',
+            expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
+            productId: null,
+            offeringId: 'web'
+          });
+          
           hasInitialized.current = true;
           return;
         }
 
-        // Native platform initialization
-        console.log('📱 Native platform detected - fetching RevenueCat config...');
         const { data, error } = await supabase.functions.invoke('revenuecat-config');
         if (error || !data?.publicKey) {
-          console.error('❌ Failed to get RevenueCat API key:', error);
           throw new Error('No API key');
         }
 
-        console.log('🔑 RevenueCat API key retrieved successfully');
-
         // First configure RevenueCat
-        console.log('⚙️ Configuring RevenueCat with API key...');
         await Purchases.configure({
           apiKey: data.publicKey,
           appUserID: null // Required by type definition
         });
 
-        // Set log level for debugging
-        console.log('🔍 Setting RevenueCat log level to DEBUG');
-        await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-
-        // Set user ID
-        console.log('👤 Logging user into RevenueCat:', user.id);
-        await Purchases.logIn(user.id);
-
-        // Force Canada locale to use the ready localization
-        console.log('🌍 Setting locale to en_CA for Canada localization');
-        
-        // Get offerings
-        console.log('📦 Fetching RevenueCat offerings...');
-        const offeringsData = await Purchases.getOfferings();
-        const offeringsArray = Object.values(offeringsData.all || {});
-        setOfferings(offeringsArray as PurchasesOffering[]);
-        
-        // CRITICAL: Check if offerings.current is nil (this is the main issue!)
-        if (offeringsData.current) {
-          console.log('✅ Offerings.current is available:', {
-            identifier: offeringsData.current.identifier,
-            packages: offeringsData.current.availablePackages.length
+        // Then explicitly log in the user to switch to their account
+        try {
+          await Purchases.logIn({ appUserID: user.id });
+          console.log('🔄 Logged in RevenueCat user:', user.id);
+          
+          // Now check their subscription status
+          const { customerInfo } = await Purchases.getCustomerInfo();
+          const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+          
+          setSubscription({
+            isActive: isPro,
+            expirationDate: null,
+            productId: null,
+            offeringId: null
           });
-          offeringsData.current.availablePackages.forEach(pkg => {
-            console.log(`  📦 Current offering package: ${pkg.identifier} -> ${pkg.product.identifier}`);
-          });
-        } else {
-          console.error('❌ CRITICAL: offerings.current is nil!');
-          console.error('🔍 This means:');
-          console.error('   - No current offering is set in RevenueCat dashboard');
-          console.error('   - Products not properly configured');
-          console.error('   - This will cause all purchase attempts to fail silently');
-        }
-        
-        console.log('📦 All offerings count:', offeringsArray.length);
-        if (offeringsArray.length === 0) {
-          console.error('❌ CRITICAL: No offerings returned from RevenueCat!');
-          console.log('🔍 This usually means:');
-          console.log('   - Products not configured in App Store Connect');
-          console.log('   - RevenueCat not properly linked to App Store Connect');
-          console.log('   - API key issues');
-        } else {
-          offeringsArray.forEach(offering => {
-            console.log(`  - ${offering.identifier}: ${offering.availablePackages.length} packages`);
-            offering.availablePackages.forEach(pkg => {
-              console.log(`    📦 Package: ${pkg.identifier} -> Product: ${pkg.product.identifier}`);
-            });
+        } catch (loginError) {
+          console.error('RevenueCat login failed:', loginError);
+          // If login fails, ensure subscription is marked as inactive
+          setSubscription({
+            isActive: false,
+            expirationDate: null,
+            productId: null,
+            offeringId: null
           });
         }
 
-        // Get initial subscription status
-        await fetchSubscriptionStatus();
-        
-        // Run debug validation to check for offerings.current issue
-        console.log('🔍 Running RevenueCat debug validation...');
-        validateRevenueCatConfig();
-        await debugRevenueCatSetup();
-        
         hasInitialized.current = true;
+
+        const offeringsData = await Purchases.getOfferings();
+        setOfferings(Object.values(offeringsData.all || {}));
       } catch (error) {
         console.error('RevenueCat initialization failed:', error);
-        
-        // No web fallback - let errors show the real issues
-        
-        hasInitialized.current = true;
+        setSubscription({
+          isActive: false,
+          expirationDate: null,
+          productId: null,
+          offeringId: null
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     init();
-  }, [user?.id, fetchSubscriptionStatus]); // Only depend on stable user ID
+  }, [user]);
 
   return {
+    subscription,
     isLoading,
     offerings,
-    subscription,
     purchaseProduct,
     restorePurchases,
     refreshSubscription
