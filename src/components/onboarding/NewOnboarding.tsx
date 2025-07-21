@@ -129,7 +129,7 @@ const PaywallComponent: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
     }
     setIsLoading(true);
     try {
-      const result = await subscriptionService.purchasePackageByIds('offering_1', selectedPackage.identifier);
+      const result = await subscriptionService.purchasePackage(selectedPackage);
       
       if (result.success) {
         toast({

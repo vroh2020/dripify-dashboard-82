@@ -34,29 +34,32 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       console.log('📦 Available offerings:', offerings);
 
       // Search through all packages to find the product with matching identifier
-      let targetProduct = null;
       let targetPackage = null;
+      let targetOffering = null;
 
       if (offerings && offerings.length > 0) {
         for (const offering of offerings) {
-          for (const pkg of offering.availablePackages) {
-            console.log('🔍 Checking package:', pkg.identifier, 'Product ID:', pkg.product.identifier);
-            if (pkg.product.identifier === productId) {
-              targetProduct = pkg.product;
-              targetPackage = pkg;
-              break;
-            }
+          const foundPackage = offering.availablePackages.find(
+            (pkg) => pkg.product.identifier === productId
+          );
+          if (foundPackage) {
+            targetPackage = foundPackage;
+            targetOffering = offering;
+            break;
           }
-          if (targetProduct) break;
         }
       }
 
       if (targetPackage && targetOffering) {
-        const { success } = await subscriptionService.purchasePackageByIds(targetOffering.identifier, targetPackage.identifier);
+        const { success } = await subscriptionService.purchasePackageByIds(
+          targetOffering.identifier,
+          targetPackage.identifier
+        );
         if (success) {
           toast({
             title: "Welcome to Premium! 🎉",
-            description: "Your subscription is now active. Enjoy unlimited style analyses!",
+            description:
+              "Your subscription is now active. Enjoy unlimited style analyses!",
           });
           onPurchase();
         } else {

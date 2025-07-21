@@ -476,13 +476,13 @@ export const useRevenueCatManager = () => {
           appUserID: null // Required by type definition
         });
 
-        // Set user ID
-        console.log('👤 Logging user into RevenueCat:', user.id);
-        await Purchases.logIn(user.id);
-        
         // Set log level for debugging
         console.log('🔍 Setting RevenueCat log level to DEBUG');
         await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+
+        // Set user ID
+        console.log('👤 Logging user into RevenueCat:', user.id);
+        await Purchases.logIn(user.id);
 
         // Force Canada locale to use the ready localization
         console.log('🌍 Setting locale to en_CA for Canada localization');
