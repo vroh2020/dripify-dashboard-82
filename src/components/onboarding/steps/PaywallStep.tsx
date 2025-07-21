@@ -51,10 +51,7 @@ export const PaywallStep = ({ onPurchase }: PaywallStepProps) => {
       }
 
       if (targetPackage && targetOffering) {
-        const { success } = await subscriptionService.purchasePackageByIds(
-          targetOffering.identifier,
-          targetPackage.identifier
-        );
+        const { success } = await subscriptionService.purchaseProduct(targetPackage.product);
         if (success) {
           toast({
             title: "Welcome to Premium! 🎉",

@@ -65,23 +65,6 @@ export const getOfferings = async () => {
   }
 };
 
-export const purchasePackage = async (packageToPurchase: PurchasesPackage) => {
-  if (!Capacitor.isNativePlatform()) {
-    console.log("Not on a native platform, skipping RevenueCat native initialization.");
-    return;
-  }
-
-  try {
-    const { Purchases } = await import('@revenuecat/purchases-capacitor');
-    // FIXED: Pass the actual package object, not identifiers
-    const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
-    return customerInfo;
-  } catch (error) {
-    console.error('Failed to purchase package:', error);
-    throw error;
-  }
-};
-
 export const restorePurchases = async () => {
   if (!Capacitor.isNativePlatform()) {
     console.log("Not on a native platform, skipping RevenueCat native initialization.");

@@ -52,7 +52,7 @@ export const debugRevenueCatSetup = async () => {
     console.log('📊 Offerings summary:', {
       current: offeringsData.current?.identifier || 'none',
       all: offeringsArray.length,
-      expectedOffering: REVENUECAT_CONFIG.offering.identifier
+      expectedProduct: REVENUECAT_CONFIG.products.monthly
     });
 
     if (offeringsArray.length === 0) {
