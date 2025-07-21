@@ -140,7 +140,7 @@ export const StrategicUpgradePrompt: React.FC<StrategicUpgradePromptProps> = ({
         return;
       }
 
-      const success = await purchaseProduct(packageToPurchase.product.identifier);
+      const success = await purchaseProduct(packageToPurchase.product);
       
       if (success) {
         toast({

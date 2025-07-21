@@ -45,7 +45,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         subscriptionPeriod: "P1M",
       };
       
-      const success = await purchaseProduct(product.identifier);
+      const success = await purchaseProduct(product);
       
       if (success) {
         // Payment succeeded - proceed to completion
