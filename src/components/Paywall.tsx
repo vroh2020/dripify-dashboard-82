@@ -83,15 +83,11 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
 
   // Memoize the pricing calculation to prevent excessive re-computation
   const pricingData = useMemo(() => {
-    let weeklyOffering = null;
     let monthlyOffering = null;
 
     if (offerings && offerings.length > 0) {
       for (const offering of offerings) {
         for (const pkg of offering.availablePackages) {
-          if (pkg.product.identifier === REVENUECAT_CONFIG.products.weekly) {
-            weeklyOffering = pkg;
-          }
           if (pkg.product.identifier === REVENUECAT_CONFIG.products.monthly) {
             monthlyOffering = pkg;
           }
@@ -99,7 +95,6 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
       }
     }
 
-    const weeklyPrice = weeklyOffering?.product?.priceString || "$4.99";
     const monthlyPrice = monthlyOffering?.product?.priceString || "$10.99";
 
     // Throttled logging to prevent console spam
@@ -109,16 +104,14 @@ export const Paywall: React.FC<PaywallProps> = ({ onClose, onPurchaseSuccess }) 
       lastLogTimeRef.current = now;
       
       if (logCountRef.current <= 5) { // Limit to 5 logs total
-        console.log('💰 Main Paywall pricing determined:', { weeklyPrice, monthlyPrice, weeklyOffering, monthlyOffering });
+        console.log('💰 Main Paywall pricing determined:', { monthlyPrice, monthlyOffering });
       } else if (logCountRef.current === 6) {
         console.warn('⚠️ Paywall pricing logs throttled - preventing console spam');
       }
     }
 
     return {
-      weeklyPrice,
       monthlyPrice,
-      weeklyOffering,
       monthlyOffering
     };
   }, [offerings]); // Only recalculate when offerings change
