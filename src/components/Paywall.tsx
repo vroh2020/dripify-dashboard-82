@@ -31,10 +31,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     try {
       if (!proProduct) {
         setHasError(true);
-        console.error('No valid product found in offerings for purchase.');
+        console.error('No valid product found in offerings for purchase. Offerings:', offerings);
         return;
       }
-      const success = await purchaseProduct(proProduct);
+      const success = await purchaseProduct(proProduct.identifier);
       if (success) {
         setTimeout(onContinue, 1000);
       } else {

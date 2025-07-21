@@ -430,8 +430,11 @@ export const useRevenueCatManager = () => {
           }
 
         const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        if (error || !data?.publicKey) {
-          throw new Error('No API key');
+        if (error) {
+          throw new Error(`Failed to invoke revenuecat-config: ${error.message}`);
+        }
+        if (!data?.publicKey) {
+          throw new Error('No public key returned from revenuecat-config');
         }
 
         // First configure RevenueCat
@@ -444,26 +447,26 @@ export const useRevenueCatManager = () => {
         try {
           await Purchases.logIn({ appUserID: user.id });
           console.log('🔄 Logged in RevenueCat user:', user.id);
-          
+        } catch (loginError) {
+          throw new Error(`RevenueCat login failed: ${loginError.message}`);
+        }
+
+        try {
           // Now check their subscription status
           const { customerInfo } = await Purchases.getCustomerInfo();
           const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
           
+          const offeringsData = await Purchases.getOfferings();
+          setOfferings(Object.values(offeringsData.all || {}));
+
           setSubscription({
             isActive: isPro,
             expirationDate: null,
             productId: null,
             offeringId: null
           });
-        } catch (loginError) {
-          console.error('RevenueCat login failed:', loginError);
-          // If login fails, ensure subscription is marked as inactive
-          setSubscription({
-            isActive: false,
-            expirationDate: null,
-            productId: null,
-            offeringId: null
-          });
+        } catch (customerInfoError) {
+          throw new Error(`Failed to get customer info or offerings: ${customerInfoError.message}`);
         }
 
         hasInitialized.current = true;
