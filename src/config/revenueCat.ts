@@ -6,6 +6,6 @@ export const REVENUECAT_CONFIG = {
   },
   developmentMode: {
     enabled: process.env.NODE_ENV === 'development',
-    mockSubscription: false, // Disable mock to use real RevenueCat
+    mockSubscription: true, // Enable mock for testing in development
   }
 };
