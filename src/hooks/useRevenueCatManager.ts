@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { REVENUECAT_CONFIG } from '@/config/revenueCat';
+import { debugRevenueCatSetup, validateRevenueCatConfig } from '@/utils/revenueCatDebug';
 
 export type SubscriptionStatus = {
   isActive: boolean;
@@ -153,6 +154,20 @@ export const useRevenueCatManager = () => {
         variant: "destructive",
         title: "Products Not Available",
         description: "Please wait for products to load and try again."
+      });
+      return false;
+    }
+
+    // CRITICAL: Check if we have a current offering (this is what RevenueCat uses by default)
+    const currentOffering = offerings.find(o => o.identifier === REVENUECAT_CONFIG.offering.identifier);
+    if (!currentOffering) {
+      console.error('❌ CRITICAL: Current offering not found!');
+      console.error('🔍 Expected offering:', REVENUECAT_CONFIG.offering.identifier);
+      console.error('🔍 Available offerings:', offerings.map(o => o.identifier));
+      toast({
+        variant: "destructive",
+        title: "Configuration Error",
+        description: "Subscription service is not properly configured."
       });
       return false;
     }
@@ -448,36 +463,76 @@ export const useRevenueCatManager = () => {
         console.log('📱 Native platform detected - fetching RevenueCat config...');
         const { data, error } = await supabase.functions.invoke('revenuecat-config');
         if (error || !data?.publicKey) {
+          console.error('❌ Failed to get RevenueCat API key:', error);
           throw new Error('No API key');
         }
 
+        console.log('🔑 RevenueCat API key retrieved successfully');
+
         // First configure RevenueCat
+        console.log('⚙️ Configuring RevenueCat with API key...');
         await Purchases.configure({
           apiKey: data.publicKey,
           appUserID: null // Required by type definition
         });
 
         // Set user ID
+        console.log('👤 Logging user into RevenueCat:', user.id);
         await Purchases.logIn(user.id);
         
         // Set log level for debugging
+        console.log('🔍 Setting RevenueCat log level to DEBUG');
         await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
 
         // Force Canada locale to use the ready localization
         console.log('🌍 Setting locale to en_CA for Canada localization');
         
         // Get offerings
+        console.log('📦 Fetching RevenueCat offerings...');
         const offeringsData = await Purchases.getOfferings();
         const offeringsArray = Object.values(offeringsData.all || {});
         setOfferings(offeringsArray as PurchasesOffering[]);
         
-        console.log('📦 Fetched offerings:', offeringsArray.length);
-        offeringsArray.forEach(offering => {
-          console.log(`  - ${offering.identifier}: ${offering.availablePackages.length} packages`);
-        });
+        // CRITICAL: Check if offerings.current is nil (this is the main issue!)
+        if (offeringsData.current) {
+          console.log('✅ Offerings.current is available:', {
+            identifier: offeringsData.current.identifier,
+            packages: offeringsData.current.availablePackages.length
+          });
+          offeringsData.current.availablePackages.forEach(pkg => {
+            console.log(`  📦 Current offering package: ${pkg.identifier} -> ${pkg.product.identifier}`);
+          });
+        } else {
+          console.error('❌ CRITICAL: offerings.current is nil!');
+          console.error('🔍 This means:');
+          console.error('   - No current offering is set in RevenueCat dashboard');
+          console.error('   - Products not properly configured');
+          console.error('   - This will cause all purchase attempts to fail silently');
+        }
+        
+        console.log('📦 All offerings count:', offeringsArray.length);
+        if (offeringsArray.length === 0) {
+          console.error('❌ CRITICAL: No offerings returned from RevenueCat!');
+          console.log('🔍 This usually means:');
+          console.log('   - Products not configured in App Store Connect');
+          console.log('   - RevenueCat not properly linked to App Store Connect');
+          console.log('   - API key issues');
+        } else {
+          offeringsArray.forEach(offering => {
+            console.log(`  - ${offering.identifier}: ${offering.availablePackages.length} packages`);
+            offering.availablePackages.forEach(pkg => {
+              console.log(`    📦 Package: ${pkg.identifier} -> Product: ${pkg.product.identifier}`);
+            });
+          });
+        }
 
         // Get initial subscription status
         await fetchSubscriptionStatus();
+        
+        // Run debug validation to check for offerings.current issue
+        console.log('🔍 Running RevenueCat debug validation...');
+        validateRevenueCatConfig();
+        await debugRevenueCatSetup();
         
         hasInitialized.current = true;
       } catch (error) {
