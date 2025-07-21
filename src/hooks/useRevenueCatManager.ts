@@ -139,8 +139,23 @@ export const useRevenueCatManager = () => {
   }, [fetchSubscriptionStatus]);
 
   const purchaseProduct = useCallback(async (productOrId: PurchasesPackage['product'] | string) => {
-    console.log('💰 Purchase Product called!', { productOrId, user: !!user });
-    if (!user) return false;
+    console.log('💰 Purchase Product called!', { productOrId, user: !!user, offeringsLength: offerings.length });
+    console.log('🔍 Current offerings state:', offerings.map(o => ({ id: o.identifier, packages: o.availablePackages.length })));
+    
+    if (!user) {
+      console.log('❌ No user, aborting purchase');
+      return false;
+    }
+    
+    if (offerings.length === 0) {
+      console.log('❌ CRITICAL: No offerings available! This will cause aPackage error.');
+      toast({
+        variant: "destructive",
+        title: "Products Not Available",
+        description: "Please wait for products to load and try again."
+      });
+      return false;
+    }
 
     // Prevent rapid purchase attempts
     if (lastPurchaseAttempt.current) {
@@ -251,7 +266,23 @@ export const useRevenueCatManager = () => {
         return false;
       }
 
-      console.log('✅ Found offering:', targetOffering.identifier, 'purchasing package:', packageId);
+      // Verify the package exists in the offering first
+      const targetPackage = targetOffering.availablePackages.find(
+        pkg => pkg.identifier === packageId
+      );
+
+      if (!targetPackage) {
+        console.error('❌ No matching package found in offering:', packageId);
+        console.log('🔍 Available packages:', targetOffering.availablePackages.map(p => p.identifier));
+        toast({
+          variant: "destructive",
+          title: "Purchase Failed",
+          description: "No valid package found. Try again later."
+        });
+        return false;
+      }
+
+      console.log('✅ Found package:', targetPackage.identifier, 'in offering:', targetOffering.identifier);
       
       // Use package-based purchase with correct identifiers
       const result = await Purchases.purchasePackage({
