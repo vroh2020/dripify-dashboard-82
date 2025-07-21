@@ -22,7 +22,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   )?.product;
 
   // Format the price
-  const formattedPrice = proProduct?.priceString || "$12.99";
+  const formattedPrice = proProduct?.priceString || "$10.99";
 
   const handleStartTrial = async () => {
     if (isProcessing) return;
@@ -72,7 +72,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         <h1 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-4 tracking-tight">Get Drip AI Pro</h1>
         <p className="text-lg text-white/80 text-center mb-8">Unlock your full style potential with unlimited analyses and recommendations.</p>
         <div className="w-full flex flex-col items-center mb-8">
-          <span className="text-3xl font-bold text-orange-400 mb-1">$12.99</span>
+          <span className="text-3xl font-bold text-orange-400 mb-1">{formattedPrice}</span>
           <span className="text-base text-white/70 mb-2">per month</span>
         </div>
         {hasError && (
