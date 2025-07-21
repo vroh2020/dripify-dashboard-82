@@ -284,11 +284,8 @@ export const useRevenueCatManager = () => {
 
       console.log('✅ Found package:', targetPackage.identifier, 'in offering:', targetOffering.identifier);
       
-      // Use package-based purchase with correct identifiers
-      const result = await Purchases.purchasePackage({
-        offeringIdentifier: targetOffering.identifier,
-        packageIdentifier: packageId
-      });
+      // Use package-based purchase with PACKAGE OBJECT (not identifiers!)
+      const result = await Purchases.purchasePackage(targetPackage);
 
       const isPro = Boolean(result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
 

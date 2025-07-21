@@ -128,10 +128,7 @@ class SubscriptionService {
 
       console.log('✅ Using offering:', offering.identifier, 'for package:', pkg.identifier);
 
-      const result = await Purchases.purchasePackage({
-        offeringIdentifier: offering.identifier,
-        packageIdentifier: pkg.identifier
-      });
+      const result = await Purchases.purchasePackage(pkg);
 
       const isPro = result.customerInfo.entitlements.active?.['pro']?.isActive || false;
 
