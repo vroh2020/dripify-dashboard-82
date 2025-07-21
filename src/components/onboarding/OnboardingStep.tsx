@@ -12,6 +12,8 @@ interface OnboardingStepProps {
   isLoading?: boolean;
   currentStep?: number;
   totalSteps?: number;
+  showNextButton?: boolean; // New prop to control button visibility
+  autoAdvance?: boolean; // New prop to indicate auto-advancing steps
 }
 
 export const OnboardingStep: React.FC<OnboardingStepProps> = ({
@@ -23,7 +25,9 @@ export const OnboardingStep: React.FC<OnboardingStepProps> = ({
   nextButtonDisabled = false,
   isLoading = false,
   currentStep,
-  totalSteps
+  totalSteps,
+  showNextButton = true,
+  autoAdvance = false
 }) => {
   return (
     <motion.div
@@ -39,6 +43,16 @@ export const OnboardingStep: React.FC<OnboardingStepProps> = ({
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-white">{title}</h2>
             {subtitle && <p className="text-white/70">{subtitle}</p>}
+            {autoAdvance && !isLoading && (
+              <p className="text-orange-400/80 text-sm">
+                Select an option to continue automatically
+              </p>
+            )}
+            {isLoading && autoAdvance && (
+              <p className="text-green-400/80 text-sm">
+                Advancing to next step...
+              </p>
+            )}
           </div>
           
           <div className="mt-8">
@@ -47,15 +61,18 @@ export const OnboardingStep: React.FC<OnboardingStepProps> = ({
         </div>
       </div>
 
-      <div className="flex-shrink-0 px-6 pb-8">
-        <Button
-          onClick={onNext}
-          disabled={nextButtonDisabled || isLoading}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
-        >
-          {isLoading ? 'Loading...' : nextButtonText}
-        </Button>
-      </div>
+      {/* Only show Next button when explicitly requested */}
+      {showNextButton && (
+        <div className="flex-shrink-0 px-6 pb-8">
+          <Button
+            onClick={onNext}
+            disabled={nextButtonDisabled || isLoading}
+            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl"
+          >
+            {isLoading ? 'Loading...' : nextButtonText}
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 };

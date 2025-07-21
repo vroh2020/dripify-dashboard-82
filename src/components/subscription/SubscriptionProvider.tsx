@@ -1,4 +1,3 @@
-import React from 'react';
 import { createContext, useContext, ReactNode, useRef, useCallback, useMemo, useState } from 'react';
 import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
 import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
@@ -11,7 +10,7 @@ interface SubscriptionContextType {
   refreshSubscription: () => Promise<void>;
   purchaseProduct: (product: PurchasesPackage['product']) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
-  offerings: unknown[];
+  offerings: any[];
   subscription: SubscriptionStatus;
 }
 
@@ -71,14 +70,9 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     }
     
     refreshTimeoutRef.current = setTimeout(async () => {
-      try {
-        await refreshRevenueCat();
-      } catch (error) {
-        console.error('Failed to refresh subscription:', error);
-      } finally {
-        lastRefreshRef.current = null;
-        refreshTimeoutRef.current = null;
-      }
+      await refreshRevenueCat();
+      lastRefreshRef.current = null;
+      refreshTimeoutRef.current = null;
     }, 1000);
   }, [refreshRevenueCat]);
 
@@ -103,16 +97,6 @@ export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) =>
     offerings,
     subscription
   ]);
-
-  // Cleanup on unmount
-  React.useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = null;
-      }
-    };
-  }, []);
 
   return (
     <SubscriptionContext.Provider value={value}>

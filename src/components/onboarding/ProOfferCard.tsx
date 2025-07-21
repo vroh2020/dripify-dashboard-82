@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCw } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
+import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -13,48 +14,33 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // Find the Pro product - look for gs_1299_1m specifically
+  // Find the Pro product - look for gs_1099_1m specifically
   const proProduct = offerings?.[0]?.availablePackages?.find(
     (pkg) =>
-      pkg.product.identifier === "gs_1299_1m" ||
-      pkg.product.identifier.includes("pro") ||
-      pkg.product.title.toLowerCase().includes("pro")
+      pkg.product.identifier === REVENUECAT_CONFIG.products.monthly
   );
 
   // Format the price
-  const formattedPrice = proProduct?.product.priceString || "$12.99";
+  const formattedPrice = proProduct?.product.priceString || "$10.99";
 
   const handleStartTrial = async () => {
     if (isProcessing) return;
-    
     setIsProcessing(true);
     setHasError(false);
-    
     try {
-      // CRITICAL FIX: Always show payment flow, even if isPro is detected
-      // This prevents bypass vulnerability from cached/existing subscriptions
-      
-      const product = proProduct || {
-        identifier: "gs_1299_1m",
-        title: "Pro Monthly",
-        description: "Pro subscription",
-        price: 12.99,
-        priceString: "$12.99",
-        currencyCode: "USD",
-        subscriptionPeriod: "P1M",
-      };
-      
-      const success = await purchaseProduct(product);
-      
+      if (!proProduct) {
+        setHasError(true);
+        console.error('No valid product found in offerings for purchase.');
+        return;
+      }
+      const success = await purchaseProduct(proProduct.product);
       if (success) {
-        // Payment succeeded - proceed to completion
-        setTimeout(onContinue, 1000);
+        onContinue();
       } else {
-        // Payment failed - show error
         setHasError(true);
       }
     } catch (error) {
-      console.error("Purchase error:", error);
+      console.error("Purchase failed:", error);
       setHasError(true);
     } finally {
       setIsProcessing(false);
@@ -72,7 +58,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         <h1 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-4 tracking-tight">Get Drip AI Pro</h1>
         <p className="text-lg text-white/80 text-center mb-8">Unlock your full style potential with unlimited analyses and recommendations.</p>
         <div className="w-full flex flex-col items-center mb-8">
-          <span className="text-3xl font-bold text-orange-400 mb-1">$12.99</span>
+          <span className="text-3xl font-bold text-orange-400 mb-1">{formattedPrice}</span>
           <span className="text-base text-white/70 mb-2">per month</span>
         </div>
         {hasError && (

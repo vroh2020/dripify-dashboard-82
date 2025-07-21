@@ -93,6 +93,53 @@ export const useRevenueCatManager = () => {
     }
     lastPurchaseAttempt.current = new Date();
 
+    // DEVELOPMENT MODE: Mock successful purchase
+    if (REVENUECAT_CONFIG.developmentMode.enabled && REVENUECAT_CONFIG.developmentMode.mockSubscription) {
+      try {
+        setIsLoading(true);
+        console.log('🧪 DEV MODE: Mocking successful purchase for:', product.identifier || 'gs_1099_1m');
+        
+        // Simulate payment processing
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const expiryDate = new Date();
+        expiryDate.setMonth(expiryDate.getMonth() + 1); // 1 month subscription
+        
+        const newSubscription = {
+          isActive: true,
+          expirationDate: expiryDate,
+          productId: product.identifier || 'gs_1099_1m',
+          offeringId: 'dev-mock'
+        };
+
+        // Update Supabase profile
+        const { error: profileError } = await supabase.from('profiles').update({
+          onboarding_completed: true,
+          subscription_status: 'active',
+          subscription_expiry: expiryDate.toISOString()
+        }).eq('id', user.id);
+
+        if (profileError) throw profileError;
+
+        setSubscription(newSubscription);
+        toast({
+          title: "🧪 DEV MODE: Purchase Successful! 🎉",
+          description: "Mock subscription activated for testing."
+        });
+        return true;
+      } catch (error) {
+        console.error('DEV MODE: Mock purchase failed:', error);
+        toast({
+          variant: "destructive",
+          title: "DEV MODE: Mock Purchase Failed",
+          description: "Check console for details."
+        });
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
     if (!Capacitor.isNativePlatform()) {
       try {
         setIsLoading(true);
@@ -204,16 +251,15 @@ export const useRevenueCatManager = () => {
         return false;
       }
       
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Native purchase failed:', error);
       
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage?.includes('cancelled')) {
+      if (error.message?.includes('cancelled')) {
         toast({ 
           title: "Payment Cancelled", 
           description: "You can try again anytime." 
         });
-      } else if (errorMessage?.includes('already active')) {
+      } else if (error.message?.includes('already active')) {
         // Handle existing subscription case
         toast({ 
           title: "Subscription Already Active", 
@@ -322,29 +368,73 @@ export const useRevenueCatManager = () => {
     
     const init = async () => {
       setIsLoading(true);
-      try {
-        if (!Capacitor.isNativePlatform()) {
-          // Web platform initialization
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('subscription_status, subscription_expiry')
-            .eq('id', user.id)
-            .maybeSingle();
+              try {
+          // DEVELOPMENT MODE: Create mock offerings
+          if (REVENUECAT_CONFIG.developmentMode.enabled && REVENUECAT_CONFIG.developmentMode.mockSubscription) {
+            console.log('🧪 DEV MODE: Creating mock offerings');
+            
+            const mockOffering = {
+              identifier: 'dev-mock-offering',
+              availablePackages: [{
+                identifier: 'monthly',
+                product: {
+                  identifier: 'gs_1099_1m',
+                  title: 'Dripify AI Pro Monthly',
+                  description: 'Unlock all pro features with monthly subscription',
+                  price: 10.99,
+                  priceString: '$10.99',
+                  currencyCode: 'USD',
+                  subscriptionPeriod: 'P1M'
+                },
+                packageType: 'MONTHLY',
+                offeringIdentifier: 'dev-mock-offering'
+              }]
+            } as PurchasesOffering;
 
-          setSubscription({
-            isActive: profile?.subscription_status === 'active',
-            expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
-            productId: null,
-            offeringId: 'web'
-          });
-          
-          hasInitialized.current = true;
-          return;
-        }
+            setOfferings([mockOffering]);
+
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('subscription_status, subscription_expiry')
+              .eq('id', user.id)
+              .maybeSingle();
+
+            setSubscription({
+              isActive: profile?.subscription_status === 'active',
+              expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
+              productId: profile?.subscription_status === 'active' ? 'gs_1099_1m' : null,
+              offeringId: 'dev-mock'
+            });
+
+            hasInitialized.current = true;
+            return;
+          }
+
+          if (!Capacitor.isNativePlatform()) {
+            // Web platform initialization
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('subscription_status, subscription_expiry')
+              .eq('id', user.id)
+              .maybeSingle();
+
+            setSubscription({
+              isActive: profile?.subscription_status === 'active',
+              expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
+              productId: null,
+              offeringId: 'web'
+            });
+
+            hasInitialized.current = true;
+            return;
+          }
 
         const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        if (error || !data?.publicKey) {
-          throw new Error('No API key');
+        if (error) {
+          throw new Error(`Failed to invoke revenuecat-config: ${error.message}`);
+        }
+        if (!data?.publicKey) {
+          throw new Error('No public key returned from revenuecat-config');
         }
 
         // First configure RevenueCat
@@ -357,26 +447,26 @@ export const useRevenueCatManager = () => {
         try {
           await Purchases.logIn({ appUserID: user.id });
           console.log('🔄 Logged in RevenueCat user:', user.id);
-          
+        } catch (loginError) {
+          throw new Error(`RevenueCat login failed: ${loginError.message}`);
+        }
+
+        try {
           // Now check their subscription status
           const { customerInfo } = await Purchases.getCustomerInfo();
           const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
           
+          const offeringsData = await Purchases.getOfferings();
+          setOfferings(Object.values(offeringsData.all || {}));
+
           setSubscription({
             isActive: isPro,
             expirationDate: null,
             productId: null,
             offeringId: null
           });
-        } catch (loginError) {
-          console.error('RevenueCat login failed:', loginError);
-          // If login fails, ensure subscription is marked as inactive
-          setSubscription({
-            isActive: false,
-            expirationDate: null,
-            productId: null,
-            offeringId: null
-          });
+        } catch (customerInfoError) {
+          throw new Error(`Failed to get customer info or offerings: ${customerInfoError.message}`);
         }
 
         hasInitialized.current = true;

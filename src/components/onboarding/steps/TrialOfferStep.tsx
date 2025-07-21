@@ -19,9 +19,9 @@ export const TrialOfferStep = ({ onNext }: TrialOfferStepProps) => {
     >
       <div className="w-full max-w-md mx-auto flex flex-col items-center bg-black/70 rounded-3xl shadow-2xl p-8 border border-white/10">
         <span className="text-5xl mb-6">💎</span>
-        <h1 className="text-2xl md:text-3xl font-extrabold text-white text-center mb-6 tracking-tight">We offer a monthly plan of $12.99 per month for you to enjoy Dripify AI.</h1>
+        <h1 className="text-2xl md:text-3xl font-extrabold text-white text-center mb-6 tracking-tight">We offer a monthly plan of $10.99 per month for you to enjoy Dripify AI.</h1>
         <div className="w-full flex flex-col items-center mb-8">
-          <span className="text-3xl font-bold text-orange-400 mb-1">$12.99</span>
+          <span className="text-3xl font-bold text-orange-400 mb-1">$10.99</span>
           <span className="text-base text-white/70 mb-2">per month</span>
         </div>
         <Button

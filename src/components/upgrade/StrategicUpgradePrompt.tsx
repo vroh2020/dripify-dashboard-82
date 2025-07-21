@@ -137,6 +137,7 @@ export const StrategicUpgradePrompt: React.FC<StrategicUpgradePromptProps> = ({
           description: "Please try again later.",
           variant: "destructive",
         });
+        console.error('No valid product found in offerings for purchase.');
         return;
       }
 

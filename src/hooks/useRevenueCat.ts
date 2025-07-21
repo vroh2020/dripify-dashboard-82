@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRevenueCatManager } from './useRevenueCatManager';
 import { useToast } from './use-toast';
+import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
 
 export const useRevenueCat = () => {
   const {
@@ -14,19 +15,13 @@ export const useRevenueCat = () => {
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
 
-  const purchaseProduct = useCallback(async (productId: string) => {
+  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
     if (isPurchasing) return false;
     
     setIsPurchasing(true);
     try {
-      // Find the product object from offerings using the productId
-      const product = offerings
-        ?.flatMap(offering => offering.availablePackages)
-        ?.find(pkg => pkg.product.identifier === productId)
-        ?.product;
-      
-      if (!product) {
-        console.error(`Product not found with ID: ${productId}`);
+      if (!product || !product.identifier) {
+        console.error('No valid product provided for purchase');
         toast({
           title: "Product Error",
           description: "Product not available for purchase.",
@@ -49,7 +44,7 @@ export const useRevenueCat = () => {
     } finally {
       setIsPurchasing(false);
     }
-  }, [managerPurchase, isPurchasing, toast, offerings]);
+  }, [managerPurchase, isPurchasing, toast]);
 
   const restorePurchases = useCallback(async () => {
     if (isPurchasing) return false;
