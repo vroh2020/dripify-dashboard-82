@@ -88,6 +88,10 @@ export const useRevenueCatManager = () => {
     if (lastPurchaseAttempt.current) {
       const timeSinceLastAttempt = Date.now() - lastPurchaseAttempt.current.getTime();
       if (timeSinceLastAttempt < 2000) { // 2 seconds
+        toast({ 
+          title: "Please Wait", 
+          description: "Please wait a moment before trying again." 
+        });
         return false;
       }
     }
@@ -138,13 +142,29 @@ export const useRevenueCatManager = () => {
           description: "Your 7-day trial is now active." 
         });
         return true;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Web purchase simulation failed:', error);
-        toast({ 
-          variant: "destructive", 
-          title: "Payment Failed", 
-          description: "Please try again or contact support if the issue persists." 
-        });
+        
+        // Handle specific error types
+        if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          toast({ 
+            variant: "destructive", 
+            title: "Network Error", 
+            description: "Please check your internet connection and try again." 
+          });
+        } else if (error.message?.includes('profile') || error.message?.includes('database')) {
+          toast({ 
+            variant: "destructive", 
+            title: "Save Error", 
+            description: "Payment succeeded but failed to save. Please contact support." 
+          });
+        } else {
+          toast({ 
+            variant: "destructive", 
+            title: "Payment Failed", 
+            description: "Please try again or contact support if the issue persists." 
+          });
+        }
         return false;
       } finally {
         setIsLoading(false);
@@ -156,8 +176,8 @@ export const useRevenueCatManager = () => {
       console.error('RevenueCat not initialized');
       toast({ 
         variant: "destructive", 
-        title: "Payment Error", 
-        description: "Payment system not ready. Please try again." 
+        title: "Payment System Not Ready", 
+        description: "Please wait a moment and try again." 
       });
       return false;
     }
@@ -207,19 +227,37 @@ export const useRevenueCatManager = () => {
     } catch (error: any) {
       console.error('Native purchase failed:', error);
       
-      if (error.message?.includes('cancelled')) {
+      // Handle specific RevenueCat error types
+      if (error.message?.includes('cancelled') || error.code === 'PURCHASES_ERROR_PURCHASE_CANCELLED') {
         toast({ 
           title: "Payment Cancelled", 
           description: "You can try again anytime." 
         });
-      } else if (error.message?.includes('already active')) {
-        // Handle existing subscription case
+      } else if (error.message?.includes('already active') || error.message?.includes('already subscribed')) {
         toast({ 
           title: "Subscription Already Active", 
           description: "You already have an active subscription!" 
         });
         await fetchSubscriptionStatus();
         return true;
+      } else if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Too Many Requests", 
+          description: "Please wait a moment and try again." 
+        });
+      } else if (error.message?.includes('network') || error.message?.includes('timeout') || error.message?.includes('connection')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Network Error", 
+          description: "Please check your internet connection and try again." 
+        });
+      } else if (error.message?.includes('payment') || error.message?.includes('billing')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Payment Issue", 
+          description: "There was an issue with your payment method. Please try again." 
+        });
       } else {
         toast({ 
           variant: "destructive", 
@@ -258,20 +296,36 @@ export const useRevenueCatManager = () => {
           description: "We couldn't find any active subscriptions." 
         });
         return false;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Web restore failed:', error);
-        toast({ 
-          variant: "destructive", 
-          title: "Restore Failed", 
-          description: "Please try again or contact support." 
-        });
+        
+        if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          toast({ 
+            variant: "destructive", 
+            title: "Network Error", 
+            description: "Please check your internet connection and try again." 
+          });
+        } else {
+          toast({ 
+            variant: "destructive", 
+            title: "Restore Failed", 
+            description: "Please try again or contact support." 
+          });
+        }
         return false;
       } finally {
         setIsLoading(false);
       }
     }
 
-    if (!hasInitialized.current) return false;
+    if (!hasInitialized.current) {
+      toast({ 
+        variant: "destructive", 
+        title: "System Not Ready", 
+        description: "Please wait a moment and try again." 
+      });
+      return false;
+    }
 
     try {
       setIsLoading(true);
@@ -288,16 +342,33 @@ export const useRevenueCatManager = () => {
       } else {
         toast({ 
           title: "No Purchases Found", 
-          description: "We couldn't find any previous subscriptions." 
+          description: "We couldn't find any previous subscriptions to restore." 
         });
         return false;
       }
-    } catch (error) {
-      toast({ 
-        variant: "destructive", 
-        title: "Restore Failed", 
-        description: "Please try again or contact support." 
-      });
+    } catch (error: any) {
+      console.error('Restore purchases failed:', error);
+      
+      // Handle specific error types
+      if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Too Many Requests", 
+          description: "Please wait a moment and try again." 
+        });
+      } else if (error.message?.includes('network') || error.message?.includes('timeout') || error.message?.includes('connection')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Network Error", 
+          description: "Please check your internet connection and try again." 
+        });
+      } else {
+        toast({ 
+          variant: "destructive", 
+          title: "Restore Failed", 
+          description: "Unable to restore purchases. Please try again or contact support." 
+        });
+      }
       return false;
     } finally {
       setIsLoading(false);

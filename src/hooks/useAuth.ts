@@ -28,14 +28,78 @@ export function useAuth(): AuthState & AuthActions {
   });
 
   // Add this effect to handle RevenueCat login
+  const lastRevenueCatUserId = useRef<string | null>(null);
+  const lastLogInTime = useRef<number>(0);
+  const revenueCatStats = useRef({ 
+    totalCalls: 0, 
+    throttledCalls: 0, 
+    executedCalls: 0,
+    userIdChanges: 0 
+  });
+
+  // Add global debug function for monitoring
+  useEffect(() => {
+    (window as any).getRevenueCatStats = () => {
+      const stats = revenueCatStats.current;
+      const throttleRate = stats.totalCalls > 0 ? (stats.throttledCalls / stats.totalCalls * 100).toFixed(1) : '0';
+      console.log(`📊 RevenueCat Auth Stats:`, {
+        totalCalls: stats.totalCalls,
+        executedCalls: stats.executedCalls,
+        throttledCalls: stats.throttledCalls,
+        throttleRate: `${throttleRate}%`,
+        userIdChanges: stats.userIdChanges,
+        lastUserId: lastRevenueCatUserId.current,
+        lastLogInTime: new Date(lastLogInTime.current).toISOString()
+      });
+      return stats;
+    };
+  }, []);
+
   useEffect(() => {
     if (authState.user && Capacitor.isNativePlatform()) {
-      console.log('🚀 Auth user identified, logging into RevenueCat...', authState.user.id);
-      import('@revenuecat/purchases-capacitor').then(({ Purchases }) => {
-        Purchases.logIn({ appUserID: authState.user.id })
-          .then(() => console.log('✅ RevenueCat login successful from useAuth effect'))
-          .catch(error => console.error('❌ RevenueCat login failed from useAuth effect:', error));
-      });
+      const now = Date.now();
+      revenueCatStats.current.totalCalls++;
+      
+      // Check if this is a user ID change (important for anonymous → Apple transitions)
+      const isUserIdChange = lastRevenueCatUserId.current !== authState.user.id;
+      const isTimeThrottled = now - lastLogInTime.current <= 5000;
+      
+      if (isUserIdChange) {
+        revenueCatStats.current.userIdChanges++;
+        console.log(`🔄 User ID change detected: ${lastRevenueCatUserId.current} → ${authState.user.id}`);
+      }
+      
+      // Only log in if user ID changed or at least 5 seconds have passed
+      if (isUserIdChange || !isTimeThrottled) {
+        lastRevenueCatUserId.current = authState.user.id;
+        lastLogInTime.current = now;
+        revenueCatStats.current.executedCalls++;
+        
+        console.log('🚀 Auth user identified, logging into RevenueCat...', authState.user.id);
+        import('@revenuecat/purchases-capacitor').then(({ Purchases }) => {
+          Purchases.logIn({ appUserID: authState.user.id })
+            .then(() => {
+              console.log('✅ RevenueCat login successful from useAuth effect');
+              // Optionally trigger a subscription status refresh after user change
+              if (isUserIdChange) {
+                console.log('🔄 User changed - subscription status may need refreshing');
+              }
+            })
+            .catch(error => {
+              console.error('❌ RevenueCat login failed from useAuth effect', error);
+              // Don't throw here - let the user continue with limited functionality
+            });
+        });
+      } else {
+        revenueCatStats.current.throttledCalls++;
+        console.log('⏳ Skipping RevenueCat logIn to avoid rate limit');
+        
+        // Log stats every 10 throttled calls for monitoring
+        if (revenueCatStats.current.throttledCalls % 10 === 0) {
+          const throttleRate = (revenueCatStats.current.throttledCalls / revenueCatStats.current.totalCalls * 100).toFixed(1);
+          console.log(`📊 RevenueCat Throttle Stats: ${revenueCatStats.current.executedCalls} executed, ${revenueCatStats.current.throttledCalls} throttled (${throttleRate}% throttled)`);
+        }
+      }
     }
   }, [authState.user]);
 
