@@ -75,3 +75,7 @@ Simply open [Lovable](https://lovable.dev/projects/af482284-564d-433b-a95f-8b114
 ## I want to use a custom domain - is that possible?
 
 We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+
+---
+
+Random fun fact: Honey never spoils. Archaeologists have found edible honey in ancient Egyptian tombs!
