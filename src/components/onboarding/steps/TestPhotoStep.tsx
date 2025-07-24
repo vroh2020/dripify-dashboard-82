@@ -47,8 +47,12 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
         const file = new File([blob], 'photo.jpg', { type: blob.type });
         handleImageSelect(file);
       }
-    } catch (e) {
-      alert('Camera error: ' + e);
+    } catch (e: any) {
+      if (e?.message?.includes('denied') || e?.message?.includes('permission')) {
+        alert('Camera access is required to take photos. Please enable camera access in your device Settings.');
+      } else {
+        alert('An unexpected error occurred while accessing the camera. Please try again or use the photo library.');
+      }
     }
   };
 
