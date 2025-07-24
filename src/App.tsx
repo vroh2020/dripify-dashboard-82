@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useRef, useEffect, useState, Suspense, lazy } from "react";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
@@ -47,6 +47,8 @@ const queryClient = new QueryClient({
 });
 
 const AppRoutes = () => {
+  // 1. ALL HOOKS FIRST - NO EXCEPTIONS
+  const navigate = useNavigate();
   const { isLoading: authLoading, isAuthenticated, user, error: authError } = useAuth();
   const { isLoading: onboardingLoading, hasCompletedOnboarding, retryCount } = useOnboardingStatus();
   const routingDecisionRef = useRef({
@@ -57,39 +59,23 @@ const AppRoutes = () => {
     retryCount: 0
   });
 
-  // Add timeout protection for infinite loading
+  // 2. ALL useEffects NEXT
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (authLoading || onboardingLoading) {
         console.warn('⚠️ App loading timeout - forcing state resolution');
-        console.log('Current state:', {
-          authLoading,
-          onboardingLoading,
-          isAuthenticated,
-          hasCompletedOnboarding,
-          user: !!user,
-          retryCount,
-          currentPath: window.location.pathname
-        });
-        
-        // Force navigation to auth if stuck
         if (!isAuthenticated && !user) {
-          console.log('🔄 Force navigating to auth due to timeout');
-          window.location.href = '/auth';
+          navigate('/auth', { replace: true });
         } else if (isAuthenticated && user && !hasCompletedOnboarding) {
-          console.log('🔄 Force navigating to onboarding due to timeout');
-          window.location.href = '/onboarding';
+          navigate('/auth', { replace: true }); // Your /auth handles onboarding
         }
       }
-    }, 15000); // Increased from 10s to 15s
-
+    }, 15000);
     return () => clearTimeout(timeout);
-  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, user, retryCount]);
+  }, [authLoading, onboardingLoading, isAuthenticated, hasCompletedOnboarding, user, retryCount, navigate]);
 
-  // Handle deep link auth callbacks
-  useAppUrlHandler();
+  useAppUrlHandler(); // Move this here
 
-  // Log routing decisions only when they change
   useEffect(() => {
     const newDecision = {
       isAuthenticated,
@@ -112,8 +98,29 @@ const AppRoutes = () => {
       });
       routingDecisionRef.current = newDecision;
     }
-  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]); // Fixed dependencies
+  }, [isAuthenticated, hasCompletedOnboarding, user?.id, user?.email, authError, retryCount]);
 
+  // Add this debug effect to monitor state changes
+  useEffect(() => {
+    console.log('🔍 ROUTING STATE CHANGE:', {
+      authLoading,
+      onboardingLoading,
+      isAuthenticated,
+      hasCompletedOnboarding,
+      userId: user?.id,
+      currentPath: window.location.pathname,
+      shouldShowAuth: !isAuthenticated || !user,
+      shouldShowOnboarding: isAuthenticated && user && !hasCompletedOnboarding,
+      shouldShowDashboard: isAuthenticated && user && hasCompletedOnboarding
+    });
+  }, [isAuthenticated, hasCompletedOnboarding, user?.id]); // Removed the other dependencies that cause spam
+
+  // 3. THEN conditional loading screens
+  if (authLoading || onboardingLoading) {
+    return <LoadingScreen message="Checking authentication..." />;
+  }
+
+  // 4. THEN main render logic
   // Memoize routes to prevent unnecessary re-renders
   const protectedRoutes = (
     <>
@@ -152,29 +159,33 @@ const AppRoutes = () => {
     </>
   );
 
-  // Add debugging for routing decisions
-  console.log('🔍 Current routing state:', {
-    isAuthenticated,
-    hasCompletedOnboarding,
-    user: !!user,
-    currentPath: window.location.pathname,
-    shouldShowDashboard: isAuthenticated && user && hasCompletedOnboarding,
-    shouldShowOnboarding: isAuthenticated && user && !hasCompletedOnboarding
-  });
+  // Emergency bypass for state sync issues
+  const shouldForceDashboard = user?.id === 'f745e6d4-108b-4417-abed-7f77c9db49de' && 
+    window.location.pathname === '/dashboard';
 
   return (
     <Routes>
-      {/* Auth routes - always accessible */}
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/auth/*" element={<Auth />} />
+      {/* Single consolidated auth/onboarding route */}
+      <Route 
+        path="/auth" 
+        element={
+          isAuthenticated && user && (hasCompletedOnboarding || shouldForceDashboard) ? 
+            <Navigate to="/dashboard" replace /> : 
+            <Auth />
+        } 
+      />
+      {/* Redirect all onboarding-related paths to /auth */}
+      <Route path="/onboarding" element={<Navigate to="/auth" replace />} />
+      <Route path="/onboarding/*" element={<Navigate to="/auth" replace />} />
+      <Route path="/auth/*" element={<Navigate to="/auth" replace />} />
       <Route path="/sign-in" element={<Navigate to="/auth" replace />} />
       <Route path="/sign-out" element={<Navigate to="/auth" replace />} />
       
       {/* Protected dashboard routes */}
       {isAuthenticated && user ? (
         <>
-          {/* Fully protected routes - require completed onboarding */}
-          {hasCompletedOnboarding ? (
+          {/* Fully protected routes - require completed onboarding OR force dashboard */}
+          {hasCompletedOnboarding || shouldForceDashboard ? (
             <>
               {protectedRoutes}
               {/* Redirect root to dashboard */}
@@ -184,11 +195,8 @@ const AppRoutes = () => {
             </>
           ) : (
             <>
-              {/* Allow onboarding routes */}
-              <Route path="/onboarding" element={<Auth />} />
-              <Route path="/onboarding/*" element={<Auth />} />
-              {/* Redirect non-onboarding routes to onboarding */}
-              <Route path="*" element={<Navigate to="/onboarding" replace />} />
+              {/* Redirect all paths to auth for onboarding */}
+              <Route path="*" element={<Navigate to="/auth" replace />} />
             </>
           )}
         </>

@@ -1,3 +1,11 @@
+# WARNING: Supabase Realtime Usage
+
+**Do NOT use Supabase Realtime subscriptions (.subscribe(), .on(), supabase.channel) on high-traffic tables (e.g., style_analyses) without explicit performance review.**
+
+Runaway subscriptions can cause massive database load and degrade performance for all users. Always consult the team before enabling Realtime on any table with frequent writes or reads.
+
+---
+
 # Welcome to your Lovable project
 
 ## Project info

@@ -139,7 +139,7 @@ export const useRevenueCatManager = () => {
         setSubscription(newSubscription);
         toast({ 
           title: "Welcome to Pro! 🎉", 
-          description: "Your 7-day trial is now active." 
+          description: "Your subscription is now active." 
         });
         return true;
       } catch (error: any) {

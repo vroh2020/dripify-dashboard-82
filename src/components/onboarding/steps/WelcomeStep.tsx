@@ -1,7 +1,5 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Apple, Star, LogOut } from "lucide-react";
-import { handleAppleSignIn } from "../utils/auth";
 import { supabase } from "@/integrations/supabase/client";
 
 interface WelcomeStepProps {
@@ -9,20 +7,16 @@ interface WelcomeStepProps {
 }
 
 export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
-  const handleAppleClick = async () => {
+  const handleAnonymous = async () => {
+    console.log('👤 Continue without Apple clicked');
     try {
-      console.log('🍎 Starting Apple Sign-In...');
-      const success = await handleAppleSignIn();
-      
-      if (success) {
-        console.log('✅ Apple Sign-In initiated successfully');
-        // For web OAuth, the success handling will happen via auth state change
-        // No need to call onNext() here as the redirect will handle it
-      } else {
-        console.error('❌ Apple Sign-In failed to initiate');
-      }
-    } catch (error) {
-      console.error('💥 Apple Sign-In error:', error);
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) throw error;
+      console.log('✅ Anonymous sign-in successful');
+      onNext();
+    } catch (err) {
+      console.error('❌ Anonymous sign-in failed:', err);
+      // Optionally show a toast or error UI here
     }
   };
 
@@ -52,7 +46,6 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
           >
             🧑‍🎤
           </motion.div>
-          
           <div className="space-y-4 text-center mb-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -72,7 +65,6 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
               </p>
             </motion.div>
           </div>
-
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -82,7 +74,7 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
             <div className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Star className="text-white text-lg" />
+                  {/* Icon or logo here */}
                 </div>
                 <div className="text-left">
                   <div className="text-white font-semibold text-lg">Your Rating</div>
@@ -97,21 +89,14 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
           </motion.div>
         </div>
       </div>
-
-      {/* Button Area - Apple Sign In + Debug */}
+      {/* Button Area - Only Continue without Apple */}
       <div className="flex-shrink-0 space-y-4 px-6 pb-6">
         <Button
-          onClick={handleAppleClick}
-          className="w-full bg-black hover:bg-gray-900 text-white h-16 text-lg font-semibold rounded-2xl transition-all duration-300 hover:scale-105 flex items-center justify-center shadow-xl border-2 border-white/10"
+          onClick={handleAnonymous}
+          className="w-full bg-gray-800 text-white h-16 text-lg font-semibold rounded-2xl transition-all duration-300 hover:scale-105 flex items-center justify-center shadow-xl border-2 border-white/10"
         >
-          <Apple className="mr-3 h-6 w-6" />
-          Continue with Apple
+          <span role="img" aria-label="guest">👤</span> Continue without Apple
         </Button>
-        
-        <p className="text-white/60 text-sm text-center leading-relaxed">
-          Sign in securely with your Apple ID.<br />
-          We'll create your personalized style profile.
-        </p>
       </div>
     </motion.div>
   );

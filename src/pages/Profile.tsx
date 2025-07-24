@@ -13,7 +13,8 @@ import { useSubscription } from "@/components/subscription/SubscriptionProvider"
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfileStats } from "@/components/profile/ProfileStats";
 import { Button } from "@/components/ui/button";
-import { Crown, BadgeInfo, LogOut, ShieldCheck, User, Star, Trash2, Heart } from "lucide-react";
+import { Crown, BadgeInfo, LogOut, ShieldCheck, User, Star, Trash2, Heart, AlertTriangle } from "lucide-react";
+import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 
 interface Profile {
   username: string;
@@ -173,6 +174,23 @@ const Profile = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Danger Zone - Delete Account */}
+        <Card className="border border-red-300 bg-transparent rounded-2xl mt-6 shadow-md">
+          <CardContent className="space-y-4 p-6">
+            <div className="flex items-center gap-2 text-white font-bold text-lg mb-1">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              Danger Zone
+            </div>
+            <div className="text-white font-semibold text-base">Delete Account</div>
+            <div className="text-white text-sm mb-4">
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </div>
+            <div className="flex justify-center">
+              <DeleteAccountButton />
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
     </div>
   );

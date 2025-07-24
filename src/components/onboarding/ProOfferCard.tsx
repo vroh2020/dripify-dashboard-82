@@ -1,56 +1,193 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, RefreshCw } from "lucide-react";
+import { Check, RefreshCw } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 
 interface ProOfferCardProps {
   onContinue: () => void;
 }
 
+// Plan configuration
+const PLAN_CONFIG = {
+  weekly: {
+    identifier: "gs_499_1w",
+    title: "Weekly Subscription",
+    price: "$4.99",
+    period: "/week",
+    label: null,
+    fallback: {
+      identifier: "gs_499_1w",
+      title: "Weekly Subscription",
+      description: "Weekly subscription",
+      price: 4.99,
+      priceString: "$4.99",
+      currencyCode: "USD",
+      subscriptionPeriod: "P1W",
+    }
+  },
+  monthly: {
+    identifier: "gs_1099_1m", 
+    title: "Monthly Subscription",
+    price: "$10.99",
+    period: "/month",
+    label: "Most Popular",
+    fallback: {
+      identifier: "gs_1099_1m",
+      title: "Monthly Subscription", 
+      description: "Monthly subscription",
+      price: 10.99,
+      priceString: "$10.99",
+      currencyCode: "USD",
+      subscriptionPeriod: "P1M",
+    }
+  }
+};
+
+const FEATURES = [
+  {
+    title: "Unlimited style analyses",
+    description: "Get unlimited style recommendations"
+  },
+  {
+    title: "Advanced AI recommendations",
+    description: "AI-powered personalized suggestions"
+  },
+  {
+    title: "Personal style insights", 
+    description: "Track your style evolution"
+  },
+  {
+    title: "Priority support",
+    description: "Get help when you need it"
+  }
+];
+
+// Feature Item Component
+const FeatureItem = ({ title, description }) => (
+  <div className="flex items-start gap-3">
+    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center mt-0.5">
+      <Check className="w-4 h-4 text-white" />
+    </div>
+    <div>
+      <p className="text-white font-semibold text-base leading-tight mb-1">
+        {title}
+      </p>
+      <p className="text-white/60 text-sm">
+        {description}
+      </p>
+    </div>
+  </div>
+);
+
+// Plan Option Component
+const PlanOption = ({ planKey, config, isSelected, onSelect }) => (
+  <div 
+    className={`relative rounded-2xl border-2 p-4 cursor-pointer transition-all duration-200 ${
+      isSelected 
+        ? 'border-orange-500 bg-orange-500/10 shadow-lg' 
+        : 'border-white/20 bg-white/5 hover:border-white/30'
+    }`}
+    onClick={() => onSelect(planKey)}
+  >
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+          isSelected 
+            ? 'border-orange-500 bg-orange-500' 
+            : 'border-white/40'
+        }`}>
+          {isSelected && (
+            <div className="w-2 h-2 bg-white rounded-full"></div>
+          )}
+        </div>
+        <div>
+          <p className="text-white font-semibold capitalize">{planKey}</p>
+          <p className="text-white/60 text-sm">{config.price}{config.period}</p>
+        </div>
+      </div>
+      {config.label && (
+        <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+          {config.label}
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// Error Message Component
+const ErrorMessage = ({ message = "Payment didn't go through. Please try again." }) => (
+  <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-3 mb-4 text-center backdrop-blur-sm">
+    <p className="text-red-300 text-sm font-medium">
+      {message}
+    </p>
+  </div>
+);
+
+// CTA Button Component
+const CTAButton = ({ isProcessing, hasError, onClick, disabled }) => {
+  const getButtonContent = () => {
+    if (isProcessing) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          Processing...
+        </div>
+      );
+    }
+    
+    if (hasError) {
+      return (
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-5 h-5" />
+          Try Again
+        </div>
+      );
+    }
+    
+    return "Start My Journey";
+  };
+
+  return (
+    <Button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-orange-400 disabled:to-orange-500 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-xl text-white mb-6"
+    >
+      {getButtonContent()}
+    </Button>
+  );
+};
+
+// Main Component
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const { offerings, purchaseProduct, isPro, isLoading } = useSubscription();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('monthly');
 
-  // Find the Pro product - look for gs_1099_1m specifically
-  const proProduct = offerings?.[0]?.availablePackages?.find(
-    (pkg) =>
-      pkg.product.identifier === "gs_1099_1m" ||
-      pkg.product.identifier.includes("pro") ||
-      pkg.product.title.toLowerCase().includes("pro")
-  );
+  // Get products from offerings
+  const getProduct = (planKey) => {
+    const config = PLAN_CONFIG[planKey];
+    const product = offerings?.[0]?.availablePackages?.find(
+      (pkg) => pkg.product.identifier === config.identifier
+    );
+    return product || config.fallback;
+  };
 
-  // Format the price
-  const formattedPrice = proProduct?.product.priceString || "$12.99";
-
-  const handleStartTrial = async () => {
+  const handlePurchase = async () => {
     if (isProcessing) return;
     
     setIsProcessing(true);
     setHasError(false);
     
     try {
-      // CRITICAL FIX: Always show payment flow, even if isPro is detected
-      // This prevents bypass vulnerability from cached/existing subscriptions
-      
-      const product = proProduct || {
-        identifier: "gs_1099_1m",
-        title: "Pro Monthly",
-        description: "Pro subscription",
-        price: 12.99,
-        priceString: "$12.99",
-        currencyCode: "USD",
-        subscriptionPeriod: "P1M",
-      };
-      
-      const success = await purchaseProduct(product);
+      const selectedProduct = getProduct(selectedPlan);
+      const success = await purchaseProduct(selectedProduct);
       
       if (success) {
-        // Payment succeeded - proceed to completion
         setTimeout(onContinue, 1000);
       } else {
-        // Payment failed - show error
         setHasError(true);
       }
     } catch (error) {
@@ -61,54 +198,66 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   };
 
-  // CRITICAL FIX: Remove auto-complete bypass
-  // Always show payment screen regardless of isPro status
-  // This prevents users from skipping payment due to cached/test subscriptions
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 px-4 py-8">
-      <div className="w-full max-w-md mx-auto flex flex-col items-center bg-black/70 rounded-3xl shadow-2xl p-8 border border-white/10">
-        <span className="text-5xl mb-6">🚀</span>
-        <h1 className="text-3xl md:text-4xl font-extrabold text-white text-center mb-4 tracking-tight">Get Drip AI Pro</h1>
-        <p className="text-lg text-white/80 text-center mb-8">Unlock your full style potential with unlimited analyses and recommendations.</p>
-        <div className="w-full flex flex-col items-center mb-8">
-          <span className="text-3xl font-bold text-orange-400 mb-1">$12.99</span>
-          <span className="text-base text-white/70 mb-2">per month</span>
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 px-4 py-8">
+      {/* Main Content Container */}
+      <div className="flex-1 flex flex-col max-w-sm mx-auto w-full pt-8">
+        
+        {/* Header Section */}
+        <header className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-white mb-3 leading-tight">
+            Unlock Dripify AI to reach your goals faster.
+          </h1>
+        </header>
+
+        {/* Features Section */}
+        <section className="space-y-4 mb-8">
+          {FEATURES.map((feature, index) => (
+            <FeatureItem 
+              key={index}
+              title={feature.title}
+              description={feature.description}
+            />
+          ))}
+        </section>
+
+        {/* Pricing Plans Section */}
+        <section className="space-y-3 mb-6">
+          {Object.entries(PLAN_CONFIG).map(([planKey, config]) => (
+            <PlanOption
+              key={planKey}
+              planKey={planKey}
+              config={config}
+              isSelected={selectedPlan === planKey}
+              onSelect={setSelectedPlan}
+            />
+          ))}
+        </section>
+
+        {/* Terms Section */}
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <Check className="w-4 h-4 text-green-500" />
+          <p className="text-white/60 text-sm">No Commitment - Cancel Anytime</p>
         </div>
-        {hasError && (
-          <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mb-6 text-center">
-            <p className="text-red-300 font-medium text-sm">
-              Payment didn't go through. Please try again.
-            </p>
-          </div>
-        )}
-        {isPro && (
-          <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-xl p-4 mb-6 text-center">
-            <p className="text-yellow-300 font-medium text-sm">
-              ⚠️ Existing subscription detected. Complete payment to verify access.
-            </p>
-          </div>
-        )}
-        <Button
-          onClick={handleStartTrial}
+
+        {/* Error Display */}
+        {hasError && <ErrorMessage />}
+
+        {/* CTA Section */}
+        <CTAButton
+          isProcessing={isProcessing}
+          hasError={hasError}
+          onClick={handlePurchase}
           disabled={isProcessing || isLoading}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-xl font-extrabold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl text-white mb-4"
-        >
-          {isProcessing ? (
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Subscribing...
-            </div>
-          ) : hasError ? (
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5" />
-              Try Again
-            </div>
-          ) : (
-            "Subscribe Now"
-          )}
-        </Button>
-        <div className="text-white/40 text-xs text-center mt-2">Cancel anytime. No hidden fees.</div>
+        />
+
+        {/* Footer */}
+        <footer className="text-center">
+          <p className="text-white/40 text-xs leading-relaxed">
+            Subscription renews automatically. Cancel anytime in settings.
+          </p>
+        </footer>
+        
       </div>
     </div>
   );

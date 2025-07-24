@@ -114,7 +114,7 @@ export function useAuth(): AuthState & AuthActions {
   const updateAuthState = useCallback((session: Session | null, error?: string) => {
     if (!mountedRef.current) return;
 
-    // Clear any pending timeout
+    // Clear any pending timeout to debounce rapid updates
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -125,13 +125,16 @@ export function useAuth(): AuthState & AuthActions {
       return;
     }
     
-    setAuthState({
-      session,
-      user: session?.user || null,
-      isLoading: false,
-      isAuthenticated: !!session?.user,
-      error: error || null
-    });
+    // Debounce rapid state changes
+    timeoutRef.current = setTimeout(() => {
+      setAuthState({
+        session,
+        user: session?.user || null,
+        isLoading: false,
+        isAuthenticated: !!session?.user,
+        error: error || null
+      });
+    }, 50); // 50ms debounce
   }, []);
 
   const clearAllStorage = useCallback(async () => {
@@ -289,72 +292,66 @@ export function useAuth(): AuthState & AuthActions {
   // Single auth listener with proper cleanup
   useEffect(() => {
     mountedRef.current = true;
-    let eventCount = 0;
-    let lastEventTime = Date.now();
+    let lastEventData: { event: string; session: Session | null } | null = null;
+    let eventTimeout: NodeJS.Timeout | null = null;
 
-    // Start initial session check
+    // Get initial session
     getInitialSession();
 
-    // Listen for auth changes
+    // Listen for auth changes with aggressive deduplication
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mountedRef.current || isSigningOut.current) return;
       
-      const now = Date.now();
-      const timeSinceLastEvent = now - lastEventTime;
-      lastEventTime = now;
+      // Clear any pending timeout
+      if (eventTimeout) {
+        clearTimeout(eventTimeout);
+      }
       
-      // Ignore rapid duplicate events
-      if (lastEventData.current && 
-          event === lastEventData.current.event && 
-          JSON.stringify(session) === JSON.stringify(lastEventData.current.session) && 
-          timeSinceLastEvent < 100) {
+      // Aggressive deduplication - ignore rapid identical events
+      const currentEventData = { event, session };
+      const isDuplicate = lastEventData && 
+        event === lastEventData.event && 
+        JSON.stringify(session?.user?.id) === JSON.stringify(lastEventData.session?.user?.id);
+      
+      if (isDuplicate) {
+        console.log('🚫 Auth: Ignoring duplicate', event);
         return;
       }
       
-      eventCount++;
-      lastEventData.current = { event, session };
+      lastEventData = currentEventData;
       
-      // Handle INITIAL_SESSION specially
-      if (event === 'INITIAL_SESSION') {
-        if (initialSessionChecked.current) {
-          return;
+      // Batch updates with timeout to prevent rapid firing
+      eventTimeout = setTimeout(() => {
+        if (event === 'INITIAL_SESSION') {
+          // Only log initial session once
+          if (!initialSessionChecked.current) {
+            console.log(`🔐 Auth: ${event}`, { hasSession: !!session, userId: session?.user?.id });
+          }
+        } else {
+          // Log other important events
+          console.log(`🔐 Auth: ${event}`, { hasSession: !!session, userId: session?.user?.id });
         }
-        initialSessionChecked.current = true;
-      }
-      
-      // Handle SIGNED_OUT specially
-      if (event === 'SIGNED_OUT') {
-        setAuthState({
-          session: null,
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-          error: null
-        });
-        return;
-      }
-      
-      // Only update state if the session has actually changed
-      const currentSession = authState.session;
-      const sessionChanged = !currentSession !== !session || // One is null and the other isn't
-        (currentSession && session && currentSession.access_token !== session.access_token);
-      
-      if (sessionChanged) {
-        setAuthState({
-          session,
-          user: session?.user || null,
-          isLoading: false,
-          isAuthenticated: !!session?.user,
-          error: null
-        });
-      }
+        
+        if (event === 'INITIAL_SESSION') {
+          if (initialSessionChecked.current) return;
+          initialSessionChecked.current = true;
+        }
+        
+        updateAuthState(session);
+      }, 100); // 100ms batching delay
     });
 
     return () => {
       mountedRef.current = false;
       subscription.unsubscribe();
+      if (eventTimeout) {
+        clearTimeout(eventTimeout);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
-  }, []); // FIXED: Removed authState.session to prevent infinite re-renders
+  }, []); // Keep empty dependency array
 
   // Cleanup on unmount
   useEffect(() => {

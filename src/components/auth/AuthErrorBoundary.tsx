@@ -39,6 +39,11 @@ export class AuthErrorBoundary extends Component<Props, State> {
     console.error('Current URL:', window.location.href);
     console.error('User Agent:', navigator.userAgent);
     console.groupEnd();
+
+   
+    
+    // Reset error state after logging - let React Router handle navigation
+    // The main App routing logic will redirect appropriately based on auth state
   }
 
   private handleRetry = () => {
@@ -57,14 +62,13 @@ export class AuthErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen bg-gradient-to-br from-red-900 via-purple-900 to-blue-900 flex items-center justify-center p-4">
           <div className="bg-black/50 backdrop-blur-xl border border-red-500/30 rounded-2xl p-8 max-w-md w-full text-center">
-            <div className="text-red-400 text-6xl mb-4">🚨</div>
+            <div className="text-red-400 text-6xl mb-4">😔</div>
             <h1 className="text-2xl font-bold text-white mb-4">
-              Something went wrong
+              Oops! Something went wrong
             </h1>
-            <p className="text-gray-300 mb-6">
-              We encountered an unexpected error. This might be due to a network issue or temporary problem.
+            <p className="text-gray-300 mb-2">
+              Please refresh the page or try again later.
             </p>
-            
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details className="mb-6 text-left">
                 <summary className="text-red-400 cursor-pointer mb-2">
@@ -85,26 +89,6 @@ export class AuthErrorBoundary extends Component<Props, State> {
                 </div>
               </details>
             )}
-            
-            <div className="space-y-3">
-              <button
-                onClick={this.handleRetry}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-colors"
-              >
-                🔄 Try Again
-              </button>
-              
-              <button
-                onClick={this.handleGoToAuth}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-xl transition-colors"
-              >
-                🏠 Go to Login
-              </button>
-            </div>
-            
-            <div className="mt-6 text-xs text-gray-500">
-              If this problem persists, please contact support.
-            </div>
           </div>
         </div>
       );

@@ -159,32 +159,40 @@ export const DashboardView = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20 backdrop-blur-xl">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-purple-400" />
-                    <h3 className="text-lg font-semibold text-white">Getting Started</h3>
-                  </div>
-                </div>
-                <p className="text-white/70 mb-6 leading-relaxed">
-                  Welcome to Drip Check! Take your first style scan to get personalized fashion insights and start building your style streak.
+            <div className="relative">
+              {/* Subtle floating sparkles background */}
+              <div className="absolute inset-0 z-0 pointer-events-none">
+                <svg width="100%" height="100%" className="absolute top-0 left-0 opacity-30 animate-pulse" style={{filter: 'blur(2px)'}}>
+                  <circle cx="30" cy="40" r="8" fill="#a78bfa" />
+                  <circle cx="220" cy="80" r="5" fill="#f472b6" />
+                  <circle cx="120" cy="120" r="6" fill="#fbbf24" />
+                  <circle cx="80" cy="180" r="4" fill="#38bdf8" />
+                  <circle cx="200" cy="160" r="7" fill="#f472b6" />
+                </svg>
+              </div>
+              <Card className="relative z-10 bg-white/10 backdrop-blur-xl border border-purple-400/30 shadow-2xl rounded-3xl p-8 flex flex-col items-center">
+                <div className="text-5xl mb-4 animate-bounce">✨</div>
+                <h2 className="text-2xl font-extrabold text-white mb-2 text-center drop-shadow-lg">
+                  Welcome to Dripify AI!
+                </h2>
+                <p className="text-base text-white/90 mb-6 text-center max-w-xs">
+                  Start your style journey with your first scan.
                 </p>
                 <Button 
                   onClick={() => navigate('/scan')} 
-                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 h-auto transition-all duration-200 group"
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-pink-500 hover:to-orange-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400"
                 >
-                  <Camera className="w-4 h-4 mr-2" />
+                  <Camera className="w-6 h-6" />
                   Take Your First Scan
                   <motion.div
                     animate={{ x: [0, 4, 0] }}
                     transition={{ repeat: Infinity, duration: 1.5 }}
                   >
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                    <ArrowRight className="w-5 h-5 ml-2" />
                   </motion.div>
                 </Button>
-              </CardContent>
-            </Card>
+              </Card>
+            </div>
           </motion.div>
         ) : (
           <div className="space-y-6">

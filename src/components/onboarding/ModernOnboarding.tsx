@@ -250,7 +250,7 @@ export const ModernOnboarding = ({ onComplete }: ModernOnboardingProps) => {
        // Request in-app review after user sees their results (4 seconds)
        setTimeout(() => {
          requestInAppReview();
-       }, 4000);
+       }, 3000);
        
        // Show continue button after review prompt has time to appear (8 seconds)
        setTimeout(() => setShowNextButton(true), 8000);
