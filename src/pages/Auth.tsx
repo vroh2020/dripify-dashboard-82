@@ -280,14 +280,14 @@ export const AuthOnboardingWizard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex flex-col">
       {/* Progress Bar - Only show during steps 1-12 */}
-      {step <= 12 && (
+      {/* {step <= 12 && (
         <div className="p-4">
           <Progress value={progress} className="w-full" />
           <p className="text-white/60 text-sm mt-2 text-center">
             Step {step} of 12
           </p>
         </div>
-      )}
+      )} */}
 
       {/* Step Content */}
       <div className="flex-1 flex flex-col">

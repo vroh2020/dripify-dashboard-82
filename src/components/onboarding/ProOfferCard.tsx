@@ -248,7 +248,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           isProcessing={isProcessing}
           hasError={hasError}
           onClick={handlePurchase}
-          disabled={isProcessing || isLoading}
+          disabled={isProcessing} // Only disable when processing, not when loading
         />
 
         {/* Footer */}

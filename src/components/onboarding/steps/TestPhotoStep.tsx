@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { OnboardingPhotoPicker } from "../OnboardingPhotoPicker";
+import { Capacitor } from '@capacitor/core';
 
 interface TestPhotoStepProps {
   selectedImage: File | null;
@@ -27,6 +28,28 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
     console.log('🔄 TestPhotoStep - Calling parent onImageSelect...');
     onImageSelect(file);
     console.log('✅ TestPhotoStep - Parent onImageSelect callback completed');
+  };
+
+  // Add handleTakePhoto for Capacitor camera
+  const handleTakePhoto = async () => {
+    if (!Capacitor?.isNativePlatform?.()) return;
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+      if (photo?.dataUrl) {
+        const res = await fetch(photo.dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], 'photo.jpg', { type: blob.type });
+        handleImageSelect(file);
+      }
+    } catch (e) {
+      alert('Camera error: ' + e);
+    }
   };
 
   return (
@@ -68,6 +91,12 @@ export const TestPhotoStep = ({ selectedImage, onImageSelect, onImageUpload }: T
             selectedImage={selectedImage}
             onImageSelect={handleImageSelect} 
           />
+          {/* Take Photo button for native platforms */}
+          {Capacitor?.isNativePlatform?.() && (
+            <Button onClick={handleTakePhoto} className="w-full mt-4 bg-orange-500 text-white">
+              Take Photo
+            </Button>
+          )}
         </div>
       </div>
 
