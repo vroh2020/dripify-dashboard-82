@@ -106,6 +106,9 @@
     "typescript-eslint": "^8.0.1",
     "vite": "6.3.5"
   },
+  "overrides": {
+    "@eslint/plugin-kit": "^0.3.3"
+  },
   "ios": {
     "debug": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
