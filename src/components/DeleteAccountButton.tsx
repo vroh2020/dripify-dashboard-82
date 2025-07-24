@@ -16,6 +16,34 @@ import { Trash2, AlertTriangle } from 'lucide-react';
 import { useUserDeletion } from '@/hooks/useUserDeletion';
 import { useAuth } from '@/hooks/useAuth';
 
+const DeleteAccountDialogDescription = ({ confirmText, setConfirmText, isDeleting }: { confirmText: string, setConfirmText: (v: string) => void, isDeleting: boolean }) => (
+  <div className="space-y-3 text-base text-muted-foreground mt-2">
+    <ul className="list-disc list-inside ml-2 space-y-1">
+      <li>Your profile and account data</li>
+      <li>All your style analyses and history
+        <ul className="list-disc list-inside ml-4">
+          <li>Your uploaded images</li>
+        </ul>
+      </li>
+      <li>Your subscription (if active)</li>
+    </ul>
+    <div className="mt-2">
+      <label htmlFor="delete-confirm" className="block text-sm font-medium mb-1">
+        Type <span className="font-mono bg-muted px-1 rounded">delete my account</span> to confirm:
+      </label>
+      <Input
+        id="delete-confirm"
+        value={confirmText}
+        onChange={e => setConfirmText(e.target.value)}
+        placeholder="delete my account"
+        className="w-full"
+        autoComplete="off"
+        disabled={isDeleting}
+      />
+    </div>
+  </div>
+);
+
 export const DeleteAccountButton = () => {
   const [confirmText, setConfirmText] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -52,31 +80,13 @@ export const DeleteAccountButton = () => {
           </span>
         </AlertDialogTitle>
         <AlertDialogDescription>
-          <div className="space-y-3 text-base text-muted-foreground">
-            <div>This action cannot be undone. This will permanently delete:</div>
-            <ul className="list-disc list-inside ml-2 space-y-1">
-              <li>Your profile and account data</li>
-              <li>All your style analyses and history
-                <ul className="list-disc list-inside ml-4">
-                  <li>Your uploaded images</li>
-                </ul>
-              </li>
-              <li>Your subscription (if active)</li>
-            </ul>
-            <div className="mt-2">
-              <label htmlFor="delete-confirm" className="block text-sm font-medium mb-1">Type <span className="font-mono bg-muted px-1 rounded">delete my account</span> to confirm:</label>
-              <Input
-                id="delete-confirm"
-                value={confirmText}
-                onChange={e => setConfirmText(e.target.value)}
-                placeholder="delete my account"
-                className="w-full"
-                autoComplete="off"
-                disabled={isDeleting}
-              />
-            </div>
-          </div>
+          This action cannot be undone. This will permanently delete your account and data.
         </AlertDialogDescription>
+        <DeleteAccountDialogDescription
+          confirmText={confirmText}
+          setConfirmText={setConfirmText}
+          isDeleting={isDeleting}
+        />
         <AlertDialogFooter className="mt-4 flex flex-col gap-2">
           <AlertDialogAction asChild>
             <Button
