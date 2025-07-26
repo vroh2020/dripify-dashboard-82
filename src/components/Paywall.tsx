@@ -3,7 +3,7 @@ import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
 import { useSubscription } from '../hooks/useSubscription';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
 import { REVENUECAT_CONFIG } from '../config/revenueCat';
 
 interface PaywallProps {
@@ -51,6 +51,14 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
       setIsRestoring(false);
       setTimeout(() => setRestoreMsg(''), 4000);
     }
+  };
+
+  const openPrivacyPolicy = () => {
+    window.open('https://dripcheck.framer.website/privacy-policy', '_blank', 'noopener,noreferrer');
+  };
+
+  const openTermsOfUse = () => {
+    window.open('https://dripcheck.framer.website/terms-of-services', '_blank', 'noopener,noreferrer');
   };
 
   if (isLoading) {
@@ -160,6 +168,30 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
             </CardFooter>
           </Card>
         ))}
+      </div>
+      
+      {/* Legal Links - Apple Guideline 3.1.2 */}
+      <div className="text-center mt-8 pt-6 border-t border-gray-200">
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <button
+            onClick={openPrivacyPolicy}
+            className="text-gray-500 underline text-sm font-medium hover:text-gray-700 flex items-center gap-1"
+          >
+            <span>Privacy Policy</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+          <span className="text-gray-400">•</span>
+          <button
+            onClick={openTermsOfUse}
+            className="text-gray-500 underline text-sm font-medium hover:text-gray-700 flex items-center gap-1"
+          >
+            <span>Terms of Use</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
+        <p className="text-gray-500 text-xs">
+          By subscribing, you agree to our Terms of Use and Privacy Policy
+        </p>
       </div>
     </div>
   );
