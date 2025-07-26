@@ -1,8 +1,14 @@
 
 export const REVENUECAT_CONFIG = {
   ENTITLEMENT_IDENTIFIER: 'pro',
+  OFFERING_ID: 'ofrng4657c81eae',
   products: {
-    monthly: 'gs_1099_1m', // This matches your StoreKit configuration
+    weekly: 'di_499_1w', // Weekly $4.99
+    monthly: 'di_999_1m', // Monthly $9.99
+  },
+  pricing: {
+    weekly: 4.99,
+    monthly: 9.99,
   },
   developmentMode: {
     enabled: process.env.NODE_ENV === 'development',

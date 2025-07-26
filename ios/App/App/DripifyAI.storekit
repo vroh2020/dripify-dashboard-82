@@ -5,22 +5,7 @@
 
   ],
   "products" : [
-    {
-      "displayPrice" : "4.99",
-      "familyShareable" : false,
-      "internalID" : "6239194218",
-      "localizations" : [
-        {
-          "description" : "Unlock all features",
-          "displayName" : "Dripify AI Pro",
-          "locale" : "en_US"
-        }
-      ],
-      "name" : "Dripify AI Pro",
-      "productID" : "drip_pro_monthly",
-      "recurringSubscriptionPeriod" : "P1M",
-      "type" : "RecurringSubscription"
-    }
+
   ],
   "settings" : {
     "_applicationInternalID" : "6737845367",
@@ -81,9 +66,13 @@
     {
       "id" : "21672094",
       "localizations" : [
-
+        {
+          "description" : "Premium subscription plans for Dripify AI",
+          "displayName" : "Dripify AI",
+          "locale" : "en_US"
+        }
       ],
-      "name" : "Drip Check Pro",
+      "name" : "Dripify AI",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -92,25 +81,44 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "12.99",
+          "displayPrice" : "9.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6741270016",
-          "introductoryOffer" : {
-            "internalID" : "70612345",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
           "localizations" : [
             {
-              "description" : "Unlock all pro features with the monthly subscription",
-              "displayName" : "Dripify AI Pro Monthly",
+              "description" : "Unlimited style analyses for $9.99/month",
+              "displayName" : "Dripify AI Monthly",
               "locale" : "en_US"
             }
           ],
-          "productID" : "gs_1099_1m",
+          "productID" : "di_999_1m",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Pro Monthly",
+          "referenceName" : "Monthly 9.99",
+          "subscriptionGroupID" : "21672094",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6741270017",
+          "localizations" : [
+            {
+              "description" : "Unlimited style analyses for $4.99/week",
+              "displayName" : "Dripify AI Weekly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "di_499_1w",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Weekly 4.99",
           "subscriptionGroupID" : "21672094",
           "type" : "RecurringSubscription"
         }

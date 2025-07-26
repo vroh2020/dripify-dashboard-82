@@ -22,7 +22,7 @@ I've completely rebuilt your onboarding from scratch with a modern, responsive, 
 5. **Style Rating**: Modern circular progress display with 86 score
 6. **Celebration**: Party animation and congratulations
 7. **Trial Offer**: 7-day free trial presentation
-8. **Pricing**: Weekly ($4.99) vs Monthly ($12.99) plans
+8. **Pricing**: Weekly ($4.99) vs Monthly ($9.99) plans
 
 ---
 

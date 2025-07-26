@@ -69,7 +69,7 @@
 - [ ] **Content**: Photo upload → analysis → results flow
 
 ### 4. Pricing & Availability
-- [ ] **Pricing**: Set subscription pricing ($12.99/month, $99.99/year)
+- [ ] **Pricing**: Set subscription pricing ($9.99/month, $99.99/year)
 - [ ] **Free Trial**: 7-day free trial configured
 - [ ] **Availability**: All countries, English language
 - [ ] **Release Type**: Manual release (recommended for first submission)

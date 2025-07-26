@@ -157,7 +157,7 @@ You need screenshots for these device sizes:
 
 ### Pricing
 - **Free:** Basic features with limited analyses
-- **Premium:** $12.99/month or $99.99/year
+- **Premium:** $9.99/month or $99.99/year
 - **Free Trial:** 7-day free trial for premium features
 
 ### Availability

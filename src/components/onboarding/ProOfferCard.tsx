@@ -14,17 +14,17 @@ const getPlanConfig = (offerings) => {
     // Fallback config if offerings not loaded
     return {
       weekly: {
-        identifier: "gs_499_1w",
-        title: "Dripify AI Premium",
+        identifier: "di_499_1w",
+        title: "Dripify AI Weekly",
         price: "$4.99",
         period: "/week",
         length: "1 week",
         label: null,
         savings: null,
         fallback: {
-          identifier: "gs_499_1w",
-          title: "Dripify AI Premium",
-          description: "Weekly subscription",
+          identifier: "di_499_1w",
+          title: "Dripify AI Weekly",
+          description: "Unlimited style analyses for $4.99/week",
           price: 4.99,
           priceString: "$4.99",
           currencyCode: "USD",
@@ -32,19 +32,19 @@ const getPlanConfig = (offerings) => {
         }
       },
       monthly: {
-        identifier: "gs_1099_1m", 
-        title: "Dripify AI Premium",
-        price: "$10.99",
+        identifier: "di_999_1m", 
+        title: "Dripify AI Monthly",
+        price: "$9.99",
         period: "/month",
         length: "1 month",
-        label: "Most Popular",
+        label: null,
         savings: null,
         fallback: {
-          identifier: "gs_1099_1m",
-          title: "Dripify AI Premium",
-          description: "Monthly subscription",
-          price: 10.99,
-          priceString: "$10.99",
+          identifier: "di_999_1m",
+          title: "Dripify AI Monthly",
+          description: "Unlimited style analyses for $9.99/month",
+          price: 9.99,
+          priceString: "$9.99",
           currencyCode: "USD",
           subscriptionPeriod: "P1M",
         }
@@ -55,17 +55,17 @@ const getPlanConfig = (offerings) => {
   const packages = offerings[0]?.availablePackages || [];
   const config = {
     weekly: {
-      identifier: "gs_499_1w",
-      title: "Dripify AI Premium",
+      identifier: "di_499_1w",
+      title: "Dripify AI Weekly",
       price: "$4.99",
       period: "/week",
       length: "1 week",
       label: null,
       savings: null,
       fallback: {
-        identifier: "gs_499_1w",
-        title: "Dripify AI Premium",
-        description: "Weekly subscription",
+        identifier: "di_499_1w",
+        title: "Dripify AI Weekly",
+        description: "Unlimited style analyses for $4.99/week",
         price: 4.99,
         priceString: "$4.99",
         currencyCode: "USD",
@@ -73,19 +73,19 @@ const getPlanConfig = (offerings) => {
       }
     },
     monthly: {
-      identifier: "gs_1099_1m", 
-      title: "Dripify AI Premium",
-      price: "$10.99",
+      identifier: "di_999_1m", 
+      title: "Dripify AI Monthly",
+      price: "$9.99",
       period: "/month",
       length: "1 month",
-      label: "Most Popular",
+      label: null,
       savings: null,
       fallback: {
-        identifier: "gs_1099_1m",
-        title: "Dripify AI Premium",
-        description: "Monthly subscription",
-        price: 10.99,
-        priceString: "$10.99",
+        identifier: "di_999_1m",
+        title: "Dripify AI Monthly",
+        description: "Unlimited style analyses for $9.99/month",
+        price: 9.99,
+        priceString: "$9.99",
         currencyCode: "USD",
         subscriptionPeriod: "P1M",
       }
@@ -99,7 +99,7 @@ const getPlanConfig = (offerings) => {
     if (identifier.includes('1w')) {
       config.weekly = {
         identifier: identifier,
-        title: product.title || "Dripify AI Premium",
+        title: product.title || "Dripify AI Weekly",
         price: product.priceString || "$4.99",
         period: product.subscriptionPeriod === 'P1W' ? "/week" : "/period",
         length: "1 week",
@@ -107,31 +107,31 @@ const getPlanConfig = (offerings) => {
         savings: null,
         fallback: {
           identifier: identifier,
-          title: product.title || "Dripify AI Premium",
-          description: "Weekly subscription",
-          price: product.price,
-          priceString: product.priceString,
-          currencyCode: product.currencyCode,
-          subscriptionPeriod: product.subscriptionPeriod,
+          title: product.title || "Dripify AI Weekly",
+          description: "Unlimited style analyses for $4.99/week",
+          price: product.price || 4.99,
+          priceString: product.priceString || "$4.99",
+          currencyCode: product.currencyCode || "USD",
+          subscriptionPeriod: product.subscriptionPeriod || "P1W",
         }
       };
     } else if (identifier.includes('1m')) {
       config.monthly = {
         identifier: identifier,
-        title: product.title || "Dripify AI Premium",
-        price: product.priceString || "$10.99",
+        title: product.title || "Dripify AI Monthly",
+        price: product.priceString || "$9.99",
         period: product.subscriptionPeriod === 'P1M' ? "/month" : "/period",
         length: "1 month",
-        label: "Most Popular",
+        label: null,
         savings: null,
         fallback: {
           identifier: identifier,
-          title: product.title || "Dripify AI Premium",
-          description: "Monthly subscription",
-          price: product.price,
-          priceString: product.priceString,
-          currencyCode: product.currencyCode,
-          subscriptionPeriod: product.subscriptionPeriod,
+          title: product.title || "Dripify AI Monthly",
+          description: "Unlimited style analyses for $9.99/month",
+          price: product.price || 9.99,
+          priceString: product.priceString || "$9.99",
+          currencyCode: product.currencyCode || "USD",
+          subscriptionPeriod: product.subscriptionPeriod || "P1M",
         }
       };
     }
@@ -164,15 +164,15 @@ const FEATURES = [
 
 // Feature Item Component
 const FeatureItem = ({ title, description, icon: IconComponent, gradient }) => (
-  <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
-    <div className={`flex-shrink-0 w-12 h-12 bg-gradient-to-r ${gradient} rounded-xl flex items-center justify-center shadow-lg`}>
-      <IconComponent className="w-6 h-6 text-white" />
+  <div className="flex items-start gap-3 p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300">
+    <div className={`flex-shrink-0 w-10 h-10 bg-gradient-to-r ${gradient} rounded-lg flex items-center justify-center shadow-lg`}>
+      <IconComponent className="w-5 h-5 text-white" />
     </div>
     <div className="flex-1">
-      <p className="text-white font-bold text-base leading-tight mb-1">
+      <p className="text-white font-bold text-sm leading-tight mb-1">
         {title}
       </p>
-      <p className="text-white/60 text-sm leading-relaxed">
+      <p className="text-white/60 text-xs leading-relaxed">
         {description}
       </p>
     </div>
@@ -202,14 +202,15 @@ const PlanOption = ({ planKey, config, isSelected, onSelect }) => (
         </div>
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <p className="text-white font-bold text-lg capitalize">{planKey}</p>
-            {config.label && (
-              <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black px-3 py-1 rounded-full text-xs font-black">
-                {config.label}
+            <p className="text-white font-bold text-lg">{config.title}</p>
+            {planKey === 'monthly' && (
+              <span className="bg-gradient-to-r from-green-400 to-emerald-500 text-black px-3 py-1 rounded-full text-xs font-black">
+                50% OFF
               </span>
             )}
           </div>
           <p className="text-white/60 text-sm">Billed {config.period}</p>
+          <p className="text-white/50 text-xs mt-1">Auto-renewable subscription</p>
         </div>
       </div>
       <div className="text-right">
@@ -289,19 +290,23 @@ const LegalLinks = () => {
       <div className="flex items-center justify-center gap-6 mb-4">
         <button
           onClick={openPrivacyPolicy}
-          className="text-white/60 hover:text-white font-medium transition-colors flex items-center gap-1 text-sm"
+          className="text-white/70 hover:text-white font-medium transition-colors flex items-center gap-1 text-sm underline"
         >
           <span>Privacy Policy</span>
           <ExternalLink className="w-3 h-3" />
         </button>
+        <span className="text-white/40">•</span>
         <button
           onClick={openTermsOfUse}
-          className="text-white/60 hover:text-white font-medium transition-colors flex items-center gap-1 text-sm"
+          className="text-white/70 hover:text-white font-medium transition-colors flex items-center gap-1 text-sm underline"
         >
           <span>Terms of Use</span>
           <ExternalLink className="w-3 h-3" />
         </button>
       </div>
+      <p className="text-white/50 text-xs">
+        By subscribing, you agree to our Terms of Use and Privacy Policy
+      </p>
     </div>
   );
 };
@@ -331,17 +336,17 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }) => {
         onClick={handleRestoreClick}
         disabled={isRestoring}
         variant="outline"
-        className="w-full border-2 border-white/30 text-white hover:text-white hover:border-white/50 bg-white/10 backdrop-blur-sm font-semibold py-4 rounded-2xl transition-all duration-300 hover:bg-white/20"
+        className="w-full border-2 border-blue-500/50 text-blue-300 hover:text-blue-200 hover:border-blue-400 bg-blue-500/10 backdrop-blur-sm font-semibold py-4 rounded-2xl transition-all duration-300 hover:bg-blue-500/20"
       >
         {isRestoring ? (
           <div className="flex items-center justify-center gap-3">
-            <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
+            <div className="w-4 h-4 border-2 border-blue-300/50 border-t-blue-300 rounded-full animate-spin"></div>
             <span>Restoring Purchases...</span>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-3">
             <RefreshCw className="w-4 h-4" />
-            <span>Restore Previous Purchases</span>
+            <span>Restore Purchases</span>
           </div>
         )}
       </Button>
@@ -473,40 +478,39 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
-      <div className="relative z-10 min-h-screen flex flex-col px-6 py-8">
+      <div className="relative z-10 min-h-screen flex flex-col px-6 py-6">
         {/* Main Content Container */}
-        <div className="flex-1 flex flex-col max-w-md mx-auto w-full pt-8">
+        <div className="flex-1 flex flex-col max-w-md mx-auto w-full pt-4">
           
-          {/* Cool Header Section */}
-          <header className="text-center mb-10">
-            <div className="relative mb-6">
-              {/* Animated background elements */}
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-3xl blur-xl animate-pulse"></div>
-              <div className="relative inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 rounded-3xl shadow-2xl shadow-purple-500/25 transform hover:scale-105 transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 rounded-3xl animate-pulse"></div>
-                <Sparkles className="w-12 h-12 text-white relative z-10" />
+          {/* Impactful but Manageable Header */}
+          <header className="text-center mb-6">
+            <div className="relative mb-3">
+              {/* Smaller animated background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg animate-pulse"></div>
+              <div className="relative inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 rounded-2xl shadow-xl shadow-purple-500/25 transform hover:scale-105 transition-all duration-300">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 rounded-2xl animate-pulse"></div>
+                <Sparkles className="w-8 h-8 text-white relative z-10" />
               </div>
             </div>
             
-            <h1 className="text-4xl font-black text-white mb-3 leading-tight">
+            <h1 className="text-3xl font-black text-white mb-2 leading-tight">
               Level Up Your
               <span className="block bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 bg-clip-text text-transparent animate-pulse">
                 Style Game
               </span>
             </h1>
             
-            <p className="text-white/70 text-lg font-medium max-w-sm mx-auto">
+            <p className="text-white/70 text-base font-medium max-w-sm mx-auto">
               Get AI-powered insights that transform your fashion choices
             </p>
             
-            {/* Floating elements */}
-            <div className="absolute top-20 left-10 w-3 h-3 bg-purple-400 rounded-full animate-bounce opacity-60"></div>
-            <div className="absolute top-32 right-8 w-2 h-2 bg-pink-400 rounded-full animate-bounce opacity-60 delay-100"></div>
-            <div className="absolute top-16 right-16 w-1 h-1 bg-orange-400 rounded-full animate-bounce opacity-60 delay-200"></div>
+            {/* Fewer floating elements */}
+            <div className="absolute top-16 left-8 w-2 h-2 bg-purple-400 rounded-full animate-bounce opacity-60"></div>
+            <div className="absolute top-24 right-6 w-1 h-1 bg-pink-400 rounded-full animate-bounce opacity-60 delay-100"></div>
           </header>
 
-          {/* Features Section */}
-          <section className="space-y-4 mb-8">
+          {/* Compact Features Section */}
+          <section className="space-y-2 mb-5">
             {FEATURES.map((feature, index) => (
               <FeatureItem 
                 key={index}
@@ -519,8 +523,8 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           </section>
 
           {/* Pricing Plans Section */}
-          <section className="space-y-4 mb-8">
-            <h3 className="text-white font-bold text-lg text-center mb-4">Choose Your Plan</h3>
+          <section className="space-y-3 mb-5">
+            <h3 className="text-white font-bold text-lg text-center mb-3">Choose Your Plan</h3>
             {Object.entries(getPlanConfig(offerings)).map(([planKey, config]) => (
               <PlanOption
                 key={planKey}
@@ -533,9 +537,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           </section>
 
           {/* Terms Section */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-              <Check className="w-4 h-4 text-white" />
+          <div className="flex items-center justify-center gap-3 mb-5">
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+              <Check className="w-3 h-3 text-white" />
             </div>
             <p className="text-white/80 text-sm font-medium">No Commitment - Cancel Anytime</p>
           </div>

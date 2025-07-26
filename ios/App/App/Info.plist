@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key> <!-- Marketing version -->
 	<string>1.50</string>
 	<key>CFBundleVersion</key> <!-- Build number -->
-	<string>2</string>
+	<string>3</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>
@@ -70,10 +70,5 @@
 	<array>
 		<string>Default</string>
 	</array>
-	<!-- Privacy Policy URL required for App Store approval -->
-	<key>NSPrivacyPolicyURL</key>
-	<string>https://dripcheck.framer.website/privacy-policy</string>
-	<key>NSTermsOfServiceURL</key>
-	<string>https://dripcheck.framer.website/terms-of-services</string>
 </dict>
 </plist>

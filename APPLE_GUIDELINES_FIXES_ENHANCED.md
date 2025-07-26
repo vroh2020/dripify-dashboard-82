@@ -232,7 +232,7 @@ const selectedConfig = PLAN_CONFIG[selectedPlan];
 // Enhanced display format
 <h2>{selectedConfig.title}</h2>           // "Dripify AI Premium"
 <p>{selectedConfig.length} Subscription</p> // "1 week" or "1 month"
-<p>{selectedConfig.price}{selectedConfig.period}</p> // "$4.99/week" or "$10.99/month"
+<p>{selectedConfig.price}{selectedConfig.period}</p> // "$4.99/week" or "$9.99/month"
 ```
 
 ---
@@ -253,7 +253,7 @@ const selectedConfig = PLAN_CONFIG[selectedPlan];
 ### **Guideline 3.1.2 - Subscription Information** ✅ **ENHANCED**
 - [x] **Subscription title** - "Dripify AI Premium" clearly displayed
 - [x] **Subscription length** - "1 week" or "1 month" shown prominently
-- [x] **Subscription price** - "$4.99/week" or "$10.99/month" displayed clearly
+- [x] **Subscription price** - "$4.99/week" or "$9.99/month" displayed clearly
 - [x] **Privacy Policy link** - Functional link to live privacy policy
 - [x] **Terms of Use link** - Functional link to live terms of service
 - [x] **Clear visibility** - All info visible before purchase
