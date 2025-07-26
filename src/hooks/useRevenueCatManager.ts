@@ -340,18 +340,6 @@ export const useRevenueCatManager = () => {
       const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
 
       if (isPro) {
-        // Update Supabase profile with restored subscription
-        const { error: profileError } = await supabase.from('profiles').update({
-          subscription_status: 'active',
-          subscription_expiry: customerInfo.latestExpirationDate ? 
-            new Date(customerInfo.latestExpirationDate).toISOString() : 
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days fallback
-        }).eq('id', user.id);
-
-        if (profileError) {
-          console.error('Failed to update profile after restore:', profileError);
-        }
-
         toast({ 
           title: "Purchases Restored!", 
           description: "Your Pro subscription has been restored." 
