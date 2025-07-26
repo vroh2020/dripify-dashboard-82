@@ -11,9 +11,11 @@ interface PaywallProps {
 }
 
 export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
-  const { packages, isLoading, error, purchasePackage } = useSubscription();
+  const { packages, isLoading, error, purchasePackage, restorePurchases } = useSubscription();
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState('');
 
   const handlePurchase = async () => {
     if (!selectedPackage) return;
@@ -26,6 +28,28 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
       console.error('Purchase failed:', error);
     } finally {
       setIsPurchasing(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    if (isRestoring) return;
+    
+    setIsRestoring(true);
+    setRestoreMsg('');
+    
+    try {
+      const success = await restorePurchases();
+      if (success) {
+        setRestoreMsg('✓ Welcome back! Your subscription has been restored successfully.');
+      } else {
+        setRestoreMsg('Ready to unlock premium features? Choose a plan above to get started!');
+      }
+    } catch (error) {
+      console.error("Restore error:", error);
+      setRestoreMsg('Connection issue. Please try again or contact support.');
+    } finally {
+      setIsRestoring(false);
+      setTimeout(() => setRestoreMsg(''), 4000);
     }
   };
 
@@ -52,6 +76,27 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
         <p className="text-lg text-muted-foreground">
           Get access to all premium features with our monthly subscription
         </p>
+      </div>
+      {/* Restore Purchases Link */}
+      <div className="text-center mb-4">
+        <button
+          onClick={handleRestorePurchases}
+          className="text-gray-500 underline text-sm font-medium hover:text-gray-700"
+          disabled={isRestoring}
+        >
+          {isRestoring ? 'Restoring...' : 'Restore purchases'}
+        </button>
+        {restoreMsg && (
+          <div className={`mt-2 text-xs ${
+            restoreMsg.includes('✓') || restoreMsg.includes('success') 
+              ? 'text-green-600' 
+              : restoreMsg.includes('Ready to unlock') 
+              ? 'text-purple-600'
+              : 'text-red-600'
+          }`}>
+            {restoreMsg}
+          </div>
+        )}
       </div>
       <div className="grid gap-6">
         {packages.map((pkg) => (

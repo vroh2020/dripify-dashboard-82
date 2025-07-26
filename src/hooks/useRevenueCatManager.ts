@@ -75,7 +75,7 @@ export const useRevenueCatManager = () => {
       console.error('fetchSubscriptionStatus failed:', error);
       return subscription;
     }
-  }, [user?.id]); // FIXED: Only depend on user.id, not the entire subscription object
+  }, [user?.id, subscription]); // Include subscription to prevent stale closures
 
   const refreshSubscription = useCallback(async () => {
     await fetchSubscriptionStatus();
@@ -292,8 +292,8 @@ export const useRevenueCatManager = () => {
         }
 
         toast({ 
-          title: "No Active Subscription", 
-          description: "We couldn't find any active subscriptions." 
+          title: "Ready to Upgrade", 
+          description: "Ready to unlock your premium features? Choose a plan below." 
         });
         return false;
       } catch (error: any) {
@@ -308,7 +308,7 @@ export const useRevenueCatManager = () => {
         } else {
           toast({ 
             variant: "destructive", 
-            title: "Restore Failed", 
+            title: "Connection Issue", 
             description: "Please try again or contact support." 
           });
         }
@@ -334,15 +334,15 @@ export const useRevenueCatManager = () => {
 
       if (isPro) {
         toast({ 
-          title: "Purchases Restored!", 
-          description: "Your Pro subscription has been restored." 
+          title: "Welcome Back!", 
+          description: "Your Pro subscription has been restored successfully." 
         });
         await fetchSubscriptionStatus();
         return true;
       } else {
         toast({ 
-          title: "No Purchases Found", 
-          description: "We couldn't find any previous subscriptions to restore." 
+          title: "Ready to Get Started", 
+          description: "Ready to unlock your premium features? Choose a plan below." 
         });
         return false;
       }
@@ -362,11 +362,28 @@ export const useRevenueCatManager = () => {
           title: "Network Error", 
           description: "Please check your internet connection and try again." 
         });
+      } else if (error.message?.includes('cancelled') || error.message?.includes('canceled')) {
+        toast({ 
+          title: "Restore Cancelled", 
+          description: "Restore process was cancelled. You can try again anytime." 
+        });
+      } else if (error.message?.includes('invalid') || error.message?.includes('product')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Product Error", 
+          description: "Product configuration issue. Please contact support." 
+        });
+      } else if (error.message?.includes('store') || error.message?.includes('unavailable')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Store Unavailable", 
+          description: "App Store is currently unavailable. Please try again later." 
+        });
       } else {
         toast({ 
           variant: "destructive", 
-          title: "Restore Failed", 
-          description: "Unable to restore purchases. Please try again or contact support." 
+          title: "Connection Issue", 
+          description: "Unable to connect. Please try again or contact support." 
         });
       }
       return false;
@@ -412,16 +429,9 @@ export const useRevenueCatManager = () => {
           return;
         }
 
-        const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        if (error || !data?.publicKey) {
-          throw new Error('No API key');
-        }
-
-        // First configure RevenueCat
-        await Purchases.configure({
-          apiKey: data.publicKey,
-          appUserID: null // Required by type definition
-        });
+        // Use the centralized configuration from the service
+        const { configureRevenueCat } = await import('../services/revenueCatService');
+        await configureRevenueCat();
 
         // Then explicitly log in the user to switch to their account
         try {

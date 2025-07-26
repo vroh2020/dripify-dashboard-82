@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 let lastRevenueCatUserId: string | null = null;
 let lastLogInTime: number = 0;
+let isConfigured = false;
 let throttleStats = {
   totalCalls: 0,
   throttledCalls: 0,
@@ -38,9 +39,9 @@ const shouldThrottleLogIn = (userId: string | null): boolean => {
   }
 };
 
-export const initializeRevenueCat = async (userId: string | null) => {
-  if (!Capacitor.isNativePlatform()) {
-    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+// Centralized configuration function
+export const configureRevenueCat = async (): Promise<void> => {
+  if (isConfigured || !Capacitor.isNativePlatform()) {
     return;
   }
 
@@ -49,18 +50,38 @@ export const initializeRevenueCat = async (userId: string | null) => {
     
     // Fetch the API key from Supabase Edge Function
     const { data: config, error: configError } = await supabase.functions.invoke('revenuecat-config');
-    if (configError || !config.revenueCatApiKey) {
+    if (configError || !config.publicKey) {
       console.error('Failed to fetch RevenueCat API key:', configError);
       throw new Error("Could not retrieve RevenueCat API key.");
     }
     
-    // No configuration here, just setup
-    // await Purchases.configure({
-    //   apiKey: config.revenueCatApiKey,
-    // });
+    // Configure RevenueCat
+    await Purchases.configure({
+      apiKey: config.publicKey,
+      appUserID: null // Required by type definition
+    });
+    
+    isConfigured = true;
+    console.log('✅ RevenueCat configured successfully');
+  } catch (error: any) {
+    console.error("Failed to configure RevenueCat:", error);
+    throw error;
+  }
+};
 
+export const initializeRevenueCat = async (userId: string | null) => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log("Not on a native platform, skipping RevenueCat native initialization.");
+    return;
+  }
+
+  try {
+    // Ensure RevenueCat is configured first
+    await configureRevenueCat();
+    
     if (userId) {
       if (!shouldThrottleLogIn(userId)) {
+        const { Purchases } = await import('@revenuecat/purchases-capacitor');
         lastRevenueCatUserId = userId;
         lastLogInTime = Date.now();
         await Purchases.logIn({ appUserID: userId });
@@ -124,10 +145,9 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage) => {
 
   try {
     const { Purchases } = await import('@revenuecat/purchases-capacitor');
-    const { customerInfo } = await Purchases.purchasePackage({ 
-      offeringIdentifier: packageToPurchase.offeringIdentifier,
-      packageIdentifier: packageToPurchase.identifier
-    });
+    
+    // Use the correct API method - purchaseStoreProduct for individual products
+    const { customerInfo } = await Purchases.purchaseStoreProduct(packageToPurchase.product);
     return customerInfo;
   } catch (error) {
     console.error('Failed to purchase package:', error);
