@@ -75,7 +75,7 @@ export const useRevenueCatManager = () => {
       console.error('fetchSubscriptionStatus failed:', error);
       return subscription;
     }
-  }, [user?.id, subscription]); // Include subscription to prevent stale closures
+  }, [user?.id]); // FIXED: Only depend on user.id, not the entire subscription object
 
   const refreshSubscription = useCallback(async () => {
     await fetchSubscriptionStatus();
@@ -192,16 +192,23 @@ export const useRevenueCatManager = () => {
       
       // Validate the purchase was actually completed
       const isPro = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false;
-      const hasNewPurchase = result.customerInfo.latestExpirationDate;
+      const hasActiveEntitlement = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER];
       
-      console.log('🔍 Purchase validation:', { isPro, hasNewPurchase, productId: product.identifier });
+      console.log('🔍 Purchase validation:', { 
+        isPro, 
+        hasActiveEntitlement: !!hasActiveEntitlement,
+        productId: product.identifier,
+        entitlements: Object.keys(result.customerInfo.entitlements.active || {})
+      });
       
-      if (isPro && hasNewPurchase) {
+      if (isPro) {
         // Update Supabase profile
         const { error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
-          subscription_expiry: new Date(result.customerInfo.latestExpirationDate).toISOString()
+          subscription_expiry: result.customerInfo.latestExpirationDate ? 
+            new Date(result.customerInfo.latestExpirationDate).toISOString() : 
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days fallback
         }).eq('id', user.id);
 
         if (profileError) {
@@ -292,8 +299,8 @@ export const useRevenueCatManager = () => {
         }
 
         toast({ 
-          title: "Ready to Upgrade", 
-          description: "Ready to unlock your premium features? Choose a plan below." 
+          title: "No Active Subscription", 
+          description: "We couldn't find any active subscriptions." 
         });
         return false;
       } catch (error: any) {
@@ -308,7 +315,7 @@ export const useRevenueCatManager = () => {
         } else {
           toast({ 
             variant: "destructive", 
-            title: "Connection Issue", 
+            title: "Restore Failed", 
             description: "Please try again or contact support." 
           });
         }
@@ -333,16 +340,28 @@ export const useRevenueCatManager = () => {
       const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
 
       if (isPro) {
+        // Update Supabase profile with restored subscription
+        const { error: profileError } = await supabase.from('profiles').update({
+          subscription_status: 'active',
+          subscription_expiry: customerInfo.latestExpirationDate ? 
+            new Date(customerInfo.latestExpirationDate).toISOString() : 
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days fallback
+        }).eq('id', user.id);
+
+        if (profileError) {
+          console.error('Failed to update profile after restore:', profileError);
+        }
+
         toast({ 
-          title: "Welcome Back!", 
-          description: "Your Pro subscription has been restored successfully." 
+          title: "Purchases Restored!", 
+          description: "Your Pro subscription has been restored." 
         });
         await fetchSubscriptionStatus();
         return true;
       } else {
         toast({ 
-          title: "Ready to Get Started", 
-          description: "Ready to unlock your premium features? Choose a plan below." 
+          title: "No Purchases Found", 
+          description: "We couldn't find any previous subscriptions to restore." 
         });
         return false;
       }
@@ -362,28 +381,11 @@ export const useRevenueCatManager = () => {
           title: "Network Error", 
           description: "Please check your internet connection and try again." 
         });
-      } else if (error.message?.includes('cancelled') || error.message?.includes('canceled')) {
-        toast({ 
-          title: "Restore Cancelled", 
-          description: "Restore process was cancelled. You can try again anytime." 
-        });
-      } else if (error.message?.includes('invalid') || error.message?.includes('product')) {
-        toast({ 
-          variant: "destructive", 
-          title: "Product Error", 
-          description: "Product configuration issue. Please contact support." 
-        });
-      } else if (error.message?.includes('store') || error.message?.includes('unavailable')) {
-        toast({ 
-          variant: "destructive", 
-          title: "Store Unavailable", 
-          description: "App Store is currently unavailable. Please try again later." 
-        });
       } else {
         toast({ 
           variant: "destructive", 
-          title: "Connection Issue", 
-          description: "Unable to connect. Please try again or contact support." 
+          title: "Restore Failed", 
+          description: "Unable to restore purchases. Please try again or contact support." 
         });
       }
       return false;
@@ -429,9 +431,16 @@ export const useRevenueCatManager = () => {
           return;
         }
 
-        // Use the centralized configuration from the service
-        const { configureRevenueCat } = await import('../services/revenueCatService');
-        await configureRevenueCat();
+        const { data, error } = await supabase.functions.invoke('revenuecat-config');
+        if (error || !data?.publicKey) {
+          throw new Error('No API key');
+        }
+
+        // First configure RevenueCat
+        await Purchases.configure({
+          apiKey: data.publicKey,
+          appUserID: null // Required by type definition
+        });
 
         // Then explicitly log in the user to switch to their account
         try {
