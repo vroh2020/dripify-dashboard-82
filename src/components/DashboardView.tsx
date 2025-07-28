@@ -173,7 +173,7 @@ export const DashboardView = () => {
               <Card className="relative z-10 bg-white/10 backdrop-blur-xl border border-purple-400/30 shadow-2xl rounded-3xl p-8 flex flex-col items-center">
                 <div className="text-5xl mb-4 animate-bounce">✨</div>
                 <h2 className="text-2xl font-extrabold text-white mb-2 text-center drop-shadow-lg">
-                  Welcome to Dripify AI!
+                  Welcome to OutfitGrader AI!
                 </h2>
                 <p className="text-base text-white/90 mb-6 text-center max-w-xs">
                   Start your style journey with your first scan.

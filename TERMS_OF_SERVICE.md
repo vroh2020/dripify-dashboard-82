@@ -1,12 +1,12 @@
-# Terms of Service for Dripify AI
+# Terms of Service for OutfitGrader AI
 
 **Last Updated:** July 15, 2024
 
 ## Agreement to Terms
-By downloading, installing, or using the Dripify AI mobile application ("App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the App.
+By downloading, installing, or using the OutfitGrader AI mobile application ("App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the App.
 
 ## Description of Service
-Dripify AI is an AI-powered style analysis application that:
+OutfitGrader AI is an AI-powered style analysis application that:
 - Allows users to upload photos of their outfits.
 - Provides an AI-generated score and analysis of the outfit's style.
 - Tracks your style progress over time

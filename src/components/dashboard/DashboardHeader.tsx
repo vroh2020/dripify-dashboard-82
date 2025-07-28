@@ -14,7 +14,7 @@ export const DashboardHeader = () => {
       className="flex items-center justify-between px-4 pt-6 pb-4"
     >
       <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-500">
-        Dripify AI
+        OutfitGrader AI
       </h1>
 
       <Button

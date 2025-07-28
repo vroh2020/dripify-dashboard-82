@@ -55,7 +55,7 @@ export const CelebrationStep = ({ isPro, onNext, onComplete }: CelebrationStepPr
             Ready to discover your true style potential?
           </p>
           <p className="mt-2 max-w-md mx-auto text-md text-white/50">
-            You've just experienced the power of Dripify AI!
+            You've just experienced the power of OutfitGrader AI!
           </p>
           <div className="space-y-4">
             <p className="text-white/70 text-lg leading-relaxed max-w-sm">

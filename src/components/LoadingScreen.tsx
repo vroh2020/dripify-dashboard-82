@@ -20,7 +20,7 @@ export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) =>
           }}
           className="w-24 h-24 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl mx-auto flex items-center justify-center"
         >
-          <span className="text-3xl font-bold text-white">DM</span>
+          <span className="text-3xl font-bold text-white">OG</span>
         </motion.div>
 
         <motion.div

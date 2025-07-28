@@ -67,12 +67,12 @@
       "id" : "21672094",
       "localizations" : [
         {
-          "description" : "Premium subscription plans for Dripify AI",
-          "displayName" : "Dripify AI",
+          "description" : "Premium subscription plans for OutfitGrader AI",
+          "displayName" : "OutfitGrader AI",
           "locale" : "en_US"
         }
       ],
-      "name" : "Dripify AI",
+      "name" : "OutfitGrader AI",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -87,14 +87,14 @@
           "internalID" : "6741270016",
           "localizations" : [
             {
-              "description" : "Unlimited style analyses for $9.99/month",
-              "displayName" : "Dripify AI Monthly",
+              "description" : "Monthly subscription for unlimited style analyses",
+              "displayName" : "Monthly Subscription of 9.99",
               "locale" : "en_US"
             }
           ],
-          "productID" : "di_999_1m",
+          "productID" : "og_999_1m",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Monthly 9.99",
+          "referenceName" : "Monthly Subscription of 9.99",
           "subscriptionGroupID" : "21672094",
           "type" : "RecurringSubscription"
         },
@@ -111,14 +111,14 @@
           "internalID" : "6741270017",
           "localizations" : [
             {
-              "description" : "Unlimited style analyses for $4.99/week",
-              "displayName" : "Dripify AI Weekly",
+              "description" : "Weekly subscription for unlimited style analyses",
+              "displayName" : "Weekly Subscription of 4.99",
               "locale" : "en_US"
             }
           ],
-          "productID" : "di_499_1w",
+          "productID" : "og_499_1w",
           "recurringSubscriptionPeriod" : "P1W",
-          "referenceName" : "Weekly 4.99",
+          "referenceName" : "Weekly Subscription of 4.99",
           "subscriptionGroupID" : "21672094",
           "type" : "RecurringSubscription"
         }

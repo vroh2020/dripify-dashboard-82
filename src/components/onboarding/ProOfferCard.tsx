@@ -14,17 +14,17 @@ const getPlanConfig = (offerings) => {
     // Fallback config if offerings not loaded
     return {
       weekly: {
-        identifier: "di_499_1w",
-        title: "Dripify AI Weekly",
+        identifier: "og_499_1w",
+        title: "Weekly Subscription of 4.99",
         price: "$4.99",
         period: "/week",
         length: "1 week",
         label: null,
         savings: null,
         fallback: {
-          identifier: "di_499_1w",
-          title: "Dripify AI Weekly",
-          description: "Unlimited style analyses for $4.99/week",
+          identifier: "og_499_1w",
+          title: "Weekly Subscription of 4.99",
+          description: "Weekly subscription for unlimited style analyses",
           price: 4.99,
           priceString: "$4.99",
           currencyCode: "USD",
@@ -32,17 +32,17 @@ const getPlanConfig = (offerings) => {
         }
       },
       monthly: {
-        identifier: "di_999_1m", 
-        title: "Dripify AI Monthly",
+        identifier: "og_999_1m", 
+        title: "Monthly Subscription of 9.99",
         price: "$9.99",
         period: "/month",
         length: "1 month",
         label: null,
         savings: null,
         fallback: {
-          identifier: "di_999_1m",
-          title: "Dripify AI Monthly",
-          description: "Unlimited style analyses for $9.99/month",
+          identifier: "og_999_1m",
+          title: "Monthly Subscription of 9.99",
+          description: "Monthly subscription for unlimited style analyses",
           price: 9.99,
           priceString: "$9.99",
           currencyCode: "USD",
@@ -55,17 +55,17 @@ const getPlanConfig = (offerings) => {
   const packages = offerings[0]?.availablePackages || [];
   const config = {
     weekly: {
-      identifier: "di_499_1w",
-      title: "Dripify AI Weekly",
+      identifier: "og_499_1w",
+      title: "Weekly Subscription of 4.99",
       price: "$4.99",
       period: "/week",
       length: "1 week",
       label: null,
       savings: null,
       fallback: {
-        identifier: "di_499_1w",
-        title: "Dripify AI Weekly",
-        description: "Unlimited style analyses for $4.99/week",
+        identifier: "og_499_1w",
+        title: "Weekly Subscription of 4.99",
+        description: "Weekly subscription for unlimited style analyses",
         price: 4.99,
         priceString: "$4.99",
         currencyCode: "USD",
@@ -73,17 +73,17 @@ const getPlanConfig = (offerings) => {
       }
     },
     monthly: {
-      identifier: "di_999_1m", 
-      title: "Dripify AI Monthly",
+      identifier: "og_999_1m", 
+      title: "Monthly Subscription of 9.99",
       price: "$9.99",
       period: "/month",
       length: "1 month",
       label: null,
       savings: null,
       fallback: {
-        identifier: "di_999_1m",
-        title: "Dripify AI Monthly",
-        description: "Unlimited style analyses for $9.99/month",
+        identifier: "og_999_1m",
+        title: "Monthly Subscription of 9.99",
+        description: "Monthly subscription for unlimited style analyses",
         price: 9.99,
         priceString: "$9.99",
         currencyCode: "USD",
@@ -99,7 +99,7 @@ const getPlanConfig = (offerings) => {
     if (identifier.includes('1w')) {
       config.weekly = {
         identifier: identifier,
-        title: product.title || "Dripify AI Weekly",
+        title: product.title || "Weekly Subscription of 4.99",
         price: product.priceString || "$4.99",
         period: product.subscriptionPeriod === 'P1W' ? "/week" : "/period",
         length: "1 week",
@@ -107,8 +107,8 @@ const getPlanConfig = (offerings) => {
         savings: null,
         fallback: {
           identifier: identifier,
-          title: product.title || "Dripify AI Weekly",
-          description: "Unlimited style analyses for $4.99/week",
+          title: product.title || "Weekly Subscription of 4.99",
+          description: "Weekly subscription for unlimited style analyses",
           price: product.price || 4.99,
           priceString: product.priceString || "$4.99",
           currencyCode: product.currencyCode || "USD",
@@ -118,7 +118,7 @@ const getPlanConfig = (offerings) => {
     } else if (identifier.includes('1m')) {
       config.monthly = {
         identifier: identifier,
-        title: product.title || "Dripify AI Monthly",
+        title: product.title || "Monthly Subscription of 9.99",
         price: product.priceString || "$9.99",
         period: product.subscriptionPeriod === 'P1M' ? "/month" : "/period",
         length: "1 month",
@@ -126,8 +126,8 @@ const getPlanConfig = (offerings) => {
         savings: null,
         fallback: {
           identifier: identifier,
-          title: product.title || "Dripify AI Monthly",
-          description: "Unlimited style analyses for $9.99/month",
+          title: product.title || "Monthly Subscription of 9.99",
+          description: "Monthly subscription for unlimited style analyses",
           price: product.price || 9.99,
           priceString: product.priceString || "$9.99",
           currencyCode: product.currencyCode || "USD",

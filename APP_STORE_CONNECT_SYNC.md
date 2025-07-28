@@ -6,8 +6,8 @@
 
 | Order | Reference Name | Product ID | Duration | Status | Display Name | Description |
 |-------|----------------|------------|----------|--------|--------------|-------------|
-| 1 | Monthly 9.99 | di_999_1m | 1 month | Ready to Submit | Dripify AI Premium | Unlimited style analyses for $9.99/month |
-| 2 | Weekly $4.99 | di_499_1w | 1 week | Ready to Submit | Dripify AI Premium | This membership costs 4.99 to use |
+| 1 | Monthly Subscription of 9.99 | og_999_1m | 1 month | Ready to Submit | Monthly Subscription of 9.99 | Monthly subscription for unlimited style analyses |
+| 2 | Weekly Subscription of 4.99 | og_499_1w | 1 week | Ready to Submit | Weekly Subscription of 4.99 | Weekly subscription for unlimited style analyses |
 
 ### Files Updated
 
@@ -15,7 +15,7 @@
 - ✅ Added both monthly and weekly subscriptions
 - ✅ Updated display names to "Dripify AI Premium"
 - ✅ Added proper descriptions matching App Store Connect
-- ✅ Set correct product IDs: `di_999_1m` and `di_499_1w`
+- ✅ Set correct product IDs: `og_999_1m` and `og_499_1w`
 - ✅ Set correct reference names: "Monthly 9.99" and "Weekly $4.99"
 
 #### 2. `ios/App/App/Info.plist`
@@ -26,21 +26,21 @@
 ### Localization Details
 
 #### English (U.S.) - Monthly Plan
-- **Display Name**: Dripify AI Premium
-- **Description**: Unlimited style analyses for $9.99/month
-- **Product ID**: di_999_1m
-- **Reference Name**: Monthly 9.99
+- **Display Name**: Monthly Subscription of 9.99
+- **Description**: Monthly subscription for unlimited style analyses
+- **Product ID**: og_999_1m
+- **Reference Name**: Monthly Subscription of 9.99
 
 #### English (U.S.) - Weekly Plan
-- **Display Name**: Dripify AI Premium
-- **Description**: This membership costs 4.99 to use
-- **Product ID**: di_499_1w
-- **Reference Name**: Weekly $4.99
+- **Display Name**: Weekly Subscription of 4.99
+- **Description**: Weekly subscription for unlimited style analyses
+- **Product ID**: og_499_1w
+- **Reference Name**: Weekly Subscription of 4.99
 
 ### Codebase Verification
 
 #### RevenueCat Configuration
-- ✅ Product IDs match: `di_999_1m` and `di_499_1w`
+- ✅ Product IDs match: `og_999_1m` and `og_499_1w`
 - ✅ Pricing matches: $9.99/month and $4.99/week
 - ✅ Offering ID: `ofrng4657c81eae`
 

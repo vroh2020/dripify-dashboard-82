@@ -4,20 +4,20 @@
 
 ### **📱 App Store Connect Configuration:**
 
-#### **Monthly Plan (di_999_1m):**
-- **Reference Name**: Monthly 9.99
-- **Product ID**: di_999_1m
-- **Display Name**: Dripify AI Monthly
-- **Description**: Unlimited style analyses for $9.99/month
+#### **Monthly Plan (og_999_1m):**
+- **Reference Name**: Monthly Subscription of 9.99
+- **Product ID**: og_999_1m
+- **Display Name**: Monthly Subscription of 9.99
+- **Description**: Monthly subscription for unlimited style analyses
 - **Price**: $9.99
 - **Duration**: 1 month
 - **Status**: Ready to Submit
 
-#### **Weekly Plan (di_499_1w):**
-- **Reference Name**: Weekly 4.99
-- **Product ID**: di_499_1w
-- **Display Name**: Dripify AI Weekly
-- **Description**: Unlimited style analyses for $4.99/week
+#### **Weekly Plan (og_499_1w):**
+- **Reference Name**: Weekly Subscription of 4.99
+- **Product ID**: og_499_1w
+- **Display Name**: Weekly Subscription of 4.99
+- **Description**: Weekly subscription for unlimited style analyses
 - **Price**: $4.99
 - **Duration**: 1 week
 - **Status**: Ready to Submit
@@ -27,54 +27,54 @@
 #### **1. ProOfferCard.tsx - ✅ MATCHES**
 ```typescript
 // Monthly Plan
-title: "Dripify AI Monthly"
-description: "Unlimited style analyses for $9.99/month"
+title: "Monthly Subscription of 9.99"
+description: "Monthly subscription for unlimited style analyses"
 price: "$9.99"
-identifier: "di_999_1m"
+identifier: "og_999_1m"
 
 // Weekly Plan
-title: "Dripify AI Weekly"
-description: "Unlimited style analyses for $4.99/week"
+title: "Weekly Subscription of 4.99"
+description: "Weekly subscription for unlimited style analyses"
 price: "$4.99"
-identifier: "di_499_1w"
+identifier: "og_499_1w"
 ```
 
 #### **2. DripifyAI.storekit - ✅ MATCHES**
 ```json
 // Monthly Plan
-"displayName": "Dripify AI Monthly"
-"description": "Unlimited style analyses for $9.99/month"
-"productID": "di_999_1m"
-"referenceName": "Monthly 9.99"
+"displayName": "Monthly Subscription of 9.99"
+"description": "Monthly subscription for unlimited style analyses"
+"productID": "og_999_1m"
+"referenceName": "Monthly Subscription of 9.99"
 
 // Weekly Plan
-"displayName": "Dripify AI Weekly"
-"description": "Unlimited style analyses for $4.99/week"
-"productID": "di_499_1w"
-"referenceName": "Weekly 4.99"
+"displayName": "Weekly Subscription of 4.99"
+"description": "Weekly subscription for unlimited style analyses"
+"productID": "og_499_1w"
+"referenceName": "Weekly Subscription of 4.99"
 ```
 
 ### **🔧 Configuration Details:**
 
 #### **Product IDs:**
-- ✅ **Monthly**: `di_999_1m` (matches App Store Connect)
-- ✅ **Weekly**: `di_499_1w` (matches App Store Connect)
+- ✅ **Monthly**: `og_999_1m` (matches App Store Connect)
+- ✅ **Weekly**: `og_499_1w` (matches App Store Connect)
 
 #### **Display Names:**
-- ✅ **Monthly**: "Dripify AI Monthly" (matches App Store Connect)
-- ✅ **Weekly**: "Dripify AI Weekly" (matches App Store Connect)
+- ✅ **Monthly**: "Monthly Subscription of 9.99" (matches App Store Connect)
+- ✅ **Weekly**: "Weekly Subscription of 4.99" (matches App Store Connect)
 
 #### **Descriptions:**
-- ✅ **Monthly**: "Unlimited style analyses for $9.99/month" (matches App Store Connect)
-- ✅ **Weekly**: "Unlimited style analyses for $4.99/week" (matches App Store Connect)
+- ✅ **Monthly**: "Monthly subscription for unlimited style analyses" (matches App Store Connect)
+- ✅ **Weekly**: "Weekly subscription for unlimited style analyses" (matches App Store Connect)
 
 #### **Pricing:**
 - ✅ **Monthly**: $9.99 (matches App Store Connect)
 - ✅ **Weekly**: $4.99 (matches App Store Connect)
 
 #### **Reference Names:**
-- ✅ **Monthly**: "Monthly 9.99" (matches App Store Connect)
-- ✅ **Weekly**: "Weekly 4.99" (matches App Store Connect)
+- ✅ **Monthly**: "Monthly Subscription of 9.99" (matches App Store Connect)
+- ✅ **Weekly**: "Weekly Subscription of 4.99" (matches App Store Connect)
 
 ### **📋 App Store Compliance:**
 
@@ -89,8 +89,8 @@ identifier: "di_499_1w"
 ### **🎯 User Experience:**
 
 #### **ProOfferCard Display:**
-- ✅ **Monthly Plan**: Shows "Dripify AI Monthly" with "$9.99/month"
-- ✅ **Weekly Plan**: Shows "Dripify AI Weekly" with "$4.99/week"
+- ✅ **Monthly Plan**: Shows "Monthly Subscription of 9.99" with "$9.99/month"
+- ✅ **Weekly Plan**: Shows "Weekly Subscription of 4.99" with "$4.99/week"
 - ✅ **Descriptions**: Match App Store Connect exactly
 - ✅ **Pricing**: Accurate and consistent
 

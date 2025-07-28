@@ -112,7 +112,7 @@
   "ios": {
     "debug": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "Dripify AI",
+      "provisioningProfile": "OutfitGrader AI",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
@@ -120,7 +120,7 @@
     },
     "release": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "Dripify AI",
+      "provisioningProfile": "OutfitGrader AI",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
@@ -130,12 +130,12 @@
   "cordova": {},
   "capacitor": {
     "ios": {
-      "provisioningProfile": "Dripify AI"
+      "provisioningProfile": "OutfitGrader AI"
     }
   },
   "capacitor-build": {
     "ios": {
-      "provisioningProfile": "Dripify AI"
+      "provisioningProfile": "OutfitGrader AI"
     }
   }
 }

@@ -9,7 +9,7 @@ Based on your error logs, here are the exact problems and solutions:
 Error fetching offerings - None of the products registered in the RevenueCat dashboard could be fetched from App Store Connect
 ```
 
-**Root Cause**: Product ID `gs_1099_1m` was not referenced in your code
+**Root Cause**: Product ID `og_999_1m` was not referenced in your code
 
 ### **Issue 2: iOS Simulator Not Signed In** ❌
 ```
@@ -33,14 +33,14 @@ The receipt is missing - No such file or directory
 **File**: `src/config/revenueCat.ts`
 ```typescript
 products: {
-  monthly: 'gs_1099_1m', // ✅ Now matches your App Store Connect product ID
+  monthly: 'og_999_1m', // ✅ Now matches your App Store Connect product ID
   yearly: 'yearly_pro'
 }
 ```
 
 ### **Fix 2: Created StoreKit Configuration**
 **File**: `ios/App/App/DripMax.storekit` (✅ Created)
-- Contains your exact product: `gs_1099_1m`
+- Contains your exact product: `og_999_1m`
 - Matches subscription group: `21672094`
 - Includes 7-day free trial configuration
 - Uses your development team ID: `TN748MMP9M`
@@ -99,7 +99,7 @@ After applying fixes, run these checks:
 // In browser console or app:
 import { REVENUECAT_CONFIG } from './src/config/revenueCat';
 console.log('Product ID:', REVENUECAT_CONFIG.products.monthly);
-// Should show: "gs_1099_1m"
+// Should show: "og_999_1m"
 ```
 
 ### **Check 2: Bundle ID Match**
@@ -117,8 +117,8 @@ Look for these improved logs in your console:
 📱 Platform: ios
 🔐 API Key found, initializing RevenueCat SDK...
 🛒 Fetching RevenueCat offerings...
-🔍 Looking for product ID: gs_1099_1m
-🎯 Our product (gs_1099_1m) found: true
+🔍 Looking for product ID: og_999_1m
+🎯 Our product (og_999_1m) found: true
 ```
 
 ---
@@ -133,7 +133,7 @@ Look for these improved logs in your console:
 
 2. **Verify Product Import**:
    ```
-   Product ID: gs_1099_1m ✅
+   Product ID: og_999_1m ✅
    Bundle ID: com.genstyle.app ✅
    Status: Active ✅
    ```
@@ -142,7 +142,7 @@ Look for these improved logs in your console:
    ```
    RevenueCat Dashboard → Offerings → Create Offering
    Name: "Default Offering"
-   Add Package: gs_1099_1m
+   Add Package: og_999_1m
    Set as Current Offering ✅
    ```
 
@@ -178,7 +178,7 @@ Look for these improved logs in your console:
 ```bash
 # 1. Build and run app in simulator
 # 2. Check console for debug logs with emojis
-# 3. Verify product ID is found: 🎯 Our product (gs_1099_1m) found: true
+# 3. Verify product ID is found: 🎯 Our product (og_999_1m) found: true
 ```
 
 ### **Test 2: Offerings Fetch**
@@ -221,7 +221,7 @@ Your RevenueCat integration is working when you see:
 ✅ ✅ RevenueCat initialized successfully
 ✅ 🛒 Fetching offerings and subscription status...
 ✅ 🎯 Current offering found: [offering object]
-✅ 🎯 Our product (gs_1099_1m) found: true
+✅ 🎯 Our product (og_999_1m) found: true
 ✅ ✅ Processed offerings count: 1
 ```
 

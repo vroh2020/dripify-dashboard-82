@@ -19,8 +19,8 @@
 
 #### 1. Info.plist Updates
 - **Added Subscription Information**: Added `DripifyAISubscriptionInfo` dictionary with:
-  - Weekly Plan: $4.99/week (di_499_1w)
-  - Monthly Plan: $9.99/month (di_999_1m)
+  - Weekly Plan: $4.99/week (og_499_1w)
+- Monthly Plan: $9.99/month (og_999_1m)
   - Auto-renewable flag: true
   - Privacy Policy URL: https://dripcheck.framer.website/privacy-policy
   - Terms of Service URL: https://dripcheck.framer.website/terms-of-services

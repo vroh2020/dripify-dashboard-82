@@ -25,7 +25,7 @@ export const NewWelcomeStep = ({ onNext }: NewWelcomeStepProps) => {
       <div className="w-full max-w-md mx-auto flex flex-col items-center px-6 py-12 bg-black/10 rounded-2xl shadow-xl">
         <div className="text-6xl mb-6">🧑‍🎤</div>
         <h1 className="text-5xl font-extrabold text-white text-center mb-2">
-          Welcome to <span className="text-pink-400">Dripify AI</span>
+          Welcome to <span className="text-pink-400">OutfitGrader AI</span>
         </h1>
         <p className="mt-2 text-lg text-white/70 text-center mb-8">
           Your personalized style assistant.

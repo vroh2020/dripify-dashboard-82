@@ -57,7 +57,7 @@ export const WelcomeStep = ({ onNext }: WelcomeStepProps) => {
                 Welcome to
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-500">
-                  Dripify AI
+                  OutfitGrader AI
                 </span>
               </h1>
               <p className="mt-6 text-lg md:text-xl max-w-2xl mx-auto text-white/70">
