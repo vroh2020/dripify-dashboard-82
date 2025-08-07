@@ -472,10 +472,20 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           onContinue();
         } else {
           setHasError(true);
+          // Show more specific error messages
+          let errorMessage = "Please try again or contact support.";
+          if (result.error?.includes('subscription not active')) {
+            errorMessage = "Payment processed but subscription activation failed. Please contact support.";
+          } else if (result.error?.includes('network') || result.error?.includes('timeout')) {
+            errorMessage = "Network error. Please check your connection and try again.";
+          } else if (result.error?.includes('payment')) {
+            errorMessage = "Payment method issue. Please try a different payment method.";
+          }
+          
           toast({ 
             variant: "destructive", 
             title: "Purchase Failed", 
-            description: result.error || "Please try again or contact support." 
+            description: errorMessage
           });
         }
       }

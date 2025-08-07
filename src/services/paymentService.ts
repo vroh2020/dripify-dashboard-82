@@ -78,7 +78,7 @@ export class PaymentService {
       // Native platform - actual purchase
       const { customerInfo } = await Purchases.purchaseStoreProduct(product);
       
-      const isActive = customerInfo.entitlements.active?.['pro_access']?.isActive || false;
+      const isActive = customerInfo.entitlements.active?.['pro']?.isActive || false;
       
       if (isActive) {
         // Update Supabase profile
@@ -177,7 +177,7 @@ export class PaymentService {
 
       // Native platform - restore from RevenueCat
       const { customerInfo } = await Purchases.restorePurchases();
-      const isActive = customerInfo.entitlements.active?.['pro_access']?.isActive || false;
+      const isActive = customerInfo.entitlements.active?.['pro']?.isActive || false;
       
       if (isActive) {
         await this.updateSubscriptionStatus(userId, 'active', customerInfo.latestExpirationDate);
@@ -251,7 +251,7 @@ export class PaymentService {
 
       // Native platform - check RevenueCat
       const { customerInfo } = await Purchases.getCustomerInfo();
-      const isActive = customerInfo.entitlements.active?.['pro_access']?.isActive || false;
+      const isActive = customerInfo.entitlements.active?.['pro']?.isActive || false;
       
       return {
         success: true,
