@@ -414,6 +414,7 @@ export const AuthOnboardingWizard = () => {
               key="teaser"
               onUnlock={handleTeaserUnlock}
               result={analysisResult}
+              userImage={selectedImage ? URL.createObjectURL(selectedImage) : undefined}
             />
           )}
           

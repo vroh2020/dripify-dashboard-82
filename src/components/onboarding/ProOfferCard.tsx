@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, RefreshCw, ExternalLink, Sparkles, Crown, Zap, TrendingUp, Shield, Star, ArrowLeft } from "lucide-react";
+import { Check, RefreshCw, ExternalLink, Sparkles, Crown, Zap, TrendingUp, Shield, Star, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { paymentService } from "../../services/paymentService";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from '@capacitor/core';
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -144,56 +145,134 @@ const getPlanConfig = (offerings: any) => {
   return config;
 };
 
-// Plan Option Component - Dark Theme
-const PlanOption = ({ planKey, config, isSelected, onSelect }: { planKey: any; config: any; isSelected: any; onSelect: any }) => (
+// Plan Option Component - Modern Card Design
+const PlanOption = ({ planKey, config, isSelected, onSelect }: { planKey: string; config: any; isSelected: boolean; onSelect: (key: 'weekly' | 'monthly') => void }) => (
   <button 
-    className={`w-full text-left rounded-xl border-2 p-4 transition-all duration-300 ${
+    className={`flex-1 rounded-xl border-2 p-4 transition-all duration-300 relative ${
       isSelected 
-        ? 'border-red-500 bg-gradient-to-r from-red-500/20 to-red-600/20 shadow-lg shadow-red-500/25' 
-        : 'border-white/20 bg-white/5 backdrop-blur-sm hover:border-white/30 hover:bg-white/10'
+        ? 'border-purple-500 bg-gray-800 shadow-lg' 
+        : 'border-gray-600 bg-gray-900 hover:border-gray-500'
     }`}
-    onClick={() => onSelect(planKey)}
+    onClick={() => onSelect(planKey as 'weekly' | 'monthly')}
   >
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-          isSelected 
-            ? 'border-red-500 bg-red-500' 
-            : 'border-white/40'
-        }`}>
-          {isSelected && (
-            <div className="w-2 h-2 bg-white rounded-full"></div>
-          )}
-        </div>
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-white font-semibold text-sm">{planKey === 'weekly' ? 'Weekly' : 'Monthly'}</p>
-            {planKey === 'monthly' && (
-              <span className="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full text-xs font-medium">
-                Save 50%
-              </span>
-            )}
-          </div>
-          <p className="text-white/60 text-xs">Billed {config.period}</p>
-        </div>
+    {/* Radio button in top-right corner */}
+    <div className={`absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+      isSelected 
+        ? 'border-purple-500 bg-purple-500' 
+        : 'border-gray-400'
+    }`}>
+      {isSelected && (
+        <div className="w-2 h-2 bg-white rounded-full"></div>
+      )}
+    </div>
+
+    {/* Save badge for monthly */}
+    {planKey === 'monthly' && (
+      <div className="absolute -top-2 left-3 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+        Save 25%
       </div>
-      <div className="text-right">
-        <div className="text-lg font-bold text-white">{config.price}</div>
-        <div className="text-xs text-white/60">{config.period}</div>
+    )}
+
+    {/* Content */}
+    <div className="pt-2">
+      <div className="text-left">
+        <p className={`font-semibold text-sm mb-2 ${isSelected ? 'text-purple-400' : 'text-gray-300'}`}>
+          {planKey === 'weekly' ? 'Weekly' : 'Monthly'}
+        </p>
+        <div className="text-2xl font-bold text-white">{config.price}</div>
       </div>
     </div>
   </button>
 );
 
-// Error Message Component
-const ErrorMessage = ({ message = "Payment didn't go through. Please try again." }) => (
-  <div className="bg-red-500/20 border border-red-500/40 rounded-xl p-4 mb-6 text-center backdrop-blur-sm">
-    <div className="flex items-center justify-center gap-2 mb-2">
-      <div className="w-6 h-6 bg-red-500/30 rounded-full flex items-center justify-center">
-        <span className="text-red-300 text-sm">⚠️</span>
+// Clean Auto-Scrollable Feature Display Component
+const FeatureDisplay = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Your specific images
+  const images = [
+    {
+      id: 1,
+      src: "/lovable-uploads/image111.png",
+      alt: "AI Style Analysis"
+    },
+    {
+      id: 2, 
+      src: "/lovable-uploads/image222.png",
+      alt: "Expert Outfit Matches"
+    },
+    {
+      id: 3,
+      src: "/lovable-uploads/image333.png",
+      alt: "24/7 Style Assistant"
+    }
+  ];
+
+  // Auto-scroll functionality - always going right
+  useEffect(() => {
+    const startAutoScroll = () => {
+      autoScrollRef.current = setInterval(() => {
+        setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+      }, 3000); // Change every 3 seconds
+    };
+
+    startAutoScroll();
+
+    return () => {
+      if (autoScrollRef.current) {
+        clearInterval(autoScrollRef.current);
+      }
+    };
+  }, [images.length]);
+
+  // Scroll to current image
+  useEffect(() => {
+    if (scrollRef.current) {
+      const container = scrollRef.current;
+      const imageWidth = container.scrollWidth / images.length;
+      container.scrollTo({
+        left: currentIndex * imageWidth,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentIndex, images.length]);
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-white/20">
+      <div 
+        ref={scrollRef}
+        className="flex overflow-x-hidden scroll-smooth"
+        style={{ scrollSnapType: 'x mandatory' }}
+      >
+        {images.map((image) => (
+          <div 
+            key={image.id} 
+            className="w-full flex-shrink-0"
+            style={{ scrollSnapAlign: 'start' }}
+          >
+            <img
+              src={image.src}
+              alt={image.alt}
+              className="w-full h-80 object-cover"
+            />
+          </div>
+        ))}
       </div>
     </div>
-    <p className="text-red-300 text-sm font-medium">
+  );
+};
+
+// Error Message Component
+const ErrorMessage = ({ message = "Payment didn't go through. Please try again." }) => (
+  <div className="bg-red-500/20 border border-red-500/40 rounded-xl p-3 mb-4 text-center backdrop-blur-sm">
+    <div className="flex items-center justify-center gap-2 mb-1">
+      <div className="w-5 h-5 bg-red-500/30 rounded-full flex items-center justify-center">
+        <span className="text-red-300 text-xs">⚠️</span>
+      </div>
+    </div>
+    <p className="text-red-300 text-xs font-medium">
       {message}
     </p>
   </div>
@@ -204,26 +283,26 @@ const CTAButton = ({ isProcessing, hasError, onClick, disabled }: { isProcessing
   const getButtonContent = () => {
     if (isProcessing) {
       return (
-        <div className="flex items-center justify-center gap-3">
-          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          <span>Activating Premium...</span>
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+          <span className="text-sm">Activating Premium...</span>
         </div>
       );
     }
     
     if (hasError) {
       return (
-        <div className="flex items-center justify-center gap-3">
-          <RefreshCw className="w-5 h-5" />
-          <span>Try Again</span>
+        <div className="flex items-center justify-center gap-2">
+          <RefreshCw className="w-4 h-4" />
+          <span className="text-sm">Try Again</span>
         </div>
       );
     }
     
     return (
-      <div className="flex items-center justify-center gap-3">
-        <Sparkles className="w-5 h-5" />
-        <span>Get Your AI Style Analysis →</span>
+      <div className="flex items-center justify-center gap-2">
+        <Sparkles className="w-4 h-4" />
+        <span className="text-sm">Get Your AI Style Analysis →</span>
       </div>
     );
   };
@@ -232,7 +311,7 @@ const CTAButton = ({ isProcessing, hasError, onClick, disabled }: { isProcessing
     <Button
       onClick={onClick}
       disabled={disabled}
-      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 h-14 text-base font-semibold rounded-xl transition-all duration-300 hover:scale-102 active:scale-98 shadow-lg shadow-red-500/25 hover:shadow-red-500/40 text-white mb-4 border-0"
+      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 h-12 text-sm font-semibold rounded-xl transition-all duration-300 hover:scale-102 active:scale-98 shadow-lg shadow-red-500/25 hover:shadow-red-500/40 text-white mb-3 border-0"
     >
       {getButtonContent()}
     </Button>
@@ -250,8 +329,8 @@ const LegalLinks = () => {
   };
 
   return (
-    <div className="text-center mb-4">
-      <div className="flex items-center justify-center gap-4 mb-2">
+    <div className="text-center mb-3">
+      <div className="flex items-center justify-center gap-3 mb-1">
         <button
           onClick={openPrivacyPolicy}
           className="text-white/60 hover:text-white font-medium transition-colors flex items-center gap-1 text-xs underline"
@@ -292,28 +371,28 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
   };
 
   return (
-    <div className="mb-4">
+    <div className="mb-3">
       <Button
         onClick={handleRestoreClick}
         disabled={isRestoring}
         variant="outline"
-        className="w-full border-2 border-white/20 text-white/70 hover:text-white hover:border-white/30 bg-white/5 backdrop-blur-sm font-medium py-3 rounded-xl transition-all duration-300 hover:bg-white/10"
+        className="w-full border-2 border-white/20 text-white/70 hover:text-white hover:border-white/30 bg-white/5 backdrop-blur-sm font-medium py-2 rounded-xl transition-all duration-300 hover:bg-white/10"
       >
         {isRestoring ? (
           <div className="flex items-center justify-center gap-2">
             <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            <span className="text-sm">Restoring Purchases...</span>
+            <span className="text-xs">Restoring Purchases...</span>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2">
             <RefreshCw className="w-3 h-3" />
-            <span className="text-sm">Already purchased?</span>
+            <span className="text-xs">Already purchased?</span>
           </div>
         )}
       </Button>
       
       {restoreMsg && (
-        <div className={`mt-3 p-3 rounded-xl text-center text-sm font-medium ${
+        <div className={`mt-2 p-2 rounded-xl text-center text-xs font-medium ${
           restoreMsg.includes('✓') || restoreMsg.includes('success') 
             ? 'bg-green-500/20 border border-green-500/30 text-green-300' 
             : restoreMsg.includes('web') 
@@ -324,14 +403,14 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
         }`}>
           {restoreMsg.includes('web') ? (
             <div className="flex items-center justify-center gap-2">
-              <div className="w-5 h-5 bg-blue-500/30 rounded-full flex items-center justify-center">
+              <div className="w-4 h-4 bg-blue-500/30 rounded-full flex items-center justify-center">
                 <span className="text-blue-400 text-xs">ℹ</span>
               </div>
               <span>Restore Purchases is only available on iOS/Android apps</span>
             </div>
           ) : restoreMsg.includes('Ready to unlock') ? (
             <div className="flex items-center justify-center gap-2">
-              <div className="w-5 h-5 bg-purple-500/30 rounded-full flex items-center justify-center">
+              <div className="w-4 h-4 bg-purple-500/30 rounded-full flex items-center justify-center">
                 <span className="text-purple-400 text-xs">✨</span>
               </div>
               <span>Ready to unlock premium features? Choose a plan above to get started!</span>
@@ -367,7 +446,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('weekly');
+  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('weekly');
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreMsg, setRestoreMsg] = useState('');
   const [shouldContinueAfterRestore, setShouldContinueAfterRestore] = useState(false);
@@ -387,10 +466,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   }, [user]);
 
-  const getProduct = (planKey: any) => {
+  const getProduct = (planKey: 'weekly' | 'monthly') => {
     const config = getPlanConfig(offerings)[planKey];
     const product = offerings?.[0]?.availablePackages?.find(
-      (pkg) => pkg.product.identifier === config.identifier
+      (pkg: any) => pkg.product.identifier === config.identifier
     );
     return product || config.fallback;
   };
@@ -453,83 +532,93 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const selectedConfig = getPlanConfig(offerings)[selectedPlan];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col">
-      {/* Black Content Area */}
-      <div className="flex-1 bg-black rounded-t-3xl shadow-2xl mx-4 mt-8 mb-4 p-6">
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -30 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-4 py-6"
+    >
+      {/* Compact Content Area */}
+      <div className="flex-1 bg-black rounded-2xl shadow-2xl p-6 flex flex-col max-w-md mx-auto w-full">
         
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">
+        {/* Compact Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="text-center mb-6"
+        >
+          <h1 className="text-2xl font-bold text-white mb-3">
             OutfitGraderAI Premium
           </h1>
-          <p className="text-white/70 text-sm leading-relaxed">
+          <p className="text-white/70 text-sm leading-relaxed px-2">
             Get personalized style plans, expert outfit matches, 24/7 style assistant, and AI-powered style analysis to achieve your best look ever!
           </p>
-        </div>
+        </motion.div>
 
-        {/* Subscription Options */}
-        <div className="mb-6">
-          <h3 className="text-white font-semibold text-sm mb-3">Choose Your Plan</h3>
-          <div className="space-y-3">
+        {/* Compact Subscription Options */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+          className="mb-6"
+        >
+          <div className="flex gap-3">
             {Object.entries(getPlanConfig(offerings)).map(([planKey, config]) => (
               <PlanOption
                 key={planKey}
-                planKey={planKey}
+                planKey={planKey as 'weekly' | 'monthly'}
                 config={config}
                 isSelected={selectedPlan === planKey}
-                onSelect={setSelectedPlan}
+                onSelect={(key: 'weekly' | 'monthly') => setSelectedPlan(key)}
               />
             ))}
           </div>
-        </div>
+        </motion.div>
 
-        {/* Features Section */}
-        <div className="mb-6">
-          <h3 className="text-white font-semibold text-sm mb-3">Here's what you'll get:</h3>
-          
-          {/* Personal AI Style Coach */}
-          <div className="mb-4">
-            <h4 className="text-white font-medium text-sm mb-2">Personal AI Style Coach</h4>
-            <div className="bg-red-500/20 rounded-xl p-3 border border-red-500/30">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-white text-sm font-medium mb-1">"What should I wear for a job interview?"</p>
-                  <div className="text-white/70 text-xs space-y-1">
-                    <p>• Professional blazer with tailored pants</p>
-                    <p>• Neutral colors: navy, gray, or black</p>
-                    <p>• Clean, minimal accessories</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Feature Carousel Section */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="mb-6"
+        >
+          <h3 className="text-white font-semibold text-sm mb-3 text-center">
+            Here's what you'll get
+          </h3>
+          <FeatureDisplay />
+        </motion.div>
 
         {/* Error Display */}
         {hasError && <ErrorMessage />}
 
-        {/* CTA Button */}
-        <CTAButton
-          isProcessing={isProcessing}
-          hasError={hasError}
-          onClick={handlePurchase}
-          disabled={isProcessing}
-        />
+        {/* CTA Button - Always Visible */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.5 }}
+          className="mt-auto pt-4"
+        >
+          <CTAButton
+            isProcessing={isProcessing}
+            hasError={hasError}
+            onClick={handlePurchase}
+            disabled={isProcessing}
+          />
 
-        {/* Restore Purchases */}
-        <RestorePurchasesButton 
-          onRestore={handleRestorePurchases}
-          isRestoring={isRestoring}
-          restoreMsg={restoreMsg}
-        />
+          {/* Restore Purchases */}
+          <RestorePurchasesButton 
+            onRestore={handleRestorePurchases}
+            isRestoring={isRestoring}
+            restoreMsg={restoreMsg}
+          />
 
-        {/* Legal Links */}
-        <LegalLinks />
+          {/* Legal Links */}
+          <LegalLinks />
+        </motion.div>
         
       </div>
-    </div>
+    </motion.div>
   );
 };

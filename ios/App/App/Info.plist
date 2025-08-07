@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key> <!-- Marketing version -->
-	<string>1.79</string>
+	<string>1.80</string>
 	<key>CFBundleVersion</key> <!-- Build number -->
-	<string>1</string>
+	<string>2</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>
