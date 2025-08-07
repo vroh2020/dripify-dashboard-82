@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
-import Logger from '@/utils/logger';
+import { Logger } from '@/utils/logger';
 
 interface UserStats {
   averageScore: number;

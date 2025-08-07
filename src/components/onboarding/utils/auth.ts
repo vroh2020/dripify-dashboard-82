@@ -62,7 +62,7 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
     }
 
     console.log('🔑 Authenticating with Supabase using identity token...');
-    const { data, error } = await supabase.auth.signInWithIdToken({
+    const { data: _, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: result.response.identityToken,
       nonce: nonce // Use the same nonce
@@ -200,6 +200,98 @@ export const signOut = async (): Promise<boolean> => {
     }
     return true;
   } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Sign in anonymously for users who want to try the app without creating an account
+ */
+export const handleAnonymousSign = async (): Promise<boolean> => {
+  try {
+    console.log('🕵️ Starting anonymous sign-in...');
+    console.log('🔍 Supabase client config:', {
+      url: 'https://jjqwhxamjxsiotnhhqco.supabase.co',
+      hasKey: true
+    });
+    
+    // Check if user is already signed in
+    const { data: existingSession } = await supabase.auth.getSession();
+    if (existingSession?.session?.user) {
+      console.log('✅ User already signed in:', existingSession.session.user.id);
+      return true;
+    }
+    
+    const { data, error } = await supabase.auth.signInAnonymously();
+    
+    console.log('🔍 Anonymous sign-in response:', {
+      hasData: !!data,
+      hasError: !!error,
+      errorMessage: error?.message,
+      hasUser: !!data?.user,
+      userId: data?.user?.id
+    });
+    
+    if (error) {
+      console.error('❌ Anonymous sign-in error:', error);
+      return false;
+    }
+    
+    if (data.user) {
+      console.log('✅ Anonymous sign-in successful:', data.user.id);
+      
+      // Ensure profile exists for anonymous user
+      try {
+        console.log('🔍 Checking if profile exists for user:', data.user.id);
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', data.user.id)
+          .single();
+        
+        console.log('🔍 Profile check result:', {
+          hasProfile: !!profile,
+          hasError: !!profileError,
+          errorCode: profileError?.code
+        });
+        
+        if (profileError && profileError.code === 'PGRST116') {
+          // Profile doesn't exist, create it
+          console.log('🔄 Creating profile for anonymous user...');
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              id: data.user.id,
+              username: `user_${data.user.id.slice(0, 8)}`,
+              onboarding_completed: false,
+              onboarding_step: '1',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          
+          if (insertError) {
+            console.error('❌ Failed to create profile for anonymous user:', insertError);
+            // Don't fail the sign-in, just log the error
+          } else {
+            console.log('✅ Profile created for anonymous user');
+          }
+        } else if (profileError) {
+          console.error('❌ Error checking profile:', profileError);
+        } else {
+          console.log('✅ Profile already exists for anonymous user');
+        }
+      } catch (profileError) {
+        console.error('❌ Error handling profile for anonymous user:', profileError);
+        // Don't fail the sign-in, just log the error
+      }
+      
+      return true;
+    }
+    
+    console.error('❌ No user data received from anonymous sign-in');
+    return false;
+  } catch (error) {
+    console.error('💥 Anonymous sign-in failed:', error);
     return false;
   }
 }; 

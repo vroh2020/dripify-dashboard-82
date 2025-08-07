@@ -2,18 +2,23 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import type { Database } from '@/integrations/supabase/types';
 
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
 
-type DatabaseProfile = Database['public']['Tables']['profiles']['Row'];
-type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
-type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
-
-export interface UserProfile extends DatabaseProfile {
-  // All fields already defined in Database type
+export interface UserProfile {
+  id: string;
+  username: string | null;
+  created_at: string;
+  updated_at: string | null;
+  // Add fields from new tables
+  current_onboarding_step?: string;
+  onboarding_completed?: boolean;
+  last_analysis_score?: number;
+  last_analysis_date?: string;
+  style_vibe?: string;
+  subscription_status?: string;
 }
 
 interface ProfileState {
@@ -148,43 +153,50 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
     updateProfileState({ isLoading: true, error: null });
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
+      // Get onboarding data from new tables
+      const { data: onboardingData, error: onboardingError } = await supabase
+        .from('onboarding_v2')
         .select('*')
-        .eq('id', targetUserId)
+        .eq('user_id', targetUserId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Profile doesn't exist - create one
-          const newProfile: ProfileInsert = {
-            id: targetUserId,
-            username: user?.email?.split('@')[0] || 'User',
-            onboarding_completed: false,
-            subscription_status: 'free',
-          };
+      // Get latest analysis
+      const { data: analysisData, error: analysisError } = await supabase
+        .from('analysis_results')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-          const { data: createdProfile, error: createError } = await supabase
-            .from('profiles')
-            .insert(newProfile)
-            .select('*')
-            .single();
+      // Get user actions
+      const { data: actionsData, error: actionsError } = await supabase
+        .from('user_analytics')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .order('timestamp', { ascending: false })
+        .limit(10);
 
-          if (createError) throw createError;
-          
-          const profile = createdProfile as UserProfile;
-          updateProfileState({
-            profile,
-            isLoading: false,
-            lastFetched: new Date(),
-          });
-
-          return profile;
-        }
-        throw error;
+      if (onboardingError && onboardingError.code !== 'PGRST116') {
+        throw onboardingError;
       }
 
-      const profile = data as UserProfile;
+      // Create profile from new table data
+      const profile: UserProfile = {
+        id: targetUserId,
+        username: `user_${targetUserId.slice(0, 8)}`,
+        created_at: onboardingData?.started_at || new Date().toISOString(),
+        updated_at: onboardingData?.updated_at || new Date().toISOString(),
+        current_onboarding_step: onboardingData?.step || 'welcome',
+        onboarding_completed: onboardingData?.completed || false,
+        last_analysis_score: analysisData?.score || null,
+        last_analysis_date: analysisData?.created_at || null,
+        style_vibe: onboardingData?.step_data?.vibe || null,
+        subscription_status: 'free', // Default for anonymous users
+      };
+
       updateProfileState({
         profile,
         isLoading: false,
@@ -201,7 +213,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       });
       return null;
     }
-  }, [user?.id, user?.email, updateProfileState]);
+  }, [user?.id, updateProfileState]);
 
   const updateProfile = useCallback(async (
     updates: Partial<UserProfile>, 
@@ -224,31 +236,42 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
     }
 
     try {
-      // Prepare updates for database (exclude readonly fields)
-      const { id, created_at, ...updateData } = updates;
-      const dbUpdates: ProfileUpdate = {
-        ...updateData,
-        updated_at: new Date().toISOString(),
-      };
+      // Update onboarding_v2 table instead of profiles
+      const onboardingUpdates: any = {};
+      
+      if (updates.current_onboarding_step) {
+        onboardingUpdates.step = updates.current_onboarding_step;
+      }
+      if (updates.onboarding_completed !== undefined) {
+        onboardingUpdates.completed = updates.onboarding_completed;
+      }
+      if (updates.style_vibe) {
+        onboardingUpdates.step_data = { vibe: updates.style_vibe };
+      }
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(dbUpdates)
-        .eq('id', user.id)
-        .select('*')
-        .single();
+      if (Object.keys(onboardingUpdates).length > 0) {
+        const { error } = await supabase
+          .from('onboarding_v2')
+          .upsert({
+            user_id: user.id,
+            ...onboardingUpdates,
+            updated_at: new Date().toISOString()
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       // Update with server data
-      const profile = data as UserProfile;
-      updateProfileState({
-        profile,
-        isUpdating: false,
-        lastUpdated: new Date(),
-        error: null,
-        pendingUpdates: [], // Clear pending updates on success
-      });
+      const profile = await fetchProfile(user.id);
+      if (profile) {
+        updateProfileState({
+          profile,
+          isUpdating: false,
+          lastUpdated: new Date(),
+          error: null,
+          pendingUpdates: [], // Clear pending updates on success
+        });
+      }
 
       return true;
     } catch (error: any) {

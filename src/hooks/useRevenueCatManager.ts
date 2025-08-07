@@ -101,18 +101,23 @@ export const useRevenueCatManager = () => {
       try {
         setIsLoading(true);
         
+        console.log('🔄 Starting web purchase simulation for user:', user?.id);
+        
         // Show payment confirmation dialog
         const confirmed = window.confirm(
           'This is a web demo. In production, this would open a payment flow. Would you like to simulate a successful payment?'
         );
         
         if (!confirmed) {
+          console.log('❌ User cancelled web purchase simulation');
           toast({ 
             title: "Payment Cancelled", 
             description: "You can try again anytime." 
           });
           return false;
         }
+        
+        console.log('✅ User confirmed web purchase simulation');
         
         // Simulate payment processing
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -127,14 +132,28 @@ export const useRevenueCatManager = () => {
           offeringId: 'web-simulation'
         };
         
-        // Update Supabase profile
-        const { error: profileError } = await supabase.from('profiles').update({
+        console.log('🔄 Updating Supabase profile for user:', user?.id);
+        console.log('📝 Update data:', {
           onboarding_completed: true,
           subscription_status: 'active',
           subscription_expiry: expiryDate.toISOString()
-        }).eq('id', user.id);
+        });
+        
+        // Update Supabase profile
+        const { data, error: profileError } = await supabase.from('profiles').update({
+          onboarding_completed: true,
+          subscription_status: 'active',
+          subscription_expiry: expiryDate.toISOString()
+        }).eq('id', user.id).select();
 
-        if (profileError) throw profileError;
+        console.log('📊 Supabase update result:', { data, error: profileError });
+
+        if (profileError) {
+          console.error('❌ Supabase profile update failed:', profileError);
+          throw profileError;
+        }
+        
+        console.log('✅ Supabase profile updated successfully');
         
         setSubscription(newSubscription);
         toast({ 
@@ -143,7 +162,7 @@ export const useRevenueCatManager = () => {
         });
         return true;
       } catch (error: any) {
-        console.error('Web purchase simulation failed:', error);
+        console.error('❌ Web purchase simulation failed:', error);
         
         // Handle specific error types
         if (error.message?.includes('network') || error.message?.includes('timeout')) {
@@ -152,7 +171,7 @@ export const useRevenueCatManager = () => {
             title: "Network Error", 
             description: "Please check your internet connection and try again." 
           });
-        } else if (error.message?.includes('profile') || error.message?.includes('database')) {
+        } else if (error.message?.includes('profile') || error.message?.includes('database') || error.message?.includes('auth')) {
           toast({ 
             variant: "destructive", 
             title: "Save Error", 

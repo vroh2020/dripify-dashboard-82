@@ -14,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import { useUserDeletion } from '@/hooks/useUserDeletion';
-import { useAuth } from '@/hooks/useAuth';
 
 const DeleteAccountDialogDescription = ({ confirmText, setConfirmText, isDeleting }: { confirmText: string, setConfirmText: (v: string) => void, isDeleting: boolean }) => (
   <div className="space-y-3 text-base text-muted-foreground mt-2">
@@ -48,11 +47,9 @@ export const DeleteAccountButton = () => {
   const [confirmText, setConfirmText] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const { deleteUserAccount, isDeleting } = useUserDeletion();
-  const { user } = useAuth();
 
   const handleDelete = async () => {
-    if (!user) return;
-    const success = await deleteUserAccount(user.id);
+    const success = await deleteUserAccount();
     if (success) {
       setIsOpen(false);
     }

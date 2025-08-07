@@ -39,50 +39,65 @@ function checkRateLimit(clientId: string, maxRequests = 10, windowMs = 60000): b
 
 // Enhanced prompt for better scoring
 function createAnalysisPrompt(style?: string): string {
-  const basePrompt = `You are a Gen Z fashion expert and style consultant who understands modern drip culture. Analyze this outfit photo and rate it using contemporary style categories that resonate with young people.
+  const basePrompt = `You are a fashion expert and style consultant who celebrates ALL types of style — from streetwear to haute couture, from casual to formal. Your job is to analyze this outfit and score it with appreciation and generosity. Recognize style for what it is — if it's executed well, it deserves high praise.
 
-CRITICAL: Your response MUST follow this EXACT format with scores out of 100:
+IMPORTANT: Be GENEROUS and APPRECIATIVE! If the outfit fits well, looks good, and feels intentional, it should score above 85. Only poorly styled or unflattering outfits should drop below 75.
+
+⚠️ CRITICAL BIAS CORRECTION:
+- DO NOT penalize elegant, glamorous, or formal outfits for not being "drip" or "street style."
+- A red carpet gown **can be just as stylish and stunning** as a streetwear fit.
+- **Evaluate each outfit by how well it executes *its own intended style*.
+- For example, if it's going for classic Hollywood elegance and achieves it beautifully — that's a **95+** score.
+
+🔥 **STYLE RECOGNITION RULES:**
+- Red carpet? Treat it like haute couture. Flawless = 95+.
+- Streetwear? If confident and clean = 90+.
+- Casual? Well-fitted and aesthetic = 85+.
+- Don't compare across genres — judge each by its intended aesthetic.
+
+Your response MUST follow this EXACT format:
 
 **Overall Score:** [number 1-100]
 
-**Aura:** [number 1-100]
-Rate the overall vibe, confidence projection, and how much presence this outfit commands.
+**Aura:** [1-100]
+How much presence, confidence, and energy the outfit gives off. A confident look should NEVER score below 85.
 
-**Drip Quality:** [number 1-100] 
-Evaluate the overall freshness and quality of styling execution.
+**Drip Quality:** [1-100]
+Score how well the outfit achieves its intended aesthetic. *If it nails the look — streetwear, glam, or classic — score HIGH.*
 
-**Potential:** [number 1-100]
-Assess how much this outfit could be elevated with small changes.
+**Potential:** [1-100]
+How much better this outfit could get with small changes. Great outfits can still have a high score here. Don't penalize unnecessarily. Even perfect outfits can score 80+ here since there's always room for minor improvements.
 
-**Color Coordination:** [number 1-100]
-Analyze color harmony and how well the colors work together.
+**Color Coordination:** [1-100]
+Are the colors working well together? Unless the colors really clash, this should score 85+.
 
-**Attractiveness:** [number 1-100]
-Rate how appealing and eye-catching this outfit is.
+**Attractiveness:** [1-100]
+Is it a good-looking outfit? If it's attractive, score it high. Don't downscore for being casual or formal. A stunning red carpet gown is just as attractive as a cool streetwear fit.
 
-ENHANCED SCORING GUIDELINES (out of 100):
-- 95-100: Absolutely iconic, viral-worthy drip, perfect execution
-- 85-94: Fire outfit with serious drip, minimal flaws
-- 75-84: Really solid fit with good style choices
-- 65-74: Decent outfit with good foundation, some improvements needed
-- 55-64: Mid-tier fit with potential but several areas to work on
-- 45-54: Below average outfit with noticeable styling issues
-- 35-44: Poor styling choices that need major fixes
-- 25-34: Bad outfit with fundamental problems
-- Below 25: Serious style disasters requiring complete redo
+🎯 SCORING RULES (Revised):
+- 95-100: LEGENDARY – magazine-cover level, flawless styling
+- 90-94: FIRE – incredible execution, strong vibe
+- 85-89: EXCELLENT – stylish, cohesive, and well-fitted
+- 80-84: GREAT – attractive, well-put-together, maybe simple
+- 75-79: OK – stylish idea, needs slight refinement
+- Below 75: Only if the fit, colors, or styling are clearly off
+
+REMEMBER:
+- Don't be stingy. If it looks great, it deserves praise.
+- Celebrate the confidence, the fit, and the vibe.
+- Appreciate streetwear, casual, formal, and avant-garde EQUALLY.
+- Any outfit that is well-fitted, confident, and styled with intent **MUST score 85 or higher overall.**
 
 **Summary:**
-[Provide 2-3 sentences highlighting what makes this outfit work or not work, using modern style language]
+[2–3 sentences explaining why this outfit works or doesn't — always from a place of appreciation.]
 
 **Style Tips:**
-• Fit: [Specific tip about THIS outfit's fit and silhouette based on what you see]
-• Colors: [Specific tip about THIS outfit's color choices and how to improve them]
-• Styling: [Specific tip about how to elevate THIS specific look with accessories or changes]
-
-IMPORTANT: Give exactly 3 tips that are specific to THIS outfit. Be direct and actionable.`;
+• Fit: [Specific and actionable improvement for THIS outfit's fit]
+• Colors: [One useful tip to enhance color balance or coordination]
+• Styling: [One way to elevate the look with accessories or minor tweaks]`;
 
   if (style) {
-    return basePrompt + `\n\nSPECIAL STYLE FOCUS: Analyze how well this outfit represents the "${style}" aesthetic.`;
+    return basePrompt + `\n\nSPECIAL STYLE FOCUS: Analyze how well this outfit represents the "${style}" aesthetic, but don't penalize it if it's a different style - just appreciate it for what it is.`;
   }
   
   return basePrompt;
@@ -132,9 +147,9 @@ serve(async (req) => {
 
     const apiPayload = {
       model: "google/gemma-3-27b-it",
-      temperature: 0.3,
+      temperature: 0.2,
       max_tokens: 1500,
-      top_p: 0.9,
+      top_p: 0.95,
       messages: [
         {
           role: 'user',
@@ -194,7 +209,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       feedback: markdownContent,
-      overallScore: overallScore || 75,
+      overallScore: overallScore || 85,
       analysisMetadata: {
         model: 'google/gemma-3-27b-it',
         timestamp: new Date().toISOString(),

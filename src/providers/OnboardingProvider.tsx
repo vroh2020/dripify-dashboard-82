@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { useAuth } from './AuthProvider';
 import { useProfile } from './ProfileProvider';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // ============================================================================
 // Types & Interfaces
@@ -9,56 +10,27 @@ import { useToast } from '@/hooks/use-toast';
 
 export type OnboardingStep = 
   | 'welcome'
-  | 'shopping-frequency'
-  | 'budget-range'
-  | 'style-preferences'
-  | 'body-type'
-  | 'fit-preference'
-  | 'color-palette'
-  | 'shoe-size'
-  | 'brand-affinity'
-  | 'inspiration-link'
-  | 'main-goal'
+  | 'vibe-selection'
   | 'test-photo'
-  | 'celebration'
+  | 'analyzing'
+  | 'teaser-results'
   | 'paywall'
   | 'completed';
 
 export interface OnboardingData {
   // Step 1: Welcome (no data)
   
-  // Step 2: Shopping Frequency
-  shoppingFrequency?: string;
+  // Step 2: Vibe Selection
+  styleVibe?: string;
   
-  // Step 3: Budget Range
-  budgetRange?: string;
-  
-  // Step 4: Style Preferences
-  stylePreferences?: string[];
-  
-  // Step 5: Body Type
-  bodyType?: string;
-  
-  // Step 6: Fit Preference
-  fitPreference?: string;
-  
-  // Step 7: Color Palette
-  colorPalette?: string[];
-  
-  // Step 8: Shoe Size
-  shoeSize?: string;
-  
-  // Step 9: Brand Affinity
-  brandAffinity?: string[];
-  
-  // Step 10: Inspiration Link
-  inspirationLink?: string;
-  
-  // Step 11: Main Goal
-  mainGoal?: string;
-  
-  // Step 12: Test Photo
+  // Step 3: Test Photo
   testPhotoUrl?: string;
+  
+  // Step 4: Analyzing (no data)
+  
+  // Step 5: Teaser Results (no data)
+  
+  // Step 6: Paywall (no data)
 }
 
 interface OnboardingState {
@@ -117,36 +89,20 @@ type OnboardingContextType = OnboardingState & OnboardingActions;
 
 const ONBOARDING_STEPS: OnboardingStep[] = [
   'welcome',
-  'shopping-frequency',
-  'budget-range',
-  'style-preferences',
-  'body-type',
-  'fit-preference',
-  'color-palette',
-  'shoe-size',
-  'brand-affinity',
-  'inspiration-link',
-  'main-goal',
+  'vibe-selection',
   'test-photo',
-  'celebration',
+  'analyzing',
+  'teaser-results',
   'paywall',
   'completed',
 ];
 
 const STEP_VALIDATION_RULES: Record<OnboardingStep, (data: OnboardingData) => string[]> = {
   'welcome': () => [],
-  'shopping-frequency': (data) => data.shoppingFrequency ? [] : ['Please select shopping frequency'],
-  'budget-range': (data) => data.budgetRange ? [] : ['Please select budget range'],
-  'style-preferences': (data) => data.stylePreferences?.length ? [] : ['Please select at least one style'],
-  'body-type': (data) => data.bodyType ? [] : ['Please select body type'],
-  'fit-preference': (data) => data.fitPreference ? [] : ['Please select fit preference'],
-  'color-palette': (data) => data.colorPalette?.length ? [] : ['Please select at least one color'],
-  'shoe-size': (data) => data.shoeSize ? [] : ['Please select shoe size'],
-  'brand-affinity': (data) => data.brandAffinity?.length ? [] : ['Please select at least one brand'],
-  'inspiration-link': (data) => data.inspirationLink ? [] : ['Please provide inspiration link or description'],
-  'main-goal': (data) => data.mainGoal ? [] : ['Please select main goal'],
+  'vibe-selection': (data) => data.styleVibe ? [] : ['Please select a style vibe'],
   'test-photo': (data) => data.testPhotoUrl ? [] : ['Please upload a photo'],
-  'celebration': () => [],
+  'analyzing': () => [],
+  'teaser-results': () => [],
   'paywall': () => [],
   'completed': () => [],
 };
@@ -243,59 +199,42 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     updateOnboardingState({ isSaving: true });
 
     try {
-      // Map onboarding data to profile fields
-      const profileUpdates: any = {};
-      
-      if (stepData.shoppingFrequency) {
-        profileUpdates.shopping_frequency = stepData.shoppingFrequency;
-      }
-      if (stepData.budgetRange) {
-        profileUpdates.budget_range = stepData.budgetRange;
-      }
-      if (stepData.stylePreferences) {
-        profileUpdates.style_preferences = stepData.stylePreferences;
-      }
-      if (stepData.bodyType) {
-        profileUpdates.body_type = stepData.bodyType;
-      }
-      if (stepData.fitPreference) {
-        profileUpdates.fit_preference = stepData.fitPreference;
-      }
-      if (stepData.colorPalette) {
-        profileUpdates.color_preferences = stepData.colorPalette;
-      }
-      if (stepData.shoeSize) {
-        profileUpdates.size_info = { shoe_size: stepData.shoeSize };
-      }
-      if (stepData.brandAffinity) {
-        profileUpdates.favorite_brands = stepData.brandAffinity;
-      }
-      if (stepData.inspirationLink) {
-        profileUpdates.referral_source = stepData.inspirationLink;
-      }
-      if (stepData.mainGoal) {
-        profileUpdates.main_goal = stepData.mainGoal;
-      }
-      if (stepData.testPhotoUrl) {
-        profileUpdates.avatar_url = stepData.testPhotoUrl;
-      }
-
-      const success = await updateProfile(profileUpdates);
-      
-      if (success) {
-        updateOnboardingState({
-          data: { ...onboardingState.data, ...stepData },
-          isSaving: false,
-          error: null,
+      // Save to onboarding_v2 table
+      const { error: onboardingError } = await supabase
+        .from('onboarding_v2')
+        .upsert({
+          user_id: user.id,
+          step: onboardingState.currentStep,
+          step_data: stepData,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,step',
+          ignoreDuplicates: false
         });
-      } else {
-        updateOnboardingState({
-          isSaving: false,
-          error: 'Failed to save step data',
-        });
-      }
 
-      return success;
+      if (onboardingError) throw onboardingError;
+
+      // Track user action
+      const { error: analyticsError } = await supabase
+        .from('user_analytics')
+        .insert({
+          user_id: user.id,
+          action: `step_${onboardingState.currentStep}`,
+          data: stepData,
+          timestamp: new Date().toISOString()
+        });
+
+      if (analyticsError) {
+        console.warn('Analytics tracking failed:', analyticsError);
+      }
+      
+      updateOnboardingState({
+        data: { ...onboardingState.data, ...stepData },
+        isSaving: false,
+        error: null,
+      });
+
+      return true;
     } catch (error: any) {
       console.error('Save step data error:', error);
       updateOnboardingState({
@@ -304,7 +243,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       });
       return false;
     }
-  }, [user?.id, onboardingState.data, updateProfile, updateOnboardingState]);
+  }, [user?.id, onboardingState.currentStep, onboardingState.data, updateOnboardingState]);
 
   const saveAndAdvance = useCallback(async (stepData: Partial<OnboardingData>): Promise<boolean> => {
     const saved = await saveStepData(stepData);
@@ -401,32 +340,50 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
     updateOnboardingState({ isSaving: true });
 
     try {
-      const success = await updateProfile({
-        onboarding_completed: true,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (success) {
-        updateOnboardingState({
-          currentStep: 'completed',
-          isCompleted: true,
-          isSaving: false,
-          progress: 100,
-          error: null,
+      // Save completion to onboarding_v2
+      const { error: onboardingError } = await supabase
+        .from('onboarding_v2')
+        .upsert({
+          user_id: user.id,
+          step: 'completed',
+          completed: true,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,step',
+          ignoreDuplicates: false
         });
 
-        toast({
-          title: "Onboarding Complete!",
-          description: "Welcome to your personalized style journey.",
+      if (onboardingError) throw onboardingError;
+
+      // Track completion action
+      const { error: analyticsError } = await supabase
+        .from('user_analytics')
+        .insert({
+          user_id: user.id,
+          action: 'onboarding_completed',
+          data: { completedAt: new Date().toISOString() },
+          timestamp: new Date().toISOString()
         });
-      } else {
-        updateOnboardingState({
-          isSaving: false,
-          error: 'Failed to complete onboarding',
-        });
+
+      if (analyticsError) {
+        console.warn('Analytics tracking failed:', analyticsError);
       }
 
-      return success;
+      updateOnboardingState({
+        currentStep: 'completed',
+        isCompleted: true,
+        isSaving: false,
+        progress: 100,
+        error: null,
+      });
+
+      toast({
+        title: "Onboarding Complete! 🎉",
+        description: "Welcome to your personalized style journey.",
+      });
+
+      return true;
     } catch (error: any) {
       console.error('Complete onboarding error:', error);
       updateOnboardingState({
@@ -435,35 +392,44 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       });
       return false;
     }
-  }, [user?.id, updateProfile, updateOnboardingState, toast]);
+  }, [user?.id, updateOnboardingState, toast]);
 
   const resetOnboarding = useCallback(async (): Promise<boolean> => {
     if (!user?.id) return false;
 
     try {
-      const success = await updateProfile({
-        onboarding_completed: false,
-        onboarding_step: 'welcome',
+      // Reset in onboarding_v2
+      const { error } = await supabase
+        .from('onboarding_v2')
+        .upsert({
+          user_id: user.id,
+          step: 'welcome',
+          completed: false,
+          completed_at: null,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,step',
+          ignoreDuplicates: false
+        });
+
+      if (error) throw error;
+
+      updateOnboardingState({
+        currentStep: 'welcome',
+        data: {},
+        isCompleted: false,
+        completedSteps: [],
+        progress: 0,
+        error: null,
+        validationErrors: {},
       });
 
-      if (success) {
-        updateOnboardingState({
-          currentStep: 'welcome',
-          data: {},
-          isCompleted: false,
-          completedSteps: [],
-          progress: 0,
-          error: null,
-          validationErrors: {},
-        });
-      }
-
-      return success;
+      return true;
     } catch (error: any) {
       console.error('Reset onboarding error:', error);
       return false;
     }
-  }, [user?.id, updateProfile, updateOnboardingState]);
+  }, [user?.id, updateOnboardingState]);
 
   const clearError = useCallback(() => {
     updateOnboardingState({ error: null, validationErrors: {} });
@@ -480,17 +446,17 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
 
     // Load existing onboarding data from profile
     const existingData: OnboardingData = {
-      shoppingFrequency: profile.shopping_frequency || undefined,
-      budgetRange: profile.budget_range || undefined,
-      stylePreferences: profile.style_preferences || undefined,
-      bodyType: profile.body_type || undefined,
-      fitPreference: profile.fit_preference || undefined,
-      colorPalette: profile.color_preferences || undefined,
-      shoeSize: profile.size_info?.shoe_size || undefined,
-      brandAffinity: profile.favorite_brands || undefined,
-      inspirationLink: profile.referral_source || undefined,
-      mainGoal: profile.main_goal || undefined,
-      testPhotoUrl: profile.avatar_url || undefined,
+      shoppingFrequency: profile.current_onboarding_step === 'shopping-frequency' ? 'weekly' : undefined,
+      budgetRange: profile.current_onboarding_step === 'budget-range' ? '$100-$250' : undefined,
+      stylePreferences: profile.current_onboarding_step === 'style-preferences' ? ['casual'] : undefined,
+      bodyType: profile.current_onboarding_step === 'body-type' ? 'athletic' : undefined,
+      fitPreference: profile.current_onboarding_step === 'fit-preference' ? 'fitted' : undefined,
+      colorPalette: profile.current_onboarding_step === 'color-palette' ? ['blue'] : undefined,
+      shoeSize: profile.current_onboarding_step === 'shoe-size' ? '10' : undefined,
+      brandAffinity: profile.current_onboarding_step === 'brand-affinity' ? ['nike'] : undefined,
+      inspirationLink: profile.current_onboarding_step === 'inspiration-link' ? 'instagram' : undefined,
+      mainGoal: profile.current_onboarding_step === 'main-goal' ? 'look_better' : undefined,
+      testPhotoUrl: profile.current_onboarding_step === 'test-photo' ? 'uploaded' : undefined,
     };
 
     // Determine current step based on completed data

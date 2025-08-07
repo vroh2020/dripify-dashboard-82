@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface UserOnboardingData {
   id: string;
-  username: string;
+  username: string | null;
   age_range: string | null;
   main_goal: string | null;
   onboarding_completed: boolean | null;
@@ -18,12 +18,12 @@ interface UserOnboardingData {
 
 interface StyleAnalysisData {
   id: string;
-  user_id: string;
+  user_id: string | null;
   total_score: number;
   breakdown: any;
   tips: any;
   image_url: string | null;
-  scan_date: string;
+  scan_date: string | null;
   feedback: string | null;
 }
 
@@ -270,7 +270,7 @@ export function OnboardingInspector() {
                           <div className="flex justify-between items-center">
                             <strong>Overall Score: {analysis.total_score}/100</strong>
                             <span className="text-sm text-gray-500">
-                              {formatDate(analysis.scan_date)}
+                              {analysis.scan_date ? formatDate(analysis.scan_date) : 'No date'}
                             </span>
                           </div>
                           

@@ -12,10 +12,8 @@ export interface OnboardingData {
 
 export type OnboardingStep = 
   | 'welcome' 
-  | 'age' 
-  | 'goal' 
+  | 'vibe-selection' 
   | 'test-photo' 
-  | 'rating' 
-  | 'celebration' 
-  | 'trial-offer' 
+  | 'analyzing' 
+  | 'teaser-results' 
   | 'paywall';

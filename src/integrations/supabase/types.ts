@@ -30,6 +30,23 @@ export type Database = {
           subscription_expiry: string | null
           updated_at: string | null
           username: string | null
+          // Add missing onboarding fields
+          onboarding_step: string | null
+          onboarding_data: Json | null
+          style_vibe: string | null
+          analysis_result: Json | null
+          selected_image: string | null
+          last_analysis_result: Json | null
+          last_analysis_date: string | null
+          user_preferences: Json | null
+          payment_completed: boolean | null
+          test_photo_uploaded: boolean | null
+          test_photo_url: string | null
+          analysis_completed: boolean | null
+          last_analysis_score: number | null
+          onboarding_started_at: string | null
+          onboarding_completed_at: string | null
+          subscription_expires_at: string | null
         }
         Insert: {
           age_range?: string | null
@@ -51,6 +68,23 @@ export type Database = {
           subscription_expiry?: string | null
           updated_at?: string | null
           username?: string | null
+          // Add missing onboarding fields
+          onboarding_step?: string | null
+          onboarding_data?: Json | null
+          style_vibe?: string | null
+          analysis_result?: Json | null
+          selected_image?: string | null
+          last_analysis_result?: Json | null
+          last_analysis_date?: string | null
+          user_preferences?: Json | null
+          payment_completed?: boolean | null
+          test_photo_uploaded?: boolean | null
+          test_photo_url?: string | null
+          analysis_completed?: boolean | null
+          last_analysis_score?: number | null
+          onboarding_started_at?: string | null
+          onboarding_completed_at?: string | null
+          subscription_expires_at?: string | null
         }
         Update: {
           age_range?: string | null
@@ -72,8 +106,136 @@ export type Database = {
           subscription_expiry?: string | null
           updated_at?: string | null
           username?: string | null
+          // Add missing onboarding fields
+          onboarding_step?: string | null
+          onboarding_data?: Json | null
+          style_vibe?: string | null
+          analysis_result?: Json | null
+          selected_image?: string | null
+          last_analysis_result?: Json | null
+          last_analysis_date?: string | null
+          user_preferences?: Json | null
+          payment_completed?: boolean | null
+          test_photo_uploaded?: boolean | null
+          test_photo_url?: string | null
+          analysis_completed?: boolean | null
+          last_analysis_score?: number | null
+          onboarding_started_at?: string | null
+          onboarding_completed_at?: string | null
+          subscription_expires_at?: string | null
         }
         Relationships: []
+      }
+      // Add new onboarding_v2 table
+      onboarding_v2: {
+        Row: {
+          id: string
+          user_id: string
+          step: string
+          step_data: Json | null
+          completed: boolean
+          started_at: string
+          completed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          step: string
+          step_data?: Json | null
+          completed?: boolean
+          started_at?: string
+          completed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          step?: string
+          step_data?: Json | null
+          completed?: boolean
+          started_at?: string
+          completed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_v2_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      // Add new user_analytics table
+      user_analytics: {
+        Row: {
+          id: string
+          user_id: string
+          action: string
+          data: Json | null
+          timestamp: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          action: string
+          data?: Json | null
+          timestamp?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          action?: string
+          data?: Json | null
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_analytics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      // Add new analysis_results table
+      analysis_results: {
+        Row: {
+          id: string
+          user_id: string
+          image_url: string | null
+          analysis_data: Json | null
+          score: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          image_url?: string | null
+          analysis_data?: Json | null
+          score?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          image_url?: string | null
+          analysis_data?: Json | null
+          score?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_results_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       saved_outfits: {
         Row: {

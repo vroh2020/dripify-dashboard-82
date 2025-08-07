@@ -1,445 +1,430 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress";
-import { useAuth } from "@/hooks/useAuth";
-import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
-import { Sparkles, Camera, Upload } from "lucide-react";
-import { Capacitor } from '@capacitor/core';
-import { Button } from "@/components/ui/button";
-import { requestInAppReview } from '@/utils/inAppReview';
+import { Logger } from "@/utils/logger";
+import { handleError } from "@/utils/errorHandler";
+import { supabase } from "@/integrations/supabase/client";
 
 // Import step components
-import { NewWelcomeStep } from "@/components/onboarding/steps/NewWelcomeStep";
-import { ShoppingFrequencyStep } from "@/components/onboarding/steps/ShoppingFrequencyStep";
-import { BudgetRangeStep } from "@/components/onboarding/steps/BudgetRangeStep";
-import { StylePreferencesStep } from "@/components/onboarding/steps/StylePreferencesStep";
-import { BodyTypeStep } from "@/components/onboarding/steps/BodyTypeStep";
-import { FitPreferenceStep } from "@/components/onboarding/steps/FitPreferenceStep";
-import { ColorPaletteStep } from "@/components/onboarding/steps/ColorPaletteStep";
-import { ShoeSizeStep } from "@/components/onboarding/steps/ShoeSizeStep";
-import { BrandAffinityStep } from "@/components/onboarding/steps/BrandAffinityStep";
-import { InspirationLinkStep } from "@/components/onboarding/steps/InspirationLinkStep";
-import { MainGoalStep } from "@/components/onboarding/steps/MainGoalStep";
-import { CelebrationNewStep } from "@/components/onboarding/steps/CelebrationNewStep";
-import { ProOfferCard } from "@/components/onboarding/ProOfferCard";
-import { StyleLoadingOverlay } from '@/components/StyleLoadingOverlay';
-import { ModernRatingsDisplay } from '@/components/ModernRatingsDisplay';
+import { NewWelcomeStep } from "../components/onboarding/steps/NewWelcomeStep";
+import { HowItWorksStep } from "../components/onboarding/steps/HowItWorksStep";
+import { GetGradeStep } from "../components/onboarding/steps/GetGradeStep";
+import { AnalyzingStep } from "../components/onboarding/steps/AnalyzingStep";
+import { TeaserResultStep } from "../components/onboarding/steps/TeaserResultStep";
+import { ProOfferCard } from "../components/onboarding/ProOfferCard";
+
 
 export const AuthOnboardingWizard = () => {
-  // Persistent step state
+  // Simple step management for anonymous users
   const stepKey = 'onboarding_step';
   const [step, setStepState] = useState<number>(() => {
     const saved = localStorage.getItem(stepKey);
     return saved ? parseInt(saved, 10) : 1;
   });
+  
   const setStep = (n: number) => {
     setStepState(n);
     localStorage.setItem(stepKey, String(n));
   };
+
+  // State for photo and analysis
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const lastUserId = useRef<string | undefined>();
-  useEffect(() => {
-    if (user?.id !== lastUserId.current) {
-      console.log('[Auth] User changed:', lastUserId.current, '→', user?.id);
-      lastUserId.current = user?.id;
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Get or create persistent anonymous user
+  const ensureAnonymousUser = async () => {
+    try {
+      // If we already have a userId in state, verify it's still valid
+      if (userId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id === userId) {
+          Logger.info('Auth', 'Reusing existing user ID:', userId);
+          return userId;
+        }
+        // Clear invalid cached user
+        setUserId(null);
+      }
+
+      // Get the current Supabase user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user?.id) {
+        Logger.info('Auth', 'Using Supabase auth user ID:', user.id);
+        setUserId(user.id);
+        return user.id;
+      } else {
+        console.error('❌ No authenticated user found, creating anonymous user...');
+        // Auto-create new anonymous user if none exists
+        const { handleAnonymousSign } = await import('../components/onboarding/utils/auth');
+        const success = await handleAnonymousSign();
+        if (success) {
+          const { data: { user: newUser } } = await supabase.auth.getUser();
+          if (newUser?.id) {
+            setUserId(newUser.id);
+            return newUser.id;
+          }
+        }
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error getting authenticated user:', error);
+      return null;
     }
-  }, [user?.id]);
-  const { checkOnboardingStatus, refetch: refetchOnboardingStatus } = useOnboardingStatus();
+  };
 
-  // Add this debug function at the top of your Auth component:
-  useEffect(() => {
-    console.log('🎯 Onboarding step:', step);
-  }, [step]);
+  // Save onboarding step to modified onboarding_v2 table (single row per user)
+  const saveOnboardingStep = async (stepName: string, stepData?: any) => {
+    if (!userId) return false;
+    
+    try {
+      // Get current data first (handle case where no data exists yet)
+      const { data: existingData, error: fetchError } = await supabase
+        .from('onboarding_v2')
+        .select('step_data')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-  // Save data to Supabase with optimistic UI
-  const saveToSupabase = async (data: Record<string, any>) => {
-    if (!user) return;
+      // Ignore error if no data exists yet (it's fine, we'll create it)
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.warn('Error fetching existing data:', fetchError);
+      }
+
+      // Merge new step data with existing data (use step_data for now)
+      const currentAllData = existingData?.step_data || {};
+      const updatedAllData = {
+        ...(currentAllData as Record<string, any>),
+        [stepName]: stepData || {}
+      };
+
+      const { error } = await supabase
+        .from('onboarding_v2')
+        .upsert({
+          user_id: userId,
+          step: 'consolidated',
+          step_data: updatedAllData,
+          current_step: stepName,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id',
+          ignoreDuplicates: false
+        });
+
+      if (error) throw error;
+      
+      console.log('✅ Saved onboarding step:', stepName, stepData);
+      return true;
+    } catch (error) {
+      console.error('❌ Error saving onboarding step:', error);
+      return false;
+    }
+  };
+
+  // Track user actions in user_analytics table
+  const trackUserAction = async (action: string, data?: any) => {
+    if (!userId) return false;
     
     try {
       const { error } = await supabase
-        .from('profiles')
-        .update(data)
-        .eq('id', user.id);
-      
-      if (error) {
-        console.error('Save error:', error);
-        toast({
-          title: "Save Warning",
-          description: "Data saved locally, will retry in background",
-          variant: "default"
+        .from('user_analytics')
+        .insert({
+          user_id: userId,
+          action,
+          data: data || {},
+          timestamp: new Date().toISOString()
         });
-      } else {
-        console.log('✅ Saved to Supabase:', data);
-      }
+
+      if (error) throw error;
+      
+      console.log('📊 Tracked user action:', action, data);
+      return true;
     } catch (error) {
-      console.error('Save failed:', error);
+      console.error('❌ Error tracking user action:', error);
+      return false;
+    }
+  };
+
+  // Save analysis results to analysis_results table
+  const saveAnalysisResult = async (imageUrl: string, analysisData: any, score: number) => {
+    if (!userId) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('analysis_results')
+        .insert({
+          user_id: userId,
+          image_url: imageUrl,
+          analysis_data: analysisData,
+          score: score,
+          created_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      
+      console.log('✅ Saved analysis result:', { score, imageUrl });
+      return true;
+    } catch (error) {
+      console.error('❌ Error saving analysis result:', error);
+      return false;
+    }
+  };
+
+  // Fake analysis function - no AI credits used
+  const performFakeAnalysis = async (imageFile: File): Promise<any> => {
+    // Generate realistic fake scores
+    const baseScore = Math.floor(Math.random() * 15) + 75; // 75-90 base
+    const variance = 10; // Allow some variation
+    
+    const fakeAnalysis = {
+      overallScore: Math.min(100, baseScore + Math.floor(Math.random() * variance)),
+      breakdown: [
+        { 
+          category: 'Style', 
+          score: Math.min(100, baseScore + Math.floor(Math.random() * variance) - 5), 
+          emoji: '✨',
+          feedback: "Great style choices! Your outfit shows confidence."
+        },
+        { 
+          category: 'Fit', 
+          score: Math.min(100, baseScore + Math.floor(Math.random() * variance)), 
+          emoji: '🧥',
+          feedback: "The fit looks good on you. Well proportioned."
+        },
+        { 
+          category: 'Color', 
+          score: Math.min(100, baseScore + Math.floor(Math.random() * variance) - 3), 
+          emoji: '🎨',
+          feedback: "Nice color coordination. The palette works well."
+        }
+      ],
+      tips: [
+        "Consider adding a statement accessory to elevate the look",
+        "The color combination works great for your style",
+        "This outfit shows good understanding of proportions"
+      ],
+      summary: "Looking sharp! You have a good eye for putting together outfits that work well together."
+    };
+    
+    return {
+      success: true,
+      imageUrl: URL.createObjectURL(imageFile), // Local URL, no upload
+      analysis: fakeAnalysis,
+      timestamp: new Date().toISOString()
+    };
+  };
+
+  // Initialize anonymous user on component mount
+  useEffect(() => {
+    ensureAnonymousUser();
+  }, []);
+
+  // Simple handlers for anonymous flow with new tracking
+  const handleHowItWorksNext = async () => {
+    const userId = await ensureAnonymousUser();
+    if (userId) {
+      await saveOnboardingStep('how_it_works_completed', {});
+      await trackUserAction('how_it_works_completed', { step: 2 }); // Updated step number
+    }
+    setStep(3); // Go directly to photo capture (removed vibe selection)
+  };
+
+  const handleHowItWorksBack = () => {
+    setStep(1); // Go back to welcome
+  };
+
+  const handlePhotoCapture = async (file: File) => {
+    setSelectedImage(file);
+    
+    const userId = await ensureAnonymousUser();
+    if (!userId) {
       toast({
-        title: "Save Warning", 
-        description: "Data saved locally, will retry in background",
-        variant: "default"
+        title: "Error",
+        description: "Please refresh and try again.",
+        variant: "destructive"
       });
+      return;
+    }
+    
+    // Save to database (optional - continues even if fails)
+    await saveOnboardingStep('photo_uploaded', { hasPhoto: true });
+    await trackUserAction('photo_uploaded', { fileSize: file.size, step: 3 }); // Updated step number
+    
+    setStep(4); // Go to analyzing
+  };
+
+  const handleGetGradeBack = () => {
+    setStep(2); // Go back to how it works (removed vibe selection)
+  };
+
+  const handleAnalyzingComplete = async () => {
+    try {
+      // Validate image exists
+      if (!selectedImage) {
+        toast({
+          title: "No Image",
+          description: "Please select a photo first.",
+          variant: "destructive"
+        });
+        setStep(3); // Back to photo capture
+        return;
+      }
+
+      // Perform fake analysis - no AI credits used
+      const analysisResult = await performFakeAnalysis(selectedImage);
+      
+      // Save analysis data to tables
+      const userId = await ensureAnonymousUser();
+      if (userId) {
+        const saved = await saveAnalysisResult(
+          analysisResult.imageUrl, 
+          analysisResult.analysis, 
+          analysisResult.analysis.overallScore
+        );
+        
+        if (saved) {
+          await saveOnboardingStep('analysis_completed', { 
+            score: analysisResult.analysis.overallScore,
+            hasAnalysis: true 
+          });
+          await trackUserAction('analysis_completed', { 
+            score: analysisResult.analysis.overallScore,
+            breakdown: analysisResult.analysis.breakdown,
+            step: 4 // Updated step number
+          });
+        }
+      }
+      
+      setAnalysisResult(analysisResult.analysis);
+      localStorage.setItem('analysis_result', JSON.stringify(analysisResult.analysis));
+      setStep(5); // Go to teaser results
+    } catch (error) {
+      console.error('❌ Analysis failed:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to analyze your photo. Please try again.",
+        variant: "destructive"
+      });
+      // Allow user to go back and retry
+      setStep(3); 
     }
   };
 
-  // REPLACE ALL step handlers with immediate versions:
-  const handleShoppingFrequency = (frequency: string) => {
-    console.log('🔄 Shopping frequency selected:', frequency);
-    setStep(3); // Advance immediately
-    saveToSupabase({ referral_source: `shopping_frequency:${frequency}` }); // Save in background
-  };
-
-  const handleBudgetRange = (budget: string) => {
-    console.log('🔄 Budget range selected:', budget);
-    setStep(4); // Advance immediately
-    saveToSupabase({ budget_range: budget }); // Save in background
-  };
-
-  const handleStylePreferences = (preferences: string[]) => {
-    console.log('🔄 Style preferences selected:', preferences);
-    setStep(5); // Advance immediately
-    saveToSupabase({ style_preferences: preferences }); // Save in background
-  };
-
-  const handleBodyType = (bodyType: string) => {
-    console.log('🔄 Body type selected:', bodyType);
-    setStep(6); // Advance immediately
-    saveToSupabase({ body_type: bodyType }); // Save in background
-  };
-
-  const handleFitPreference = (fit: string) => {
-    console.log('🔄 Fit preference selected:', fit);
-    setStep(7); // Advance immediately
-    saveToSupabase({ style_preference: fit }); // Save in background
-  };
-
-  const handleColorPalette = (colors: string[]) => {
-    console.log('🔄 Color palette selected:', colors);
-    setStep(8); // Advance immediately
-    saveToSupabase({ color_preferences: colors }); // Save in background
-  };
-
-  const handleShoeSize = (size: string) => {
-    console.log('🔄 Shoe size selected:', size);
-    setStep(9); // Advance immediately
-    saveToSupabase({ size_info: { shoe_size: size } }); // Save in background
-  };
-
-  const handleBrandAffinity = (brands: string[]) => {
-    console.log('🔄 Brand affinity selected:', brands);
-    setStep(10); // Advance immediately
-    saveToSupabase({ favorite_brands: brands }); // Save in background
-  };
-
-  const handleInspiration = (inspiration: string) => {
-    console.log('🔄 Inspiration selected:', inspiration);
-    setStep(11); // Advance immediately
-    saveToSupabase({ referral_source: inspiration }); // Save in background
-  };
-
-  const handleMainGoal = (goal: string) => {
-    console.log('🔄 Main goal selected:', goal);
-    setStep(12); // Advance immediately
-    saveToSupabase({ main_goal: goal }); // Save in background
-  };
-
-  const handleImageUpload = () => {
-    if (selectedImage) {
-      console.log('🔄 Image uploaded');
-      setStep(13); // Advance immediately
-      saveToSupabase({ avatar_url: 'placeholder_image_url' }); // Save in background
+  const handleTeaserUnlock = async () => {
+    const userId = await ensureAnonymousUser();
+    if (userId) {
+      await saveOnboardingStep('teaser_viewed', { unlockedAt: new Date().toISOString() });
+      await trackUserAction('teaser_viewed', { step: 5 }); // Updated step number
     }
+    setStep(6); // Go to paywall
   };
 
   const handlePaywallComplete = async () => {
     try {
-      console.log('[Auth] Starting paywall completion...');
+      Logger.userAction('paywall_completed', { step });
       
-      // 1. Save to Supabase first
-      const { error } = await supabase
-        .from('profiles')
-        .update({ onboarding_completed: true })
-        .eq('id', user.id);
-
-      if (error) {
-        throw error;
+      // Save completion data to new tables
+      const userId = await ensureAnonymousUser();
+      if (userId) {
+        await saveOnboardingStep('completed', { 
+          paymentCompleted: true,
+          subscriptionStatus: 'active'
+        });
+        await trackUserAction('paywall_completed', { step });
       }
       
-      console.log('[Auth] ✅ Onboarding completed in database');
+      // Mark onboarding as completed
+              localStorage.setItem('onboarding_completed', 'true');
+        
+        // Also mark onboarding as completed in database
+        if (userId) {
+          await supabase
+            .from('onboarding_v2')
+            .update({
+              completed: true,
+              completed_at: new Date().toISOString(),
+              current_step: 'completed'
+            })
+            .eq('user_id', userId);
+        }
+      localStorage.setItem('subscription_active', 'true');
       
-      // 2. Force refetch onboarding status
-      await refetchOnboardingStatus();
-      console.log('[Auth] ✅ Onboarding status refetched');
+      toast({
+        title: "Welcome to Pro! 🎉",
+        description: "Your subscription is now active.",
+      });
       
-      // 3. CRITICAL: Wait longer for state to propagate
-      await new Promise(resolve => setTimeout(resolve, 500)); // Increased from 200ms
-      
-      // 4. Force check the state before navigation
-      const { data: verifyProfile } = await supabase
-        .from('profiles')
-        .select('onboarding_completed')
-        .eq('id', user.id)
-        .single();
-      
-      console.log('[Auth] 🔍 Verification check:', verifyProfile);
-      
-      if (verifyProfile?.onboarding_completed !== true) {
-        console.error('[Auth] ❌ State not synced, retrying...');
-        await refetchOnboardingStatus();
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      
-      // 5. Force a hard reload to dashboard to guarantee navigation
-      console.log('[Auth] 🚨 Forcing hard reload to dashboard');
-      window.location.href = '/dashboard';
+      // Navigate to dashboard
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1000);
       
     } catch (error) {
-      console.error('[Auth] ❌ Error completing onboarding:', error);
-      toast({
-        title: "Error",
-        description: "Failed to complete onboarding. Please try again.",
-        variant: "destructive"
-      });
+      handleError(error, 'Auth:handlePaywallComplete');
     }
   };
 
-  const handlePaywallSkip = () => {
-    navigate('/dashboard', { replace: true });
-  };
 
-  // Calculate progress (steps 1-12 are the main onboarding)
-  const progress = Math.min((step / 12) * 100, 100);
 
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [showResult, setShowResult] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  const fakeResult = {
-    overallScore: 83,
-    imageUrl: imageUrl || '',
-    breakdown: [
-      { category: 'Aura', score: 98, emoji: '✨' },
-      { category: 'Fit', score: 75, emoji: '🧥' },
-      { category: 'Color', score: 80, emoji: '🎨' }
-    ],
-    summary: "Your style aura is off the charts! Fit and color are solid. Unlock the full breakdown by upgrading.",
-    tips: [],
-    rawAnalysis: "Demo analysis"
-  };
-
-  const isCapacitor = Capacitor?.isNativePlatform?.() || false;
-
-  const handleTakePhoto = async () => {
-    if (!isCapacitor) return;
-    try {
-      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-      const photo = await Camera.getPhoto({
-        quality: 80,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-      });
-      if (photo?.dataUrl) {
-        const res = await fetch(photo.dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], 'photo.jpg', { type: blob.type });
-        setSelectedImage(file);
-        setImageUrl(photo.dataUrl);
-      }
-    } catch (e) {
-      alert('Camera error: ' + e);
-    }
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      setImageUrl(URL.createObjectURL(file));
-    }
-  };
-
-  const handleAnalyze = async () => {
-    if (!selectedImage) return;
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      setResult({ ...fakeResult, imageUrl: imageUrl || URL.createObjectURL(selectedImage) });
-      setShowResult(true);
-      setIsAnalyzing(false);
-      setTimeout(() => {
-        requestInAppReview();
-      }, 1000);
-    }, 2200); // Simulate AI delay
-  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex flex-col">
-      {/* Progress Bar - Only show during steps 1-12 */}
-      {/* {step <= 12 && (
-        <div className="p-4">
-          <Progress value={progress} className="w-full" />
-          <p className="text-white/60 text-sm mt-2 text-center">
-            Step {step} of 12
-          </p>
-        </div>
-      )} */}
-
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col">
       {/* Step Content */}
       <div className="flex-1 flex flex-col">
         <AnimatePresence mode="wait">
           {step === 1 && (
             <NewWelcomeStep 
               key="welcome"
-              onNext={() => setStep(2)} 
+              onNext={async () => {
+                const userId = await ensureAnonymousUser();
+                if (userId) {
+                  await saveOnboardingStep('welcome_completed', { startedAt: new Date().toISOString() });
+                  await trackUserAction('welcome_completed', { step: 1 });
+                }
+                setStep(2);
+              }} 
             />
           )}
           
           {step === 2 && (
-            <ShoppingFrequencyStep 
-              key="shopping"
-              onSelect={handleShoppingFrequency} 
+            <HowItWorksStep 
+              key="how-it-works"
+              onNext={handleHowItWorksNext}
+              onBack={handleHowItWorksBack}
             />
           )}
           
           {step === 3 && (
-            <BudgetRangeStep 
-              key="budget"
-              onSelect={handleBudgetRange} 
+            <GetGradeStep 
+              key="get-grade"
+              onPhotoCapture={handlePhotoCapture}
+              onBack={handleGetGradeBack}
             />
           )}
           
           {step === 4 && (
-            <StylePreferencesStep 
-              key="styles"
-              onNext={handleStylePreferences} 
+            <AnalyzingStep 
+              key="analyzing"
+              onComplete={handleAnalyzingComplete}
             />
           )}
           
-          {step === 5 && (
-            <BodyTypeStep 
-              key="body"
-              onSelect={handleBodyType} 
+          {step === 5 && analysisResult && (
+            <TeaserResultStep 
+              key="teaser"
+              onUnlock={handleTeaserUnlock}
+              result={analysisResult}
             />
           )}
           
           {step === 6 && (
-            <FitPreferenceStep 
-              key="fit"
-              onSelect={handleFitPreference} 
-            />
-          )}
-          
-          {step === 7 && (
-            <ColorPaletteStep 
-              key="colors"
-              onNext={handleColorPalette} 
-            />
-          )}
-          
-          {step === 8 && (
-            <ShoeSizeStep 
-              key="shoe"
-              onNext={handleShoeSize} 
-            />
-          )}
-          
-          {step === 9 && (
-            <BrandAffinityStep 
-              key="brands"
-              onNext={handleBrandAffinity} 
-            />
-          )}
-          
-          {step === 10 && (
-            <InspirationLinkStep 
-              key="inspiration"
-              onNext={handleInspiration} 
-            />
-          )}
-          
-          {step === 11 && (
-            <MainGoalStep 
-              key="goal"
-              onSelect={handleMainGoal} 
-            />
-          )}
-          
-          {step === 12 && (
-            <motion.div key="test-photo" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} transition={{ duration: 0.6, ease: "easeOut" }} className="h-full flex flex-col">
-              {isAnalyzing && (
-                <StyleLoadingOverlay isAnalyzing={true} />
-              )}
-              {!showResult ? (
-                <div className="flex-1 flex flex-col justify-center items-center px-8 py-12">
-                  <motion.div animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className="mb-8">
-                    <Sparkles className="w-16 h-16 text-orange-400 mx-auto" />
-                  </motion.div>
-                  <div className="space-y-4 text-center mb-8">
-                    <h2 className="text-4xl font-bold text-white">Let's test it out!</h2>
-                    <p className="text-white/70 text-xl leading-relaxed max-w-sm">Upload or take a photo to get your first style rating</p>
-                  </div>
-                  <div className="w-full max-w-sm mb-8">
-                    {!selectedImage ? (
-                      <div className="border-2 border-dashed border-white/30 rounded-2xl p-8 text-center bg-white/5">
-                        <Camera className="w-12 h-12 text-white/50 mx-auto mb-4" />
-                        <p className="text-white/70 mb-4">Choose a photo</p>
-                        <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" id="photo-upload" />
-                        <label htmlFor="photo-upload" className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl cursor-pointer transition-all duration-300">
-                          <Upload className="w-4 h-4" />Select Photo
-                        </label>
-                        {isCapacitor && (
-                          <Button onClick={handleTakePhoto} className="w-full mt-4 bg-orange-500 text-white">Take Photo</Button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <img src={imageUrl || URL.createObjectURL(selectedImage)} alt="Selected" className="w-full h-64 object-cover rounded-2xl" />
-                        <button onClick={() => { setSelectedImage(null); setImageUrl(null); }} className="absolute top-2 right-2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors">×</button>
-                      </div>
-                    )}
-                  </div>
-                  {selectedImage && (
-                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }} className="px-8 pb-8">
-                      <Button onClick={handleAnalyze} disabled={isAnalyzing} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-16 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl disabled:opacity-50">
-                        {isAnalyzing ? (<div className="flex items-center gap-2"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Analyzing...</div>) : (<><Sparkles className="mr-3 h-5 w-5" />Get My Style Rating</>)}
-                      </Button>
-                    </motion.div>
-                  )}
-                </div>
-              ) : (
-                <motion.div key="result" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} transition={{ duration: 0.6, ease: "easeOut" }} className="h-full flex flex-col items-center justify-center px-8 py-12">
-                  <ModernRatingsDisplay
-                    overallScore={result.overallScore}
-                    profileImage={result.imageUrl}
-                    breakdown={result.breakdown}
-                    isOnboarding={true}
-                  />
-                  <div className="text-white/80 mb-4 mt-6">You're better than <span className="text-orange-400 font-bold">70%</span> of users!</div>
-                  <div className="text-white/60 mb-8 max-w-md mx-auto">{result.summary}</div>
-                  <Button onClick={() => setStep(13)} className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 h-14 text-lg font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-2xl">Continue</Button>
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-          
-          {step === 13 && (
-            <CelebrationNewStep 
-              key="celebration"
-              onNext={() => setStep(14)} 
-            />
-          )}
-          
-          {step === 14 && (
             <ProOfferCard 
               key="paywall"
               onContinue={handlePaywallComplete}
             />
           )}
+
+
         </AnimatePresence>
       </div>
     </div>

@@ -9,6 +9,7 @@ import { Button } from "./ui/button";
 import { StyleStats } from "./dashboard/StyleStats";
 import { StyleAnalysesList } from "./dashboard/StyleAnalysesList";
 import { QuickStartSection } from "./dashboard/QuickStartSection";
+import { OnboardingCompletionCard } from "./OnboardingCompletionCard";
 import { StyleAnalysis, ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -151,8 +152,10 @@ export const DashboardView = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full max-w-sm mx-auto px-4 pb-6"
+      className="w-full max-w-sm mx-auto px-4 pb-6 space-y-6"
     >
+        {/* Removed onboarding completion card - just let users access dashboard normally */}
+        
         {!hasScans ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

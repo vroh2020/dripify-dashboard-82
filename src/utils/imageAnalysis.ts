@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useScanStore } from '@/store/scanStore';
 import type { StyleAnalysisResult } from '@/types/styleTypes';
 import { parseAnalysis } from '@/utils/analysisParser';
-import Logger from '@/utils/logger';
+import { Logger } from '@/utils/logger';
 import { validateImageFile } from '@/utils/validation';
 
 const fileToBase64 = (file: File): Promise<string> => {
@@ -95,7 +95,7 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
     
     // Parse the analysis response
     const analysisData = parseAnalysis(data.feedback);
-    const overallScore = data.overallScore || analysisData.overallScore || 75;
+    const overallScore = data.overallScore || analysisData.overallScore || 85;
     
     // Add debug logging for tips
     console.log('🔍 DEBUG: Edge function response (first 1000 chars):', data.feedback.substring(0, 1000));
@@ -152,7 +152,7 @@ export const analyzeStyle = async (imageFile: File, isOnboarding = false): Promi
       imageUrl,
       breakdown: analysisData.breakdown || [],
       tips: analysisData.tips || [],
-      summary: analysisData.summary
+      summary: analysisData.summary || ""
     };
     
     // Update scan store for non-onboarding usage
