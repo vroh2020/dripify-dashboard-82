@@ -13,7 +13,7 @@ interface ProOfferCardProps {
 }
 
 // Plan configuration - now dynamic from RevenueCat
-const getPlanConfig = (offerings) => {
+const getPlanConfig = (offerings: any) => {
   if (!offerings || offerings.length === 0) {
     // Fallback config if offerings not loaded
     return {
@@ -96,7 +96,7 @@ const getPlanConfig = (offerings) => {
     }
   };
 
-  packages.forEach(pkg => {
+  packages.forEach((pkg: any) => {
     const product = pkg.product;
     const identifier = product.identifier;
     
@@ -145,7 +145,7 @@ const getPlanConfig = (offerings) => {
 };
 
 // Plan Option Component - Dark Theme
-const PlanOption = ({ planKey, config, isSelected, onSelect }) => (
+const PlanOption = ({ planKey, config, isSelected, onSelect }: { planKey: any; config: any; isSelected: any; onSelect: any }) => (
   <button 
     className={`w-full text-left rounded-xl border-2 p-4 transition-all duration-300 ${
       isSelected 
@@ -200,7 +200,7 @@ const ErrorMessage = ({ message = "Payment didn't go through. Please try again."
 );
 
 // CTA Button Component
-const CTAButton = ({ isProcessing, hasError, onClick, disabled }) => {
+const CTAButton = ({ isProcessing, hasError, onClick, disabled }: { isProcessing: any; hasError: any; onClick: any; disabled: any }) => {
   const getButtonContent = () => {
     if (isProcessing) {
       return (
@@ -276,7 +276,7 @@ const LegalLinks = () => {
 };
 
 // Restore Purchases Button Component
-const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }) => {
+const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRestore: any; isRestoring: any; restoreMsg: any }) => {
   const isNativePlatform = () => {
     return !!(window as any).Capacitor || 
            !!(window as any).cordova || 
@@ -387,7 +387,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   }, [user]);
 
-  const getProduct = (planKey) => {
+  const getProduct = (planKey: any) => {
     const config = getPlanConfig(offerings)[planKey];
     const product = offerings?.[0]?.availablePackages?.find(
       (pkg) => pkg.product.identifier === config.identifier
@@ -396,114 +396,34 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   };
 
   const handlePurchase = async () => {
-    console.log('🔄 Purchase button clicked!');
-    console.log('📊 Current state:', { isProcessing, user: !!user, selectedPlan });
-    
-    if (isProcessing) {
-      console.log('❌ Already processing, ignoring click');
-      return;
-    }
-    
-    if (!effectiveUser) {
-      console.log('⚠️ No effective user found, but proceeding with payment simulation');
-      if (isWebPlatform) {
-        console.log('🌐 Web platform - proceeding with payment simulation');
-      } else {
-        console.log('❌ No effective user found, cannot proceed');
-        toast({ 
-          variant: "destructive", 
-          title: "Authentication Error", 
-          description: "Please refresh the page and try again." 
-        });
-        return;
-      }
-    }
-    
-    console.log('🌐 Platform context:', { 
-      isWebPlatform, 
-      hasRealUser: !!user, 
-      effectiveUserId: effectiveUser?.id 
-    });
+    if (isProcessing) return;
     
     setIsProcessing(true);
     setHasError(false);
     
     try {
-      console.log('🔄 Getting product for plan:', selectedPlan);
       const selectedProduct = getProduct(selectedPlan);
-      console.log('📦 Selected product:', selectedProduct);
+      const success = await purchaseProduct(selectedProduct);
       
-      console.log('🔄 Calling payment service...');
-      
-      let result;
-      if (isWebPlatform) {
-        console.log('🌐 Web platform detected - using simulation');
-        const userId = effectiveUser?.id || 'anonymous-user';
-        result = await paymentService.purchaseProduct(null, userId);
-      } else {
-        const userId = effectiveUser?.id || 'anonymous-user';
-        result = await paymentService.purchaseProduct(selectedProduct, userId);
-      }
-      
-      console.log('📊 Payment result:', result);
-      
-      if (result.success) {
-        console.log('✅ Payment successful!');
+      if (success) {
         toast({ 
           title: "Welcome to Pro! 🎉", 
           description: "Your subscription is now active." 
         });
-        
-        console.log('🎯 Payment successful - calling onContinue callback');
-        onContinue();
+        setTimeout(onContinue, 1000);
       } else {
-        console.log('❌ Payment failed:', result.error);
-        if (result.error?.includes('cancelled')) {
-          toast({ 
-            title: "Payment Cancelled", 
-            description: "You can try again anytime." 
-          });
-        } else if (result.error?.includes('already active')) {
-          toast({ 
-            title: "Subscription Already Active", 
-            description: "You already have an active subscription!" 
-          });
-          console.log('🎯 Subscription already active - calling onContinue callback');
-          onContinue();
-        } else {
-          setHasError(true);
-          // Show more specific error messages
-          let errorMessage = "Please try again or contact support.";
-          if (result.error?.includes('subscription not active')) {
-            errorMessage = "Payment processed but subscription activation failed. Please contact support.";
-          } else if (result.error?.includes('network') || result.error?.includes('timeout')) {
-            errorMessage = "Network error. Please check your connection and try again.";
-          } else if (result.error?.includes('payment')) {
-            errorMessage = "Payment method issue. Please try a different payment method.";
-          }
-          
-          toast({ 
-            variant: "destructive", 
-            title: "Purchase Failed", 
-            description: errorMessage
-          });
-        }
+        setHasError(true);
       }
     } catch (error) {
-      console.error("❌ Purchase error:", error);
+      console.error("Purchase error:", error);
       setHasError(true);
-      toast({ 
-        variant: "destructive", 
-        title: "Purchase Failed", 
-        description: "Please try again or contact support." 
-      });
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleRestorePurchases = async (platform: 'web' | 'native') => {
-    if (isRestoring || !effectiveUser) return;
+    if (isRestoring) return;
     
     setIsRestoring(true);
     setRestoreMsg('');
@@ -513,8 +433,8 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       if (platform === 'web') {
         setRestoreMsg('Restore Purchases is only available on iOS/Android apps. Please use the mobile app to restore your purchases.');
       } else {
-        const result = await paymentService.restorePurchases(effectiveUser.id);
-        if (result.success) {
+        const success = await restorePurchases();
+        if (success) {
           setRestoreMsg('✓ Welcome back! Your subscription has been restored successfully.');
           setShouldContinueAfterRestore(true);
         } else {

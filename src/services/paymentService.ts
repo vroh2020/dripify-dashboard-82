@@ -6,7 +6,7 @@ import { Purchases, PurchasesPackage } from '@revenuecat/purchases-capacitor';
 export interface PaymentResult {
   success: boolean;
   subscriptionStatus?: 'active' | 'inactive';
-  expirationDate?: Date;
+  expirationDate?: Date | undefined;
   error?: string;
 }
 
@@ -82,7 +82,7 @@ export class PaymentService {
       
       if (isActive) {
         // Update Supabase profile
-        await this.updateSubscriptionStatus(userId, 'active', customerInfo.latestExpirationDate);
+        await this.updateSubscriptionStatus(userId, 'active', customerInfo.latestExpirationDate || undefined);
         
         return {
           success: true,
@@ -180,7 +180,7 @@ export class PaymentService {
       const isActive = customerInfo.entitlements.active?.['pro']?.isActive || false;
       
       if (isActive) {
-        await this.updateSubscriptionStatus(userId, 'active', customerInfo.latestExpirationDate);
+        await this.updateSubscriptionStatus(userId, 'active', customerInfo.latestExpirationDate || undefined);
         
         return {
           success: true,
