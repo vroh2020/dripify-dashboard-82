@@ -71,6 +71,63 @@ export const GetGradeStep = ({ onPhotoCapture, onBack }: GetGradeStepProps) => {
     }
   };
 
+  const handlePhotoLibrary = async () => {
+    if (!isCapacitor) {
+      // Web platform - use file upload without camera
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          console.log('📸 Web photo from library selected:', file.name, file.size);
+          onPhotoCapture(file);
+        }
+      };
+      input.click();
+      return;
+    }
+
+    // Native platform - use Capacitor Camera with Photo Library
+    try {
+      console.log('📸 Opening photo library...');
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      
+      const photo = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos, // Use photo library instead of camera
+        promptLabelHeader: 'Select your picture',
+        promptLabelCancel: 'Cancel',
+        promptLabelPhoto: 'Photo',
+      });
+      
+      if (photo?.dataUrl) {
+        console.log('📸 Photo from library selected, converting to file...');
+        const res = await fetch(photo.dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], 'photo.jpg', { type: blob.type });
+        console.log('✅ Photo converted to file:', file.name, file.size);
+        onPhotoCapture(file);
+      } else {
+        console.log('❌ No photo data received from library');
+        toast({
+          title: "No Photo Selected",
+          description: "Please try selecting a photo again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('📸 Photo library error:', error);
+      toast({
+        title: "Photo Library Error",
+        description: "Unable to access photo library. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -124,7 +181,7 @@ export const GetGradeStep = ({ onPhotoCapture, onBack }: GetGradeStepProps) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.5 }}
-          className="w-full max-w-sm"
+          className="w-full max-w-sm space-y-3"
         >
           <Button
             onClick={handleTakePhoto}
@@ -141,6 +198,16 @@ export const GetGradeStep = ({ onPhotoCapture, onBack }: GetGradeStepProps) => {
                 Scan your drip
               </>
             )}
+          </Button>
+
+          {/* Photo Library Button for Testing */}
+          <Button
+            onClick={handlePhotoLibrary}
+            variant="outline"
+            className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20 h-12 text-base font-medium rounded-xl transition-all duration-300 backdrop-blur-sm"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Choose from Library
           </Button>
         </motion.div>
       </div>
