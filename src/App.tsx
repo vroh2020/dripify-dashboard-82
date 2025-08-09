@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
-import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -24,69 +23,52 @@ const queryClient = new QueryClient({
 });
 
 const AppRoutes = () => {
-  // Simple anonymous onboarding flow logic
-  const hasCompletedOnboarding = localStorage.getItem('onboarding_completed') === 'true';
-  const hasPaid = localStorage.getItem('subscription_active') === 'true';
-
-  // Simple routing logic:
-  // - If user has completed onboarding AND paid, show dashboard
-  // - Otherwise, show onboarding
-  const shouldShowDashboard = hasCompletedOnboarding && hasPaid;
+  // Temporarily force dashboard as the first screen and hide Auth
 
   return (
     <Routes>
-      {/* Onboarding route - always accessible */}
+      {/* Temporarily redirect /auth to /dashboard */}
       <Route 
         path="/auth" 
-        element={
-          shouldShowDashboard ? 
-            <Navigate to="/dashboard" replace /> : 
-            <Auth />
-        } 
+        element={<Navigate to="/dashboard" replace />} 
       />
       
       {/* Dashboard routes - only if completed onboarding and paid */}
-      {shouldShowDashboard ? (
-        <>
-          <Route 
-            path="/dashboard" 
-            element={
-              <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
-                <Index />
-              </Suspense>
-            } 
-          />
-          <Route 
-            path="/scan" 
-            element={
-              <Suspense fallback={<LoadingScreen message="Loading scanner..." />}>
-                <Index />
-              </Suspense>
-            } 
-          />
-          <Route 
-            path="/tips" 
-            element={
-              <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
-                <Index />
-              </Suspense>
-            } 
-          />
-          <Route 
-            path="/profile" 
-            element={
-              <Suspense fallback={<LoadingScreen message="Loading profile..." />}>
-                <Profile />
-              </Suspense>
-            } 
-          />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </>
-      ) : (
-        // Not completed onboarding or not paid - redirect to auth
-        <Route path="*" element={<Navigate to="/auth" replace />} />
-      )}
+      {/* Always expose dashboard routes during this temporary state */}
+      <Route 
+        path="/dashboard" 
+        element={
+          <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
+            <Index />
+          </Suspense>
+        } 
+      />
+      <Route 
+        path="/scan" 
+        element={
+          <Suspense fallback={<LoadingScreen message="Loading scanner..." />}>
+            <Index />
+          </Suspense>
+        } 
+      />
+      <Route 
+        path="/tips" 
+        element={
+          <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
+            <Index />
+          </Suspense>
+        } 
+      />
+      <Route 
+        path="/profile" 
+        element={
+          <Suspense fallback={<LoadingScreen message="Loading profile..." />}>
+            <Profile />
+          </Suspense>
+        } 
+      />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 };
