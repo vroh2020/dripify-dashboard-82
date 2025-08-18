@@ -22,42 +22,34 @@ post_install do |installer|
   # Fix for Xcode 16.4 Swift 6 compatibility issues
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
-      # Disable Swift 6 warnings that cause build failures in CI
+      # Force Swift 5 language mode to avoid Swift 6 compatibility issues
+      config.build_settings['SWIFT_LANGUAGE_VERSION'] = '5.0'
       config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
       config.build_settings['SWIFT_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
-      # Ensure consistent Swift version
-      config.build_settings['SWIFT_VERSION'] = '5.0'
-      
-      # Add specific flags to resolve type ambiguity issues
-      config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
-      config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule'
-      
-      # Disable Swift 6 strict concurrency checking
-      config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'complete'
-      
-      # Add module map settings to avoid type conflicts
-      config.build_settings['DEFINES_MODULE'] = 'YES'
-      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
-      
-      # Force Swift 5 language mode to avoid Swift 6 type ambiguity issues
-      config.build_settings['SWIFT_LANGUAGE_VERSION'] = '5.0'
       
       # Specific fix for PurchasesHybridCommon SubscriptionPeriod ambiguity
       if target.name == 'PurchasesHybridCommon'
-        config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = '$(inherited) SWIFT_PACKAGE'
-        config.build_settings['SWIFT_INCLUDE_PATHS'] = '$(inherited) $(PODS_ROOT)/RevenueCat/Sources'
-        config.build_settings['SWIFT_MODULE_NAME'] = 'PurchasesHybridCommon'
-        # Disable Swift 6 language mode for this specific target
-        config.build_settings['SWIFT_LANGUAGE_VERSION'] = '5.0'
+        # Add explicit type resolution flags
+        config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = '$(inherited) REVENUECAT_HYBRID'
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) REVENUECAT_HYBRID=1'
+        # Force module resolution
+        config.build_settings['DEFINES_MODULE'] = 'YES'
+        config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+        # Add explicit import path to resolve type ambiguity
+        config.build_settings['SWIFT_INCLUDE_PATHS'] = '$(inherited) $(PODS_ROOT)/PurchasesHybridCommon'
       end
+      
+      # General module settings
+      config.build_settings['DEFINES_MODULE'] = 'YES'
+      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
     end
   end
 end
 ```
 
 ### 2. Updated build.xcconfig
-Added comprehensive Swift compiler settings to the main app target:
-```
+Added comprehensive Swift compiler settings:
+```xcconfig
 // Swift compiler settings to fix Xcode 16.4 compatibility issues
 SWIFT_SUPPRESS_WARNINGS = YES
 SWIFT_TREAT_WARNINGS_AS_ERRORS = NO
@@ -73,33 +65,25 @@ DEFINES_MODULE = YES
 CLANG_ENABLE_MODULES = YES
 ```
 
-### 3. Created Clean Scripts
+### 3. Created Clean and Rebuild Scripts
 - `ios/clean_and_rebuild.sh` (macOS/Linux)
 - `ios/clean_and_rebuild.bat` (Windows)
 
-## Why This Fix Works
-
-1. **Targeted Approach**: Specifically addresses the PurchasesHybridCommon target causing the issue
-2. **Swift 5 Compatibility**: Forces Swift 5 language mode to avoid Swift 6 type ambiguity
-3. **Module Resolution**: Adds proper module settings to resolve type conflicts
-4. **CI-Specific**: Addresses the version difference between local and CI environments
-5. **Future-Proof**: Will work with future Xcode updates
-
-## Testing
-
-To test the fix locally:
-1. Run the clean script: `./ios/clean_and_rebuild.sh` (macOS) or `ios\clean_and_rebuild.bat` (Windows)
-2. Sync Capacitor: `npx cap sync ios`
-3. Build the project: `npx cap build ios`
-
 ## Current Status
+The build is still failing with the same error. The issue persists because:
 
-**Latest Fix Applied**: Added `SWIFT_LANGUAGE_VERSION = '5.0'` to force Swift 5 compatibility and prevent Swift 6 type ambiguity issues.
+1. **Type Ambiguity**: The `SubscriptionPeriod` type is defined in multiple RevenueCat modules
+2. **Swift 6 Compatibility**: Xcode 16.4 has stricter type checking
+3. **Module Resolution**: The compiler can't determine which `SubscriptionPeriod` to use
 
-## Notes
+## Next Steps
+If this fix doesn't work, we may need to:
+1. Update to a newer version of RevenueCat Capacitor plugin
+2. Apply a direct patch to the problematic Swift file
+3. Use a different approach to resolve the type ambiguity
 
-- This fix only affects the build process, not the runtime behavior
-- The app functionality remains unchanged
-- Local development continues to work as before
-- CI builds should now succeed with Xcode 16.4
-- The fix specifically targets the PurchasesHybridCommon module that was causing the SubscriptionPeriod ambiguity
+## Build Environment
+- **Build Stack**: macOS - 2025.06 - Apple silicon
+- **Xcode Version**: 16.4 (Build version 16F6)
+- **Swift Version**: 6.0 compatibility checks
+- **RevenueCat Version**: @revenuecat/purchases-capacitor@8.0.0
