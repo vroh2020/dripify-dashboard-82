@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { handleAnonymousSign } from "../utils/auth";
 import { Capacitor } from '@capacitor/core';
 import { Logger } from "@/utils/logger";
+import { requestInAppReview } from "@/utils/inAppReview";
 
 interface NewWelcomeStepProps {
   onNext: () => void;
@@ -18,13 +19,15 @@ export const NewWelcomeStep = ({ onNext }: NewWelcomeStepProps) => {
       const success = await handleAnonymousSign();
       
       if (success) {
-        // Trigger in-app review before proceeding (simplified approach)
+        // Trigger in-app review before proceeding
         try {
           const isCapacitor = Capacitor?.isNativePlatform?.() || false;
           if (isCapacitor) {
-            // For now, just log that we would request a review
-            // You can implement the actual review request when the plugin is available
-            Logger.info('WelcomeStep', 'Would request app review here');
+            Logger.info('WelcomeStep', 'Requesting in-app review...');
+            await requestInAppReview();
+            Logger.info('WelcomeStep', 'In-app review request completed');
+          } else {
+            Logger.info('WelcomeStep', 'Web platform - skipping in-app review');
           }
         } catch (reviewError) {
           Logger.warn('WelcomeStep', 'In-app review not available:', reviewError);
