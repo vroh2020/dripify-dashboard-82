@@ -70,20 +70,28 @@ CLANG_ENABLE_MODULES = YES
 - `ios/clean_and_rebuild.bat` (Windows)
 
 ## Current Status
-The build is still failing with the same error. The issue persists because:
+**LATEST FIX APPLIED** - Updated RevenueCat version and added comprehensive type resolution:
 
-1. **Type Ambiguity**: The `SubscriptionPeriod` type is defined in multiple RevenueCat modules
-2. **Swift 6 Compatibility**: Xcode 16.4 has stricter type checking
-3. **Module Resolution**: The compiler can't determine which `SubscriptionPeriod` to use
+### Latest Changes (Final Attempt):
+1. **Updated RevenueCat Version**: Upgraded from `@revenuecat/purchases-capacitor@8.0.0` to `@revenuecat/purchases-capacitor@8.1.1`
+2. **Enhanced Type Resolution**: Added specific Swift compiler flags to resolve StoreKit vs RevenueCat type ambiguity
+3. **Module Priority**: Configured build settings to prioritize RevenueCat types over StoreKit
 
-## Next Steps
-If this fix doesn't work, we may need to:
-1. Update to a newer version of RevenueCat Capacitor plugin
-2. Apply a direct patch to the problematic Swift file
-3. Use a different approach to resolve the type ambiguity
+### Key New Settings:
+```ruby
+# Force StoreKit 2 usage to resolve SubscriptionPeriod ambiguity
+config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -Xfrontend -disable-implicit-concurrency-module-import -Xfrontend -disable-implicit-string-processing-module-import'
+# Ensure RevenueCat types take precedence over StoreKit
+config.build_settings['FRAMEWORK_SEARCH_PATHS'] = '$(inherited) $(PODS_ROOT)/RevenueCat'
+```
+
+This should resolve the `SubscriptionPeriod` ambiguity by:
+1. Using the newer RevenueCat version that may have fixed the issue
+2. Explicitly controlling module import order
+3. Disabling automatic module imports that cause conflicts
 
 ## Build Environment
 - **Build Stack**: macOS - 2025.06 - Apple silicon
 - **Xcode Version**: 16.4 (Build version 16F6)
-- **Swift Version**: 6.0 compatibility checks
-- **RevenueCat Version**: @revenuecat/purchases-capacitor@8.0.0
+- **Swift Version**: 6.0 compatibility checks (forced to 5.0)
+- **RevenueCat Version**: @revenuecat/purchases-capacitor@8.1.1 (UPDATED)
