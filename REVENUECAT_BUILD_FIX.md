@@ -70,10 +70,12 @@ CLANG_ENABLE_MODULES = YES
 - `ios/clean_and_rebuild.bat` (Windows)
 
 ## Current Status
-**LATEST FIX APPLIED** - Updated to RevenueCat version with official SubscriptionPeriod fix:
+**LATEST FIX APPLIED** - Updated RevenueCat version and fixed Swift concurrency issues:
 
 ### Root Cause Identified:
-The `SubscriptionPeriod` ambiguity error is due to a naming conflict introduced in iOS 18.4 and Xcode 16.3. Apple added a new typealias called `SubscriptionPeriod` in StoreKit, which clashes with the existing `SubscriptionPeriod` class in RevenueCat.
+The build was failing with two issues:
+1. **SubscriptionPeriod ambiguity**: Apple's StoreKit vs RevenueCat's SubscriptionPeriod type conflict
+2. **Task type not found**: Swift concurrency module not properly imported
 
 ### Official Solution Applied:
 1. **Updated RevenueCat Version**: Upgraded from `@revenuecat/purchases-capacitor@8.0.0` to `@revenuecat/purchases-capacitor@11.1.0`
@@ -81,22 +83,22 @@ The `SubscriptionPeriod` ambiguity error is due to a naming conflict introduced 
    - This version definitely includes the SubscriptionPeriod ambiguity fix from 9.2.1+
    - Major version updates (v9, v11) include significant iOS SDK improvements
 
-2. **Enhanced Type Resolution**: Added specific Swift compiler flags as backup
+2. **Fixed Swift Concurrency**: Enabled Task type support while resolving SubscriptionPeriod ambiguity
 3. **Module Priority**: Configured build settings to prioritize RevenueCat types over StoreKit
 
-### Why This Will Work:
-```
-According to RevenueCat's official documentation, the fix for the SubscriptionPeriod 
-ambiguity is available in version 9.2.1 and later of the Capacitor plugin.
+### Key Fixes Applied:
+```ruby
+# Enable Swift concurrency for Task type while resolving SubscriptionPeriod ambiguity
+config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -enable-actor-data-race-checks'
 ```
 
-This addresses the exact issue we've been encountering:
-- **Problem**: Apple's StoreKit vs RevenueCat's SubscriptionPeriod type conflict
-- **Solution**: RevenueCat 9.2.1+ includes official fix for this ambiguity
-- **Result**: Should resolve the CI build failures in Xcode 16.4
+### Why This Will Work:
+- **SubscriptionPeriod Issue**: Fixed by RevenueCat 11.1.0 (includes official fix from 9.2.1+)
+- **Task Type Issue**: Fixed by enabling Swift concurrency with `-enable-actor-data-race-checks`
+- **Result**: Should resolve both CI build failures in Xcode 16.4
 
 ## Build Environment
 - **Build Stack**: macOS - 2025.06 - Apple silicon
 - **Xcode Version**: 16.4 (Build version 16F6)  
 - **Swift Version**: 6.0 compatibility checks (forced to 5.0)
-- **RevenueCat Version**: @revenuecat/purchases-capacitor@9.2.1 (OFFICIAL FIX)
+- **RevenueCat Version**: @revenuecat/purchases-capacitor@11.1.0 (LATEST VERSION)

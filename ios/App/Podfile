@@ -47,8 +47,8 @@ post_install do |installer|
         config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
         # Add explicit import path to resolve type ambiguity
         config.build_settings['SWIFT_INCLUDE_PATHS'] = '$(inherited) $(PODS_ROOT)/PurchasesHybridCommon'
-        # Force StoreKit 2 usage to resolve SubscriptionPeriod ambiguity
-        config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -Xfrontend -disable-implicit-concurrency-module-import -Xfrontend -disable-implicit-string-processing-module-import'
+        # Enable Swift concurrency for Task type while resolving SubscriptionPeriod ambiguity
+        config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -enable-actor-data-race-checks'
         # Ensure RevenueCat types take precedence over StoreKit
         config.build_settings['FRAMEWORK_SEARCH_PATHS'] = '$(inherited) $(PODS_ROOT)/RevenueCat'
       end

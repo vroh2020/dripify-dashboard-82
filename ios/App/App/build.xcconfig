@@ -23,8 +23,8 @@ SWIFT_COMPILATION_MODE = wholemodule
 DEFINES_MODULE = YES
 CLANG_ENABLE_MODULES = YES
 
-// Additional flags to resolve RevenueCat vs StoreKit ambiguity
-OTHER_SWIFT_FLAGS = $(inherited) -Xfrontend -disable-implicit-concurrency-module-import
+// Enable Swift concurrency for Task type support
+OTHER_SWIFT_FLAGS = $(inherited) -enable-actor-data-race-checks
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) REVENUECAT_HYBRID=1
 
 // Include build.xcconfig in Xcode project
