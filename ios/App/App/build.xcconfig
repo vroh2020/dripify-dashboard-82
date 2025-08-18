@@ -13,6 +13,15 @@ SWIFT_SUPPRESS_WARNINGS = YES
 SWIFT_TREAT_WARNINGS_AS_ERRORS = NO
 SWIFT_VERSION = 5.0
 
+// Disable Swift 6 features that cause type ambiguity
+SWIFT_STRICT_CONCURRENCY = complete
+SWIFT_OPTIMIZATION_LEVEL = -O
+SWIFT_COMPILATION_MODE = wholemodule
+
+// Module settings to avoid type conflicts
+DEFINES_MODULE = YES
+CLANG_ENABLE_MODULES = YES
+
 // Include build.xcconfig in Xcode project
 #include? "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"
 #include? "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"

@@ -37,6 +37,29 @@ post_install do |installer|
       config.build_settings['SWIFT_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
       # Ensure consistent Swift version
       config.build_settings['SWIFT_VERSION'] = '5.0'
+      
+      # Add specific flags to resolve type ambiguity issues
+      config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
+      config.build_settings['SWIFT_COMPILATION_MODE'] = 'wholemodule'
+      
+      # Disable Swift 6 strict concurrency checking
+      config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'complete'
+      
+      # Add module map settings to avoid type conflicts
+      config.build_settings['DEFINES_MODULE'] = 'YES'
+      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+      
+      # Force Swift 5 language mode to avoid Swift 6 type ambiguity issues
+      config.build_settings['SWIFT_LANGUAGE_VERSION'] = '5.0'
+      
+      # Specific fix for PurchasesHybridCommon SubscriptionPeriod ambiguity
+      if target.name == 'PurchasesHybridCommon'
+        config.build_settings['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = '$(inherited) SWIFT_PACKAGE'
+        config.build_settings['SWIFT_INCLUDE_PATHS'] = '$(inherited) $(PODS_ROOT)/RevenueCat/Sources'
+        config.build_settings['SWIFT_MODULE_NAME'] = 'PurchasesHybridCommon'
+        # Disable Swift 6 language mode for this specific target
+        config.build_settings['SWIFT_LANGUAGE_VERSION'] = '5.0'
+      end
     end
   end
 end
