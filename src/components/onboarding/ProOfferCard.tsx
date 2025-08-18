@@ -575,10 +575,15 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-3 py-3"
+      className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-3 py-3 relative"
+      style={{ 
+        background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
+        minHeight: '100vh',
+        minHeight: '100dvh'
+      }}
     >
       {/* Compact Content Area */}
-      <div className="flex-1 bg-black rounded-xl shadow-2xl p-4 flex flex-col max-w-sm mx-auto w-full">
+      <div className="flex-1 bg-black/90 backdrop-blur-sm rounded-xl shadow-2xl p-4 flex flex-col max-w-sm mx-auto w-full border border-white/10">
         
         {/* Compact Header */}
         <motion.div
