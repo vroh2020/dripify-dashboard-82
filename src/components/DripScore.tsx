@@ -4,19 +4,30 @@ import { User } from "lucide-react";
 
 interface DripScoreProps {
   score: number;
-  feedback: string;
   profileImage?: string;
 }
 
-export const DripScore = ({ score, feedback, profileImage }: DripScoreProps) => {
+export const DripScore = ({ score, profileImage }: DripScoreProps) => {
   const getScoreColor = (score: number) => {
-    if (score >= 90) return {
+    if (score >= 80) return {
       gradient: "from-green-400 to-green-500",
       text: "text-green-400",
       bg: "bg-green-500",
       strokeColor: "#4ade80"
     };
     if (score >= 70) return {
+      gradient: "from-emerald-400 to-emerald-500", 
+      text: "text-emerald-400",
+      bg: "bg-emerald-500",
+      strokeColor: "#34d399"
+    };
+    if (score >= 60) return {
+      gradient: "from-yellow-400 to-yellow-500", 
+      text: "text-yellow-400",
+      bg: "bg-yellow-500",
+      strokeColor: "#fbbf24"
+    };
+    if (score >= 50) return {
       gradient: "from-orange-400 to-orange-500", 
       text: "text-orange-400",
       bg: "bg-orange-500",
@@ -126,7 +137,10 @@ export const DripScore = ({ score, feedback, profileImage }: DripScoreProps) => 
         <div className="flex items-center justify-center space-x-2">
           <div className={cn("w-2 h-2 rounded-full", colors.bg)}></div>
           <span className="text-white font-medium text-sm">
-            {score >= 90 ? "Exceptional Style" : score >= 70 ? "Great Style" : "Good Foundation"}
+            {score >= 80 ? "Exceptional Style" : 
+             score >= 70 ? "Great Style" : 
+             score >= 60 ? "Good Style" : 
+             score >= 50 ? "Decent Style" : "Needs Work"}
           </span>
           <div className={cn("w-2 h-2 rounded-full", colors.bg)}></div>
         </div>

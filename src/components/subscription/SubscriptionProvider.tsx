@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useRef, useCallback, useMemo, useState } from 'react';
+import { createContext, useContext, ReactNode, useRef, useCallback, useMemo } from 'react';
 import { useRevenueCatManager, SubscriptionStatus } from '@/hooks/useRevenueCatManager';
 import { PurchasesPackage } from '@revenuecat/purchases-capacitor';
 
@@ -39,7 +39,6 @@ interface SubscriptionProviderProps {
 
 export const SubscriptionProvider = ({ children }: SubscriptionProviderProps) => {
   // Always declare all hooks at the top level
-  const [isInitialized, setIsInitialized] = useState(false);
   const lastRefreshRef = useRef<Date | null>(null);
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 

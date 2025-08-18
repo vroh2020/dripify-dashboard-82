@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Camera, ArrowLeft, Sparkles, Upload } from "lucide-react";
+import { Camera, ArrowLeft, Upload } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
 import { useToast } from "@/hooks/use-toast";
 

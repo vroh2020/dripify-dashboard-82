@@ -10,6 +10,18 @@ export const REVENUECAT_CONFIG = {
     weekly: 4.99,
     monthly: 9.99,
   },
+  trials: {
+    weekly: {
+      hasTrial: true,
+      trialDays: 3,
+      trialText: "3-day free trial, then $4.99/week"
+    },
+    monthly: {
+      hasTrial: false,
+      trialDays: 0,
+      trialText: "$9.99/month"
+    }
+  },
   developmentMode: {
     enabled: process.env.NODE_ENV === 'development',
     mockSubscription: false, // Disable mock to use real RevenueCat

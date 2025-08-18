@@ -11,26 +11,9 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
-          age_range: string | null
-          avatar_url: string | null
-          body_type: string | null
-          budget_range: string | null
-          color_preferences: string[] | null
-          created_at: string
-          favorite_brands: string[] | null
-          gender: string | null
           id: string
-          main_goal: string | null
-          onboarding_completed: boolean | null
-          referral_source: string | null
-          size_info: Json | null
-          style_preference: string | null
-          style_preferences: string[] | null
-          subscription_status: string | null
-          subscription_expiry: string | null
-          updated_at: string | null
           username: string | null
-          // Add missing onboarding fields
+          onboarding_completed: boolean | null
           onboarding_step: string | null
           onboarding_data: Json | null
           style_vibe: string | null
@@ -46,29 +29,21 @@ export type Database = {
           last_analysis_score: number | null
           onboarding_started_at: string | null
           onboarding_completed_at: string | null
+          subscription_status: string | null
           subscription_expires_at: string | null
+          subscription_product_id: string | null
+          subscription_platform: string | null
+          trial_started_at: string | null
+          trial_expires_at: string | null
+          trial_converted_at: string | null
+          is_in_trial: boolean | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          age_range?: string | null
-          avatar_url?: string | null
-          body_type?: string | null
-          budget_range?: string | null
-          color_preferences?: string[] | null
-          created_at?: string
-          favorite_brands?: string[] | null
-          gender?: string | null
           id: string
-          main_goal?: string | null
-          onboarding_completed?: boolean | null
-          referral_source?: string | null
-          size_info?: Json | null
-          style_preference?: string | null
-          style_preferences?: string[] | null
-          subscription_status?: string | null
-          subscription_expiry?: string | null
-          updated_at?: string | null
           username?: string | null
-          // Add missing onboarding fields
+          onboarding_completed?: boolean | null
           onboarding_step?: string | null
           onboarding_data?: Json | null
           style_vibe?: string | null
@@ -84,29 +59,21 @@ export type Database = {
           last_analysis_score?: number | null
           onboarding_started_at?: string | null
           onboarding_completed_at?: string | null
+          subscription_status?: string | null
           subscription_expires_at?: string | null
+          subscription_product_id?: string | null
+          subscription_platform?: string | null
+          trial_started_at?: string | null
+          trial_expires_at?: string | null
+          trial_converted_at?: string | null
+          is_in_trial?: boolean | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          age_range?: string | null
-          avatar_url?: string | null
-          body_type?: string | null
-          budget_range?: string | null
-          color_preferences?: string[] | null
-          created_at?: string
-          favorite_brands?: string[] | null
-          gender?: string | null
           id?: string
-          main_goal?: string | null
-          onboarding_completed?: boolean | null
-          referral_source?: string | null
-          size_info?: Json | null
-          style_preference?: string | null
-          style_preferences?: string[] | null
-          subscription_status?: string | null
-          subscription_expiry?: string | null
-          updated_at?: string | null
           username?: string | null
-          // Add missing onboarding fields
+          onboarding_completed?: boolean | null
           onboarding_step?: string | null
           onboarding_data?: Json | null
           style_vibe?: string | null
@@ -122,9 +89,26 @@ export type Database = {
           last_analysis_score?: number | null
           onboarding_started_at?: string | null
           onboarding_completed_at?: string | null
+          subscription_status?: string | null
           subscription_expires_at?: string | null
+          subscription_product_id?: string | null
+          subscription_platform?: string | null
+          trial_started_at?: string | null
+          trial_expires_at?: string | null
+          trial_converted_at?: string | null
+          is_in_trial?: boolean | null
+          created_at?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       // Add new onboarding_v2 table
       onboarding_v2: {

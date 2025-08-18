@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { handleAnonymousSign } from "../utils/auth";
+import { Capacitor } from '@capacitor/core';
+import { Logger } from "@/utils/logger";
 
 interface NewWelcomeStepProps {
   onNext: () => void;
@@ -14,17 +15,26 @@ export const NewWelcomeStep = ({ onNext }: NewWelcomeStepProps) => {
 
   const handleGetStarted = async () => {
     try {
-      console.log('🎯 Starting anonymous authentication...');
-      
       const success = await handleAnonymousSign();
       
       if (success) {
-        console.log('✅ Anonymous authentication successful, proceeding to onboarding');
-        // Removed welcome toast notification
+        // Trigger in-app review before proceeding (simplified approach)
+        try {
+          const isCapacitor = Capacitor?.isNativePlatform?.() || false;
+          if (isCapacitor) {
+            // For now, just log that we would request a review
+            // You can implement the actual review request when the plugin is available
+            Logger.info('WelcomeStep', 'Would request app review here');
+          }
+        } catch (reviewError) {
+          Logger.warn('WelcomeStep', 'In-app review not available:', reviewError);
+          // Continue anyway - review is optional
+        }
+        
         // Proceed to next onboarding step
         onNext();
       } else {
-        console.error('❌ Anonymous authentication failed');
+        Logger.error('WelcomeStep', 'Anonymous authentication failed');
         toast({
           title: "Authentication Error",
           description: "Unable to start the app. Please try again.",
@@ -32,7 +42,7 @@ export const NewWelcomeStep = ({ onNext }: NewWelcomeStepProps) => {
         });
       }
     } catch (error) {
-      console.error('💥 Error in handleGetStarted:', error);
+      Logger.error('WelcomeStep', 'Error in handleGetStarted:', error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",

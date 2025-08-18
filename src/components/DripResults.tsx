@@ -123,7 +123,9 @@ export const DripResults = ({
                     animate={{ width: `${(item.score / 100) * 100}%` }}
                     className={`absolute top-0 left-0 h-full rounded-full ${
                       item.score >= 80 ? 'bg-gradient-to-r from-green-500 to-green-400' : 
+                      item.score >= 70 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 
                       item.score >= 60 ? 'bg-gradient-to-r from-yellow-500 to-yellow-400' : 
+                      item.score >= 50 ? 'bg-gradient-to-r from-orange-500 to-orange-400' : 
                       'bg-gradient-to-r from-red-500 to-red-400'
                     }`}
                     transition={{ duration: 1 }}

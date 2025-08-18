@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { Logger } from "@/utils/logger";
 import { handleError } from "@/utils/errorHandler";
 import { supabase } from "@/integrations/supabase/client";
+import { Capacitor } from '@capacitor/core';
 
 // Import step components
 import { NewWelcomeStep } from "../components/onboarding/steps/NewWelcomeStep";
@@ -32,14 +33,13 @@ export const AuthOnboardingWizard = () => {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Get or create persistent anonymous user
+  // Get or create persistent anonymous user (optimized)
   const ensureAnonymousUser = async () => {
     try {
       // If we already have a userId in state, verify it's still valid
       if (userId) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id === userId) {
-          Logger.info('Auth', 'Reusing existing user ID:', userId);
           return userId;
         }
         // Clear invalid cached user
@@ -50,11 +50,9 @@ export const AuthOnboardingWizard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user?.id) {
-        Logger.info('Auth', 'Using Supabase auth user ID:', user.id);
         setUserId(user.id);
         return user.id;
       } else {
-        console.error('❌ No authenticated user found, creating anonymous user...');
         // Auto-create new anonymous user if none exists
         const { handleAnonymousSign } = await import('../components/onboarding/utils/auth');
         const success = await handleAnonymousSign();
@@ -68,7 +66,7 @@ export const AuthOnboardingWizard = () => {
         return null;
       }
     } catch (error) {
-      console.error('❌ Error getting authenticated user:', error);
+      Logger.error('Auth', 'Error getting authenticated user:', error);
       return null;
     }
   };
@@ -87,7 +85,7 @@ export const AuthOnboardingWizard = () => {
 
       // Ignore error if no data exists yet (it's fine, we'll create it)
       if (fetchError && fetchError.code !== 'PGRST116') {
-        console.warn('Error fetching existing data:', fetchError);
+        Logger.warn('Auth', 'Error fetching existing data:', fetchError);
       }
 
       // Merge new step data with existing data (use step_data for now)
@@ -112,17 +110,20 @@ export const AuthOnboardingWizard = () => {
 
       if (error) throw error;
       
-      console.log('✅ Saved onboarding step:', stepName, stepData);
       return true;
     } catch (error) {
-      console.error('❌ Error saving onboarding step:', error);
+      Logger.error('Auth', 'Error saving onboarding step:', error);
       return false;
     }
   };
 
-  // Track user actions in user_analytics table
+  // Track user actions in user_analytics table (optimized - only track key events)
   const trackUserAction = async (action: string, data?: any) => {
     if (!userId) return false;
+    
+    // Only track important events to reduce database load
+    const importantActions = ['paywall_completed', 'analysis_completed', 'photo_uploaded'];
+    if (!importantActions.includes(action)) return true;
     
     try {
       const { error } = await supabase
@@ -136,10 +137,9 @@ export const AuthOnboardingWizard = () => {
 
       if (error) throw error;
       
-      console.log('📊 Tracked user action:', action, data);
       return true;
     } catch (error) {
-      console.error('❌ Error tracking user action:', error);
+      Logger.error('Auth', 'Error tracking user action:', error);
       return false;
     }
   };
@@ -161,10 +161,9 @@ export const AuthOnboardingWizard = () => {
 
       if (error) throw error;
       
-      console.log('✅ Saved analysis result:', { score, imageUrl });
       return true;
     } catch (error) {
-      console.error('❌ Error saving analysis result:', error);
+      Logger.error('Auth', 'Error saving analysis result:', error);
       return false;
     }
   };
@@ -218,14 +217,58 @@ export const AuthOnboardingWizard = () => {
     ensureAnonymousUser();
   }, []);
 
-  // Simple handlers for anonymous flow with new tracking
+  // Simple handlers for anonymous flow with optimized tracking
   const handleHowItWorksNext = async () => {
-    const userId = await ensureAnonymousUser();
-    if (userId) {
-      await saveOnboardingStep('how_it_works_completed', {});
-      await trackUserAction('how_it_works_completed', { step: 2 }); // Updated step number
+    // Auto-trigger camera immediately instead of going to photo upload screen
+    await handleAutoCameraCapture();
+  };
+
+  // Auto-trigger camera capture to reduce drop-off
+  const handleAutoCameraCapture = async () => {
+    try {
+      const isCapacitor = Capacitor?.isNativePlatform?.() || false;
+      
+      if (!isCapacitor) {
+        // Web platform - use file upload
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // Prefer rear camera on mobile web
+        input.onchange = async (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (file) {
+            await handlePhotoCapture(file);
+          }
+        };
+        input.click();
+        return;
+      }
+
+      // Native platform - use Capacitor Camera
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      
+      const photo = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+        promptLabelHeader: 'Take your picture',
+        promptLabelCancel: 'Cancel',
+        promptLabelPhoto: 'Photo',
+      });
+      
+      if (photo?.dataUrl) {
+        const res = await fetch(photo.dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], 'photo.jpg', { type: blob.type });
+        await handlePhotoCapture(file);
+      } else {
+        setStep(3); // Fallback to photo upload screen
+      }
+    } catch (error) {
+      Logger.error('Auth', 'Auto-camera error:', error);
+      setStep(3); // Fallback to photo upload screen
     }
-    setStep(3); // Go directly to photo capture (removed vibe selection)
   };
 
   const handleHowItWorksBack = () => {
@@ -235,6 +278,10 @@ export const AuthOnboardingWizard = () => {
   const handlePhotoCapture = async (file: File) => {
     setSelectedImage(file);
     
+    // Move to analyzing step immediately for faster UX
+    setStep(4);
+    
+    // Save data in background (non-blocking)
     const userId = await ensureAnonymousUser();
     if (!userId) {
       toast({
@@ -245,11 +292,9 @@ export const AuthOnboardingWizard = () => {
       return;
     }
     
-    // Save to database (optional - continues even if fails)
-    await saveOnboardingStep('photo_uploaded', { hasPhoto: true });
-    await trackUserAction('photo_uploaded', { fileSize: file.size, step: 3 }); // Updated step number
-    
-    setStep(4); // Go to analyzing
+    // Save to database in background
+    saveOnboardingStep('photo_uploaded', { hasPhoto: true }).catch(console.error);
+    trackUserAction('photo_uploaded', { fileSize: file.size, step: 3 }).catch(console.error);
   };
 
   const handleGetGradeBack = () => {
@@ -272,33 +317,32 @@ export const AuthOnboardingWizard = () => {
       // Perform fake analysis - no AI credits used
       const analysisResult = await performFakeAnalysis(selectedImage);
       
-      // Save analysis data to tables
+      // Save analysis data to tables in background (non-blocking)
       const userId = await ensureAnonymousUser();
       if (userId) {
-        const saved = await saveAnalysisResult(
+        saveAnalysisResult(
           analysisResult.imageUrl, 
           analysisResult.analysis, 
           analysisResult.analysis.overallScore
-        );
-        
-        if (saved) {
-          await saveOnboardingStep('analysis_completed', { 
-            score: analysisResult.analysis.overallScore,
-            hasAnalysis: true 
-          });
-          await trackUserAction('analysis_completed', { 
-            score: analysisResult.analysis.overallScore,
-            breakdown: analysisResult.analysis.breakdown,
-            step: 4 // Updated step number
-          });
-        }
+        ).catch(console.error);
+         
+        saveOnboardingStep('analysis_completed', { 
+          score: analysisResult.analysis.overallScore,
+          hasAnalysis: true 
+        }).catch(console.error);
+         
+        trackUserAction('analysis_completed', { 
+          score: analysisResult.analysis.overallScore,
+          breakdown: analysisResult.analysis.breakdown,
+          step: 4
+        }).catch(console.error);
       }
       
       setAnalysisResult(analysisResult.analysis);
       localStorage.setItem('analysis_result', JSON.stringify(analysisResult.analysis));
       setStep(5); // Go to teaser results
     } catch (error) {
-      console.error('❌ Analysis failed:', error);
+      Logger.error('Auth', 'Analysis failed:', error);
       toast({
         title: "Analysis Error",
         description: "Failed to analyze your photo. Please try again.",
@@ -310,42 +354,50 @@ export const AuthOnboardingWizard = () => {
   };
 
   const handleTeaserUnlock = async () => {
+    // Move to paywall immediately for faster UX
+    setStep(6);
+    
+    // Save data in background (non-blocking)
     const userId = await ensureAnonymousUser();
     if (userId) {
-      await saveOnboardingStep('teaser_viewed', { unlockedAt: new Date().toISOString() });
-      await trackUserAction('teaser_viewed', { step: 5 }); // Updated step number
+      saveOnboardingStep('teaser_viewed', { unlockedAt: new Date().toISOString() }).catch(console.error);
     }
-    setStep(6); // Go to paywall
   };
 
   const handlePaywallComplete = async () => {
     try {
       Logger.userAction('paywall_completed', { step });
       
-      // Save completion data to new tables
+      // Save completion data to new tables in background (non-blocking)
       const userId = await ensureAnonymousUser();
       if (userId) {
-        await saveOnboardingStep('completed', { 
+        saveOnboardingStep('completed', { 
           paymentCompleted: true,
           subscriptionStatus: 'active'
-        });
-        await trackUserAction('paywall_completed', { step });
+        }).catch(console.error);
+        trackUserAction('paywall_completed', { step }).catch(console.error);
       }
       
       // Mark onboarding as completed
-              localStorage.setItem('onboarding_completed', 'true');
+      localStorage.setItem('onboarding_completed', 'true');
         
-        // Also mark onboarding as completed in database
-        if (userId) {
-          await supabase
-            .from('onboarding_v2')
-            .update({
-              completed: true,
-              completed_at: new Date().toISOString(),
-              current_step: 'completed'
-            })
-            .eq('user_id', userId);
-        }
+      // Also mark onboarding as completed in database (non-blocking)
+      if (userId) {
+        (async () => {
+          try {
+            await supabase
+              .from('onboarding_v2')
+              .update({
+                completed: true,
+                completed_at: new Date().toISOString(),
+                current_step: 'completed'
+              })
+              .eq('user_id', userId);
+          } catch (error) {
+            Logger.error('Auth', 'Error marking onboarding as completed:', error);
+          }
+        })();
+      }
       localStorage.setItem('subscription_active', 'true');
       
       toast({
@@ -363,25 +415,23 @@ export const AuthOnboardingWizard = () => {
     }
   };
 
-
-
-
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col">
       {/* Step Content */}
       <div className="flex-1 flex flex-col">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           {step === 1 && (
             <NewWelcomeStep 
               key="welcome"
               onNext={async () => {
+                // Move to next step immediately for faster UX
+                setStep(2);
+                
+                // Save data in background (non-blocking)
                 const userId = await ensureAnonymousUser();
                 if (userId) {
-                  await saveOnboardingStep('welcome_completed', { startedAt: new Date().toISOString() });
-                  await trackUserAction('welcome_completed', { step: 1 });
+                  saveOnboardingStep('welcome_completed', { startedAt: new Date().toISOString() }).catch(console.error);
                 }
-                setStep(2);
               }} 
             />
           )}
@@ -424,7 +474,6 @@ export const AuthOnboardingWizard = () => {
               onContinue={handlePaywallComplete}
             />
           )}
-
 
         </AnimatePresence>
       </div>

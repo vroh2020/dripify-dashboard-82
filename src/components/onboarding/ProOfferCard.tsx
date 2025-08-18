@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, RefreshCw, ExternalLink, Sparkles, Crown, Zap, TrendingUp, Shield, Star, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, ExternalLink, Sparkles } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
-import { paymentService } from "../../services/paymentService";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from '@capacitor/core';
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -26,6 +24,9 @@ const getPlanConfig = (offerings: any) => {
         length: "1 week",
         label: null,
         savings: null,
+        hasTrial: true,
+        trialDays: 3,
+        trialText: "3-day free trial, then $4.99/week",
         fallback: {
           identifier: "og_499_1w",
           title: "Weekly Subscription of 4.99",
@@ -44,6 +45,9 @@ const getPlanConfig = (offerings: any) => {
         length: "1 month",
         label: null,
         savings: null,
+        hasTrial: false,
+        trialDays: 0,
+        trialText: "$9.99/month",
         fallback: {
           identifier: "og_999_1m",
           title: "Monthly Subscription of 9.99",
@@ -67,6 +71,9 @@ const getPlanConfig = (offerings: any) => {
       length: "1 week",
       label: null,
       savings: null,
+      hasTrial: true,
+      trialDays: 3,
+      trialText: "3-day free trial, then $4.99/week",
       fallback: {
         identifier: "og_499_1w",
         title: "Weekly Subscription of 4.99",
@@ -85,6 +92,9 @@ const getPlanConfig = (offerings: any) => {
       length: "1 month",
       label: null,
       savings: null,
+      hasTrial: false,
+      trialDays: 0,
+      trialText: "$9.99/month",
       fallback: {
         identifier: "og_999_1m",
         title: "Monthly Subscription of 9.99",
@@ -110,6 +120,9 @@ const getPlanConfig = (offerings: any) => {
         length: "1 week",
         label: null,
         savings: null,
+        hasTrial: true,
+        trialDays: 3,
+        trialText: "3-day free trial, then $4.99/week",
         fallback: {
           identifier: identifier,
           title: product.title || "Weekly Subscription of 4.99",
@@ -129,6 +142,9 @@ const getPlanConfig = (offerings: any) => {
         length: "1 month",
         label: null,
         savings: null,
+        hasTrial: false,
+        trialDays: 0,
+        trialText: "$9.99/month",
         fallback: {
           identifier: identifier,
           title: product.title || "Monthly Subscription of 9.99",
@@ -145,41 +161,53 @@ const getPlanConfig = (offerings: any) => {
   return config;
 };
 
-// Plan Option Component - Modern Card Design
-const PlanOption = ({ planKey, config, isSelected, onSelect }: { planKey: string; config: any; isSelected: boolean; onSelect: (key: 'weekly' | 'monthly') => void }) => (
+// Plan Option Component - Vertical Stacking Design
+const PlanOption = ({ planKey, isSelected, onSelect }: { planKey: string; isSelected: boolean; onSelect: (key: 'weekly' | 'monthly') => void }) => (
   <button 
-    className={`flex-1 rounded-xl border-2 p-4 transition-all duration-300 relative ${
+    className={`w-full rounded-lg border p-4 transition-all duration-300 relative mb-3 ${
       isSelected 
-        ? 'border-purple-500 bg-gray-800 shadow-lg' 
-        : 'border-gray-600 bg-gray-900 hover:border-gray-500'
+        ? 'border-blue-400 bg-gray-800/50' 
+        : 'border-gray-600 bg-gray-900/50 hover:border-gray-500'
     }`}
     onClick={() => onSelect(planKey as 'weekly' | 'monthly')}
   >
-    {/* Radio button in top-right corner */}
-    <div className={`absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-      isSelected 
-        ? 'border-purple-500 bg-purple-500' 
-        : 'border-gray-400'
-    }`}>
-      {isSelected && (
-        <div className="w-2 h-2 bg-white rounded-full"></div>
-      )}
-    </div>
-
-    {/* Save badge for monthly */}
-    {planKey === 'monthly' && (
-      <div className="absolute -top-2 left-3 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-medium">
-        Save 25%
-      </div>
-    )}
-
-    {/* Content */}
-    <div className="pt-2">
-      <div className="text-left">
-        <p className={`font-semibold text-sm mb-2 ${isSelected ? 'text-purple-400' : 'text-gray-300'}`}>
-          {planKey === 'weekly' ? 'Weekly' : 'Monthly'}
+    <div className="flex items-center justify-between">
+      {/* Left side - Title and pricing */}
+      <div className="text-left flex-1">
+        <p className="font-semibold text-base text-white">
+          {planKey === 'weekly' ? '3-Day Trial' : 'Monthly Plan'}
         </p>
-        <div className="text-2xl font-bold text-white">{config.price}</div>
+        
+        {planKey === 'weekly' ? (
+          <span className="text-sm text-gray-400">then $4.99 per week</span>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 line-through whitespace-nowrap">$19.99</span>
+            <span className="text-base font-semibold text-white whitespace-nowrap">$9.99 per month</span>
+          </div>
+        )}
+      </div>
+
+      {/* Right side - Badge and selection */}
+      <div className="flex items-center gap-3">
+        {planKey === 'weekly' ? (
+          <span className="text-lg font-bold text-white">FREE</span>
+        ) : (
+          <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+            SAVE 50%
+          </div>
+        )}
+        
+        {/* Radio button */}
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+          isSelected 
+            ? 'border-blue-400 bg-blue-400' 
+            : 'border-gray-400'
+        }`}>
+          {isSelected && (
+            <div className="w-2 h-2 bg-white rounded-full"></div>
+          )}
+        </div>
       </div>
     </div>
   </button>
@@ -279,7 +307,7 @@ const ErrorMessage = ({ message = "Payment didn't go through. Please try again."
 );
 
 // CTA Button Component
-const CTAButton = ({ isProcessing, hasError, onClick, disabled }: { isProcessing: any; hasError: any; onClick: any; disabled: any }) => {
+const CTAButton = ({ isProcessing, hasError, onClick, disabled, selectedPlan }: { isProcessing: any; hasError: any; onClick: any; disabled: any; selectedPlan: string }) => {
   const getButtonContent = () => {
     if (isProcessing) {
       return (
@@ -299,12 +327,22 @@ const CTAButton = ({ isProcessing, hasError, onClick, disabled }: { isProcessing
       );
     }
     
-    return (
-      <div className="flex items-center justify-center gap-2">
-        <Sparkles className="w-4 h-4" />
-        <span className="text-sm">Get Your AI Style Analysis →</span>
-      </div>
-    );
+    // Show different CTA text based on selected plan
+    if (selectedPlan === 'weekly') {
+      return (
+        <div className="flex items-center justify-center gap-2">
+          <Sparkles className="w-4 h-4" />
+          <span className="text-sm">Start 3-Day Free Trial →</span>
+        </div>
+      );
+    } else {
+      return (
+        <div className="flex items-center justify-center gap-2">
+          <Sparkles className="w-4 h-4" />
+          <span className="text-sm">Unlock Premium Access →</span>
+        </div>
+      );
+    }
   };
 
   return (
@@ -428,8 +466,8 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   console.log('🎯 ProOfferCard rendered');
   
-  const { offerings, purchaseProduct, isPro, isLoading, restorePurchases, refreshSubscription } = useSubscription();
-  const { user, refreshSession } = useAuth();
+  const { offerings, purchaseProduct, isPro, isLoading, restorePurchases } = useSubscription();
+  const { user } = useAuth();
   const { toast } = useToast();
   
   const isWebPlatform = !Capacitor.isNativePlatform();
@@ -446,7 +484,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('weekly');
+  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('weekly'); // Default to trial option
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreMsg, setRestoreMsg] = useState('');
   const [shouldContinueAfterRestore, setShouldContinueAfterRestore] = useState(false);
@@ -529,7 +567,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   };
 
-  const selectedConfig = getPlanConfig(offerings)[selectedPlan];
+
 
   return (
     <motion.div
@@ -537,24 +575,37 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-4 py-6"
+      className="h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-3 py-3"
     >
       {/* Compact Content Area */}
-      <div className="flex-1 bg-black rounded-2xl shadow-2xl p-6 flex flex-col max-w-md mx-auto w-full">
+      <div className="flex-1 bg-black rounded-xl shadow-2xl p-4 flex flex-col max-w-sm mx-auto w-full">
         
         {/* Compact Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center mb-6"
+          className="text-center mb-3"
         >
-          <h1 className="text-2xl font-bold text-white mb-3">
+          <h1 className="text-xl font-bold text-white mb-1">
             OutfitGraderAI Premium
           </h1>
-          <p className="text-white/70 text-sm leading-relaxed px-2">
-            Get personalized style plans, expert outfit matches, 24/7 style assistant, and AI-powered style analysis to achieve your best look ever!
+          <p className="text-white/70 text-xs leading-tight">
+            Get personalized style plans, expert outfit matches, 24/7 style assistant, and AI-powered style analysis!
           </p>
+        </motion.div>
+
+        {/* Feature Carousel Section - Compact */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="mb-3"
+        >
+          <h3 className="text-white font-semibold text-xs mb-2 text-center">
+            Here's what you'll get
+          </h3>
+          <FeatureDisplay />
         </motion.div>
 
         {/* Compact Subscription Options */}
@@ -562,14 +613,13 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mb-6"
+          className="mb-3"
         >
-          <div className="flex gap-3">
-            {Object.entries(getPlanConfig(offerings)).map(([planKey, config]) => (
+          <div className="space-y-1.5">
+            {(['monthly', 'weekly'] as Array<'monthly' | 'weekly'>).map((planKey) => (
               <PlanOption
                 key={planKey}
-                planKey={planKey as 'weekly' | 'monthly'}
-                config={config}
+                planKey={planKey}
                 isSelected={selectedPlan === planKey}
                 onSelect={(key: 'weekly' | 'monthly') => setSelectedPlan(key)}
               />
@@ -577,23 +627,38 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           </div>
         </motion.div>
 
-        {/* Feature Carousel Section */}
+        {/* Free Trial Toggle */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="mb-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.55, duration: 0.4 }}
+          className="mb-4"
         >
-          <h3 className="text-white font-semibold text-sm mb-3 text-center">
-            Here's what you'll get
-          </h3>
-          <FeatureDisplay />
+                     <button
+             onClick={() => setSelectedPlan(prev => (prev === 'weekly' ? 'monthly' : 'weekly'))}
+             className="w-full flex items-center justify-between rounded-lg border border-gray-600 bg-gray-900/50 px-4 py-3 hover:border-gray-500 transition-colors"
+           >
+             <span className="text-base font-semibold text-white">Free Trial Enabled</span>
+            <span
+              role="switch"
+              aria-checked={selectedPlan === 'weekly'}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                selectedPlan === 'weekly' ? 'bg-green-500' : 'bg-gray-400'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  selectedPlan === 'weekly' ? 'translate-x-5' : 'translate-x-1'
+                }`}
+              />
+            </span>
+          </button>
         </motion.div>
 
         {/* Error Display */}
         {hasError && <ErrorMessage />}
 
-        {/* CTA Button - Always Visible */}
+        {/* CTA Button - Moved to bottom */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -605,6 +670,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             hasError={hasError}
             onClick={handlePurchase}
             disabled={isProcessing}
+            selectedPlan={selectedPlan}
           />
 
           {/* Restore Purchases */}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Purchases, PurchasesOffering, LOG_LEVEL, PurchasesPackage } from '@revenuecat/purchases-capacitor';
+import { Purchases, PurchasesOffering, PurchasesPackage } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +55,7 @@ export const useRevenueCatManager = () => {
         // Web platform - check Supabase for subscription status
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('subscription_status, subscription_expiry')
+          .select('subscription_status, subscription_expires_at')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -63,7 +63,7 @@ export const useRevenueCatManager = () => {
 
         const newStatus = {
           isActive: profile?.subscription_status === 'active',
-          expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
+          expirationDate: profile?.subscription_expires_at ? new Date(profile.subscription_expires_at) : null,
           productId: subscription.productId,
           offeringId: 'web'
         };
@@ -305,7 +305,7 @@ export const useRevenueCatManager = () => {
         setIsLoading(true);
         const { data: profile } = await supabase
           .from('profiles')
-          .select('subscription_status, subscription_expiry')
+          .select('subscription_status, subscription_expires_at')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -423,13 +423,13 @@ export const useRevenueCatManager = () => {
           // Web platform initialization
           const { data: profile } = await supabase
             .from('profiles')
-            .select('subscription_status, subscription_expiry')
+            .select('subscription_status, subscription_expires_at')
             .eq('id', user.id)
             .maybeSingle();
 
           setSubscription({
             isActive: profile?.subscription_status === 'active',
-            expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : null,
+            expirationDate: profile?.subscription_expires_at ? new Date(profile.subscription_expires_at) : null,
             productId: null,
             offeringId: 'web'
           });

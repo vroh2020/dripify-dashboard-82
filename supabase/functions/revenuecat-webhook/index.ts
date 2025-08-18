@@ -45,6 +45,69 @@ serve(async (req) => {
         
         console.log(`✅ Subscription activated for user: ${app_user_id}, expires: ${expiryDate}`)
         break
+
+      case 'TRIAL_STARTED':
+        // Handle trial start
+        const trialStartDate = new Date().toISOString()
+        const trialExpiryDate = new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)).toISOString() // 3 days
+        const { error: trialStartError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'trial',
+            trial_started_at: trialStartDate,
+            trial_expires_at: trialExpiryDate,
+            is_in_trial: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', app_user_id)
+
+        if (trialStartError) {
+          console.error('Failed to update profile for trial start:', trialStartError)
+          throw new Error('Database update failed')
+        }
+        
+        console.log(`🎉 Trial started for user: ${app_user_id}, expires: ${trialExpiryDate}`)
+        break
+
+      case 'TRIAL_CONVERTED':
+        // Handle trial to paid conversion
+        const conversionDate = new Date().toISOString()
+        const { error: conversionError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'active',
+            trial_converted_at: conversionDate,
+            is_in_trial: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', app_user_id)
+
+        if (conversionError) {
+          console.error('Failed to update profile for trial conversion:', conversionError)
+          throw new Error('Database update failed')
+        }
+        
+        console.log(`💰 Trial converted to paid for user: ${app_user_id}`)
+        break
+
+      case 'TRIAL_ENDED':
+        // Handle trial expiration without conversion
+        const { error: trialEndError } = await supabase
+          .from('profiles')
+          .update({
+            subscription_status: 'inactive',
+            is_in_trial: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', app_user_id)
+
+        if (trialEndError) {
+          console.error('Failed to update profile for trial end:', trialEndError)
+          throw new Error('Database update failed')
+        }
+        
+        console.log(`❌ Trial ended for user: ${app_user_id}`)
+        break
       
       case 'CANCELLATION':
       case 'EXPIRATION':
