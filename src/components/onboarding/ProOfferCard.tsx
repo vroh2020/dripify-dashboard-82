@@ -11,7 +11,7 @@ interface ProOfferCardProps {
   onContinue: () => void;
 }
 
-// Plan configuration - now dynamic from RevenueCat (because magic isn't free! 🪄)
+// Plan configuration - now dynamic from RevenueCat (because magic isn't free! 🪄✨)
 const getPlanConfig = (offerings: any) => {
   if (!offerings || offerings.length === 0) {
     // Fallback config if offerings not loaded
@@ -464,7 +464,7 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
 
 // Main Component - The magical subscription gateway! ✨
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
-  console.log('🎯 ProOfferCard rendered - Ready to make some magic happen!');
+  console.log('🎯 ProOfferCard rendered - Ready to make some magic happen! ✨');
   
   const { offerings, purchaseProduct, isPro, isLoading, restorePurchases } = useSubscription();
   const { user } = useAuth();
