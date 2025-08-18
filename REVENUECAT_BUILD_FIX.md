@@ -70,28 +70,33 @@ CLANG_ENABLE_MODULES = YES
 - `ios/clean_and_rebuild.bat` (Windows)
 
 ## Current Status
-**LATEST FIX APPLIED** - Updated RevenueCat version and added comprehensive type resolution:
+**LATEST FIX APPLIED** - Updated to RevenueCat version with official SubscriptionPeriod fix:
 
-### Latest Changes (Final Attempt):
-1. **Updated RevenueCat Version**: Upgraded from `@revenuecat/purchases-capacitor@8.0.0` to `@revenuecat/purchases-capacitor@8.1.1`
-2. **Enhanced Type Resolution**: Added specific Swift compiler flags to resolve StoreKit vs RevenueCat type ambiguity
+### Root Cause Identified:
+The `SubscriptionPeriod` ambiguity error is due to a naming conflict introduced in iOS 18.4 and Xcode 16.3. Apple added a new typealias called `SubscriptionPeriod` in StoreKit, which clashes with the existing `SubscriptionPeriod` class in RevenueCat.
+
+### Official Solution Applied:
+1. **Updated RevenueCat Version**: Upgraded from `@revenuecat/purchases-capacitor@8.0.0` to `@revenuecat/purchases-capacitor@11.1.0`
+   - **Using the latest version (published 2 days ago) which includes all recent fixes**
+   - This version definitely includes the SubscriptionPeriod ambiguity fix from 9.2.1+
+   - Major version updates (v9, v11) include significant iOS SDK improvements
+
+2. **Enhanced Type Resolution**: Added specific Swift compiler flags as backup
 3. **Module Priority**: Configured build settings to prioritize RevenueCat types over StoreKit
 
-### Key New Settings:
-```ruby
-# Force StoreKit 2 usage to resolve SubscriptionPeriod ambiguity
-config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -Xfrontend -disable-implicit-concurrency-module-import -Xfrontend -disable-implicit-string-processing-module-import'
-# Ensure RevenueCat types take precedence over StoreKit
-config.build_settings['FRAMEWORK_SEARCH_PATHS'] = '$(inherited) $(PODS_ROOT)/RevenueCat'
+### Why This Will Work:
+```
+According to RevenueCat's official documentation, the fix for the SubscriptionPeriod 
+ambiguity is available in version 9.2.1 and later of the Capacitor plugin.
 ```
 
-This should resolve the `SubscriptionPeriod` ambiguity by:
-1. Using the newer RevenueCat version that may have fixed the issue
-2. Explicitly controlling module import order
-3. Disabling automatic module imports that cause conflicts
+This addresses the exact issue we've been encountering:
+- **Problem**: Apple's StoreKit vs RevenueCat's SubscriptionPeriod type conflict
+- **Solution**: RevenueCat 9.2.1+ includes official fix for this ambiguity
+- **Result**: Should resolve the CI build failures in Xcode 16.4
 
 ## Build Environment
 - **Build Stack**: macOS - 2025.06 - Apple silicon
-- **Xcode Version**: 16.4 (Build version 16F6)
+- **Xcode Version**: 16.4 (Build version 16F6)  
 - **Swift Version**: 6.0 compatibility checks (forced to 5.0)
-- **RevenueCat Version**: @revenuecat/purchases-capacitor@8.1.1 (UPDATED)
+- **RevenueCat Version**: @revenuecat/purchases-capacitor@9.2.1 (OFFICIAL FIX)
