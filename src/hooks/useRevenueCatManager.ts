@@ -53,13 +53,51 @@ export const useRevenueCatManager = () => {
         return newStatus;
       } else {
         // Web platform - check Supabase for subscription status
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('subscription_status, subscription_expires_at')
-          .eq('id', user.id)
-          .maybeSingle();
+        // Add retry mechanism for newly created users
+        let profile = null;
+        let error = null;
+        
+        // Try up to 3 times with a small delay for newly created users
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const result = await supabase
+              .from('profiles')
+              .select('subscription_status, subscription_expires_at')
+              .eq('id', user.id)
+              .limit(1);
+            
+            profile = result.data?.[0] || null;
+            error = result.error;
+            
+            if (!error && profile) {
+              break; // Success, exit retry loop
+            }
+            
+            if (attempt < 3) {
+              console.log(`Profile query attempt ${attempt} failed, retrying in 500ms...`);
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          } catch (e) {
+            error = e;
+            if (attempt < 3) {
+              console.log(`Profile query attempt ${attempt} threw error, retrying in 500ms...`);
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          }
+        }
 
-        if (error) throw error;
+        if (error) {
+          console.warn('Profile query failed after retries, user might not have profile yet:', error);
+          // Return default inactive status if profile doesn't exist yet
+          const newStatus = {
+            isActive: false,
+            expirationDate: null,
+            productId: subscription.productId,
+            offeringId: 'web'
+          };
+          setSubscription(newStatus);
+          return newStatus;
+        }
 
         const newStatus = {
           isActive: profile?.subscription_status === 'active',
@@ -136,14 +174,14 @@ export const useRevenueCatManager = () => {
         console.log('📝 Update data:', {
           onboarding_completed: true,
           subscription_status: 'active',
-          subscription_expiry: expiryDate.toISOString()
+          subscription_expires_at: expiryDate.toISOString()
         });
         
         // Update Supabase profile
         const { data, error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
-          subscription_expiry: expiryDate.toISOString()
+          subscription_expires_at: expiryDate.toISOString()
         }).eq('id', user.id).select();
 
         console.log('📊 Supabase update result:', { data, error: profileError });
@@ -225,7 +263,7 @@ export const useRevenueCatManager = () => {
         const { error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
-          subscription_expiry: result.customerInfo.latestExpirationDate ? 
+          subscription_expires_at: result.customerInfo.latestExpirationDate ? 
             new Date(result.customerInfo.latestExpirationDate).toISOString() : 
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days fallback
         }).eq('id', user.id);

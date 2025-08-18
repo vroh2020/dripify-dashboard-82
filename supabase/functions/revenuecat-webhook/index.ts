@@ -33,7 +33,7 @@ serve(async (req) => {
           .from('profiles')
           .update({
             subscription_status: 'active',
-            subscription_expiry: expiryDate,
+            subscription_expires_at: expiryDate,
             updated_at: new Date().toISOString()
           })
           .eq('id', app_user_id)
@@ -116,7 +116,7 @@ serve(async (req) => {
           .from('profiles')
           .update({
             subscription_status: 'inactive',
-            subscription_expiry: null,
+            subscription_expires_at: null,
             updated_at: new Date().toISOString()
           })
           .eq('id', app_user_id)

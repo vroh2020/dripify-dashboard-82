@@ -157,7 +157,7 @@ export class PaymentService {
         // Web platform - check Supabase
         const { data: profile } = await supabase
           .from('profiles')
-          .select('subscription_status, subscription_expiry')
+          .select('subscription_status, subscription_expires_at')
           .eq('id', userId)
           .single();
 
@@ -165,7 +165,7 @@ export class PaymentService {
           return {
             success: true,
             subscriptionStatus: 'active',
-            expirationDate: profile.subscription_expiry ? new Date(profile.subscription_expiry) : undefined
+            expirationDate: profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : undefined
           };
         } else {
           return {
@@ -211,7 +211,7 @@ export class PaymentService {
       };
 
       if (expiryDate) {
-        updateData.subscription_expiry = expiryDate;
+        updateData.subscription_expires_at = expiryDate;
       }
 
       const { error } = await supabase
@@ -238,14 +238,14 @@ export class PaymentService {
         // Web platform - check Supabase
         const { data: profile } = await supabase
           .from('profiles')
-          .select('subscription_status, subscription_expiry')
+          .select('subscription_status, subscription_expires_at')
           .eq('id', userId)
           .single();
 
         return {
           success: true,
           subscriptionStatus: (profile?.subscription_status === 'active' ? 'active' : 'inactive') as 'active' | 'inactive',
-          expirationDate: profile?.subscription_expiry ? new Date(profile.subscription_expiry) : undefined
+          expirationDate: profile?.subscription_expires_at ? new Date(profile.subscription_expires_at) : undefined
         };
       }
 

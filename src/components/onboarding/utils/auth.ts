@@ -186,12 +186,20 @@ export const signOut = async (): Promise<boolean> => {
  */
 export const handleAnonymousSign = async (): Promise<boolean> => {
   try {
-    // Check if user is already signed in
-    const { data: existingSession } = await supabase.auth.getSession();
-    if (existingSession?.session?.user) {
+    // Check if user is already signed in - FIXED: Use getUser instead of getSession
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      Logger.error('Auth', 'Error getting current user:', userError);
+    }
+    
+    if (user) {
+      Logger.info('Auth', 'User already signed in:', user.id);
       return true;
     }
     
+    // Only create new anonymous user if no user exists
+    Logger.info('Auth', 'No existing user, creating anonymous user...');
     const { data, error } = await supabase.auth.signInAnonymously();
     
     if (error) {
@@ -200,39 +208,10 @@ export const handleAnonymousSign = async (): Promise<boolean> => {
     }
     
     if (data.user) {
-      // Ensure profile exists for anonymous user
-      try {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', data.user.id)
-          .single();
-        
-        if (profileError && profileError.code === 'PGRST116') {
-          // Profile doesn't exist, create it
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              username: `user_${data.user.id.slice(0, 8)}`,
-              onboarding_completed: false,
-              onboarding_step: '1',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-          
-          if (insertError) {
-            Logger.error('Auth', 'Failed to create profile for anonymous user:', insertError);
-            // Don't fail the sign-in, just log the error
-          }
-        } else if (profileError) {
-          Logger.error('Auth', 'Error checking profile:', profileError);
-        }
-      } catch (profileError) {
-        Logger.error('Auth', 'Error handling profile for anonymous user:', profileError);
-        // Don't fail the sign-in, just log the error
-      }
+      Logger.info('Auth', 'Anonymous user created:', data.user.id);
       
+      // Skip profile creation for now - let the trigger handle it
+      // This prevents RLS policy issues
       return true;
     }
     

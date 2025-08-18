@@ -33,47 +33,38 @@ export const AuthOnboardingWizard = () => {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Get or create persistent anonymous user (optimized)
-  const ensureAnonymousUser = async () => {
+  // Get current user ID (no creation - let NewWelcomeStep handle that)
+  const getCurrentUserId = async () => {
     try {
-      // If we already have a userId in state, verify it's still valid
+      // If we already have a userId, return it immediately
       if (userId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id === userId) {
-          return userId;
-        }
-        // Clear invalid cached user
-        setUserId(null);
+        return userId;
       }
 
-      // Get the current Supabase user
-      const { data: { user } } = await supabase.auth.getUser();
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (user?.id) {
-        setUserId(user.id);
-        return user.id;
-      } else {
-        // Auto-create new anonymous user if none exists
-        const { handleAnonymousSign } = await import('../components/onboarding/utils/auth');
-        const success = await handleAnonymousSign();
-        if (success) {
-          const { data: { user: newUser } } = await supabase.auth.getUser();
-          if (newUser?.id) {
-            setUserId(newUser.id);
-            return newUser.id;
-          }
-        }
-        return null;
+      if (session?.user?.id) {
+        // User exists, update state and return
+        setUserId(session.user.id);
+        return session.user.id;
       }
+      
+      return null;
     } catch (error) {
-      Logger.error('Auth', 'Error getting authenticated user:', error);
+      Logger.error('Auth', 'Error getting current user:', error);
       return null;
     }
   };
 
   // Save onboarding step to modified onboarding_v2 table (single row per user)
   const saveOnboardingStep = async (stepName: string, stepData?: any) => {
-    if (!userId) return false;
+    if (!userId) {
+      Logger.warn('Auth', `saveOnboardingStep called but userId is null for step: ${stepName}`);
+      return false;
+    }
+    
+    Logger.info('Auth', `💾 Saving onboarding step: ${stepName} for user: ${userId}`);
     
     try {
       // Get current data first (handle case where no data exists yet)
@@ -110,6 +101,7 @@ export const AuthOnboardingWizard = () => {
 
       if (error) throw error;
       
+      Logger.info('Auth', `✅ Successfully saved onboarding step: ${stepName}`);
       return true;
     } catch (error) {
       Logger.error('Auth', 'Error saving onboarding step:', error);
@@ -212,13 +204,18 @@ export const AuthOnboardingWizard = () => {
     };
   };
 
-  // Initialize anonymous user on component mount
+  // Initialize user tracking on component mount
   useEffect(() => {
-    ensureAnonymousUser();
+    getCurrentUserId();
   }, []);
 
   // Simple handlers for anonymous flow with optimized tracking
   const handleHowItWorksNext = async () => {
+    // Save "How It Works" completion
+    if (userId) {
+      saveOnboardingStep('how_it_works_completed', { completedAt: new Date().toISOString() }).catch(console.error);
+    }
+    
     // Auto-trigger camera immediately instead of going to photo upload screen
     await handleAutoCameraCapture();
   };
@@ -281,14 +278,10 @@ export const AuthOnboardingWizard = () => {
     // Move to analyzing step immediately for faster UX
     setStep(4);
     
-    // Save data in background (non-blocking)
-    const userId = await ensureAnonymousUser();
+    // Get current user ID for tracking
+    const userId = await getCurrentUserId();
     if (!userId) {
-      toast({
-        title: "Error",
-        description: "Please refresh and try again.",
-        variant: "destructive"
-      });
+      // User not created yet, that's okay - NewWelcomeStep will handle it
       return;
     }
     
@@ -318,7 +311,7 @@ export const AuthOnboardingWizard = () => {
       const analysisResult = await performFakeAnalysis(selectedImage);
       
       // Save analysis data to tables in background (non-blocking)
-      const userId = await ensureAnonymousUser();
+      const userId = await getCurrentUserId();
       if (userId) {
         saveAnalysisResult(
           analysisResult.imageUrl, 
@@ -358,7 +351,7 @@ export const AuthOnboardingWizard = () => {
     setStep(6);
     
     // Save data in background (non-blocking)
-    const userId = await ensureAnonymousUser();
+    const userId = await getCurrentUserId();
     if (userId) {
       saveOnboardingStep('teaser_viewed', { unlockedAt: new Date().toISOString() }).catch(console.error);
     }
@@ -369,7 +362,7 @@ export const AuthOnboardingWizard = () => {
       Logger.userAction('paywall_completed', { step });
       
       // Save completion data to new tables in background (non-blocking)
-      const userId = await ensureAnonymousUser();
+      const userId = await getCurrentUserId();
       if (userId) {
         saveOnboardingStep('completed', { 
           paymentCompleted: true,
@@ -421,19 +414,22 @@ export const AuthOnboardingWizard = () => {
       <div className="flex-1 flex flex-col">
         <AnimatePresence mode="wait" initial={false}>
           {step === 1 && (
-            <NewWelcomeStep 
-              key="welcome"
-              onNext={async () => {
-                // Move to next step immediately for faster UX
-                setStep(2);
-                
-                // Save data in background (non-blocking)
-                const userId = await ensureAnonymousUser();
-                if (userId) {
-                  saveOnboardingStep('welcome_completed', { startedAt: new Date().toISOString() }).catch(console.error);
-                }
-              }} 
-            />
+                         <NewWelcomeStep 
+               key="welcome"
+               onNext={async () => {
+                 // Move to next step immediately for faster UX
+                 setStep(2);
+                 
+                 // Save data in background (non-blocking) - use the userId from state since onUserCreated was called first
+                 if (userId) {
+                   saveOnboardingStep('welcome_completed', { startedAt: new Date().toISOString() }).catch(console.error);
+                 }
+               }}
+               onUserCreated={(userId) => {
+                 setUserId(userId);
+                 Logger.info('Auth', 'User created in NewWelcomeStep:', userId);
+               }}
+             />
           )}
           
           {step === 2 && (

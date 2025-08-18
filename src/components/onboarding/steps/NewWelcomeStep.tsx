@@ -6,12 +6,14 @@ import { handleAnonymousSign } from "../utils/auth";
 import { Capacitor } from '@capacitor/core';
 import { Logger } from "@/utils/logger";
 import { requestInAppReview } from "@/utils/inAppReview";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NewWelcomeStepProps {
   onNext: () => void;
+  onUserCreated?: (userId: string) => void;
 }
 
-export const NewWelcomeStep = ({ onNext }: NewWelcomeStepProps) => {
+export const NewWelcomeStep = ({ onNext, onUserCreated }: NewWelcomeStepProps) => {
   const { toast } = useToast();
 
   const handleGetStarted = async () => {
@@ -19,6 +21,13 @@ export const NewWelcomeStep = ({ onNext }: NewWelcomeStepProps) => {
       const success = await handleAnonymousSign();
       
       if (success) {
+        // Get the created user ID and notify parent FIRST
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id && onUserCreated) {
+          onUserCreated(session.user.id);
+          // Small delay to ensure parent state is updated
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
         // Trigger in-app review before proceeding
         try {
           const isCapacitor = Capacitor?.isNativePlatform?.() || false;
