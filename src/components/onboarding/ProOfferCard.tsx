@@ -575,7 +575,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-3 py-3 relative"
+      className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-3 pt-8 pb-3 relative"
       style={{ 
         background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
         minHeight: '100vh',
@@ -583,14 +583,14 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       }}
     >
       {/* Compact Content Area */}
-      <div className="flex-1 bg-black/90 backdrop-blur-sm rounded-xl shadow-2xl p-4 flex flex-col max-w-sm mx-auto w-full border border-white/10">
+      <div className="flex-1 bg-black/90 backdrop-blur-sm rounded-xl shadow-2xl p-4 pt-6 flex flex-col max-w-sm mx-auto w-full border border-white/10">
         
         {/* Compact Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center mb-3"
+          className="text-center mb-4 mt-2"
         >
           <h1 className="text-xl font-bold text-white mb-1">
             OutfitGraderAI Premium
