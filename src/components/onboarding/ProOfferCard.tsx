@@ -114,7 +114,7 @@ const getPlanConfig = (offerings: any) => {
     if (identifier.includes('1w')) {
       config.weekly = {
         identifier: identifier,
-        title: product.title || "Weekly Subscription of 4.99",
+        title: product.title || "Weekly Subscription",
         price: product.priceString || "$4.99",
         period: product.subscriptionPeriod === 'P1W' ? "/week" : "/period",
         length: "1 week",
@@ -122,10 +122,10 @@ const getPlanConfig = (offerings: any) => {
         savings: null,
         hasTrial: true,
         trialDays: 3,
-        trialText: "3-day free trial, then $4.99/week",
+        trialText: `3-day free trial, then ${product.priceString || "$4.99"}/week`,
         fallback: {
           identifier: identifier,
-          title: product.title || "Weekly Subscription of 4.99",
+          title: product.title || "Weekly Subscription",
           description: "Weekly subscription for unlimited style analyses",
           price: product.price || 4.99,
           priceString: product.priceString || "$4.99",
@@ -136,7 +136,7 @@ const getPlanConfig = (offerings: any) => {
     } else if (identifier.includes('1m')) {
       config.monthly = {
         identifier: identifier,
-        title: product.title || "Monthly Subscription of 9.99",
+        title: product.title || "Monthly Subscription",
         price: product.priceString || "$9.99",
         period: product.subscriptionPeriod === 'P1M' ? "/month" : "/period",
         length: "1 month",
@@ -144,10 +144,10 @@ const getPlanConfig = (offerings: any) => {
         savings: null,
         hasTrial: false,
         trialDays: 0,
-        trialText: "$9.99/month",
+        trialText: `${product.priceString || "$9.99"}/month`,
         fallback: {
           identifier: identifier,
-          title: product.title || "Monthly Subscription of 9.99",
+          title: product.title || "Monthly Subscription",
           description: "Monthly subscription for unlimited style analyses",
           price: product.price || 9.99,
           priceString: product.priceString || "$9.99",
@@ -162,56 +162,66 @@ const getPlanConfig = (offerings: any) => {
 };
 
 // Plan Option Component - Vertical Stacking Design
-const PlanOption = ({ planKey, isSelected, onSelect }: { planKey: string; isSelected: boolean; onSelect: (key: 'weekly' | 'monthly') => void }) => (
-  <button 
-    className={`w-full rounded-lg border p-4 transition-all duration-300 relative mb-3 ${
-      isSelected 
-        ? 'border-blue-400 bg-gray-800/50' 
-        : 'border-gray-600 bg-gray-900/50 hover:border-gray-500'
-    }`}
-    onClick={() => onSelect(planKey as 'weekly' | 'monthly')}
-  >
-    <div className="flex items-center justify-between">
-      {/* Left side - Title and pricing */}
-      <div className="text-left flex-1">
-        <p className="font-semibold text-base text-white">
-          {planKey === 'weekly' ? '3-Day Trial' : 'Monthly Plan'}
-        </p>
-        
-        {planKey === 'weekly' ? (
-          <span className="text-sm text-gray-400">then $4.99 per week</span>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 line-through whitespace-nowrap">$19.99</span>
-            <span className="text-base font-semibold text-white whitespace-nowrap">$9.99 per month</span>
-          </div>
-        )}
-      </div>
-
-      {/* Right side - Badge and selection */}
-      <div className="flex items-center gap-3">
-        {planKey === 'weekly' ? (
-          <span className="text-lg font-bold text-white">FREE</span>
-        ) : (
-          <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-            SAVE 50%
-          </div>
-        )}
-        
-        {/* Radio button */}
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-          isSelected 
-            ? 'border-blue-400 bg-blue-400' 
-            : 'border-gray-400'
-        }`}>
-          {isSelected && (
-            <div className="w-2 h-2 bg-white rounded-full"></div>
+const PlanOption = ({ planKey, isSelected, onSelect, offerings }: { 
+  planKey: string; 
+  isSelected: boolean; 
+  onSelect: (key: 'weekly' | 'monthly') => void;
+  offerings: any;
+}) => {
+  const config = getPlanConfig(offerings);
+  const planConfig = config[planKey as 'weekly' | 'monthly'];
+  
+  return (
+    <button 
+      className={`w-full rounded-lg border p-4 transition-all duration-300 relative mb-3 ${
+        isSelected 
+          ? 'border-blue-400 bg-gray-800/50' 
+          : 'border-gray-600 bg-gray-900/50 hover:border-gray-500'
+      }`}
+      onClick={() => onSelect(planKey as 'weekly' | 'monthly')}
+    >
+      <div className="flex items-center justify-between">
+        {/* Left side - Title and pricing */}
+        <div className="text-left flex-1">
+          <p className="font-semibold text-base text-white">
+            {planKey === 'weekly' ? '3-Day Trial' : 'Monthly Plan'}
+          </p>
+          
+          {planKey === 'weekly' ? (
+            <span className="text-sm text-gray-400">then {planConfig.price} per week</span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 line-through whitespace-nowrap">$19.99</span>
+              <span className="text-base font-semibold text-white whitespace-nowrap">{planConfig.price} per month</span>
+            </div>
           )}
         </div>
+
+        {/* Right side - Badge and selection */}
+        <div className="flex items-center gap-3">
+          {planKey === 'weekly' ? (
+            <span className="text-lg font-bold text-white">FREE</span>
+          ) : (
+            <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+              SAVE 50%
+            </div>
+          )}
+          
+          {/* Radio button */}
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            isSelected 
+              ? 'border-blue-400 bg-blue-400' 
+              : 'border-gray-400'
+          }`}>
+            {isSelected && (
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
-  </button>
-);
+    </button>
+  );
+};
 
 // Clean Auto-Scrollable Feature Display Component
 const FeatureDisplay = () => {
@@ -575,10 +585,9 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col px-3 pt-8 pb-3 relative"
+      className="min-h-screen flex flex-col px-3 pt-8 pb-3 relative"
       style={{ 
         background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
-        minHeight: '100vh',
         minHeight: '100dvh'
       }}
     >
@@ -627,6 +636,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
                 planKey={planKey}
                 isSelected={selectedPlan === planKey}
                 onSelect={(key: 'weekly' | 'monthly') => setSelectedPlan(key)}
+                offerings={offerings}
               />
             ))}
           </div>
