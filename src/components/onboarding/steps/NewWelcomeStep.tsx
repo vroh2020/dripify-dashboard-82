@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
@@ -15,9 +16,27 @@ interface NewWelcomeStepProps {
 
 export const NewWelcomeStep = ({ onNext, onUserCreated }: NewWelcomeStepProps) => {
   const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleGetStarted = async () => {
+    if (isProcessing) {
+      Logger.info('WelcomeStep', 'Already processing, ignoring duplicate click');
+      return;
+    }
+    
+    setIsProcessing(true);
     try {
+      // First check if we already have a session to avoid multiple user creation
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        Logger.info('WelcomeStep', 'User already exists, proceeding:', session.user.id);
+        if (onUserCreated) {
+          onUserCreated(session.user.id);
+        }
+        onNext();
+        return;
+      }
+
       const success = await handleAnonymousSign();
       
       if (success) {
@@ -60,6 +79,8 @@ export const NewWelcomeStep = ({ onNext, onUserCreated }: NewWelcomeStepProps) =
         description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -104,9 +125,10 @@ export const NewWelcomeStep = ({ onNext, onUserCreated }: NewWelcomeStepProps) =
       >
         <Button
           onClick={handleGetStarted}
-          className="w-full bg-red-500 hover:bg-red-600 text-white h-16 text-xl font-semibold rounded-xl transition-all duration-300"
+          disabled={isProcessing}
+          className="w-full bg-red-500 hover:bg-red-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white h-16 text-xl font-semibold rounded-xl transition-all duration-300"
         >
-          Get Started
+          {isProcessing ? "Starting..." : "Get Started"}
         </Button>
       </motion.div>
     </motion.div>

@@ -4,7 +4,7 @@ import { RefreshCw, ExternalLink, Sparkles } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Capacitor } from '@capacitor/core';
+
 import { motion } from "framer-motion";
 
 interface ProOfferCardProps {
@@ -474,24 +474,11 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
 
 // Main Component - The magical subscription gateway! ✨
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
-  console.log('🎯 ProOfferCard rendered - Ready to make some magic happen! ✨');
-  
-  const { offerings, purchaseProduct, isPro, isLoading, restorePurchases } = useSubscription();
-  const { user } = useAuth();
+  const { offerings, purchaseProduct, isPro, restorePurchases } = useSubscription();
+  const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   
-  const isWebPlatform = !Capacitor.isNativePlatform();
-  const effectiveUser = user;
-  
-  console.log('📊 ProOfferCard state:', { 
-    user: !!user, 
-    effectiveUser: !!effectiveUser,
-    isWebPlatform,
-    offerings: !!offerings, 
-    isPro, 
-    isLoading 
-  });
-  
+  // ALL hooks must be called before any conditional returns
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('weekly'); // Default to trial option
@@ -508,11 +495,36 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
 
   useEffect(() => {
     if (user) {
-      console.log('✅ Real user authenticated:', user.id);
-    } else {
-      console.log('ℹ️ No user found');
+      console.log('✅ ProOfferCard: User authenticated:', user.id);
     }
   }, [user]);
+  
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/70 text-sm">Loading your experience...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show error state if no user after loading
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-400 text-xl">⚠️</span>
+          </div>
+          <p className="text-white/70 text-sm mb-2">Authentication Error</p>
+          <p className="text-white/50 text-xs">Please refresh the page and try again</p>
+        </div>
+      </div>
+    );
+  }
 
   const getProduct = (planKey: 'weekly' | 'monthly') => {
     const config = getPlanConfig(offerings)[planKey];

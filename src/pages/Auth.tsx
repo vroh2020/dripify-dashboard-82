@@ -109,13 +109,9 @@ export const AuthOnboardingWizard = () => {
     }
   };
 
-  // Track user actions in user_analytics table (optimized - only track key events)
+  // Track user actions in user_analytics table - TRACK EVERY SINGLE STEP
   const trackUserAction = async (action: string, data?: any) => {
     if (!userId) return false;
-    
-    // Only track important events to reduce database load
-    const importantActions = ['paywall_completed', 'analysis_completed', 'photo_uploaded'];
-    if (!importantActions.includes(action)) return true;
     
     try {
       const { error } = await supabase
@@ -209,11 +205,19 @@ export const AuthOnboardingWizard = () => {
     getCurrentUserId();
   }, []);
 
+  // Track when user reaches paywall step
+  useEffect(() => {
+    if (step === 6 && userId) {
+      trackUserAction('paywall_reached', { step: 6 }).catch(console.error);
+    }
+  }, [step, userId]);
+
   // Simple handlers for anonymous flow with optimized tracking
   const handleHowItWorksNext = async () => {
     // Save "How It Works" completion
     if (userId) {
       saveOnboardingStep('how_it_works_completed', { completedAt: new Date().toISOString() }).catch(console.error);
+      trackUserAction('how_it_works_completed', { step: 2 }).catch(console.error);
     }
     
     // Auto-trigger camera immediately instead of going to photo upload screen
@@ -354,6 +358,7 @@ export const AuthOnboardingWizard = () => {
     const userId = await getCurrentUserId();
     if (userId) {
       saveOnboardingStep('teaser_viewed', { unlockedAt: new Date().toISOString() }).catch(console.error);
+      trackUserAction('teaser_viewed', { step: 5 }).catch(console.error);
     }
   };
 
@@ -423,6 +428,7 @@ export const AuthOnboardingWizard = () => {
                  // Save data in background (non-blocking) - use the userId from state since onUserCreated was called first
                  if (userId) {
                    saveOnboardingStep('welcome_completed', { startedAt: new Date().toISOString() }).catch(console.error);
+                   trackUserAction('welcome_completed', { step: 1 }).catch(console.error);
                  }
                }}
                onUserCreated={(userId) => {

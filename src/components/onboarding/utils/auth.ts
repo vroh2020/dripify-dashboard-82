@@ -186,16 +186,24 @@ export const signOut = async (): Promise<boolean> => {
  */
 export const handleAnonymousSign = async (): Promise<boolean> => {
   try {
-    // Check if user is already signed in - FIXED: Use getUser instead of getSession
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // First check if there's an existing session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (userError) {
-      Logger.error('Auth', 'Error getting current user:', userError);
+    if (!sessionError && session?.user) {
+      Logger.info('Auth', 'User already signed in:', session.user.id);
+      return true;
     }
     
-    if (user) {
-      Logger.info('Auth', 'User already signed in:', user.id);
-      return true;
+    // If no session, check if getUser works (in case of refresh token)
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (!userError && user) {
+        Logger.info('Auth', 'User found via getUser:', user.id);
+        return true;
+      }
+    } catch (userCheckError) {
+      Logger.info('Auth', 'getUser failed, proceeding to create anonymous user');
     }
     
     // Only create new anonymous user if no user exists
