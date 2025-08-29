@@ -1,5 +1,5 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "trendza",
   "private": true,
   "version": "1.80.0",
   "type": "module",
@@ -112,7 +112,7 @@
   "ios": {
     "debug": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "OutfitGrader AI",
+      "provisioningProfile": "Trendza",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
@@ -120,7 +120,7 @@
     },
     "release": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "OutfitGrader AI",
+      "provisioningProfile": "Trendza",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,

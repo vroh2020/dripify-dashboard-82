@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.genstyle.app', // This matches your bundle ID
-  appName: 'OutfitGrader AI',
+  appName: 'Trendza',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

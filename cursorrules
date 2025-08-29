@@ -1,0 +1,111 @@
+# Trendza — Cursor Rules (enforced)
+
+## Scope
+- Rebrand to Trendza; deprecate OutfitGrader AI branding.
+- Build three pillars: color-analysis, closet, product-search.
+- All new data in `trendza_*` tables; legacy tables read-only where needed.
+ - Replace purple/blue/orange UI with clean white background and black foreground.
+
+## Architecture
+- AI calls run only via Supabase Edge Functions.
+- Use Nebius Mistral model for image/LLM tasks.
+- RLS mandatory on all user data tables.
+ - Feature flags must guard all new pillars; no breaking existing flows until flag removed.
+ - Rate limit Edge Functions; set 30s timeout default; return typed JSON contracts.
+
+## Code Standards
+- TypeScript: strict, no `any` in new code.
+- Verb-based function names; descriptive variables.
+- Early returns; shallow control flow.
+- No TODO comments; implement or track.
+ - Error handling: never swallow; log with context and user-safe messages.
+
+## Directories
+- src/features/{color,closet,search}
+- src/design for tokens/components
+- supabase/functions/{color-analysis,closet-tagger,product-search}
+- supabase/migrations/*trendza*
+
+## UI/Design
+- Base: white background, black text.
+- Accent: #111111 text, #0A84FF minimal accent.
+- Use tokens in `src/design/tokens.ts` (to be added).
+ - Typography: system stack; sizes via tokens only.
+ - Spacing via tokens; no hard-coded px beyond tokens.
+ - Components must support light mode (default). No gradients.
+
+## Security
+- Media stored in user-prefixed folders.
+- No client-stored API secrets.
+- Logs must not contain PII.
+ - Enforce RLS policies for all `trendza_*` tables (select/insert/update/delete by owner); products table read-only if global.
+
+## Testing/CI
+- Lint + typecheck gate.
+- Contract tests for Edge Functions.
+- Minimal E2E for core flows.
+ - Snapshot tests for tokens and design primitives.
+
+## Naming
+- Tables: `trendza_*`.
+- Functions: `color-analysis`, `closet-tagger`, `product-search`.
+
+## Migration Rules
+- Migrations must be idempotent and additive.
+- Policies defined alongside tables.
+ 
+## Pillar Rules
+- Color Analysis:
+  - Input: selfie base64 or public URL; Output: { undertone, season, palette[], faceMetrics }
+  - Store in `trendza_color_profiles` (upsert by user_id)
+  - Provide shareable summary string (no PII)
+- Closet:
+  - Input: item image → tags + attributes; save `trendza_closet_items`
+  - Outfit generation returns item_ids[], score, rationale; save `trendza_outfits`
+- Product Search:
+  - Input: query + filters; Output: array of normalized products with price, brand, url
+  - Cache minimal product snapshots in `trendza_products`; do not store affiliate secrets
+
+## Analytics
+- Track: color_analysis_completed, closet_item_added, outfit_generated, product_clicked
+- No 3rd-party identifiers in logs; respect user consent flags.
+
+## Benchmarks
+- Treat these as canonical references when proposing flows/UI:
+  - Style DNA — color analysis and “does it match me?” checks
+  - Fitted — closet pieces/fits/collections and outfit generator
+  - Phia — multi-store price comparison and deal scoring
+- Screenshots live in `docs/benchmarks/`. Use them during design discussions.
+ - Canonical links:
+   - Style DNA: `https://apps.apple.com/us/app/style-dna-ai-color-analysis/id1358319821?mt=8`
+   - Fitted: `https://apps.apple.com/us/app/fitted/id6596771952`
+   - Phia: `https://apps.apple.com/us/app/phia-best-price-in-one-click/id6739351340?fbclid=PAZXh0bgNhZW0CMTEAAae8kSz2inpK1Tncf0U6Armc7CftFsxrqN3BKWaa3QMzXBOXXGAJkt601Oc_CQ_aem_5j1BM7zMWsdMQfWyXZoH1Q`
+
+## Benchmark UX Principles (enforced)
+- From Fitted ([App Store](https://apps.apple.com/us/app/fitted/id6596771952)):
+  - Top-level closet tabs: `Pieces`, `Fits`, `Collections`.
+  - Chip filters row (favorites, type, size, brand, color, season).
+  - Each piece shows attributes (brand, type, color, season).
+  - Outfit generator supports per-slot lock/swap; save named fits to collections.
+  - Display a lightweight closet value/credit indicator in the header when relevant.
+- From Style DNA ([App Store](https://apps.apple.com/us/app/style-dna-ai-color-analysis/id1358319821?mt=8)):
+  - Selfie-first onboarding → undertone/season output → palette.
+  - "Does this match me?" item checks with factors (color/shape/print/fabric) and clear pass indicator.
+  - AI stylist chat entry near results; wardrobe and shopping tabs remain accessible.
+- From Phia ([App Store](https://apps.apple.com/us/app/phia-best-price-in-one-click/id6739351340?fbclid=PAZXh0bgNhZW0CMTEAAae8kSz2inpK1Tncf0U6Armc7CftFsxrqN3BKWaa3QMzXBOXXGAJkt601Oc_CQ_aem_5j1BM7zMWsdMQfWyXZoH1Q)):
+  - Instant price comparisons with a deal score bar; partner marketplace tiles on results.
+  - Home shows trending searches and "Top deals from your brands".
+  - Normalized product cards with external deep links.
+
+## Pillar Feature Minimums (derived from benchmarks)
+- Color Analysis: selfie → undertone/season → palette; item match API; shareable result.
+- Closet: auto-tag upload; chip filters (favorites/type/size/brand/color/season); outfit generator with lock/swap; collections grid; closet value metric.
+- Search: query + filters → normalized results; deal score bar; partner badges; external links; optional cached snapshot.
+
+## UI Composition Rules (derived from screenshots)
+- Large, left-aligned headlines; generous whitespace; avoid heavy gradients.
+- Card lists with subtle shadows from `tokens.shadow`; rounded corners via `radii`.
+- Bottom navigation with 4–5 tabs; persistent search icon on shopping screens.
+- Chips with clear selected state; use accent color sparingly.
+
+

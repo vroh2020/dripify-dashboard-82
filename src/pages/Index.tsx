@@ -1,12 +1,12 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardView } from "@/components/DashboardView";
-import { ScanView } from "@/components/ScanView";
-import { TipsView } from "@/components/TipsView";
-import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
+// Unused imports removed for clean 3-pillar architecture
+import { ColorAnalysisView } from "@/features/color/ColorAnalysisView";
+import { ClosetView } from "@/features/closet/ClosetView";
+import { ShoppingView } from "@/features/shopping/ShoppingView";
+import { Palette, Shirt, ShoppingBag } from "lucide-react";
 import { motion } from "framer-motion";
-import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef } from "react";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
 
 
@@ -34,7 +34,7 @@ const Index = () => {
   // Sync tab value with URL
   useEffect(() => {
     if (location.pathname === '/') {
-      navigate('/dashboard', { replace: true });
+      navigate('/colors', { replace: true });
     }
   }, [location.pathname, navigate]);
 
@@ -53,16 +53,16 @@ const Index = () => {
     
     try {
       switch (currentPath) {
-        case 'dashboard':
-          return <DashboardView />;
-        case 'scan':
-          return <ScanView />;
+        case 'colors':
+          return <ColorAnalysisView />;
+        case 'closet':
+          return <ClosetView />;
+        case 'search':
+          return <ShoppingView />;
         case 'profile':
           return <Profile />;
-        case 'tips':
-          return <TipsView />;
         default:
-          return <DashboardView />;
+          return <ColorAnalysisView />;
       }
     } catch (error) {
       console.error('🎯 Error rendering content:', error);
@@ -85,14 +85,13 @@ const Index = () => {
 
   return (
     <div 
-      className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] relative overflow-x-hidden"
-      style={{ paddingTop: `env(safe-area-inset-top)` }}
+      className="min-h-[100dvh] bg-white relative overflow-x-hidden"
+      style={{ paddingTop: `calc(env(safe-area-inset-top) + 8px)` }}
     >
-      <DashboardHeader />
       
-      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-88px)]">
+      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-full">
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden pt-2">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden pb-8">
           {(() => {
             try {
               console.log('🎯 Attempting to render content...');
@@ -119,36 +118,37 @@ const Index = () => {
           })()}
         </div>
 
-        {/* Bottom Navigation - Fixed */}
+        {/* Bottom Navigation - Clean 3-Pillar Design */}
         <motion.div 
           initial={{ y: 100, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-black/40 backdrop-blur-xl border-t border-white/10 safe-area-bottom"
+          className="bg-white border-t border-gray-100 fixed bottom-0 left-0 right-0 z-50"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
-          <TabsList className="w-full h-16 grid grid-cols-3 bg-transparent gap-0 p-0">
+          <TabsList className="!flex !h-10 !w-full !grid !grid-cols-3 !bg-transparent !gap-0 !p-0 !border-0 !rounded-none !text-black">
             <TabsTrigger 
-              value="dashboard" 
-              className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/20 data-[state=active]:to-orange-400/20 data-[state=active]:text-orange-400 rounded-none transition-all duration-200 text-white/70 hover:text-white h-full"
+              value="colors" 
+              className="!flex !flex-col !items-center !justify-center !gap-0.5 !data-[state=active]:!text-black !data-[state=active]:!bg-transparent !rounded-none !transition-all !duration-200 !text-gray-500 hover:!text-gray-700 !h-full !px-0 !py-1 !text-xs !font-medium"
             >
-              <LayoutDashboard className="h-5 w-5" />
-              <span className="text-xs font-medium">Dashboard</span>
+              <Palette className="h-4 w-4" />
+              <span className="text-xs font-medium">Colors</span>
             </TabsTrigger>
             
             <TabsTrigger 
-              value="scan" 
-              className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/20 data-[state=active]:to-orange-400/20 data-[state=active]:text-orange-400 rounded-none transition-all duration-200 text-white/70 hover:text-white h-full"
+              value="closet" 
+              className="!flex !flex-col !items-center !justify-center !gap-0.5 !data-[state=active]:!text-black !data-[state=active]:!bg-transparent !rounded-none !transition-all !duration-200 !text-gray-500 hover:!text-gray-700 !h-full !px-0 !py-1 !text-xs !font-medium"
             >
-              <Scan className="h-5 w-5" />
-              <span className="text-xs font-medium">Scan</span>
+              <Shirt className="h-4 w-4" />
+              <span className="text-xs font-medium">Closet</span>
             </TabsTrigger>
             
             <TabsTrigger 
-              value="tips" 
-              className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/20 data-[state=active]:to-orange-400/20 data-[state=active]:text-orange-400 rounded-none transition-all duration-200 text-white/70 hover:text-white h-full"
+              value="search" 
+              className="!flex !flex-col !items-center !justify-center !gap-0.5 !data-[state=active]:!text-black !data-[state=active]:!bg-transparent !rounded-none !transition-all !duration-200 !text-gray-500 hover:!text-gray-700 !h-full !px-0 !py-1 !text-xs !font-medium"
             >
-              <MessageSquare className="h-5 w-5" />
-              <span className="text-xs font-medium">Tips</span>
+              <ShoppingBag className="h-4 w-4" />
+              <span className="text-xs font-medium">Shopping</span>
             </TabsTrigger>
           </TabsList>
         </motion.div>
