@@ -63,7 +63,7 @@ export const DripResults = ({
       >
         <Avatar className="w-24 h-24 mx-auto border-2 border-purple-500/30">
           <AvatarImage src={profileImage} alt="Profile" className="object-cover" />
-          <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-2xl">👕</AvatarFallback>
+          <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-2xl">T</AvatarFallback>
         </Avatar>
         <div className="space-y-2">
           <h2 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">{displayScore}/100</h2>

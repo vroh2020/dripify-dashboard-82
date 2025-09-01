@@ -104,13 +104,13 @@ export const NewWelcomeStep = ({ onNext, onUserCreated }: NewWelcomeStepProps) =
             <Camera className="w-12 h-12 text-white" />
           </div>
           
-          <h1 className="text-4xl font-bold text-white mb-2">
+          <h1 className="text-headline-lg font-headline-bold text-white mb-2">
             Get your outfit checked with
           </h1>
-          <h2 className="text-4xl font-bold text-red-500 mb-6">
+          <h2 className="text-headline-lg font-headline-bold text-red-500 mb-6">
             OutfitGrader AI
           </h2>
-          <p className="text-gray-300 text-lg max-w-sm mx-auto">
+          <p className="text-gray-300 text-body-lg font-interface max-w-sm mx-auto">
             Take a selfie and get personalized advice on how to improve your style
           </p>
         </div>

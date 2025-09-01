@@ -1,5 +1,5 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,308 +7,207 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* MONOCHROME COLOR SYSTEM - BLACK & WHITE ONLY */
+    --background: 0 0% 100%; /* Pure white */
+    --foreground: 0 0% 0%; /* Pure black */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 0%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 0 0% 0%; /* Pure black for primary actions */
+    --primary-foreground: 0 0% 100%; /* Pure white text on black */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 96%; /* Very light gray */
+    --secondary-foreground: 0 0% 0%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%; /* Medium gray for muted text */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 0%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 0% 0%; /* Black for destructive actions */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 90%; /* Light gray borders */
+    --input: 0 0% 90%;
+    --ring: 0 0% 0%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem; /* Increased border radius for modern look */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark mode - inverted monochrome */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 0 0% 10%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 0% 100%;
+    --destructive-foreground: 0 0% 0%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 0 0% 100%;
   }
 
   * {
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   html {
-    /* Prevent horizontal scroll */
     overflow-x: hidden;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    /* Prevent horizontal scroll and improve mobile performance */
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Improve scroll performance on mobile */
     -webkit-overflow-scrolling: touch;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
   }
 
-  /* Enhance scrollbar styling */
+  /* Enhanced scrollbar styling */
   ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    background: hsl(var(--muted));
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+    background: hsl(var(--muted-foreground));
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: hsl(var(--foreground));
   }
 
-  /* Mobile-first responsive improvements */
-  @media (max-width: 480px) {
-    html {
-      /* Improve text rendering on small screens */
-      text-size-adjust: 100%;
-    }
+  /* Focus styles for accessibility */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 
-  /* Prevent zoom on input focus for iOS */
-  @media screen and (max-width: 768px) {
-    input[type="text"],
-    input[type="email"],
-    input[type="password"],
-    textarea,
-    select {
-      font-size: 16px;
-    }
+  /* Selection styles */
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
   }
 }
 
 @layer components {
-  /* Responsive container utility */
-  .container-responsive {
-    @apply w-full max-w-sm mx-auto px-4 sm:max-w-md sm:px-6 md:max-w-lg lg:max-w-xl xl:max-w-2xl;
+  /* TRENDZA DESIGN SYSTEM COMPONENTS */
+  
+  /* Card Component */
+  .trendza-card {
+    @apply bg-white border border-gray-200 rounded-2xl shadow-sm p-6;
   }
 
-  /* Safe area padding for mobile devices with notches */
-  .safe-area-padding {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+  .trendza-card-interactive {
+    @apply bg-white border border-gray-200 rounded-2xl shadow-sm p-6 hover:shadow-md hover:scale-[1.02] transition-all duration-200;
   }
 
-  /* Individual safe area utilities */
-  .safe-area-top {
-    padding-top: max(1rem, env(safe-area-inset-top));
+  /* Button Components */
+  .trendza-btn-primary {
+    @apply bg-black hover:bg-gray-800 text-white font-semibold rounded-xl px-6 py-3 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  .safe-area-bottom {
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  .trendza-btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl px-4 py-2 border border-gray-300 transition-colors duration-200;
   }
 
-  .safe-area-left {
-    padding-left: env(safe-area-inset-left);
+  .trendza-btn-ghost {
+    @apply text-black px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-200;
   }
 
-  .safe-area-right {
-    padding-right: env(safe-area-inset-right);
+  /* Input Components */
+  .trendza-input {
+    @apply bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:border-black focus:ring-2 focus:ring-gray-200 transition-colors duration-200 placeholder:text-gray-400;
   }
 
-  /* Modern button styles with better touch targets */
-  .btn-modern {
-    @apply h-12 px-6 rounded-xl font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] min-w-[44px];
+  /* Typography */
+  .trendza-title {
+    @apply text-3xl font-bold text-gray-900;
   }
 
-  /* Card improvements for better mobile display */
-  .card-modern {
-    @apply backdrop-blur-xl bg-black/40 border-white/10 shadow-2xl rounded-2xl;
+  .trendza-subtitle {
+    @apply text-xl font-semibold text-gray-900;
   }
 
-  /* Text responsive classes */
-  .text-responsive-lg {
-    @apply text-lg sm:text-xl md:text-2xl lg:text-3xl;
+  .trendza-body {
+    @apply text-base text-gray-600;
   }
 
-  .text-responsive-xl {
-    @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl;
+  .trendza-caption {
+    @apply text-sm text-gray-500;
   }
 
-  .text-responsive-2xl {
-    @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl;
+  /* Layout Components */
+  .trendza-container {
+    @apply min-h-screen bg-white max-w-sm mx-auto px-4 py-6;
   }
 
-  /* Spacing responsive classes */
-  .space-responsive {
-    @apply space-y-6 sm:space-y-8 md:space-y-10;
+  .trendza-section {
+    @apply space-y-6;
   }
 
-  .padding-responsive {
-    @apply p-4 sm:p-6 md:p-8;
+  /* Navigation */
+  .trendza-nav-tab {
+    @apply data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 text-gray-600 hover:text-gray-900 transition-all duration-200;
   }
 
-  /* Grid responsive utilities */
-  .grid-responsive-2 {
-    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4;
+  /* Loading States */
+  .trendza-skeleton {
+    @apply animate-pulse bg-gray-200 rounded-xl;
   }
 
-  .grid-responsive-3 {
-    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3;
+  .trendza-loading {
+    @apply flex items-center justify-center min-h-[50vh];
   }
 
-  /* Image responsive utilities */
-  .img-responsive {
-    @apply w-full h-auto max-w-full;
-  }
-
-  /* Loading spinner */
-  .spinner {
-    @apply w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin;
-  }
-
-  /* Gradient text utility */
-  .gradient-text {
-    @apply bg-gradient-to-r from-orange-400 to-orange-500 text-transparent bg-clip-text;
-  }
-
-  /* Glass effect utility */
-  .glass-effect {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10;
-  }
-
-  /* Button hover effects */
-  .btn-primary {
-    @apply bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg;
-  }
-
-  .btn-secondary {
-    @apply border-white/20 text-white hover:bg-gradient-to-r hover:from-orange-500/20 hover:to-orange-400/20 hover:border-orange-500/50 hover:text-white transition-all duration-200 hover:scale-[1.02];
-  }
-
-  /* Progress bar styling */
-  .progress-bar {
-    @apply h-1 bg-white/10 rounded-full overflow-hidden;
-  }
-
-  .progress-fill {
-    @apply h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-500 ease-out;
-  }
-
-  /* Enhanced onboarding scroll container */
-  .onboarding-scroll {
-    @apply overflow-y-auto overscroll-contain;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Better scroll performance for onboarding */
-  .onboarding-container {
-    @apply flex flex-col min-h-full;
-    contain: layout style paint;
+  .trendza-spinner {
+    @apply w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin;
   }
 }
 
 @layer utilities {
-  /* Touch-friendly sizing */
-  .touch-size {
-    min-height: 44px;
-    min-width: 44px;
+  /* Custom utilities for Trendza */
+  .text-balance {
+    text-wrap: balance;
   }
-
-  /* Better focus styles for accessibility */
-  .focus-visible {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black/40;
+  
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
   }
-
-  /* Prevent text selection for UI elements */
-  .no-select {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-  }
-
-  /* Hardware acceleration for smooth animations */
-  .gpu {
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    will-change: transform;
-  }
-
-  /* Safe area inset utilities for modern devices */
-  .pt-safe-area-top {
-    padding-top: max(3rem, env(safe-area-inset-top, 3rem));
-  }
-
-  .pb-safe-area-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
-  }
-
-  /* Improved scrolling utilities */
-  .scroll-smooth-touch {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  /* Reduce motion for accessibility */
-  @media (prefers-reduced-motion: reduce) {
-    .motion-reduce {
-      animation: none;
-      transition: none;
-    }
-  }
-
-  /* Dynamic viewport height support */
-  .min-h-screen-safe {
-    min-height: 100vh;
-    min-height: 100dvh;
-  }
-
-  .h-screen-safe {
-    height: 100vh;
-    height: 100dvh;
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

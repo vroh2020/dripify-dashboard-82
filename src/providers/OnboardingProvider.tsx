@@ -379,7 +379,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       });
 
       toast({
-        title: "Onboarding Complete! 🎉",
+        title: "Onboarding Complete!",
         description: "Welcome to your personalized style journey.",
       });
 
@@ -450,7 +450,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
       budgetRange: profile.current_onboarding_step === 'budget-range' ? '$100-$250' : undefined,
       stylePreferences: profile.current_onboarding_step === 'style-preferences' ? ['casual'] : undefined,
       bodyType: profile.current_onboarding_step === 'body-type' ? 'athletic' : undefined,
-      fitPreference: profile.current_onboarding_step === 'fit-preference' ? 'fitted' : undefined,
+      fitPreference: profile.current_onboarding_step === 'fit-preference' ? 'tight' : undefined,
       colorPalette: profile.current_onboarding_step === 'color-palette' ? ['blue'] : undefined,
       shoeSize: profile.current_onboarding_step === 'shoe-size' ? '10' : undefined,
       brandAffinity: profile.current_onboarding_step === 'brand-affinity' ? ['nike'] : undefined,

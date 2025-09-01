@@ -1,7 +1,7 @@
 
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, Camera, ArrowRight } from "lucide-react";
+import { Sparkles, Camera, ArrowRight, Briefcase, Zap, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -9,11 +9,11 @@ export const QuickStartSection = () => {
   const navigate = useNavigate();
 
   return (
-    <Card className="bg-[#1A1F2C]/80 backdrop-blur-lg border-[#403E43]">
+    <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-white text-lg flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#9b87f5]" />
+          <CardTitle className="text-gray-900 text-lg flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-gray-600" />
             Quick Start
           </CardTitle>
         </div>
@@ -24,17 +24,17 @@ export const QuickStartSection = () => {
             {
               title: "Work Style",
               description: "Professional looks that make an impact",
-              icon: "👔"
+              icon: Briefcase
             },
             {
               title: "Casual Vibes",
               description: "Effortless everyday outfits",
-              icon: "✨"
+              icon: Zap
             },
             {
               title: "Evening Out",
               description: "Make a statement after dark",
-              icon: "🌙"
+              icon: Moon
             }
           ].map((card, index) => (
             <motion.div
@@ -45,21 +45,21 @@ export const QuickStartSection = () => {
               className="group cursor-pointer"
               onClick={() => navigate('/scan')}
             >
-              <Card className="bg-[#222222] border-[#403E43] hover:bg-[#1A1F2C] transition-all duration-300">
+              <Card className="bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-2xl">
-                        {card.icon}
+                      <div className="w-12 h-12 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center group-hover:bg-gray-50 transition-colors">
+                        <card.icon className="w-6 h-6 text-gray-600" />
                       </div>
                       <div>
-                        <p className="text-white font-medium group-hover:text-[#9b87f5] transition-colors">
+                        <p className="text-gray-900 font-medium group-hover:text-gray-700 transition-colors">
                           {card.title}
                         </p>
-                        <p className="text-[#C8C8C9] text-xs">{card.description}</p>
+                        <p className="text-gray-600 text-xs">{card.description}</p>
                       </div>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-purple-400 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </CardContent>
               </Card>

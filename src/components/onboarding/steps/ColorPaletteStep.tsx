@@ -28,7 +28,9 @@ export const ColorPaletteStep = ({ onNext }: ColorPaletteStepProps) => {
   return (
     <motion.div key="color-palette" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} transition={{ duration: 0.6, ease: "easeOut" }} className="h-full flex flex-col">
       <div className="flex-1 flex flex-col justify-center items-center px-8 py-12">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 200 }} className="text-7xl mb-8">🎨</motion.div>
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring", stiffness: 200 }} className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-8">
+          <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-blue-500 rounded-lg"></div>
+        </motion.div>
         <div className="space-y-4 text-center mb-8">
           <h2 className="text-4xl font-bold text-white">Pick your top 3 color palettes</h2>
           <p className="text-white/70 text-xl">Choose up to 3 that speak to you</p>

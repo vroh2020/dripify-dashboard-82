@@ -149,7 +149,7 @@ export function OnboardingInspector() {
 
   const getCompletionPercentage = (user: UserOnboardingData) => {
     let completed = 0;
-    let total = 4; // age, goal, photo, payment
+    const total = 4; // age, goal, photo, payment
     
     if (user.age_range) completed++;
     if (user.main_goal) completed++;

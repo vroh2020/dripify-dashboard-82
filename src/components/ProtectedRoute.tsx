@@ -2,7 +2,6 @@ import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
-import { LoadingScreen } from './LoadingScreen';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -17,9 +16,9 @@ export const ProtectedRoute = ({
   const { isLoading: onboardingLoading, hasCompletedOnboarding } = useOnboardingStatus();
   const location = useLocation();
 
-  // Show loading while auth or onboarding status is being determined
+  // Show nothing while auth or onboarding status is being determined
   if (authLoading || onboardingLoading) {
-    return <LoadingScreen message="Checking authentication..." />;
+    return null;
   }
 
   // Redirect to auth if not authenticated

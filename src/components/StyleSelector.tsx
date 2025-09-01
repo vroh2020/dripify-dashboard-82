@@ -1,11 +1,11 @@
-import { Check } from "lucide-react";
+import { Check, Shirt, Briefcase, GraduationCap, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StyleOption {
   id: string;
   label: string;
   description: string;
-  icon: string;
+  icon: any;
 }
 
 interface StyleSelectorProps {
@@ -18,25 +18,25 @@ const styleOptions: StyleOption[] = [
     id: "casual",
     label: "Casual",
     description: "Everyday wear",
-    icon: "👕",
+    icon: Shirt,
   },
   {
     id: "formal",
     label: "Formal",
     description: "Business attire",
-    icon: "👔",
+    icon: Briefcase,
   },
   {
     id: "streetwear",
     label: "Street",
     description: "Urban style",
-    icon: "🧢",
+    icon: GraduationCap,
   },
   {
     id: "athletic",
     label: "Athletic",
     description: "Sports wear",
-    icon: "🏃",
+    icon: Zap,
   },
 ];
 
@@ -54,7 +54,7 @@ export const StyleSelector = ({ selected, onSelect }: StyleSelectorProps) => {
               : "border-white/10 hover:border-white/20 text-gray-400 hover:text-white"
           )}
         >
-          <span className="text-2xl mb-1">{option.icon}</span>
+          <option.icon className="w-6 h-6 mb-1" />
           <span className="text-sm font-medium">{option.label}</span>
         </button>
       ))}

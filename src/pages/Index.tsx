@@ -1,10 +1,11 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardView } from "@/components/DashboardView";
 import { ScanView } from "@/components/ScanView";
-import { TipsView } from "@/components/TipsView";
-import { LayoutDashboard, Scan, MessageSquare, User } from "lucide-react";
+
+import ClosetView from "@/components/closet/ClosetView";
+import { Scan, Shirt } from "lucide-react";
 import { motion } from "framer-motion";
-import { Link, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
@@ -14,6 +15,11 @@ const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname.split('/')[1] || 'dashboard';
+  console.log('🎯 Path calculation:', {
+    fullPath: location.pathname,
+    splitResult: location.pathname.split('/'),
+    currentPath: currentPath
+  });
   
   // Add render counter to prevent infinite loops
   const renderCountRef = useRef(0);
@@ -33,23 +39,21 @@ const Index = () => {
 
   // Sync tab value with URL
   useEffect(() => {
-    if (location.pathname === '/') {
-      navigate('/dashboard', { replace: true });
+    if (location.pathname === '/' || location.pathname === '/dashboard') {
+      navigate('/scan', { replace: true });
     }
   }, [location.pathname, navigate]);
 
   const handleTabChange = (value: string) => {
-    if (renderCountRef.current <= 3) {
-      console.log('🎯 Tab changed to:', value);
-    }
+    console.log('🎯 Tab changed to:', value);
+    console.log('🎯 Current location before navigation:', location.pathname);
     navigate(`/${value}`);
   };
 
   // Simple conditional rendering instead of nested Routes
   const renderContent = () => {
-    if (renderCountRef.current <= 3) {
-      console.log('🎯 Rendering content for path:', currentPath);
-    }
+    console.log('🎯 Rendering content for path:', currentPath);
+    console.log('🎯 Full location pathname:', location.pathname);
     
     try {
       switch (currentPath) {
@@ -57,20 +61,21 @@ const Index = () => {
           return <DashboardView />;
         case 'scan':
           return <ScanView />;
+        case 'closet':
+          return <ClosetView />;
         case 'profile':
           return <Profile />;
-        case 'tips':
-          return <TipsView />;
+
         default:
-          return <DashboardView />;
+          return <ScanView />;
       }
     } catch (error) {
       console.error('🎯 Error rendering content:', error);
       return (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-white mb-2">Something went wrong</h3>
-            <p className="text-gray-400 mb-4">There was an error loading this content</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h3>
+            <p className="text-gray-600 mb-4">There was an error loading this content</p>
             <button 
               onClick={() => window.location.reload()} 
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -85,7 +90,7 @@ const Index = () => {
 
   return (
     <div 
-      className="min-h-[100dvh] bg-gradient-to-br from-[#1A1F2C] via-[#2C1F3D] to-[#1A1F2C] relative overflow-x-hidden"
+      className="min-h-[100dvh] bg-white relative overflow-x-hidden"
       style={{ paddingTop: `env(safe-area-inset-top)` }}
     >
       <DashboardHeader />
@@ -102,13 +107,13 @@ const Index = () => {
             } catch (error) {
               console.error('🎯 Error rendering content:', error);
               return (
-                <div className="flex items-center justify-center min-h-[50vh] text-white">
+                <div className="flex items-center justify-center min-h-[50vh] text-gray-900">
                   <div className="text-center">
                     <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-                    <p className="text-white/60 mb-4">Error loading dashboard content</p>
+                    <p className="text-gray-600 mb-4">Error loading dashboard content</p>
                     <button 
                       onClick={() => window.location.reload()}
-                      className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg"
+                      className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white"
                     >
                       Reload
                     </button>
@@ -124,32 +129,29 @@ const Index = () => {
           initial={{ y: 100, opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-black/40 backdrop-blur-xl border-t border-white/10 safe-area-bottom"
+          className="bg-white border-t border-gray-200 safe-area-bottom shadow-sm"
         >
-          <TabsList className="w-full h-16 grid grid-cols-3 bg-transparent gap-0 p-0">
-            <TabsTrigger 
-              value="dashboard" 
-              className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/20 data-[state=active]:to-orange-400/20 data-[state=active]:text-orange-400 rounded-none transition-all duration-200 text-white/70 hover:text-white h-full"
-            >
-              <LayoutDashboard className="h-5 w-5" />
-              <span className="text-xs font-medium">Dashboard</span>
-            </TabsTrigger>
+          <TabsList className="w-full h-16 grid grid-cols-2 bg-transparent gap-0 p-0">
+
             
             <TabsTrigger 
               value="scan" 
-              className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/20 data-[state=active]:to-orange-400/20 data-[state=active]:text-orange-400 rounded-none transition-all duration-200 text-white/70 hover:text-white h-full"
+              className="flex flex-col items-center justify-center gap-0.5 data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 rounded-none transition-all duration-200 text-gray-600 hover:text-gray-900 h-full"
             >
-              <Scan className="h-5 w-5" />
+              <Scan className="h-4 w-4" />
               <span className="text-xs font-medium">Scan</span>
             </TabsTrigger>
             
             <TabsTrigger 
-              value="tips" 
-              className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500/20 data-[state=active]:to-orange-400/20 data-[state=active]:text-orange-400 rounded-none transition-all duration-200 text-white/70 hover:text-white h-full"
+              value="closet" 
+              onClick={() => console.log('🎯 Closet tab clicked!')}
+              className="flex flex-col items-center justify-center gap-0.5 data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 rounded-none transition-all duration-200 text-gray-600 hover:text-gray-900 h-full"
             >
-              <MessageSquare className="h-5 w-5" />
-              <span className="text-xs font-medium">Tips</span>
+              <Shirt className="h-4 w-4" />
+              <span className="text-xs font-medium">Closet</span>
             </TabsTrigger>
+            
+
           </TabsList>
         </motion.div>
       </Tabs>

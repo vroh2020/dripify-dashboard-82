@@ -9,37 +9,30 @@ interface VibeSelectionStepProps {
 
 const styleOptions = [
   {
-    id: "streetwear",
-    name: "Streetwear",
-    emoji: "🔥",
-    description: "Urban, casual, and trendy",
-    icon: Zap
-  },
-  {
     id: "minimalist",
     name: "Minimalist",
-    emoji: "⚪",
+    emoji: "",
     description: "Clean, simple, and timeless",
     icon: Sparkles
   },
   {
     id: "classic",
     name: "Classic",
-    emoji: "👔",
+    emoji: "",
     description: "Sophisticated and refined",
     icon: Crown
   },
   {
     id: "creative",
     name: "Creative",
-    emoji: "🎨",
+    emoji: "",
     description: "Bold, artistic, and unique",
     icon: Star
   },
   {
     id: "sporty",
     name: "Sporty",
-    emoji: "🏃",
+    emoji: "",
     description: "Active, comfortable, and dynamic",
     icon: Heart
   }

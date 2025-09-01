@@ -189,7 +189,7 @@ export const StyleAnalysesList = ({ analyses }: { analyses: StyleAnalysis[] }) =
                     <div className="relative inline-block">
                       <Avatar className="w-16 h-16 border-2 border-purple-500/30">
                         <AvatarImage src={getImageUrl(selectedAnalysis.image_url)} alt="Style" className="object-cover" />
-                        <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-xl">👕</AvatarFallback>
+                        <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-xl">T</AvatarFallback>
                       </Avatar>
                       <div className="absolute -bottom-2 -right-2 bg-purple-500 text-white text-sm font-bold rounded-full w-7 h-7 flex items-center justify-center border-2 border-[#1A1F2C]">
                         {selectedAnalysis.total_score}

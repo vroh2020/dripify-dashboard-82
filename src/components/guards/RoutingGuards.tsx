@@ -1,7 +1,6 @@
 import React, { ReactNode, useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { LoadingScreen } from '@/components/LoadingScreen';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
@@ -91,7 +90,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
 
   // Handle loading states
   if (isLoading) {
-    return <GuardLoadingScreen message="Checking authentication..." />;
+    return null;
   }
 
   // Handle authentication errors
@@ -142,7 +141,7 @@ export const PublicRoute: React.FC<GuardProps> = ({ children }) => {
 
   // Show loading while checking auth status
   if (isLoading) {
-    return <GuardLoadingScreen message="Loading..." />;
+    return null;
   }
 
   // Redirect authenticated users to dashboard

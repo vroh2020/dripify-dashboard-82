@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 let lastRevenueCatUserId: string | null = null;
 let lastLogInTime: number = 0;
 let isConfigured = false;
-let throttleStats = {
+const throttleStats = {
   totalCalls: 0,
   throttledCalls: 0,
   executedCalls: 0

@@ -11,16 +11,21 @@ export const DashboardHeader = () => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex items-center justify-between px-4 pt-6 pb-4"
+      className="flex items-center justify-between px-4 pt-6 pb-4 bg-white border-b border-gray-200"
     >
-      <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-orange-500">
-        OutfitGrader AI
-      </h1>
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shadow-sm">
+          <span className="text-white font-bold text-lg tracking-tight">T</span>
+        </div>
+        <h1 className="text-2xl font-bold text-black tracking-tight">
+          trendza
+        </h1>
+      </div>
 
       <Button
         variant="ghost"
         size="icon"
-        className="rounded-full text-white/80 hover:bg-white/10 hover:text-white"
+        className="rounded-full text-gray-600 hover:bg-gray-100 hover:text-black"
         onClick={() => navigate('/profile')}
       >
         <User className="h-6 w-6" />

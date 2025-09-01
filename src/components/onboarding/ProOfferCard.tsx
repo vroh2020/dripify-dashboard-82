@@ -11,7 +11,7 @@ interface ProOfferCardProps {
   onContinue: () => void;
 }
 
-// Plan configuration - now dynamic from RevenueCat (because magic isn't free! 🪄✨)
+// Plan configuration - now dynamic from RevenueCat
 const getPlanConfig = (offerings: any) => {
   if (!offerings || offerings.length === 0) {
     // Fallback config if offerings not loaded
@@ -459,7 +459,7 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
           ) : restoreMsg.includes('Ready to unlock') ? (
             <div className="flex items-center justify-center gap-2">
               <div className="w-4 h-4 bg-purple-500/30 rounded-full flex items-center justify-center">
-                <span className="text-purple-400 text-xs">✨</span>
+                <span className="text-purple-400 text-xs">•</span>
               </div>
               <span>Ready to unlock premium features? Choose a plan above to get started!</span>
             </div>
@@ -472,7 +472,7 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
   );
 };
 
-// Main Component - The magical subscription gateway! ✨
+// Main Component - The subscription gateway
 export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   const { offerings, purchaseProduct, isPro, restorePurchases } = useSubscription();
   const { user, isLoading: authLoading } = useAuth();
@@ -517,7 +517,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
           <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-400 text-xl">⚠️</span>
+            <span className="text-red-400 text-xl">!</span>
           </div>
           <p className="text-white/70 text-sm mb-2">Authentication Error</p>
           <p className="text-white/50 text-xs">Please refresh the page and try again</p>
@@ -546,7 +546,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       
       if (success) {
         toast({ 
-          title: "Welcome to Pro! 🎉", 
+          title: "Welcome to Pro!", 
           description: "Your subscription is now active." 
         });
         setTimeout(onContinue, 1000);

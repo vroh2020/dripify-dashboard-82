@@ -7,7 +7,6 @@ import { Suspense, lazy } from "react";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
-import { LoadingScreen } from "./components/LoadingScreen";
 
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
@@ -49,25 +48,18 @@ const AppRoutes = () => {
       {shouldShowDashboard ? (
         <>
           <Route 
-            path="/dashboard" 
-            element={
-              <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
-                <Index />
-              </Suspense>
-            } 
-          />
-          <Route 
             path="/scan" 
             element={
-              <Suspense fallback={<LoadingScreen message="Loading scanner..." />}>
+              <Suspense fallback={null}>
                 <Index />
               </Suspense>
             } 
           />
+
           <Route 
-            path="/tips" 
+            path="/closet" 
             element={
-              <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
+              <Suspense fallback={null}>
                 <Index />
               </Suspense>
             } 
@@ -75,13 +67,13 @@ const AppRoutes = () => {
           <Route 
             path="/profile" 
             element={
-              <Suspense fallback={<LoadingScreen message="Loading profile..." />}>
+              <Suspense fallback={null}>
                 <Profile />
               </Suspense>
             } 
           />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/scan" replace />} />
+          <Route path="*" element={<Navigate to="/scan" replace />} />
         </>
       ) : (
         // Not completed onboarding or not paid - redirect to auth

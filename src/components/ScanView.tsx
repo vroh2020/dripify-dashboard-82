@@ -1,25 +1,20 @@
 import { useState } from "react";
-import { ImageUpload } from "@/components/ImageUpload";
-import { StyleSelector } from "@/components/StyleSelector";
+import { motion, AnimatePresence } from "framer-motion";
+import { Camera, Upload, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
-import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { useScanStore } from "@/store/scanStore";
-import { Sparkles, Camera } from "lucide-react";
-import { StyleTips } from "./analysis/StyleTips";
-import { StyleLoadingOverlay } from "./StyleLoadingOverlay";
-import { ModernRatingsDisplay } from "./ModernRatingsDisplay";
 import type { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 
 export const ScanView = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState("casual");
   const [analyzing, setAnalyzing] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
   const addScan = useScanStore((state) => state.addScan);
+  
   const [result, setResult] = useState<{ 
     overallScore: number; 
     rawAnalysis: string; 
@@ -29,14 +24,13 @@ export const ScanView = () => {
     summary?: string;
   } | null>(null);
 
-  const handleAnalyzeTimeout = () => {
-    console.log('Analysis timeout triggered');
-    setAnalyzing(false);
-    toast({
-      title: "Analysis timed out",
-      description: "The style analysis is taking too long. Please try again with a different image.",
-      variant: "destructive",
-    });
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      setShowResults(false);
+      setResult(null);
+    }
   };
 
   const handleAnalyze = async () => {
@@ -49,24 +43,19 @@ export const ScanView = () => {
       return;
     }
 
-    console.log('Starting analysis process...');
     setAnalyzing(true);
     setShowResults(false);
     
     try {
-      console.log('Calling analyzeStyle function...');
       const analysisResult = await analyzeStyle(selectedImage, false);
-      console.log('Analysis result received:', analysisResult);
-      
       setResult(analysisResult);
-      addScan(analysisResult); // Use addScan to save to history
+      addScan(analysisResult);
       
       toast({
-        title: "Analysis Complete! 🎉",
+        title: "Analysis Complete!",
         description: `Your style scored ${analysisResult.overallScore}/100!`,
       });
       
-      // Show results after a brief delay
       setTimeout(() => {
         setShowResults(true);
         setAnalyzing(false);
@@ -74,12 +63,6 @@ export const ScanView = () => {
       
     } catch (error) {
       console.error("Analysis error:", error);
-      console.error('🔍 MAIN SCAN ERROR DETAILS:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace',
-        name: error instanceof Error ? error.name : 'Unknown',
-        fullError: error
-      });
       setAnalyzing(false);
       
       toast({
@@ -91,134 +74,222 @@ export const ScanView = () => {
   };
 
   const handleRestart = () => {
-    console.log('Restarting scan process...');
     setShowResults(false);
     setSelectedImage(null);
     setResult(null);
     setAnalyzing(false);
   };
 
-  const handleShare = () => {
-    toast({
-      title: "Shared! 📸",
-      description: "Your style analysis has been shared!",
-    });
-  };
+  if (showResults && result) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen bg-white p-4"
+      >
+        <div className="max-w-sm mx-auto space-y-6">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between"
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRestart}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              New Scan
+            </Button>
+          </motion.div>
 
-  const handleSave = () => {
-    toast({
-      title: "Saved! 💾",
-      description: "Your style analysis has been saved to your profile!",
-    });
-  };
+          {/* Results Card */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="trendza-card">
+              <CardContent className="p-6">
+                {/* Score Display */}
+                <div className="text-center mb-6">
+                  <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-white font-bold text-2xl">{result.overallScore}</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Style Score</h2>
+                  <p className="text-gray-600">Your outfit analysis is complete</p>
+                </div>
+
+                {/* Score Breakdown */}
+                {result.breakdown && result.breakdown.length > 0 && (
+                  <div className="space-y-4 mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Breakdown</h3>
+                    <div className="space-y-3">
+                      {result.breakdown.map((item, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 + index * 0.1 }}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <span className="text-2xl">{item.emoji}</span>
+                            <span className="font-medium text-gray-900">{item.category}</span>
+                          </div>
+                          <span className="font-bold text-gray-900">{item.score}/100</span>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Style Tips */}
+                {result.tips && result.tips.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Style Tips</h3>
+                    <div className="space-y-3">
+                      {result.tips.map((tip, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.1 }}
+                          className="p-4 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-start space-x-3">
+                            <Sparkles className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium text-gray-900 mb-1">{tip.category}</p>
+                              <p className="text-sm text-gray-600">{tip.tip}</p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="px-4 relative pt-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen bg-white p-4"
     >
-      {/* Style Loading Overlay */}
-      <StyleLoadingOverlay 
-        isAnalyzing={analyzing} 
-        onTimeout={handleAnalyzeTimeout}
-        timeoutDuration={90000}
-      />
-
-      {!showResults ? (
-        <Card className="backdrop-blur-xl bg-black/30 border-white/10">
-          <CardContent className="space-y-8 p-8">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <ImageUpload onImageSelect={setSelectedImage} />
-            </motion.div>
-            
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="space-y-6"
-            >
-              <h3 className="text-xl font-medium text-center text-white">
-                What's the occasion?
-              </h3>
-              <StyleSelector selected={selectedStyle} onSelect={setSelectedStyle} />
-            </motion.div>
-
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="flex justify-center pt-4"
-            >
-              <Button
-                onClick={handleAnalyze}
-                disabled={!selectedImage || analyzing}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium px-10 py-6 rounded-full transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:-translate-y-1"
-              >
-                {analyzing ? (
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 animate-pulse text-yellow-300" />
-                    <span>Analyzing Style...</span>
-                  </div>
-                ) : (
-                  <>
-                    <Camera className="mr-2 h-5 w-5" />
-                    Analyze Style
-                  </>
-                )}
-              </Button>
-            </motion.div>
-          </CardContent>
-        </Card>
-      ) : (
+      <div className="max-w-sm mx-auto space-y-6">
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, x: 100 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className="pb-20"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
         >
-          {result && (
-            <div className="w-full max-w-2xl mx-auto space-y-6">
-              {/* Modern Ratings Display */}
-              <ModernRatingsDisplay
-                overallScore={result.overallScore}
-                profileImage={result.imageUrl}
-                breakdown={result.breakdown || []}
-                isOnboarding={false}
-              />
-
-              {/* Tips Section */}
-              {result.tips && result.tips.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
-                  className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 border border-white/10"
-                >
-                  <StyleTips tips={result.tips} />
-                </motion.div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="p-6 bg-zinc-900/50 rounded-b-2xl">
-                <Button 
-                  onClick={handleRestart}
-                  variant="outline"
-                  className="w-full h-14 text-lg"
-                >
-                  <Camera className="mr-2" />
-                  Retake
-                </Button>
-              </div>
-            </div>
-          )}
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Style Analysis</h1>
+          <p className="text-gray-600">Upload a photo to get your style score</p>
         </motion.div>
-      )}
+
+        {/* Upload Area */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="trendza-card">
+            <CardContent className="p-8">
+              <div className="text-center space-y-6">
+                {/* Upload Icon */}
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                  {selectedImage ? (
+                    <img
+                      src={URL.createObjectURL(selectedImage)}
+                      alt="Selected"
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <Camera className="w-8 h-8 text-gray-400" />
+                  )}
+                </div>
+
+                {/* Upload Text */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {selectedImage ? "Image Selected" : "Choose a Photo"}
+                  </h3>
+                  <p className="text-gray-600 text-sm">
+                    {selectedImage 
+                      ? "Ready to analyze your style" 
+                      : "Upload a photo of your outfit for analysis"
+                    }
+                  </p>
+                </div>
+
+                {/* Upload Button */}
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label htmlFor="image-upload">
+                    <Button
+                      variant="outline"
+                      className="w-full cursor-pointer"
+                      asChild
+                    >
+                      <span>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {selectedImage ? "Change Photo" : "Select Photo"}
+                      </span>
+                    </Button>
+                  </label>
+
+                  {selectedImage && (
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={analyzing}
+                      className="w-full"
+                    >
+                      {analyzing ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Analyze Style
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Instructions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-center"
+        >
+          <p className="text-sm text-gray-500">
+            Get instant feedback on your outfit's style, fit, and coordination
+          </p>
+        </motion.div>
+      </div>
     </motion.div>
   );
 };

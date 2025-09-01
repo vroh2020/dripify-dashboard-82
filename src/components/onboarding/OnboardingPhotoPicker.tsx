@@ -26,7 +26,7 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
       const mimeMatch = base64.match(/data:([^;]+);base64,/);
       const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
       
-      console.log('📋 Detected MIME type:', mime);
+      console.log('Detected MIME type:', mime);
       
       const binaryString = atob(base64Data);
       const bytes = new Uint8Array(binaryString.length);

@@ -345,6 +345,99 @@ export type Database = {
           },
         ]
       }
+      // Add trendza_closet_items table
+      trendza_closet_items: {
+        Row: {
+          id: string
+          user_id: string
+          source_image_url: string | null
+          title: string | null
+          brand: string | null
+          category: string | null
+          color: string | null
+          season: string | null
+          tags: Json
+          attributes: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          source_image_url?: string | null
+          title?: string | null
+          brand?: string | null
+          category?: string | null
+          color?: string | null
+          season?: string | null
+          tags?: Json
+          attributes?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          source_image_url?: string | null
+          title?: string | null
+          brand?: string | null
+          category?: string | null
+          color?: string | null
+          season?: string | null
+          tags?: Json
+          attributes?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trendza_closet_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      // Add trendza_outfits table
+      trendza_outfits: {
+        Row: {
+          id: string
+          user_id: string
+          name: string | null
+          item_ids: string[]
+          score: number | null
+          rationale: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name?: string | null
+          item_ids?: string[]
+          score?: number | null
+          rationale?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string | null
+          item_ids?: string[]
+          score?: number | null
+          rationale?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trendza_outfits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -168,19 +168,19 @@ export const AuthOnboardingWizard = () => {
         { 
           category: 'Style', 
           score: Math.min(100, baseScore + Math.floor(Math.random() * variance) - 5), 
-          emoji: '✨',
+          emoji: '',
           feedback: "Great style choices! Your outfit shows confidence."
         },
         { 
           category: 'Fit', 
           score: Math.min(100, baseScore + Math.floor(Math.random() * variance)), 
-          emoji: '🧥',
+          emoji: '',
           feedback: "The fit looks good on you. Well proportioned."
         },
         { 
           category: 'Color', 
           score: Math.min(100, baseScore + Math.floor(Math.random() * variance) - 3), 
-          emoji: '🎨',
+          emoji: '',
           feedback: "Nice color coordination. The palette works well."
         }
       ],
@@ -399,7 +399,7 @@ export const AuthOnboardingWizard = () => {
       localStorage.setItem('subscription_active', 'true');
       
       toast({
-        title: "Welcome to Pro! 🎉",
+        title: "Welcome to Pro!",
         description: "Your subscription is now active.",
       });
       

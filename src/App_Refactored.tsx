@@ -109,16 +109,7 @@ const AppRoutes: React.FC = () => {
       />
       
       {/* Protected Dashboard Routes */}
-      <Route 
-        path="/dashboard" 
-        element={
-          <ProtectedRoute>
-            <Suspense fallback={<LoadingScreen message="Loading dashboard..." />}>
-              <Index />
-            </Suspense>
-          </ProtectedRoute>
-        } 
-      />
+
       
       <Route 
         path="/scan" 
@@ -131,16 +122,7 @@ const AppRoutes: React.FC = () => {
         } 
       />
       
-      <Route 
-        path="/tips" 
-        element={
-          <ProtectedRoute>
-            <Suspense fallback={<LoadingScreen message="Loading tips..." />}>
-              <Index />
-            </Suspense>
-          </ProtectedRoute>
-        } 
-      />
+
       
       <Route 
         path="/profile" 
@@ -158,7 +140,7 @@ const AppRoutes: React.FC = () => {
         path="/" 
         element={
           <PublicRoute>
-            <Navigate to="/dashboard" replace />
+            <Navigate to="/scan" replace />
           </PublicRoute>
         } 
       />
@@ -168,7 +150,7 @@ const AppRoutes: React.FC = () => {
         path="*" 
         element={
           <PublicRoute>
-            <Navigate to="/dashboard" replace />
+            <Navigate to="/scan" replace />
           </PublicRoute>
         } 
       />
@@ -206,13 +188,13 @@ const RefactoredApp: React.FC = () => {
         console.groupEnd();
       };
       
-      // Force navigation functions
-      (window as any).forceNavigate = {
-        toDashboard: () => window.location.href = '/dashboard',
-        toAuth: () => window.location.href = '/auth',
-        toOnboarding: () => window.location.href = '/onboarding',
-        toProfile: () => window.location.href = '/profile',
-      };
+             // Force navigation functions
+       (window as any).forceNavigate = {
+         toScan: () => window.location.href = '/scan',
+         toAuth: () => window.location.href = '/auth',
+         toOnboarding: () => window.location.href = '/onboarding',
+         toProfile: () => window.location.href = '/profile',
+       };
     }
   }, []);
 

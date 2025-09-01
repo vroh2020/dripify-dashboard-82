@@ -10,17 +10,17 @@ interface StyleLoadingOverlayProps {
 }
 
 const loadingMessages = [
-  { text: "Scanning for cuffed jeans violations… 👖", emoji: "👖" },
-  { text: "Checking for excessive H&M energy… 🕵🏽‍♂️", emoji: "🕵️" },
-  { text: "Consulting with the fashion gods 👼🏾", emoji: "✨" },
-  { text: "Measuring drip levels… Might need goggles 😎", emoji: "💧" },
-  { text: "If this outfit talks back, we're running 😳", emoji: "🏃" },
-  { text: "Assembling roast or praise… 🔥", emoji: "📝" },
-  { text: "Calculating fashion-forward coefficient… 📊", emoji: "📈" },
-  { text: "Analyzing color coordination… 🎨", emoji: "🌈" },
-  { text: "Checking if those shoes still in season… 👞", emoji: "👠" },
-  { text: "Comparing to last season's lookbook… 📚", emoji: "📖" },
-  { text: "Ranking outfit on the drip scale… 💦", emoji: "🌊" },
+  { text: "Analyzing your style composition…", emoji: "" },
+  { text: "Evaluating fashion choices…", emoji: "" },
+  { text: "Processing style data…", emoji: "" },
+  { text: "Measuring style metrics…", emoji: "" },
+  { text: "Assessing outfit coordination…", emoji: "" },
+  { text: "Generating style insights…", emoji: "" },
+  { text: "Calculating style score…", emoji: "" },
+  { text: "Analyzing color coordination…", emoji: "" },
+  { text: "Evaluating seasonal appropriateness…", emoji: "" },
+  { text: "Comparing to style benchmarks…", emoji: "" },
+  { text: "Finalizing style assessment…", emoji: "" },
 ];
 
 const dripFacts = [
@@ -146,7 +146,7 @@ export const StyleLoadingOverlay = ({
               transition={{ duration: 0.5 }}
               className="flex flex-col items-center"
             >
-              <span className="text-2xl mb-2">{loadingMessages[currentMessageIndex].emoji}</span>
+
               <p className="text-lg font-medium text-white">{loadingMessages[currentMessageIndex].text}</p>
             </motion.div>
           </AnimatePresence>
@@ -175,7 +175,7 @@ export const StyleLoadingOverlay = ({
               exit={{ opacity: 0, scale: 0.9 }}
               className="mt-6 p-4 rounded-lg bg-[#1A1F2C]/80 border border-[#403E43]"
             >
-              <h4 className="text-sm font-bold text-[#9b87f5] mb-2">✨ DRIP FACT ✨</h4>
+              <h4 className="text-sm font-bold text-gray-300 mb-2">STYLE FACT</h4>
               <p className="text-sm text-white/80">{dripFacts[dripFactIndex]}</p>
             </motion.div>
           )}

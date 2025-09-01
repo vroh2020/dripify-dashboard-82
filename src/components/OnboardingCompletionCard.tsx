@@ -31,7 +31,7 @@ export const OnboardingCompletionCard = () => {
       
       if (success) {
         toast({
-          title: "Onboarding Complete! 🎉",
+          title: "Onboarding Complete!",
           description: "Welcome to your personalized style journey.",
         });
         

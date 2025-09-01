@@ -2,46 +2,38 @@ import { motion } from "framer-motion";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "./ui/use-toast";
+
 import { Card, CardContent } from "./ui/card";
-import { Camera, ArrowRight, Sparkles } from "lucide-react";
+import { Camera, ArrowRight, TrendingUp, Calendar, Star, Zap, Target } from "lucide-react";
 import { Button } from "./ui/button";
-import { StyleStats } from "./dashboard/StyleStats";
-import { StyleAnalysesList } from "./dashboard/StyleAnalysesList";
-import { QuickStartSection } from "./dashboard/QuickStartSection";
-import { OnboardingCompletionCard } from "./OnboardingCompletionCard";
+import { Badge } from "./ui/badge";
 import { StyleAnalysis, ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 import { useAuth } from "@/hooks/useAuth";
+
+interface DashboardStats {
+  totalScans: number;
+  averageScore: number;
+  bestScore: number;
+  streak: number;
+  recentActivity: number;
+}
 
 export const DashboardView = () => {
   const navigate = useNavigate();
   const [analyses, setAnalyses] = useState<StyleAnalysis[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    averageScore: 0,
-    streak: 0,
+  const [stats, setStats] = useState<DashboardStats>({
     totalScans: 0,
-    bestScore: 0
+    averageScore: 0,
+    bestScore: 0,
+    streak: 0,
+    recentActivity: 0
   });
-  const { toast } = useToast();
+
   const { user } = useAuth();
   
-  // Add render counter to prevent infinite loops
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
-  
-  // Prevent excessive logging
-  if (renderCountRef.current <= 3) {
-    console.log('🎯 DashboardView rendered:', {
-      user: user?.id,
-      loading,
-      analysesCount: analyses.length,
-      renderCount: renderCountRef.current,
-      timestamp: new Date().toISOString()
-    });
-  } else if (renderCountRef.current === 4) {
-    console.warn('⚠️ DashboardView rendering too frequently - stopping logs');
-  }
 
   const fetchAnalyses = useCallback(async () => {
     try {
@@ -55,7 +47,7 @@ export const DashboardView = () => {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(5);
 
       if (error) throw error;
 
@@ -96,7 +88,8 @@ export const DashboardView = () => {
             ...analysis,
             breakdown: typedBreakdown,
             tips: typedTips,
-            image_url: analysis.thumbnail_url || analysis.image_url
+            image_url: analysis.thumbnail_url || analysis.image_url || '',
+            raw_analysis: analysis.raw_analysis || ''
           };
         });
         
@@ -105,29 +98,26 @@ export const DashboardView = () => {
         const scores = data.map(a => a.total_score);
         const averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
         const bestScore = Math.max(...scores);
-        const currentStreak = data[0].streak_count || 0;
+        const currentStreak = data[0]?.streak_count || 0;
 
         setStats({
-          averageScore: Math.round(averageScore * 10) / 10,
-          streak: currentStreak,
           totalScans: data.length,
-          bestScore: bestScore
+          averageScore: Math.round(averageScore * 10) / 10,
+          bestScore: bestScore,
+          streak: currentStreak,
+          recentActivity: data.filter(a => {
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return new Date(a.created_at) > weekAgo;
+          }).length
         });
       }
     } catch (error) {
       console.error('Error fetching analyses:', error);
-      // Remove toast from dependency array to prevent infinite loops
-      if (renderCountRef.current <= 10) {
-        toast({
-          title: "Error loading analyses",
-          description: "Failed to load your style analyses.",
-          variant: "destructive"
-        });
-      }
     } finally {
       setLoading(false);
     }
-  }, [user]); // Removed toast from dependencies
+  }, [user]);
 
   useEffect(() => {
     fetchAnalyses();
@@ -135,87 +125,210 @@ export const DashboardView = () => {
 
   const hasScans = analyses.length > 0;
 
+  const quickActions = [
+    {
+      title: "Style Scan",
+      description: "Analyze your outfit",
+      icon: Camera,
+      action: () => navigate('/scan'),
+      color: "bg-black"
+    },
+    {
+      title: "My Closet",
+      description: "Manage wardrobe",
+      icon: Target,
+      action: () => navigate('/closet'),
+      color: "bg-black"
+    },
+
+  ];
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full"
-        />
-      </div>
-    );
+    return null;
   }
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="w-full max-w-sm mx-auto px-4 pb-6 space-y-6"
-    >
-        {/* Removed onboarding completion card - just let users access dashboard normally */}
-        
+    <div className="min-h-screen bg-white p-4">
+      <div className="max-w-sm mx-auto space-y-4">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="space-y-2"
+        >
+          <h1 className="text-3xl font-bold text-black tracking-tight font-['Inter']">Welcome back!</h1>
+          <p className="text-gray-600 font-['Inter']">Ready to elevate your style today?</p>
+        </motion.div>
+
         {!hasScans ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
           >
-            <div className="relative">
-              {/* Subtle floating sparkles background */}
-              <div className="absolute inset-0 z-0 pointer-events-none">
-                <svg width="100%" height="100%" className="absolute top-0 left-0 opacity-30 animate-pulse" style={{filter: 'blur(2px)'}}>
-                  <circle cx="30" cy="40" r="8" fill="#a78bfa" />
-                  <circle cx="220" cy="80" r="5" fill="#f472b6" />
-                  <circle cx="120" cy="120" r="6" fill="#fbbf24" />
-                  <circle cx="80" cy="180" r="4" fill="#38bdf8" />
-                  <circle cx="200" cy="160" r="7" fill="#f472b6" />
-                </svg>
-              </div>
-              <Card className="relative z-10 bg-white/10 backdrop-blur-xl border border-purple-400/30 shadow-2xl rounded-3xl p-8 flex flex-col items-center">
-                <div className="text-5xl mb-4 animate-bounce">✨</div>
-                <h2 className="text-2xl font-extrabold text-white mb-2 text-center drop-shadow-lg">
-                  Welcome to OutfitGrader AI!
+            <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+              <CardContent className="text-center">
+                <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                  <Camera className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-black mb-2 font-['Inter'] tracking-tight">
+                  Start Your Style Journey
                 </h2>
-                <p className="text-base text-white/90 mb-6 text-center max-w-xs">
-                  Start your style journey with your first scan.
+                <p className="text-gray-600 mb-6 font-['Inter']">
+                  Take your first style scan to get personalized insights and recommendations.
                 </p>
-                <Button 
-                  onClick={() => navigate('/scan')} 
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-pink-500 hover:from-pink-500 hover:to-orange-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                <Button
+                  onClick={() => navigate('/scan')}
+                  className="w-full bg-black hover:bg-gray-800 text-white font-semibold text-lg py-4 rounded-xl shadow-sm transition-all duration-300 font-['Inter']"
                 >
-                  <Camera className="w-6 h-6" />
+                  <Camera className="w-6 h-6 mr-2" />
                   Take Your First Scan
-                  <motion.div
-                    animate={{ x: [0, 4, 0] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                  >
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </motion.div>
+                  <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
-              </Card>
-            </div>
+              </CardContent>
+            </Card>
           </motion.div>
         ) : (
-          <div className="space-y-6">
+          <>
+            {/* Stats Overview */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
+              transition={{ delay: 0.2 }}
+              className="grid grid-cols-2 gap-3"
             >
-              <StyleStats hasScans={hasScans} stats={stats} />
+              <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+                <CardContent className="text-center">
+                  <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-black mb-1 font-['Inter'] tracking-tight">{stats.averageScore}</h3>
+                  <p className="text-sm text-gray-600 font-['Inter']">Avg Score</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+                <CardContent className="text-center">
+                  <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <Star className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-black mb-1 font-['Inter'] tracking-tight">{stats.bestScore}</h3>
+                  <p className="text-sm text-gray-600 font-['Inter']">Best Score</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+                <CardContent className="text-center">
+                  <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <Zap className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-black mb-1 font-['Inter'] tracking-tight">{stats.streak}</h3>
+                  <p className="text-sm text-gray-600 font-['Inter']">Day Streak</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+                <CardContent className="text-center">
+                  <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <Calendar className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-black mb-1 font-['Inter'] tracking-tight">{stats.recentActivity}</h3>
+                  <p className="text-sm text-gray-600 font-['Inter']">This Week</p>
+                </CardContent>
+              </Card>
             </motion.div>
 
+            {/* Quick Actions */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
+              transition={{ delay: 0.3 }}
+              className="space-y-3"
             >
-              <StyleAnalysesList analyses={analyses} />
+              <h2 className="text-xl font-semibold text-black font-['Inter'] tracking-tight">Quick Actions</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {quickActions.map((action, index) => (
+                  <motion.div
+                    key={action.title}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.4 + index * 0.1 }}
+                  >
+                    <button
+                      onClick={action.action}
+                      className="w-full bg-white border border-gray-200 rounded-2xl p-4 hover:border-gray-300 hover:shadow-md transition-all duration-200 text-left group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 ${action.color} rounded-xl flex items-center justify-center text-white transition-all duration-200 group-hover:scale-105 shadow-sm`}>
+                          <action.icon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-black text-sm mb-1 truncate font-['Inter']">{action.title}</h3>
+                          <p className="text-xs text-gray-600 truncate font-['Inter']">{action.description}</p>
+                        </div>
+                      </div>
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
             </motion.div>
-          </div>
+
+            {/* Recent Activity */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-black font-['Inter'] tracking-tight">Recent Scans</h2>
+
+              </div>
+              
+              <div className="space-y-3">
+                {analyses.slice(0, 3).map((analysis, index) => (
+                  <motion.div
+                    key={analysis.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 + index * 0.1 }}
+                  >
+                    <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center">
+                            {analysis.image_url ? (
+                              <img 
+                                src={analysis.image_url} 
+                                alt="Style analysis"
+                                className="w-full h-full object-cover rounded-xl"
+                              />
+                            ) : (
+                              <Camera className="w-6 h-6 text-white" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-black text-sm truncate font-['Inter']">Style Analysis</h3>
+                            <p className="text-xs text-gray-600 font-['Inter']">
+                              {new Date(analysis.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Badge className="bg-black text-white px-2 py-1 rounded-full text-xs font-medium font-['Inter']">
+                              {analysis.total_score}/100
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </>
         )}
-      </motion.div>
+      </div>
+    </div>
   );
 };
