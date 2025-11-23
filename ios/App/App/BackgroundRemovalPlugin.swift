@@ -90,31 +90,28 @@ public class BackgroundRemovalPlugin: CAPPlugin {
                     return
                 }
                 
-                // Generate mask for the detected instance
-                guard let maskPixelBuffer = try? result.generateMaskedImage(
-                    ofInstances: result.allInstances,
-                    from: handler,
-                    croppedToInstancesExtent: false
-                ) else {
+                // Generate high-resolution mask using the correct method
+                let maskPixelBuffer: CVPixelBuffer
+                do {
+                    maskPixelBuffer = try result.generateScaledMaskForImage(
+                        forInstances: result.allInstances,
+                        from: handler
+                    )
+                } catch {
                     DispatchQueue.main.async {
                         call.resolve(["image": base64Image, "success": false])
                     }
                     return
                 }
                 
-                // Get the mask
+                // Convert mask to CIImage
                 let maskCIImage = CIImage(cvPixelBuffer: maskPixelBuffer)
                 
-                // Scale mask to match input image size
-                let scaleX = ciImage.extent.width / maskCIImage.extent.width
-                let scaleY = ciImage.extent.height / maskCIImage.extent.height
-                let scaledMask = maskCIImage.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
-                
-                // Apply mask to original image
-                let blendFilter = CIFilter(name: "CIBlendWithMask")!
-                blendFilter.setValue(ciImage, forKey: kCIInputImageKey)
-                blendFilter.setValue(CIImage.empty(), forKey: kCIInputBackgroundImageKey)
-                blendFilter.setValue(scaledMask, forKey: kCIInputMaskImageKey)
+                // Apply mask to original image using blendWithMask filter
+                let blendFilter = CIFilter.blendWithMask()
+                blendFilter.inputImage = ciImage
+                blendFilter.maskImage = maskCIImage
+                blendFilter.backgroundImage = CIImage.empty()
                 
                 guard let outputImage = blendFilter.outputImage else {
                     DispatchQueue.main.async {
