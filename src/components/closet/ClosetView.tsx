@@ -175,11 +175,14 @@ export default function ClosetView() {
 
   const processAndSaveImage = async (blob: Blob, sourceUrl: string | null = null) => {
     try {
+      alert('🚀 UPLOAD STARTED!'); // DEBUG: Make sure function is called
       setIsUploading(true);
       console.log('🎨 Processing image...');
       
+      alert('🔧 About to call removeBackgroundFromBlob...'); // DEBUG: Before background removal
       // Remove background using native iOS Vision framework (FREE & FAST!)
       const processedBlob = await removeBackgroundFromBlob(blob);
+      alert('✅ removeBackgroundFromBlob completed!'); // DEBUG: After background removal
 
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
