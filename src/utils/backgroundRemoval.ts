@@ -6,6 +6,10 @@ interface BackgroundRemovalPlugin {
 
 const BackgroundRemoval = Capacitor.registerPlugin<BackgroundRemovalPlugin>('BackgroundRemoval');
 
+// DEBUG: Check if plugin is available
+console.log('🔍 BackgroundRemoval plugin object:', BackgroundRemoval);
+console.log('🔍 Available plugins:', (Capacitor as any).Plugins);
+
 /**
  * Remove background from an image
  * - On iOS: Uses native Vision framework (FREE, FAST, OFFLINE)
