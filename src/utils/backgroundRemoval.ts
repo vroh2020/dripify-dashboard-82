@@ -14,20 +14,30 @@ const BackgroundRemoval = Capacitor.registerPlugin<BackgroundRemovalPlugin>('Bac
 export async function removeImageBackground(imageDataUrl: string): Promise<string> {
   const platform = Capacitor.getPlatform();
   
+  console.log('🔍 Platform detected:', platform);
+  alert(`Platform: ${platform}`); // VISIBLE DEBUG
+  
   if (platform === 'ios') {
     try {
       console.log('🎨 Removing background using iOS Vision framework...');
+      alert('🎨 Starting background removal...'); // VISIBLE DEBUG
+      
       const result = await BackgroundRemoval.removeBackground({ image: imageDataUrl });
-      console.log('✅ Background removed successfully (iOS)');
+      
+      console.log('✅ Background removed successfully (iOS)', result);
+      alert('✅ Background removed!'); // VISIBLE DEBUG
+      
       return result.image;
     } catch (error) {
       console.error('❌ iOS background removal failed:', error);
+      alert(`❌ Error: ${error}`); // VISIBLE DEBUG
       return imageDataUrl; // Fallback to original
     }
   }
   
   // For web/Android, return original for now
   console.log('ℹ️ Background removal not available on this platform, using original image');
+  alert('Not iOS - skipping background removal'); // VISIBLE DEBUG
   return imageDataUrl;
 }
 
