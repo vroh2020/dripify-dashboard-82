@@ -107,11 +107,16 @@ public class BackgroundRemovalPlugin: CAPPlugin {
                 // Convert mask to CIImage
                 let maskCIImage = CIImage(cvPixelBuffer: maskPixelBuffer)
                 
-                // Apply mask to original image using blendWithMask filter
-                let blendFilter = CIFilter.blendWithMask()
-                blendFilter.inputImage = ciImage
-                blendFilter.maskImage = maskCIImage
-                blendFilter.backgroundImage = CIImage.empty()
+                // Apply mask to original image using CIBlendWithMask filter (iOS 13+ compatible)
+                guard let blendFilter = CIFilter(name: "CIBlendWithMask") else {
+                    DispatchQueue.main.async {
+                        call.resolve(["image": base64Image, "success": false])
+                    }
+                    return
+                }
+                blendFilter.setValue(ciImage, forKey: kCIInputImageKey)
+                blendFilter.setValue(maskCIImage, forKey: kCIInputMaskImageKey)
+                blendFilter.setValue(CIImage.empty(), forKey: kCIInputBackgroundImageKey)
                 
                 guard let outputImage = blendFilter.outputImage else {
                     DispatchQueue.main.async {
