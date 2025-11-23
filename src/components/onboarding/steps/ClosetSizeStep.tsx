@@ -51,14 +51,14 @@ export const ClosetSizeStep = ({ onNext, onBack }: ClosetSizeStepProps) => {
       showBackButton={true}
       onBack={onBack}
     >
-      <div className="flex-1 flex flex-col px-8 py-8">
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-black leading-tight" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
+      <div className="flex-1 flex flex-col px-6 py-12 safe-area-inset">
+        <div className="mb-16">
+          <h1 className="text-3xl font-bold text-black leading-tight" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
             How big is your wardrobe?
           </h1>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {CLOSET_SIZES.map((size, index) => {
             const IconComponent = size.icon;
             return (
@@ -68,19 +68,19 @@ export const ClosetSizeStep = ({ onNext, onBack }: ClosetSizeStepProps) => {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
                 onClick={() => handleSelection(size.id)}
-                className={`w-full flex items-center gap-4 p-5 rounded-2xl border transition-all duration-150 ${
+                className={`w-full flex items-center gap-5 p-6 rounded-2xl border transition-all duration-150 ${
                   selectedSize === size.id 
                     ? 'border-2 border-black bg-white shadow-sm' 
                     : 'border border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
                 <IconComponent 
-                  size={26} 
+                  size={28} 
                   className={selectedSize === size.id ? 'text-black' : 'text-gray-500'} 
                   strokeWidth={2}
                 />
                 <span 
-                  className="text-lg text-left flex-1 text-black"
+                  className="text-base text-left flex-1 text-black"
                   style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}
                 >
                   {size.text}

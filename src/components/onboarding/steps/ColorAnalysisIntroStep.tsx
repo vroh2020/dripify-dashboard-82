@@ -71,14 +71,14 @@ export const ColorAnalysisIntroStep = ({ onCapture, onBack }: ColorAnalysisIntro
       onBack={onBack}
       showProgress={false}
     >
-      <div className="flex-1 flex flex-col items-center justify-between px-8 py-12">
+      <div className="flex-1 flex flex-col items-center justify-between px-6 py-16 safe-area-inset">
         <div className="flex-1 flex flex-col items-center justify-center w-full">
           {/* Simple illustration of person with phone */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="mb-16"
+            className="mb-12"
           >
             <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
               {/* Person head */}
@@ -116,13 +116,13 @@ export const ColorAnalysisIntroStep = ({ onCapture, onBack }: ColorAnalysisIntro
             className="text-center w-full"
           >
             <h1 
-              className="text-3xl font-bold text-black mb-4 leading-tight px-4"
+              className="text-2xl font-bold text-black mb-3 leading-tight"
               style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}
             >
               Let's analyze your style profile
             </h1>
             <p 
-              className="text-base text-gray-600 leading-relaxed px-4"
+              className="text-base text-gray-600 leading-relaxed"
               style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}
             >
               Take a quick selfie so we can personalize your experience
@@ -137,7 +137,7 @@ export const ColorAnalysisIntroStep = ({ onCapture, onBack }: ColorAnalysisIntro
           transition={{ duration: 0.5, delay: 0.4 }}
           onClick={handleContinue}
           disabled={isCapturing}
-          className="w-full bg-black text-white font-semibold py-5 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-12"
+          className="w-full bg-black text-white font-semibold py-5 px-8 rounded-2xl text-base transition-all duration-200 hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm mt-8"
           style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}
         >
           {isCapturing ? "Opening camera..." : "Continue"}

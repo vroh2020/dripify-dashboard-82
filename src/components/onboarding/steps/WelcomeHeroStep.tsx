@@ -57,20 +57,20 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-8 py-16 safe-area-inset">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 safe-area-inset">
       {/* Content */}
       <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto flex-1">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mb-16"
+          className="mb-12"
         >
-          <h1 className="text-5xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
+          <h1 className="text-4xl font-bold text-black mb-3" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
             OutfitGrader AI
           </h1>
           
-          <p className="text-lg text-gray-600 leading-relaxed" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
+          <p className="text-base text-gray-600 leading-relaxed" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
             Your AI Style Assistant
           </p>
         </motion.div>
@@ -80,35 +80,35 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="mb-20 space-y-5 w-full"
+          className="mb-16 space-y-6 w-full"
         >
-          <div className="flex items-center gap-4 text-left">
-            <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+          <div className="flex items-center gap-5 text-left">
+            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
+            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
               Grade any outfit instantly
             </span>
           </div>
-          <div className="flex items-center gap-4 text-left">
-            <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+          <div className="flex items-center gap-5 text-left">
+            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
+            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
               Get personalized style tips
             </span>
           </div>
-          <div className="flex items-center gap-4 text-left">
-            <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+          <div className="flex items-center gap-5 text-left">
+            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
+            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
               Track your style evolution
             </span>
           </div>

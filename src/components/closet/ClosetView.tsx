@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ArrowLeft, Globe, Image as ImageIcon, Camera as CameraIcon } from 'lucide-react';
+import { Heart, ArrowLeft, Globe, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { removeBackgroundFromBlob } from '@/utils/backgroundRemoval';
@@ -298,27 +298,28 @@ export default function ClosetView() {
     }
   };
 
-  const handleCameraCapture = async () => {
-    setShowUploadOptions(false);
-    try {
-      console.log('📷 Starting camera capture...');
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera
-      });
+  // Camera disabled temporarily
+  // const handleCameraCapture = async () => {
+  //   setShowUploadOptions(false);
+  //   try {
+  //     console.log('📷 Starting camera capture...');
+  //     const image = await Camera.getPhoto({
+  //       quality: 90,
+  //       allowEditing: false,
+  //       resultType: CameraResultType.DataUrl,
+  //       source: CameraSource.Camera
+  //     });
 
-      if (!image.dataUrl) return;
+  //     if (!image.dataUrl) return;
 
-      const response = await fetch(image.dataUrl);
-      const blob = await response.blob();
-      await processAndSaveImage(blob);
+  //     const response = await fetch(image.dataUrl);
+  //     const blob = await response.blob();
+  //     await processAndSaveImage(blob);
 
-    } catch (error) {
-      console.error('❌ Camera capture error:', error);
-    }
-  };
+  //   } catch (error) {
+  //     console.error('❌ Camera capture error:', error);
+  //   }
+  // };
 
   const handleGalleryUpload = async () => {
     setShowUploadOptions(false);
@@ -769,16 +770,17 @@ export default function ClosetView() {
                   Add New Piece
                 </h3>
                 <div className="space-y-3">
-                  <button
+                  {/* Camera disabled temporarily */}
+                  {/* <button
                     onClick={handleCameraCapture}
                     className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-3"
                   >
                     <CameraIcon size={20} />
                     Take Photo
-                  </button>
+                  </button> */}
                   <button
                     onClick={handleGalleryUpload}
-                    className="w-full bg-gray-100 text-black font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-200 flex items-center justify-center gap-3"
+                    className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-3"
                   >
                     <ImageIcon size={20} />
                     Choose from Gallery
@@ -788,7 +790,7 @@ export default function ClosetView() {
                       setShowUploadOptions(false);
                       setShowWebSearch(true);
                     }}
-                    className="w-full bg-blue-50 text-blue-600 font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-blue-100 flex items-center justify-center gap-3"
+                    className="w-full bg-gray-100 text-black font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-200 flex items-center justify-center gap-3"
                   >
                     <Globe size={20} />
                     Search Online
