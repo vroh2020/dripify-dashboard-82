@@ -13,54 +13,20 @@ export const ColorAnalysisIntroStep = ({ onCapture, onBack }: ColorAnalysisIntro
   const [isCapturing, setIsCapturing] = useState(false);
 
   const handleContinue = async () => {
+    // Camera disabled - skip photo capture and proceed to next step
     setIsCapturing(true);
     
-    try {
-      const isCapacitor = Capacitor?.isNativePlatform?.() || false;
-      
-      if (!isCapacitor) {
-        // Web platform - use file upload with camera preference
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.capture = 'user'; // Prefer front camera for selfie
-        input.onchange = (e) => {
-          const file = (e.target as HTMLInputElement).files?.[0];
-          if (file) {
-            onCapture(file);
-          } else {
-            setIsCapturing(false);
-          }
-        };
-        input.click();
-        return;
-      }
-
-      // Native platform - use Capacitor Camera
-      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-      
-      const photo = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-        promptLabelHeader: 'Take a selfie',
-        promptLabelCancel: 'Cancel',
-        promptLabelPhoto: 'Photo',
-      });
-      
-      if (photo?.dataUrl) {
-        const res = await fetch(photo.dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], 'selfie.jpg', { type: blob.type });
+    // Create a dummy/placeholder file to satisfy the onCapture callback
+    // This allows the flow to continue without actually taking a photo
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], 'placeholder.jpg', { type: 'image/jpeg' });
         onCapture(file);
-      } else {
-        setIsCapturing(false);
       }
-    } catch (error) {
-      Logger.error('ColorAnalysisIntro', 'Camera error:', error);
-      setIsCapturing(false);
-    }
+    });
   };
 
   return (
