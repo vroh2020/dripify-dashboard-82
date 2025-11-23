@@ -8,6 +8,21 @@ import UIKit
 public class BackgroundRemovalPlugin: CAPPlugin {
     
     @objc func removeBackground(_ call: CAPPluginCall) {
+        // Check iOS version
+        if #available(iOS 15.0, *) {
+            removeBackgroundIOS15(call)
+        } else {
+            // Fall back to returning original image on older iOS
+            if let base64Image = call.getString("image") {
+                call.resolve(["processedImage": base64Image])
+            } else {
+                call.reject("Image data is required")
+            }
+        }
+    }
+    
+    @available(iOS 15.0, *)
+    private func removeBackgroundIOS15(_ call: CAPPluginCall) {
         guard let base64Image = call.getString("image") else {
             call.reject("Image data is required")
             return
