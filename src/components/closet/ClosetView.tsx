@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shuffle, Heart, ArrowLeft, Sparkles, Bookmark, Plus } from 'lucide-react';
+import { Heart, ArrowLeft, Globe, Image as ImageIcon, Camera as CameraIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { removeBackgroundFromBlob } from '@/utils/backgroundRemoval';
 
 // Import extracted components
 import PiecesTab from './PiecesTab';
 import FitsTab from './FitsTab';
 import CollectionsTab from './CollectionsTab';
 import ItemDetailModal from './ItemDetailModal';
+import WebSearchModal from './WebSearchModal';
 
 interface ClosetItem {
   id: string;
@@ -61,15 +63,14 @@ export default function ClosetView() {
   const [items, setItems] = useState<ClosetItem[]>([]);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
-
-  const [isGeneratingOutfit] = useState(false);
   const [editingOutfit, setEditingOutfit] = useState<Outfit | null>(null);
   const [currentOutfit, setCurrentOutfit] = useState<ClosetItem[]>([]);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ClosetItem | null>(null);
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
+  const [showWebSearch, setShowWebSearch] = useState(false);
   const FREE_LIMIT = 10;
 
   // Load items and outfits from Supabase (real data, no mocks)
@@ -172,28 +173,14 @@ export default function ClosetView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleCameraCapture = async () => {
+  const processAndSaveImage = async (blob: Blob, sourceUrl: string | null = null) => {
     try {
       setIsUploading(true);
-      console.log('📷 Starting camera capture...');
+      console.log('🎨 Processing image...');
+      
+      // Remove background using native iOS Vision framework (FREE & FAST!)
+      const processedBlob = await removeBackgroundFromBlob(blob);
 
-      // Take photo with Capacitor Camera
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera
-      });
-
-      if (!image.dataUrl) {
-        console.error('No image data received');
-        setIsUploading(false);
-        return;
-      }
-
-      console.log('📷 Photo captured successfully');
-
-      // Directly save to Supabase without temp states
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
         console.warn('Cannot save item: user not authenticated');
@@ -201,30 +188,25 @@ export default function ClosetView() {
         return;
       }
 
-      // Convert dataUrl to blob for upload
-      const response = await fetch(image.dataUrl);
-      const blob = await response.blob();
-      
       // Upload image to storage
       const timestamp = Date.now();
       const storagePath = `closet/${auth.user.id}/${timestamp}_no_bg.png`;
       
       console.log('☁️ Uploading image to storage...');
-      const imageToUpload = blob;
-        
+      
       const { error: uploadErr } = await supabase.storage
         .from('style_images')
-        .upload(storagePath, imageToUpload, { cacheControl: '3600', upsert: false });
+        .upload(storagePath, processedBlob, { cacheControl: '3600', upsert: false });
       
-      let publicUrl = image.dataUrl;
+      let publicUrl = sourceUrl || '';
       if (!uploadErr) {
         const { data: publicUrlData } = supabase.storage
           .from('style_images')
           .getPublicUrl(storagePath);
-        publicUrl = publicUrlData?.publicUrl || image.dataUrl;
+        publicUrl = publicUrlData?.publicUrl || sourceUrl || '';
         console.log('✅ Image uploaded to storage:', storagePath);
       } else {
-        console.warn('Storage upload failed, using local URL:', uploadErr);
+        console.warn('Storage upload failed, using source URL if available:', uploadErr);
       }
 
       // Try AI analysis for better categorization
@@ -240,8 +222,12 @@ export default function ClosetView() {
 
       try {
         console.log('🤖 Attempting AI analysis...');
+        // Convert blob to base64 for AI analysis if needed, or pass public URL
+        // For now assuming existing edge function can handle URL or we might need to pass base64
+        // To keep it simple, we'll use the publicUrl if available
+        
         const { data: analysis, error: aiError } = await supabase.functions.invoke('analyze-closet-item', {
-          body: { image: image.dataUrl }
+          body: { image: publicUrl }
         });
         
         if (!aiError && analysis && analysis.category) {
@@ -283,22 +269,20 @@ export default function ClosetView() {
       if (!insertErr && inserted) {
         console.log('✅ Item saved to database with UUID:', inserted.id);
         
-        // Create the final item object
         const newItem: ClosetItem = {
           id: inserted.id,
-          title: inserted.title,
+          title: inserted.title || 'New Item',
           brand: inserted.brand || '',
-          category: inserted.category,
-          color: inserted.color,
+          category: inserted.category || 'tops',
+          color: inserted.color || 'unknown',
           season: inserted.season || 'all',
-          tags: Array.isArray(inserted.tags) ? inserted.tags : [],
-          attributes: inserted.attributes || {},
-          source_image_url: inserted.source_image_url,
+          tags: Array.isArray(inserted.tags) ? (inserted.tags as any[]).filter(t => typeof t === 'string') as string[] : [],
+          attributes: (inserted.attributes && typeof inserted.attributes === 'object' && !Array.isArray(inserted.attributes)) ? (inserted.attributes as Record<string, any>) : {},
+          source_image_url: inserted.source_image_url || '',
           created_at: inserted.created_at,
           favorite: false
         };
         
-        // Add to items state
         setItems(prev => [newItem, ...prev]);
         console.log('✅ Item added to local state');
         
@@ -307,10 +291,68 @@ export default function ClosetView() {
         throw new Error('Database save failed');
       }
     } catch (error) {
-      console.error('❌ Camera capture error:', error);
+      console.error('❌ Processing error:', error);
     } finally {
       setIsUploading(false);
-      console.log('📷 Camera capture process completed');
+      console.log('📷 Process completed');
+    }
+  };
+
+  const handleCameraCapture = async () => {
+    setShowUploadOptions(false);
+    try {
+      console.log('📷 Starting camera capture...');
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera
+      });
+
+      if (!image.dataUrl) return;
+
+      const response = await fetch(image.dataUrl);
+      const blob = await response.blob();
+      await processAndSaveImage(blob);
+
+    } catch (error) {
+      console.error('❌ Camera capture error:', error);
+    }
+  };
+
+  const handleGalleryUpload = async () => {
+    setShowUploadOptions(false);
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos
+      });
+
+      if (!image.dataUrl) return;
+
+      const response = await fetch(image.dataUrl);
+      const blob = await response.blob();
+      await processAndSaveImage(blob);
+
+    } catch (error) {
+      console.error('❌ Gallery upload error:', error);
+    }
+  };
+
+  const handleWebImageSelect = async (imageUrl: string) => {
+    setShowWebSearch(false);
+    try {
+      setIsUploading(true);
+      // Proxy the image fetch if needed or fetch directly
+      // For the demo URLs, direct fetch works
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      await processAndSaveImage(blob, imageUrl);
+    } catch (error) {
+      console.error('❌ Web image fetch error:', error);
+      setIsUploading(false);
     }
   };
 
@@ -452,10 +494,6 @@ export default function ClosetView() {
     });
   }, [items, activeFilters]);
 
-  const shuffleOutfits = () => {
-    setOutfits(prev => [...prev].sort(() => Math.random() - 0.5));
-  };
-
   const deleteOutfit = async (outfitId: string) => {
     try {
       await supabase.from('trendza_outfits').delete().eq('id', outfitId);
@@ -471,21 +509,6 @@ export default function ClosetView() {
     // Don't change tabs - stay in collections but show detail view
   };
 
-  const handleSaveOutfit = () => {
-    // Show success state
-    setSaveSuccess(true);
-    
-    // Clean success feedback
-    console.log('✅ Outfit saved successfully!');
-    
-    // Show success briefly, then navigate back
-    setTimeout(() => {
-      setActiveTab('pieces');
-      setSaveSuccess(false);
-      setIsSaving(false);
-      setEditingOutfit(null);
-    }, 1000);
-  };
 
   // Interface for fit state from FitsTab
   interface FitState {
@@ -550,10 +573,10 @@ export default function ClosetView() {
         // Add the new outfit to local state
         const newOutfit: Outfit = {
           id: inserted.id,
-          name: inserted.name,
-          item_ids: inserted.item_ids,
-          score: inserted.score,
-          rationale: inserted.rationale,
+          name: inserted.name || 'Fit',
+          item_ids: Array.isArray(inserted.item_ids) ? inserted.item_ids : [],
+          ...(inserted.score !== null && inserted.score !== undefined && { score: inserted.score }),
+          ...(inserted.rationale !== null && inserted.rationale !== undefined && { rationale: inserted.rationale }),
           created_at: inserted.created_at,
           items: validItems
         };
@@ -578,28 +601,47 @@ export default function ClosetView() {
   // Removed old FitStylistComponent - using optimized FitsTab instead
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Segmented Tabs */}
-      {/* Hide segmented tabs while in Fits to maximize canvas */}
-      {activeTab !== 'fits' && (
-      <div className="bg-white sticky top-0 z-10 border-b border-gray-100">
-        <div className="max-w-sm mx-auto px-4 pt-4 pb-4">
-          <div className="bg-gray-100 rounded-2xl p-1 grid grid-cols-3 gap-1">
-            {(['pieces','fits','collections'] as const).map((tab) => (
+    <div className="container-mobile">
+      {/* Navigation Header */}
+      <div className="flex items-center justify-between mb-8 safe-area-top">
+        {/* Back button for non-Pieces tabs */}
+        {activeTab !== 'pieces' ? (
+          <button
+            onClick={() => {
+              console.log('ClosetView: Back button clicked, setting activeTab to pieces');
+              setActiveTab('pieces');
+            }}
+            className="back-button"
+          >
+            <ArrowLeft size={20} />
+          </button>
+        ) : (
+          <div className="w-10" /> // Spacer
+        )}
+
+        {/* Tab Navigation */}
+        <div className="flex-1 mx-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-1 grid grid-cols-3 gap-1">
+            {(['outfits','fits','collections'] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'} rounded-xl py-2 text-sm font-semibold capitalize transition-all`}
+                onClick={() => setActiveTab(tab === 'outfits' ? 'pieces' : tab)}
+                className={`${
+                  (tab === 'outfits' && activeTab === 'pieces') || (tab !== 'outfits' && activeTab === tab)
+                    ? 'bg-black text-white shadow-sm' 
+                    : 'text-gray-600 hover:text-black'
+                } rounded-xl py-2 text-sm font-semibold capitalize transition-all`}
               >
                 {tab}
               </button>
             ))}
           </div>
         </div>
-      </div>
-      )}
 
-      <div className="max-w-sm mx-auto px-4 py-6 pb-24">
+        <div className="w-10" /> {/* Spacer */}
+      </div>
+
+      <div className="flex-1">
         {/* Pieces Tab */}
         {activeTab === 'pieces' && (
           <PiecesTab
@@ -611,7 +653,7 @@ export default function ClosetView() {
             activeFilters={activeFilters}
             onToggleFilter={toggleFilter}
             onClearFilters={() => setActiveFilters({})}
-            onAddPiece={handleCameraCapture}
+            onAddPiece={() => setShowUploadOptions(true)}
             onItemClick={setSelectedItem}
             onToggleFavorite={toggleFavorite}
           />
@@ -645,19 +687,19 @@ export default function ClosetView() {
         )}
 
         {activeTab === 'collections' && editingOutfit && (
-          <div className="min-h-screen bg-white">
+          <div className="flex-1">
             {/* Clean Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <motion.button
                   onClick={() => setEditingOutfit(null)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="back-button"
                 >
-                  <ArrowLeft className="w-5 h-5 text-gray-700" />
+                  <ArrowLeft size={20} />
                 </motion.button>
-                <h1 className="text-xl font-bold text-gray-900">{editingOutfit.name}</h1>
+                <h1 className="text-heading">{editingOutfit.name}</h1>
               </div>
             </div>
 
@@ -697,10 +739,67 @@ export default function ClosetView() {
           />
         </AnimatePresence>
 
-        {/* Inline Fit Stylist will render in the Fits tab when there are no saved outfits */}
+        {/* Web Search Modal */}
+        <WebSearchModal
+          isOpen={showWebSearch}
+          onClose={() => setShowWebSearch(false)}
+          onSelectImage={handleWebImageSelect}
+        />
+
+        {/* Upload Options Action Sheet */}
+        <AnimatePresence>
+          {showUploadOptions && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 z-50"
+                onClick={() => setShowUploadOptions(false)}
+              />
+              <motion.div
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 100, opacity: 0 }}
+                className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 z-50"
+                style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+              >
+                <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
+                <h3 className="text-xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
+                  Add New Piece
+                </h3>
+                <div className="space-y-3">
+                  <button
+                    onClick={handleCameraCapture}
+                    className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-3"
+                  >
+                    <CameraIcon size={20} />
+                    Take Photo
+                  </button>
+                  <button
+                    onClick={handleGalleryUpload}
+                    className="w-full bg-gray-100 text-black font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-200 flex items-center justify-center gap-3"
+                  >
+                    <ImageIcon size={20} />
+                    Choose from Gallery
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowUploadOptions(false);
+                      setShowWebSearch(true);
+                    }}
+                    className="w-full bg-blue-50 text-blue-600 font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-blue-100 flex items-center justify-center gap-3"
+                  >
+                    <Globe size={20} />
+                    Search Online
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
       </div>
-
-
     </div>
   );
 }

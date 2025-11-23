@@ -407,7 +407,7 @@ export const ImageUpload = ({ onImageSelect }: ImageUploadProps) => {
               <Button
                 onClick={openGallery}
                 disabled={isProcessing}
-                className="w-full max-w-[280px] bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 h-14 text-lg font-semibold rounded-xl shadow-lg"
+                className="w-full max-w-[280px] bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 h-14 text-lg font-semibold rounded-xl shadow-lg"
               >
                 <ImageIcon className="w-6 h-6 mr-3" />
                 Choose from Gallery

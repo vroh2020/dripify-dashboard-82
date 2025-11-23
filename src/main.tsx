@@ -5,7 +5,7 @@ import React from 'react'
 
 // Simple App Launcher
 function startApp() {
-  console.log('Starting Trendza app...');
+  console.log('Starting OutfitGrader AI app...');
   
   const rootElement = document.getElementById("app-shell")!;
   const root = createRoot(rootElement);

@@ -101,7 +101,7 @@ export const ClosetItemCard = ({ item, viewMode, onDelete }: ClosetItemCardProps
                 onClick={handleToggleFavorite}
                 className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
                   isFavorited 
-                    ? 'bg-gray-900 text-white' 
+                    ? 'bg-gray-200 text-black' 
                     : 'bg-white/80 text-gray-600 hover:text-gray-900 border border-gray-200'
                 }`}
               >

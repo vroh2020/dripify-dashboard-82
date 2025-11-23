@@ -345,7 +345,7 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
 
                         <Button
                           onClick={openGallery}
-                          className="h-32 bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-2 border-dashed border-purple-500/30 hover:border-purple-500/50 text-white flex flex-col gap-2"
+                          className="h-32 bg-gradient-to-br from-gray-800/20 to-gray-900/20 border-2 border-dashed border-gray-500/30 hover:border-gray-500/50 text-white flex flex-col gap-2"
                           variant="outline"
                         >
                           <ImageIcon className="w-8 h-8" />

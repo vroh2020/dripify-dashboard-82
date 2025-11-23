@@ -14,11 +14,8 @@ export const DashboardHeader = () => {
       className="flex items-center justify-between px-4 pt-6 pb-4 bg-white border-b border-gray-200"
     >
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shadow-sm">
-          <span className="text-white font-bold text-lg tracking-tight">T</span>
-        </div>
         <h1 className="text-2xl font-bold text-black tracking-tight">
-          trendza
+          OutfitGrader AI
         </h1>
       </div>
 

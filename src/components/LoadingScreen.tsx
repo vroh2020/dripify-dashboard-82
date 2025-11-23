@@ -6,7 +6,7 @@ interface LoadingScreenProps {
 
 export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex items-center justify-center p-4">
       <div className="text-center space-y-6">
         <motion.div
           animate={{
@@ -18,7 +18,7 @@ export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) =>
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="w-24 h-24 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl mx-auto flex items-center justify-center"
+          className="w-24 h-24 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl mx-auto flex items-center justify-center"
         >
           <span className="text-3xl font-bold text-white">OG</span>
         </motion.div>
@@ -41,7 +41,7 @@ export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) =>
                 repeat: Infinity,
                 delay: 0,
               }}
-              className="w-3 h-3 bg-orange-500 rounded-full"
+              className="w-3 h-3 bg-white rounded-full"
             />
             <motion.div
               animate={{
@@ -53,7 +53,7 @@ export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) =>
                 repeat: Infinity,
                 delay: 0.2,
               }}
-              className="w-3 h-3 bg-orange-500 rounded-full"
+              className="w-3 h-3 bg-white rounded-full"
             />
             <motion.div
               animate={{
@@ -65,7 +65,7 @@ export const LoadingScreen = ({ message = "Loading..." }: LoadingScreenProps) =>
                 repeat: Infinity,
                 delay: 0.4,
               }}
-              className="w-3 h-3 bg-orange-500 rounded-full"
+              className="w-3 h-3 bg-white rounded-full"
             />
           </div>
         </motion.div>

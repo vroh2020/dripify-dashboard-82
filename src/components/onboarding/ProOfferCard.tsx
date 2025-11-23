@@ -225,79 +225,59 @@ const PlanOption = ({ planKey, isSelected, onSelect, offerings }: {
 
 // Clean Auto-Scrollable Feature Display Component
 const FeatureDisplay = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Your specific images
-  const images = [
+  const features = [
     {
       id: 1,
-      src: "/lovable-uploads/image111.png",
-      alt: "AI Style Analysis"
+      title: "Unlimited Outfit Grading",
+      description: "Get AI feedback on every outfit",
+      image: "/lovable-uploads/image111.png"
     },
     {
-      id: 2, 
-      src: "/lovable-uploads/image222.png",
-      alt: "Expert Outfit Matches"
+      id: 2,
+      title: "Style Score Tracking",
+      description: "See your style improve over time",
+      image: "/lovable-uploads/image222.png"
     },
     {
       id: 3,
-      src: "/lovable-uploads/image333.png",
-      alt: "24/7 Style Assistant"
+      title: "Outfit Suggestions",
+      description: "Get new looks from your closet",
+      image: "/lovable-uploads/image333.png"
     }
   ];
 
-  // Auto-scroll functionality - always going right
-  useEffect(() => {
-    const startAutoScroll = () => {
-      autoScrollRef.current = setInterval(() => {
-        setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-      }, 3000); // Change every 3 seconds
-    };
-
-    startAutoScroll();
-
-    return () => {
-      if (autoScrollRef.current) {
-        clearInterval(autoScrollRef.current);
-      }
-    };
-  }, [images.length]);
-
-  // Scroll to current image
-  useEffect(() => {
-    if (scrollRef.current) {
-      const container = scrollRef.current;
-      const imageWidth = container.scrollWidth / images.length;
-      container.scrollTo({
-        left: currentIndex * imageWidth,
-        behavior: 'smooth'
-      });
-    }
-  }, [currentIndex, images.length]);
-
   return (
-    <div className="rounded-xl overflow-hidden border border-white/20">
-      <div 
-        ref={scrollRef}
-        className="flex overflow-x-hidden scroll-smooth"
-        style={{ scrollSnapType: 'x mandatory' }}
-      >
-        {images.map((image) => (
-          <div 
-            key={image.id} 
-            className="w-full flex-shrink-0"
-            style={{ scrollSnapAlign: 'start' }}
-          >
-            <img
-              src={image.src}
-              alt={image.alt}
-              className="w-full h-80 object-cover"
-            />
+    <div className="space-y-3">
+      {features.map((feature) => (
+        <div 
+          key={feature.id}
+          className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+              <img
+                src={feature.image}
+                alt={feature.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex-1 pt-1">
+              <h3 
+                className="text-[20px] font-bold text-black mb-1 leading-tight" 
+                style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
+              >
+                {feature.title}
+              </h3>
+              <p 
+                className="text-[15px] text-gray-600 leading-snug" 
+                style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
+              >
+                {feature.description}
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 };
@@ -377,26 +357,28 @@ const LegalLinks = () => {
   };
 
   return (
-    <div className="text-center mb-3">
-      <div className="flex items-center justify-center gap-3 mb-1">
+    <div className="text-center mt-4">
+      <div className="flex items-center justify-center gap-3 mb-2">
         <button
           onClick={openPrivacyPolicy}
-          className="text-white/60 hover:text-white font-medium transition-colors flex items-center gap-1 text-xs underline"
+          className="text-gray-500 hover:text-black font-medium transition-colors flex items-center gap-1 text-xs"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
           <span>Privacy Policy</span>
-          <ExternalLink className="w-2 h-2" />
+          <ExternalLink className="w-3 h-3" />
         </button>
-        <span className="text-white/40">•</span>
+        <span className="text-gray-300">•</span>
         <button
           onClick={openTermsOfUse}
-          className="text-white/60 hover:text-white font-medium transition-colors flex items-center gap-1 text-xs underline"
+          className="text-gray-500 hover:text-black font-medium transition-colors flex items-center gap-1 text-xs"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
           <span>Terms of Use</span>
-          <ExternalLink className="w-2 h-2" />
+          <ExternalLink className="w-3 h-3" />
         </button>
       </div>
-      <p className="text-white/50 text-xs">
-        By subscribing, you agree to our Terms of Use and Privacy Policy
+      <p className="text-gray-500 text-xs" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
+        By subscribing, you agree to our Terms and Privacy Policy
       </p>
     </div>
   );
@@ -419,22 +401,22 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
   };
 
   return (
-    <div className="mb-3">
-      <Button
+    <div className="mb-4">
+      <button
         onClick={handleRestoreClick}
         disabled={isRestoring}
-        variant="outline"
-        className="w-full border-2 border-white/20 text-white/70 hover:text-white hover:border-white/30 bg-white/5 backdrop-blur-sm font-medium py-2 rounded-xl transition-all duration-300 hover:bg-white/10"
+        className="w-full text-gray-600 hover:text-black font-medium py-2 transition-colors text-sm"
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
       >
         {isRestoring ? (
           <div className="flex items-center justify-center gap-2">
-            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            <span className="text-xs">Restoring Purchases...</span>
+            <div className="w-3 h-3 border-2 border-gray-300 border-t-black rounded-full animate-spin"></div>
+            <span>Restoring Purchases...</span>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2">
             <RefreshCw className="w-3 h-3" />
-            <span className="text-xs">Already purchased?</span>
+            <span>Already purchased?</span>
           </div>
         )}
       </Button>
@@ -502,10 +484,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   // Show loading state while auth is initializing
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white/70 text-sm">Loading your experience...</p>
+          <div className="w-8 h-8 border-2 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-sm">Loading your experience...</p>
         </div>
       </div>
     );
@@ -514,13 +496,13 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   // Show error state if no user after loading
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-400 text-xl">!</span>
+          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-gray-900 text-xl">!</span>
           </div>
-          <p className="text-white/70 text-sm mb-2">Authentication Error</p>
-          <p className="text-white/50 text-xs">Please refresh the page and try again</p>
+          <p className="text-gray-900 text-sm mb-2">Authentication Error</p>
+          <p className="text-gray-600 text-xs">Please refresh the page and try again</p>
         </div>
       </div>
     );
@@ -597,120 +579,113 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -30 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="min-h-screen flex flex-col px-3 pt-8 pb-3 relative"
-      style={{ 
-        background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
-        minHeight: '100dvh'
-      }}
+      className="min-h-screen bg-white flex flex-col px-4 pt-12 pb-6 relative"
+      style={{ minHeight: '100dvh' }}
     >
-      {/* Compact Content Area */}
-      <div className="flex-1 bg-black/90 backdrop-blur-sm rounded-xl shadow-2xl p-4 pt-6 flex flex-col max-w-sm mx-auto w-full border border-white/10">
+      {/* Close Button - Top Right */}
+      <button 
+        onClick={onContinue}
+        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors z-10"
+      >
+        <svg className="w-5 h-5 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* Content Area */}
+      <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
         
-        {/* Compact Header */}
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center mb-4 mt-2"
+          className="text-center mb-8"
         >
-          <h1 className="text-xl font-bold text-white mb-1">
-            OutfitGraderAI Premium
+          <h1 className="text-[34px] font-bold text-black mb-3" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
+            Start Your Free Trial
           </h1>
-          <p className="text-white/70 text-xs leading-tight">
-            Get personalized style plans, expert outfit matches, 24/7 style assistant, and AI-powered style analysis!
+          <p className="text-[15px] text-gray-600 leading-relaxed px-4" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
+            Get unlimited outfit grading and personalized style insights
           </p>
         </motion.div>
 
-        {/* Feature Carousel Section - Compact */}
+        {/* Feature Cards */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mb-3"
+          className="mb-8 space-y-4"
         >
-          <h3 className="text-white font-semibold text-xs mb-2 text-center">
-            Here's what you'll get
-          </h3>
           <FeatureDisplay />
         </motion.div>
 
-        {/* Compact Subscription Options */}
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Pricing Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mb-3"
+          className="text-center mb-6"
         >
-          <div className="space-y-1.5">
-            {(['monthly', 'weekly'] as Array<'monthly' | 'weekly'>).map((planKey) => (
-              <PlanOption
-                key={planKey}
-                planKey={planKey}
-                isSelected={selectedPlan === planKey}
-                onSelect={(key: 'weekly' | 'monthly') => setSelectedPlan(key)}
-                offerings={offerings}
-              />
-            ))}
+          <div className="text-[28px] font-bold text-black mb-1" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
+            $4.99/week
           </div>
-        </motion.div>
-
-        {/* Free Trial Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55, duration: 0.4 }}
-          className="mb-4"
-        >
-                     <button
-             onClick={() => setSelectedPlan(prev => (prev === 'weekly' ? 'monthly' : 'weekly'))}
-             className="w-full flex items-center justify-between rounded-lg border border-gray-600 bg-gray-900/50 px-4 py-3 hover:border-gray-500 transition-colors"
-           >
-             <span className="text-base font-semibold text-white">Free Trial Enabled</span>
-            <span
-              role="switch"
-              aria-checked={selectedPlan === 'weekly'}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                selectedPlan === 'weekly' ? 'bg-green-500' : 'bg-gray-400'
-              }`}
-            >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                  selectedPlan === 'weekly' ? 'translate-x-5' : 'translate-x-1'
-                }`}
-              />
-            </span>
-          </button>
+          <p className="text-[15px] text-gray-600" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
+            Billed weekly after 3-day free trial
+          </p>
         </motion.div>
 
         {/* Error Display */}
         {hasError && <ErrorMessage />}
 
-        {/* CTA Button - Moved to bottom */}
+        {/* CTA Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8, duration: 0.5 }}
-          className="mt-auto pt-4"
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="mb-4"
         >
-          <CTAButton
-            isProcessing={isProcessing}
-            hasError={hasError}
+          <button
             onClick={handlePurchase}
             disabled={isProcessing}
-            selectedPlan={selectedPlan}
-          />
-
-          {/* Restore Purchases */}
-          <RestorePurchasesButton 
-            onRestore={handleRestorePurchases}
-            isRestoring={isRestoring}
-            restoreMsg={restoreMsg}
-          />
-
-          {/* Legal Links */}
-          <LegalLinks />
+            className="w-full bg-black text-white font-semibold py-4 px-8 rounded-xl text-[18px] transition-all duration-200 hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            style={{ 
+              fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif',
+              height: '64px'
+            }}
+          >
+            {isProcessing ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <span>Processing...</span>
+              </div>
+            ) : (
+              "Start Free Trial"
+            )}
+          </button>
         </motion.div>
-        
+
+        {/* Other Plans Link */}
+        <button 
+          onClick={() => setSelectedPlan(prev => prev === 'weekly' ? 'monthly' : 'weekly')}
+          className="text-[15px] text-gray-600 text-center mb-6 underline hover:text-black transition-colors"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
+        >
+          Other plans
+        </button>
+
+        {/* Restore Purchases */}
+        <RestorePurchasesButton 
+          onRestore={handleRestorePurchases}
+          isRestoring={isRestoring}
+          restoreMsg={restoreMsg}
+        />
+
+        {/* Legal Links */}
+        <LegalLinks />
       </div>
     </motion.div>
   );

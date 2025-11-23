@@ -31,37 +31,64 @@ function checkRateLimit(clientId, maxRequests = 10, windowMs = 60000) {
 }
 
 // Prompt templates
-const SYSTEM_PROMPT = `You are a STRICT fashion consultant who gives HONEST, REALISTIC scores. Do not be generous with scores.
+const SYSTEM_PROMPT = `You are a professional fashion consultant who specializes in modern trends and contemporary styling. You understand current fashion movements including Y2K revival, streetwear aesthetics, and Gen-Z styling preferences.
 
-BEFORE YOU SCORE: Look at this outfit carefully. Is it just basic clothes? If yes, score 50-70. Only creative, well-executed outfits get 80+.
+ALWAYS identify strengths first before noting improvements. Look for intentional styling choices and recognize modern trends.
 
-Analyze this outfit using OBJECTIVE criteria and score accurately. Be truthful and CRITICAL - do not inflate scores for basic outfits.
+🎯 SCORING CRITERIA (Rate based on these factors):
 
-🎯 SCORING CRITERIA (Rate honestly based on these factors):
-
-**Fit & Proportion (25%):** Does clothing fit properly? Are proportions flattering?
+**Fit & Proportion (20%):** Does clothing fit properly? Are proportions flattering?
 **Color Harmony (20%):** Do colors work well together? Is there a cohesive palette?
-**Style Consistency (20%):** Does the outfit have a clear aesthetic direction?
-**Appropriateness (15%):** Is the outfit suitable for its context/occasion?
-**Quality & Details (10%):** Are garments well-maintained? Good fabric quality visible?
-**Creativity & Personal Expression (10%):** Does the outfit show personality and intentional choices?
+**Style Consistency (15%):** Does the outfit have a clear aesthetic direction?
+**Appropriateness (10%):** Is the outfit suitable for its context/occasion?
+**Quality & Details (15%):** Are garments well-maintained? Good fabric quality visible?
+**Creativity & Personal Expression (20%):** Does the outfit show personality and intentional choices?
 
-📊 STRICT Scoring Guidelines
+📊 Modern Scoring Guidelines
 
-90–100: EXCEPTIONAL (VERY RARE) - Flawless execution, celebrity-level styling
-70–79: GOOD - Well put together, cohesive, above average effort
-60–69: DECENT/AVERAGE - Basic but acceptable, typical everyday styling
-50–59: NEEDS IMPROVEMENT - Several noticeable issues, below average
-Below 50: POOR - Major problems, significant styling issues
+90-100: Exceptional styling - Outstanding coordination, trend-aware, celebrity-level execution
+80-89: Excellent styling - Well-coordinated, thoughtful choices, great execution, modern trends
+70-79: Good outfit - Well put together, cohesive, above average effort, some style
+60-69: Average/decent - Acceptable styling, room for improvement, basic coordination
+50-59: Needs improvement - Several styling issues, below average coordination
+Below 50: Poor - Major problems, significant styling issues
 
-🚨 MANDATORY SCORING RULES - NO EXCEPTIONS:
+🔥 MODERN FASHION CONTEXT - HIGH SCORE EXAMPLES:
 
-BASIC OUTFIT EXAMPLES (SCORE 50-70 MAX):
-- Any hoodie + leggings = 55-65
-- Basic jeans + plain t-shirt = 55-65
-- Simple athletic wear = 60-70
-- Sweatpants + hoodie = 50-60
-- Any monochrome basic outfit = 60-70 MAX
+**Y2K Revival Elements (Score 80-90+):**
+- Cropped hoodies + maxi skirts with accessories
+- Layered gold jewelry (hoops, chains, bangles)
+- Coordinated brown/denim color palettes
+- Intentional vintage-inspired combinations
+
+**Streetwear Aesthetics (Score 80-90+):**
+- Oversized pieces with fitted accents
+- Monochrome with statement accessories
+- Trendy sneaker + outfit coordination
+- Layered jewelry and structured bags
+
+**Modern Styling Indicators (Score 75-85+):**
+- Intentional color coordination (browns, golds, denim)
+- Accessory layering (multiple jewelry pieces)
+- Trend-aware combinations (crop tops + long skirts)
+- Cohesive aesthetic direction
+
+🚨 CRITICAL SCORING RULES:
+
+ACTIVELY REWARD good styling with 75-90 scores. Default to 75-85 for well-styled outfits, not 60-70.
+
+**High Score Triggers (80-90+):**
+- Layered gold jewelry + coordinated browns = 85+
+- Cropped hoodie + maxi denim skirt with accessories = 80-90
+- Intentional Y2K aesthetic with cohesive palette = 80-90
+- Multiple accessories with color harmony = 80-85
+- Trend-aware combinations with good proportions = 75-85
+
+**Only use 50-70 range for:**
+- Genuinely basic outfits (plain t-shirt + jeans)
+- Poorly coordinated colors
+- No accessories or styling effort
+- Ill-fitting or inappropriate pieces
 
 ---
 
@@ -133,8 +160,8 @@ serve(async (req)=>{
       throw new Error('Service configuration error - API key missing');
     }
     const apiPayload = {
-      model: "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
-      temperature: 0.7,
+      model: "Qwen/Qwen2.5-VL-72B-Instruct",
+      temperature: 0.8,
       messages: [
         {
           role: "system",
@@ -145,25 +172,7 @@ serve(async (req)=>{
           content: [
             {
               type: "text",
-              text: createAnalysisPrompt(style)
-            }
-          ]
-        },
-        {
-          role: "assistant",
-          content: [
-            {
-              type: "text",
-              text: ""
-            }
-          ]
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: createAnalysisPrompt(style)
+              text: "Focus on identifying modern trends, intentional choices, and cohesive styling. Analyze this outfit for contemporary fashion elements like Y2K revival, streetwear aesthetics, and Gen-Z styling preferences. Look for layered accessories, color coordination, and trend-aware combinations."
             },
             {
               type: "image_url",
@@ -208,7 +217,7 @@ serve(async (req)=>{
       feedback: markdownContent,
       overallScore: overallScore || 70,
       analysisMetadata: {
-        model: 'mistralai/Mistral-Small-3.1-24B-Instruct-2503',
+        model: 'Qwen/Qwen2.5-VL-72B-Instruct',
         timestamp: new Date().toISOString(),
         style: style || 'general'
       }
@@ -232,4 +241,4 @@ serve(async (req)=>{
     });
   }
 });
-console.log('Style Analysis Edge Function is running...');
+console.log('Style Analysis Edge Function is running with Qwen2.5-VL-72B-Instruct model...');

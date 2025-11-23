@@ -163,7 +163,7 @@ export default function CollectionsTab({
                           
                           {/* Item count badge */}
                           {outfit.items.length > 1 && (
-                            <div className="absolute bottom-2 right-2 w-6 h-6 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold">
+                            <div className="absolute bottom-2 right-2 w-6 h-6 bg-gray-200 text-black rounded-full flex items-center justify-center text-xs font-bold">
                               {outfit.items.length}
                             </div>
                           )}

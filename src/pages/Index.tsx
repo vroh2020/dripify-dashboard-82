@@ -132,15 +132,6 @@ const Index = () => {
           className="bg-white border-t border-gray-200 safe-area-bottom shadow-sm"
         >
           <TabsList className="w-full h-16 grid grid-cols-2 bg-transparent gap-0 p-0">
-
-            
-            <TabsTrigger 
-              value="scan" 
-              className="flex flex-col items-center justify-center gap-0.5 data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 rounded-none transition-all duration-200 text-gray-600 hover:text-gray-900 h-full"
-            >
-              <Scan className="h-4 w-4" />
-              <span className="text-xs font-medium">Scan</span>
-            </TabsTrigger>
             
             <TabsTrigger 
               value="closet" 
@@ -151,6 +142,13 @@ const Index = () => {
               <span className="text-xs font-medium">Closet</span>
             </TabsTrigger>
             
+            <TabsTrigger 
+              value="scan" 
+              className="flex flex-col items-center justify-center gap-0.5 data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 rounded-none transition-all duration-200 text-gray-600 hover:text-gray-900 h-full"
+            >
+              <Scan className="h-4 w-4" />
+              <span className="text-xs font-medium">Scan</span>
+            </TabsTrigger>
 
           </TabsList>
         </motion.div>

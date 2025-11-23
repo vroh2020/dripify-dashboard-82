@@ -191,69 +191,69 @@
 
     return (
       <div className="flex-1 bg-white min-h-screen">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <button
-            onClick={() => onSetActiveTab('pieces')}
-            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Back to Closet
-          </button>
-          
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={shuffleOutfit}
-              className="flex items-center px-4 py-2 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors"
-            >
-              <Shuffle className="w-4 h-4 mr-2" />
-              Shuffle
-            </button>
-            
-            <button
-              onClick={() => setShowSaveModal(true)}
-              className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-            >
-              <Bookmark className="w-4 h-4 mr-2" />
-              Save Fit
-            </button>
+        {/* Empty State - Show when no items */}
+        {items.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center p-6 min-h-screen">
+            <div className="text-center">
+              <p className="text-xl font-semibold text-gray-400 mb-2">No pieces in closet</p>
+              <p className="text-gray-500 mb-6">Go to Outfits tab to add items</p>
+              <button
+                onClick={() => onSetActiveTab('pieces')}
+                className="bg-black text-white px-6 py-3 rounded-xl font-semibold hover:bg-gray-900 transition-colors"
+              >
+                Go to Outfits
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Fit Display - Ultra Clean Vertical Stack */}
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="flex flex-col items-center space-y-6">
-            {/* Headwear - floating image, fixed size */}
-            {currentFit.headwear && (
-              <FitItemImage item={currentFit.headwear} category="headwear" />
-            )}
-            
-            {/* Tops - floating image, fixed size */}
-            {currentFit.tops && (
-              <FitItemImage item={currentFit.tops} category="tops" />
-            )}
-            
-            {/* Bottoms - floating image, fixed size */}
-            {currentFit.bottoms && (
-              <FitItemImage item={currentFit.bottoms} category="bottoms" />
-            )}
-            
-            {/* Footwear - floating image, fixed size */}
-            {currentFit.footwear && (
-              <FitItemImage item={currentFit.footwear} category="footwear" />
-            )}
-
-            {/* Clean Empty State for No Items */}
-            {items.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-xl font-semibold text-gray-400 mb-2">No pieces in closet</p>
-                  <p className="text-gray-300">Go to Pieces tab to add items</p>
-                </div>
+        ) : (
+          <>
+            {/* Header with functional buttons */}
+            <div className="flex items-center justify-end p-6 border-b border-gray-100">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={shuffleOutfit}
+                  className="flex items-center px-4 py-2 bg-gray-200 text-black rounded-xl font-medium hover:bg-gray-300 transition-colors"
+                >
+                  <Shuffle className="w-4 h-4 mr-2" />
+                  Shuffle
+                </button>
+                
+                <button
+                  onClick={() => setShowSaveModal(true)}
+                  className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                >
+                  <Bookmark className="w-4 h-4 mr-2" />
+                  Save Fit
+                </button>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+
+            {/* Fit Display - Ultra Clean Vertical Stack */}
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="flex flex-col items-center space-y-6">
+                {/* Headwear - floating image, fixed size */}
+                {currentFit.headwear && (
+                  <FitItemImage item={currentFit.headwear} category="headwear" />
+                )}
+                
+                {/* Tops - floating image, fixed size */}
+                {currentFit.tops && (
+                  <FitItemImage item={currentFit.tops} category="tops" />
+                )}
+                
+                {/* Bottoms - floating image, fixed size */}
+                {currentFit.bottoms && (
+                  <FitItemImage item={currentFit.bottoms} category="bottoms" />
+                )}
+                
+                {/* Footwear - floating image, fixed size */}
+                {currentFit.footwear && (
+                  <FitItemImage item={currentFit.footwear} category="footwear" />
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Save Modal */}
         <AnimatePresence>
@@ -297,7 +297,7 @@
                   <button
                     onClick={handleSave}
                     disabled={!fitName.trim() || isSaving}
-                    className="flex-1 py-3 px-4 bg-black text-white rounded-xl font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex-1 py-3 px-4 bg-gray-200 text-black rounded-xl font-medium hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isSaving ? 'Saving...' : 'Save Fit'}
                   </button>
@@ -314,7 +314,7 @@
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="fixed top-4 right-4 bg-black text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg z-50"
+              className="fixed top-4 right-4 bg-gray-200 text-black px-4 py-2 rounded-full text-sm font-medium shadow-lg z-50"
             >
               ✅ Fit saved!
             </motion.div>

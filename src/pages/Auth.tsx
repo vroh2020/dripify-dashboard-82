@@ -6,13 +6,15 @@ import { handleError } from "@/utils/errorHandler";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from '@capacitor/core';
 
-// Import step components
-import { NewWelcomeStep } from "../components/onboarding/steps/NewWelcomeStep";
-import { HowItWorksStep } from "../components/onboarding/steps/HowItWorksStep";
-import { GetGradeStep } from "../components/onboarding/steps/GetGradeStep";
-import { AnalyzingStep } from "../components/onboarding/steps/AnalyzingStep";
-import { TeaserResultStep } from "../components/onboarding/steps/TeaserResultStep";
-import { ProOfferCard } from "../components/onboarding/ProOfferCard";
+// Import new onboarding step components
+import { WelcomeHeroStep } from "../components/onboarding/steps/WelcomeHeroStep";
+import { StyleGoalStep } from "../components/onboarding/steps/StyleGoalStep";
+import { PainPointStep } from "../components/onboarding/steps/PainPointStep";
+import { ClosetSizeStep } from "../components/onboarding/steps/ClosetSizeStep";
+import { ShoppingFrequencyNewStep } from "../components/onboarding/steps/ShoppingFrequencyNewStep";
+import { ColorAnalysisIntroStep } from "../components/onboarding/steps/ColorAnalysisIntroStep";
+import { PersonalizingStep } from "../components/onboarding/steps/PersonalizingStep";
+import { PaywallStep } from "../components/onboarding/steps/PaywallStep";
 
 
 export const AuthOnboardingWizard = () => {
@@ -28,10 +30,11 @@ export const AuthOnboardingWizard = () => {
     localStorage.setItem(stepKey, String(n));
   };
 
-  // State for photo and analysis
+  // State for onboarding data
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [onboardingData, setOnboardingData] = useState<any>({});
 
   // Get current user ID (no creation - let NewWelcomeStep handle that)
   const getCurrentUserId = async () => {
@@ -207,205 +210,114 @@ export const AuthOnboardingWizard = () => {
 
   // Track when user reaches paywall step
   useEffect(() => {
-    if (step === 6 && userId) {
-      trackUserAction('paywall_reached', { step: 6 }).catch(console.error);
+    if (step === 8 && userId) {
+      trackUserAction('paywall_reached', { step: 8 }).catch(console.error);
     }
   }, [step, userId]);
 
-  // Simple handlers for anonymous flow with optimized tracking
-  const handleHowItWorksNext = async () => {
-    // Save "How It Works" completion
+  // New 10-step onboarding handlers
+  const handleStyleGoal = async (goal: string) => {
+    setOnboardingData(prev => ({ ...prev, style_goal: goal }));
     if (userId) {
-      saveOnboardingStep('how_it_works_completed', { completedAt: new Date().toISOString() }).catch(console.error);
-      trackUserAction('how_it_works_completed', { step: 2 }).catch(console.error);
+      saveOnboardingStep('style_goal', { goal }).catch(console.error);
+      trackUserAction('style_goal_selected', { goal, step: 2 }).catch(console.error);
     }
-    
-    // Auto-trigger camera immediately instead of going to photo upload screen
-    await handleAutoCameraCapture();
+    setStep(3);
   };
 
-  // Auto-trigger camera capture to reduce drop-off
-  const handleAutoCameraCapture = async () => {
-    try {
-      const isCapacitor = Capacitor?.isNativePlatform?.() || false;
-      
-      if (!isCapacitor) {
-        // Web platform - use file upload
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.capture = 'environment'; // Prefer rear camera on mobile web
-        input.onchange = async (e) => {
-          const file = (e.target as HTMLInputElement).files?.[0];
-          if (file) {
-            await handlePhotoCapture(file);
-          }
-        };
-        input.click();
-        return;
-      }
-
-      // Native platform - use Capacitor Camera
-      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
-      
-      const photo = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera,
-        promptLabelHeader: 'Take your picture',
-        promptLabelCancel: 'Cancel',
-        promptLabelPhoto: 'Photo',
-      });
-      
-      if (photo?.dataUrl) {
-        const res = await fetch(photo.dataUrl);
-        const blob = await res.blob();
-        const file = new File([blob], 'photo.jpg', { type: blob.type });
-        await handlePhotoCapture(file);
-      } else {
-        setStep(3); // Fallback to photo upload screen
-      }
-    } catch (error) {
-      Logger.error('Auth', 'Auto-camera error:', error);
-      setStep(3); // Fallback to photo upload screen
+  const handlePainPoint = async (painPoint: string) => {
+    setOnboardingData(prev => ({ ...prev, pain_point: painPoint }));
+    if (userId) {
+      saveOnboardingStep('pain_point', { painPoint }).catch(console.error);
+      trackUserAction('pain_point_selected', { painPoint, step: 3 }).catch(console.error);
     }
-  };
-
-  const handleHowItWorksBack = () => {
-    setStep(1); // Go back to welcome
-  };
-
-  const handlePhotoCapture = async (file: File) => {
-    setSelectedImage(file);
-    
-    // Move to analyzing step immediately for faster UX
     setStep(4);
-    
-    // Get current user ID for tracking
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      // User not created yet, that's okay - NewWelcomeStep will handle it
-      return;
-    }
-    
-    // Save to database in background
-    saveOnboardingStep('photo_uploaded', { hasPhoto: true }).catch(console.error);
-    trackUserAction('photo_uploaded', { fileSize: file.size, step: 3 }).catch(console.error);
   };
 
-  const handleGetGradeBack = () => {
-    setStep(2); // Go back to how it works (removed vibe selection)
-  };
-
-  const handleAnalyzingComplete = async () => {
-    try {
-      // Validate image exists
-      if (!selectedImage) {
-        toast({
-          title: "No Image",
-          description: "Please select a photo first.",
-          variant: "destructive"
-        });
-        setStep(3); // Back to photo capture
-        return;
-      }
-
-      // Perform fake analysis - no AI credits used
-      const analysisResult = await performFakeAnalysis(selectedImage);
-      
-      // Save analysis data to tables in background (non-blocking)
-      const userId = await getCurrentUserId();
-      if (userId) {
-        saveAnalysisResult(
-          analysisResult.imageUrl, 
-          analysisResult.analysis, 
-          analysisResult.analysis.overallScore
-        ).catch(console.error);
-         
-        saveOnboardingStep('analysis_completed', { 
-          score: analysisResult.analysis.overallScore,
-          hasAnalysis: true 
-        }).catch(console.error);
-         
-        trackUserAction('analysis_completed', { 
-          score: analysisResult.analysis.overallScore,
-          breakdown: analysisResult.analysis.breakdown,
-          step: 4
-        }).catch(console.error);
-      }
-      
-      setAnalysisResult(analysisResult.analysis);
-      localStorage.setItem('analysis_result', JSON.stringify(analysisResult.analysis));
-      setStep(5); // Go to teaser results
-    } catch (error) {
-      Logger.error('Auth', 'Analysis failed:', error);
-      toast({
-        title: "Analysis Error",
-        description: "Failed to analyze your photo. Please try again.",
-        variant: "destructive"
-      });
-      // Allow user to go back and retry
-      setStep(3); 
-    }
-  };
-
-  const handleTeaserUnlock = async () => {
-    // Move to paywall immediately for faster UX
-    setStep(6);
-    
-    // Save data in background (non-blocking)
-    const userId = await getCurrentUserId();
+  const handleClosetSize = async (closetSize: string) => {
+    setOnboardingData(prev => ({ ...prev, closet_size: closetSize }));
     if (userId) {
-      saveOnboardingStep('teaser_viewed', { unlockedAt: new Date().toISOString() }).catch(console.error);
-      trackUserAction('teaser_viewed', { step: 5 }).catch(console.error);
+      saveOnboardingStep('closet_size', { closetSize }).catch(console.error);
+      trackUserAction('closet_size_selected', { closetSize, step: 4 }).catch(console.error);
     }
+    setStep(5);
   };
 
-  const handlePaywallComplete = async () => {
+  const handleShoppingFrequency = async (frequency: string) => {
+    setOnboardingData(prev => ({ ...prev, shopping_frequency: frequency }));
+    if (userId) {
+      saveOnboardingStep('shopping_frequency', { frequency }).catch(console.error);
+      trackUserAction('shopping_frequency_selected', { frequency, step: 5 }).catch(console.error);
+    }
+    setStep(6); // Go to color analysis intro
+  };
+
+  const handlePhotoCapture = async (imageFile: File) => {
+    setSelectedImage(imageFile);
+    
+    if (userId) {
+      saveOnboardingStep('selfie_captured', { hasPhoto: true }).catch(console.error);
+      trackUserAction('selfie_captured', { fileSize: imageFile.size, step: 6 }).catch(console.error);
+    }
+    
+    setStep(7); // Go to personalizing step
+  };
+
+  const handlePersonalizingComplete = async () => {
+    if (userId) {
+      saveOnboardingStep('personalization_completed', { completedAt: new Date().toISOString() }).catch(console.error);
+      trackUserAction('personalization_completed', { step: 7 }).catch(console.error);
+    }
+    
+    setStep(8); // Go directly to paywall (no results shown)
+  };
+
+  const handlePaywallComplete = async (tier: string) => {
     try {
-      Logger.userAction('paywall_completed', { step });
-      
-      // Save completion data to new tables in background (non-blocking)
-      const userId = await getCurrentUserId();
       if (userId) {
-        saveOnboardingStep('completed', { 
-          paymentCompleted: true,
-          subscriptionStatus: 'active'
+        saveOnboardingStep('paywall_completed', { 
+          subscriptionTier: tier,
+          completedAt: new Date().toISOString()
         }).catch(console.error);
-        trackUserAction('paywall_completed', { step }).catch(console.error);
+        trackUserAction('paywall_completed', { tier, step: 10 }).catch(console.error);
       }
       
       // Mark onboarding as completed
       localStorage.setItem('onboarding_completed', 'true');
+      localStorage.setItem('subscription_active', 'true');
         
-      // Also mark onboarding as completed in database (non-blocking)
+      // Mark as completed in database
       if (userId) {
-        (async () => {
           try {
-            await supabase
+          const { error } = await supabase
               .from('onboarding_v2')
               .update({
                 completed: true,
                 completed_at: new Date().toISOString(),
+              subscription_tier: tier,
                 current_step: 'completed'
               })
               .eq('user_id', userId);
-          } catch (error) {
-            Logger.error('Auth', 'Error marking onboarding as completed:', error);
+          
+          if (error) {
+            console.error('❌ Database error:', error);
+          } else {
+            console.log('✅ Onboarding completed successfully');
           }
-        })();
+        } catch (dbError) {
+          console.error('❌ Failed to save onboarding:', dbError);
+          // Don't throw - let user continue even if DB save fails
+        }
       }
-      localStorage.setItem('subscription_active', 'true');
       
       toast({
-        title: "Welcome to Pro!",
-        description: "Your subscription is now active.",
+        title: "Welcome to OutfitGrader AI!",
+        description: "Your account is now active.",
       });
       
-      // Navigate to dashboard
+      // Navigate to main app
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.href = '/scan';
       }, 1000);
       
     } catch (error) {
@@ -413,19 +325,19 @@ export const AuthOnboardingWizard = () => {
     }
   };
 
+  // Back navigation handlers
+  const handleBackToStep = (targetStep: number) => {
+    setStep(targetStep);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-950 flex flex-col">
-      {/* Step Content */}
-      <div className="flex-1 flex flex-col">
+    <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
         <AnimatePresence mode="wait" initial={false}>
           {step === 1 && (
-                         <NewWelcomeStep 
-               key="welcome"
-               onNext={async () => {
-                 // Move to next step immediately for faster UX
+          <WelcomeHeroStep 
+            key="welcome-hero"
+            onNext={() => {
                  setStep(2);
-                 
-                 // Save data in background (non-blocking) - use the userId from state since onUserCreated was called first
                  if (userId) {
                    saveOnboardingStep('welcome_completed', { startedAt: new Date().toISOString() }).catch(console.error);
                    trackUserAction('welcome_completed', { step: 1 }).catch(console.error);
@@ -433,52 +345,66 @@ export const AuthOnboardingWizard = () => {
                }}
                onUserCreated={(userId) => {
                  setUserId(userId);
-                 Logger.info('Auth', 'User created in NewWelcomeStep:', userId);
+              Logger.info('Auth', 'User created:', userId);
                }}
              />
           )}
           
           {step === 2 && (
-            <HowItWorksStep 
-              key="how-it-works"
-              onNext={handleHowItWorksNext}
-              onBack={handleHowItWorksBack}
+          <StyleGoalStep 
+            key="style-goal"
+            onNext={handleStyleGoal}
+            onBack={() => handleBackToStep(1)}
             />
           )}
           
           {step === 3 && (
-            <GetGradeStep 
-              key="get-grade"
-              onPhotoCapture={handlePhotoCapture}
-              onBack={handleGetGradeBack}
+          <PainPointStep 
+            key="pain-point"
+            onNext={handlePainPoint}
+            onBack={() => handleBackToStep(2)}
             />
           )}
           
           {step === 4 && (
-            <AnalyzingStep 
-              key="analyzing"
-              onComplete={handleAnalyzingComplete}
+          <ClosetSizeStep 
+            key="closet-size"
+            onNext={handleClosetSize}
+            onBack={() => handleBackToStep(3)}
             />
           )}
           
-          {step === 5 && analysisResult && (
-            <TeaserResultStep 
-              key="teaser"
-              onUnlock={handleTeaserUnlock}
-              result={analysisResult}
-              userImage={selectedImage ? URL.createObjectURL(selectedImage) : undefined}
+        {step === 5 && (
+          <ShoppingFrequencyNewStep 
+            key="shopping-frequency"
+            onNext={handleShoppingFrequency}
+            onBack={() => handleBackToStep(4)}
             />
           )}
           
           {step === 6 && (
-            <ProOfferCard 
-              key="paywall"
-              onContinue={handlePaywallComplete}
-            />
-          )}
-
+          <ColorAnalysisIntroStep 
+            key="color-analysis-intro"
+            onCapture={handlePhotoCapture}
+            onBack={() => handleBackToStep(5)}
+          />
+        )}
+        
+        {step === 7 && (
+          <PersonalizingStep 
+            key="personalizing"
+            userImage={selectedImage ? URL.createObjectURL(selectedImage) : undefined}
+            onComplete={handlePersonalizingComplete}
+          />
+        )}
+        
+        {step === 8 && (
+          <PaywallStep 
+            key="paywall"
+            onComplete={handlePaywallComplete}
+          />
+        )}
         </AnimatePresence>
-      </div>
     </div>
   );
 };

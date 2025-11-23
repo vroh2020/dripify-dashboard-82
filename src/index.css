@@ -1,77 +1,69 @@
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* ========================================
+     OUTFITGRADER AI DESIGN SYSTEM
+     Dark Purple/Pink Theme
+     ======================================== */
+  
   :root {
-    /* MONOCHROME COLOR SYSTEM - BLACK & WHITE ONLY */
-    --background: 0 0% 100%; /* Pure white */
-    --foreground: 0 0% 0%; /* Pure black */
+    /* Primary Brand Colors */
+    --bg-primary: #ffffff;           /* Clean white */
+    --bg-secondary: #f9f9f9;         /* Card backgrounds */
+    --bg-tertiary: #f0f0f0;          /* Hover states */
+    
+    --accent-purple: #8b5cf6;        /* Primary purple */
+    --accent-purple-light: #a78bfa;  /* Light purple */
+    --accent-purple-dark: #7c3aed;   /* Dark purple */
+    
+    --accent-pink: #ec4899;          /* Hot pink */
+    --accent-pink-light: #f472b6;    /* Light pink */
+    
+    --accent-blue: #3b82f6;          /* Info blue */
+    --accent-green: #10b981;         /* Success green */
+    --accent-red: #ef4444;           /* Error red */
+    --accent-yellow: #fbbf24;        /* Warning yellow */
+    
+    --text-primary: #000000;         /* Black text */
+    --text-secondary: #6b7280;       /* Gray text */
+    --text-muted: #9ca3af;           /* Muted text */
+    
+    --border-color: rgba(0, 0, 0, 0.1);
+    --overlay: rgba(0, 0, 0, 0.8);
+    
+    --radius: 0.5rem;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-
-    --primary: 0 0% 0%; /* Pure black for primary actions */
-    --primary-foreground: 0 0% 100%; /* Pure white text on black */
-
-    --secondary: 0 0% 96%; /* Very light gray */
-    --secondary-foreground: 0 0% 0%;
-
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%; /* Medium gray for muted text */
-
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 0%;
-
-    --destructive: 0 0% 0%; /* Black for destructive actions */
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 0 0% 90%; /* Light gray borders */
-    --input: 0 0% 90%;
-    --ring: 0 0% 0%;
-
-    --radius: 0.75rem; /* Increased border radius for modern look */
-  }
-
-  .dark {
-    /* Dark mode - inverted monochrome */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-
-    --card: 0 0% 5%;
-    --card-foreground: 0 0% 100%;
-
-    --popover: 0 0% 5%;
-    --popover-foreground: 0 0% 100%;
-
-    --primary: 0 0% 100%;
-    --primary-foreground: 0 0% 0%;
-
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 65%;
-
-    --accent: 0 0% 10%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 0% 100%;
-    --destructive-foreground: 0 0% 0%;
-
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 0 0% 100%;
+    /* Shadcn compatibility */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 262.1 83.3% 57.8%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 262.1 83.3% 57.8%;
   }
 
   * {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 
   html {
@@ -80,125 +72,348 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    overflow-x: hidden;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    font-family: 'Inter', sans-serif;
-    font-weight: 400;
-    line-height: 1.6;
+    @apply antialiased;
   }
 
-  /* Enhanced scrollbar styling */
+  /* Scrollbar Styling */
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
-    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground));
-    border-radius: 3px;
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--foreground));
+    background: rgba(139, 92, 246, 0.5);
   }
 
   /* Focus styles for accessibility */
   *:focus-visible {
-    outline: 2px solid hsl(var(--ring));
+    outline: 2px solid var(--accent-purple);
     outline-offset: 2px;
   }
 
   /* Selection styles */
   ::selection {
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    background: var(--accent-purple);
+    color: white;
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  @media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    textarea,
+    select {
+      font-size: 16px;
+    }
   }
 }
 
 @layer components {
-  /* TRENDZA DESIGN SYSTEM COMPONENTS */
+  /* ========================================
+     OUTFITGRADER AI DESIGN SYSTEM COMPONENTS
+     ======================================== */
   
-  /* Card Component */
-  .trendza-card {
-    @apply bg-white border border-gray-200 rounded-2xl shadow-sm p-6;
+  /* Card Components */
+  .card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 24px;
   }
 
-  .trendza-card-interactive {
-    @apply bg-white border border-gray-200 rounded-2xl shadow-sm p-6 hover:shadow-md hover:scale-[1.02] transition-all duration-200;
+  .card-interactive {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 24px;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
 
-  /* Button Components */
-  .trendza-btn-primary {
-    @apply bg-black hover:bg-gray-800 text-white font-semibold rounded-xl px-6 py-3 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed;
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.2);
   }
 
-  .trendza-btn-secondary {
-    @apply bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl px-4 py-2 border border-gray-300 transition-colors duration-200;
+  /* Primary Buttons */
+  .btn-primary {
+    background: #000000;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-weight: 600;
+    font-size: 16px;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .trendza-btn-ghost {
-    @apply text-black px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-200;
+  .btn-primary:hover {
+    background: #1f2937;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #9ca3af;
+  }
+
+  /* Secondary Buttons */
+  .btn-secondary {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #000000;
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-weight: 500;
+    transition: all 0.2s;
+    min-height: 56px;
+  }
+
+  .btn-secondary:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+  }
+
+  /* Ghost Buttons */
+  .btn-ghost {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 12px 16px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
   }
 
   /* Input Components */
-  .trendza-input {
-    @apply bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:border-black focus:ring-2 focus:ring-gray-200 transition-colors duration-200 placeholder:text-gray-400;
+  .input-field {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    padding: 16px;
+    color: #000000;
+    font-size: 16px;
+    transition: border-color 0.2s;
   }
 
-  /* Typography */
-  .trendza-title {
-    @apply text-3xl font-bold text-gray-900;
+  .input-field:focus {
+    border-color: #000000;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
   }
 
-  .trendza-subtitle {
-    @apply text-xl font-semibold text-gray-900;
+  .input-field::placeholder {
+    color: #9ca3af;
   }
 
-  .trendza-body {
-    @apply text-base text-gray-600;
+  /* Typography Classes */
+  .text-hero {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
   }
 
-  .trendza-caption {
-    @apply text-sm text-gray-500;
+  .text-title {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .text-heading {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+
+  .text-subheading {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-primary);
+  }
+
+  .text-body {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .text-caption {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--text-muted);
   }
 
   /* Layout Components */
-  .trendza-container {
-    @apply min-h-screen bg-white max-w-sm mx-auto px-4 py-6;
+  .container-mobile {
+    min-height: 100vh;
+    background: var(--bg-primary);
+    max-width: 428px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    position: relative;
   }
 
-  .trendza-section {
-    @apply space-y-6;
-  }
-
-  /* Navigation */
-  .trendza-nav-tab {
-    @apply data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 text-gray-600 hover:text-gray-900 transition-all duration-200;
+  .section-spacing {
+    margin-bottom: 32px;
   }
 
   /* Loading States */
-  .trendza-skeleton {
-    @apply animate-pulse bg-gray-200 rounded-xl;
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--bg-tertiary);
+    border-top: 2px solid var(--accent-purple);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
   }
 
-  .trendza-loading {
-    @apply flex items-center justify-center min-h-[50vh];
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
-  .trendza-spinner {
-    @apply w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin;
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 8px;
+  }
+
+  @keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Progress Indicator */
+  .progress-bar {
+    width: 100%;
+    height: 2px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: #000000;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  /* Back Button */
+  .back-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #000000;
+    transition: background-color 0.2s;
+  }
+
+  .back-button:hover {
+    background: #f3f4f6;
+  }
+
+  /* Option Cards for Onboarding */
+  .option-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    transition: all 0.15s;
+    cursor: pointer;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .option-card:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+  }
+
+  .option-card.selected {
+    background: #ffffff;
+    border: 2px solid #000000;
+    color: #000000;
+  }
+
+  .option-card .emoji {
+    font-size: 24px;
+    flex-shrink: 0;
+    color: #6b7280;
+  }
+
+  .option-card.selected .emoji {
+    color: #000000;
+  }
+
+  .option-card .text {
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #000000;
+  }
+
+  /* ========================================
+     GRADIENT UTILITIES - REMOVED FOR CLEAN MONOCHROME DESIGN
+     ======================================== */
+
+  /* ========================================
+     SPINNER
+     ======================================== */
+  
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top: 2px solid #000000;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
   }
 }
 
 @layer utilities {
-  /* Custom utilities for Trendza */
+  /* Custom utilities for OutfitGrader AI */
   .text-balance {
     text-wrap: balance;
   }
@@ -209,5 +424,79 @@
   
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(20px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes scaleIn {
+    from { 
+      opacity: 0; 
+      transform: scale(0.95); 
+    }
+    to { 
+      opacity: 1; 
+      transform: scale(1); 
+    }
+  }
+
+  /* Touch-friendly sizing */
+  .touch-size {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better focus styles */
+  .focus-visible {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black;
+  }
+
+  /* Prevent text selection */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Hardware acceleration */
+  .gpu {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  /* Dynamic viewport height */
+  .min-h-screen-safe {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .h-screen-safe {
+    height: 100vh;
+    height: 100dvh;
   }
 }
