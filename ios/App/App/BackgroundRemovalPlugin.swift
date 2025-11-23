@@ -23,6 +23,23 @@ public class BackgroundRemovalPlugin: CAPPlugin {
     
     @available(iOS 15.0, *)
     private func removeBackgroundIOS15(_ call: CAPPluginCall) {
+        // Check if iOS 17+ for generic object removal
+        if #available(iOS 17.0, *) {
+            removeBackgroundIOS17(call)
+            return
+        }
+        
+        // iOS 15-16: Only supports person segmentation
+        // For clothing/objects, just return original image
+        if let base64Image = call.getString("image") {
+            call.resolve(["image": base64Image, "success": false])
+        } else {
+            call.reject("Image data is required")
+        }
+    }
+    
+    @available(iOS 17.0, *)
+    private func removeBackgroundIOS17(_ call: CAPPluginCall) {
         guard let base64Image = call.getString("image") else {
             call.reject("Image data is required")
             return
@@ -55,10 +72,9 @@ public class BackgroundRemovalPlugin: CAPPlugin {
             return
         }
         
-        // Create Vision request for person segmentation
-        let request = VNGeneratePersonSegmentationRequest()
-        request.qualityLevel = .balanced // Options: .fast, .balanced, .accurate
-        request.outputPixelFormat = kCVPixelFormatType_OneComponent8
+        // Create Vision request for OBJECT/CLOTHING segmentation (iOS 17+)
+        let request = VNGenerateForegroundInstanceMaskRequest()
+        request.revision = VNGenerateForegroundInstanceMaskRequestRevision1
         
         let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
         
@@ -67,12 +83,26 @@ public class BackgroundRemovalPlugin: CAPPlugin {
                 try handler.perform([request])
                 
                 guard let result = request.results?.first else {
-                    call.reject("No segmentation result")
+                    // No object detected, return original image
+                    DispatchQueue.main.async {
+                        call.resolve(["image": base64Image, "success": false])
+                    }
+                    return
+                }
+                
+                // Generate mask for the detected instance
+                guard let maskPixelBuffer = try? result.generateMaskedImage(
+                    ofInstances: result.allInstances,
+                    from: handler,
+                    croppedToInstancesExtent: false
+                ) else {
+                    DispatchQueue.main.async {
+                        call.resolve(["image": base64Image, "success": false])
+                    }
                     return
                 }
                 
                 // Get the mask
-                let maskPixelBuffer = result.pixelBuffer
                 let maskCIImage = CIImage(cvPixelBuffer: maskPixelBuffer)
                 
                 // Scale mask to match input image size
@@ -87,20 +117,26 @@ public class BackgroundRemovalPlugin: CAPPlugin {
                 blendFilter.setValue(scaledMask, forKey: kCIInputMaskImageKey)
                 
                 guard let outputImage = blendFilter.outputImage else {
-                    call.reject("Failed to apply mask")
+                    DispatchQueue.main.async {
+                        call.resolve(["image": base64Image, "success": false])
+                    }
                     return
                 }
                 
                 // Convert to PNG with transparency
                 let context = CIContext()
                 guard let cgImage = context.createCGImage(outputImage, from: outputImage.extent) else {
-                    call.reject("Failed to create CGImage")
+                    DispatchQueue.main.async {
+                        call.resolve(["image": base64Image, "success": false])
+                    }
                     return
                 }
                 
                 let resultImage = UIImage(cgImage: cgImage)
                 guard let pngData = resultImage.pngData() else {
-                    call.reject("Failed to create PNG data")
+                    DispatchQueue.main.async {
+                        call.resolve(["image": base64Image, "success": false])
+                    }
                     return
                 }
                 
@@ -114,7 +150,10 @@ public class BackgroundRemovalPlugin: CAPPlugin {
                 }
                 
             } catch {
-                call.reject("Background removal failed: \(error.localizedDescription)")
+                // Error during processing, return original image
+                DispatchQueue.main.async {
+                    call.resolve(["image": base64Image, "success": false])
+                }
             }
         }
     }

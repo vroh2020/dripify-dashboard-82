@@ -6,42 +6,38 @@ interface BackgroundRemovalPlugin {
 
 const BackgroundRemoval = Capacitor.registerPlugin<BackgroundRemovalPlugin>('BackgroundRemoval');
 
-// DEBUG: Check if plugin is available
-console.log('🔍 BackgroundRemoval plugin object:', BackgroundRemoval);
-console.log('🔍 Available plugins:', (Capacitor as any).Plugins);
-
 /**
  * Remove background from an image
- * - On iOS: Uses native Vision framework (FREE, FAST, OFFLINE)
- * - On Web/Android: Returns original image (TODO: implement Android or use fallback)
+ * - On iOS 17+: Uses Vision framework for generic object removal (clothing, etc)
+ * - On iOS 15-16: Not supported for objects, returns original
+ * - On Web/Android: Returns original image
  */
 export async function removeImageBackground(imageDataUrl: string): Promise<string> {
   const platform = Capacitor.getPlatform();
   
   console.log('🔍 Platform detected:', platform);
-  alert(`Platform: ${platform}`); // VISIBLE DEBUG
   
   if (platform === 'ios') {
     try {
-      console.log('🎨 Removing background using iOS Vision framework...');
-      alert('🎨 Starting background removal...'); // VISIBLE DEBUG
+      console.log('🎨 Attempting background removal using iOS Vision framework...');
       
       const result = await BackgroundRemoval.removeBackground({ image: imageDataUrl });
       
-      console.log('✅ Background removed successfully (iOS)', result);
-      alert('✅ Background removed!'); // VISIBLE DEBUG
-      
-      return result.image;
+      if (result.success) {
+        console.log('✅ Background removed successfully (iOS 17+)');
+        return result.image;
+      } else {
+        console.log('ℹ️ Background removal not available (requires iOS 17+), using original image');
+        return imageDataUrl;
+      }
     } catch (error) {
       console.error('❌ iOS background removal failed:', error);
-      alert(`❌ Error: ${error}`); // VISIBLE DEBUG
       return imageDataUrl; // Fallback to original
     }
   }
   
   // For web/Android, return original for now
   console.log('ℹ️ Background removal not available on this platform, using original image');
-  alert('Not iOS - skipping background removal'); // VISIBLE DEBUG
   return imageDataUrl;
 }
 
