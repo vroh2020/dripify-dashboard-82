@@ -11,6 +11,7 @@ import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
 const Profile = lazy(() => import("./pages/Profile"));
+const BackgroundRemovalDebugger = lazy(() => import("./components/BackgroundRemovalDebugger").then(m => ({ default: m.BackgroundRemovalDebugger })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +42,16 @@ const AppRoutes = () => {
           shouldShowDashboard ? 
             <Navigate to="/dashboard" replace /> : 
             <Auth />
+        } 
+      />
+      
+      {/* Debug route - always accessible for testing */}
+      <Route 
+        path="/debug/background-removal" 
+        element={
+          <Suspense fallback={null}>
+            <BackgroundRemovalDebugger />
+          </Suspense>
         } 
       />
       
