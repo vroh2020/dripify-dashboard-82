@@ -74,7 +74,7 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
         // Optimize image size if too large (max 2048px on longest side for performance)
         let maxDimension: CGFloat = 2048
         let processedCGImage: CGImage
-        if max(cgImage.width, cgImage.height) > maxDimension {
+        if max(CGFloat(cgImage.width), CGFloat(cgImage.height)) > maxDimension {
             let scale = maxDimension / max(CGFloat(cgImage.width), CGFloat(cgImage.height))
             let newWidth = Int(CGFloat(cgImage.width) * scale)
             let newHeight = Int(CGFloat(cgImage.height) * scale)
@@ -204,7 +204,8 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
             CAPLog.print("Error type: \(type(of: visionError))")
             if let nsError = visionError as NSError? {
                 CAPLog.print("Error domain: \(nsError.domain), code: \(nsError.code)")
-                if let userInfo = nsError.userInfo as? [String: Any] {
+                let userInfo = nsError.userInfo
+                if !userInfo.isEmpty {
                     CAPLog.print("Error userInfo: \(userInfo)")
                 }
             }
