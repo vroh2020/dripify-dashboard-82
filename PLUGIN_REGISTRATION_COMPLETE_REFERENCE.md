@@ -1,6 +1,30 @@
 # BackgroundRemoval Plugin - Complete Registration Reference
 
+**Last Updated:** After fixing duplicate interface errors
+
 This document contains all the files and code related to the BackgroundRemoval plugin registration for debugging Appflow builds.
+
+---
+
+## 🔧 FIXES APPLIED (Duplicate Interface Errors)
+
+### Root Cause
+The build was failing with:
+```
+❌ duplicate interface definition for class 'AppDelegate'
+❌ duplicate interface definition for class 'BackgroundRemovalPlugin'
+```
+
+This happened because:
+1. Swift's `@objc(BackgroundRemovalPlugin)` exports the class to Objective-C via `App-Swift.h`
+2. When `BackgroundRemovalPlugin.m` imported `App-Swift.h`, it got the interface declaration
+3. The `CAP_PLUGIN` macro also works with the class interface
+4. Result: Duplicate interface definitions
+
+### Fixes Applied
+1. **Removed `App-Swift.h` import from `BackgroundRemovalPlugin.m`** - The CAP_PLUGIN macro doesn't need to see the Swift class implementation
+2. **Added `Dummy.swift` to Xcode project** - It was missing from `project.pbxproj`, so it wasn't being compiled
+3. **Updated comments** for clarity about why NOT to import the bridging header
 
 ---
 
@@ -108,14 +132,20 @@ export default config;
 **File:** `ios/App/App/BackgroundRemovalPlugin.m`
 
 ```objc
+//
+//  BackgroundRemovalPlugin.m
+//  App
+//
+//  Capacitor plugin registration file for BackgroundRemovalPlugin
+//  DO NOT import App-Swift.h here - it causes duplicate interface errors
+//
+
 #import <Foundation/Foundation.h>
 #import <Capacitor/Capacitor.h>
 
-// Import Swift bridging header - required for CAP_PLUGIN macro to find Swift class
-// Xcode auto-generates this header from Swift files
-#if __has_include("App-Swift.h")
-#import "App-Swift.h"
-#endif
+// NOTE: Do NOT import App-Swift.h here!
+// The CAP_PLUGIN macro only registers the plugin name with Capacitor.
+// Importing the Swift bridging header causes "duplicate interface definition" errors.
 
 CAP_PLUGIN(BackgroundRemovalPlugin, "BackgroundRemoval",
     CAP_PLUGIN_METHOD(removeBackground, CAPPluginReturnPromise);
@@ -126,7 +156,7 @@ CAP_PLUGIN(BackgroundRemovalPlugin, "BackgroundRemoval",
 - ✅ Plugin name: `"BackgroundRemoval"` (matches JS registration)
 - ✅ Class name: `BackgroundRemovalPlugin` (matches Swift class)
 - ✅ Method name: `removeBackground` (matches Swift method)
-- ✅ Bridging header import: `App-Swift.h` (required for Swift/Obj-C interop)
+- ⚠️ **NO `App-Swift.h` import** - This is intentional! Importing it causes duplicate interface errors
 
 ---
 
