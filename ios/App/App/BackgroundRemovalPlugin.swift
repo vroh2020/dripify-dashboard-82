@@ -473,8 +473,8 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             }
             
-            guard let maskBuffer = outputBuffer else {
-                // Try to get first available output
+            // If standard names didn't work, try first available output
+            if outputBuffer == nil {
                 let allOutputs = prediction.featureNames
                 CAPLog.print("⚠️ Standard output names not found. Available outputs: \(allOutputs)")
                 
@@ -483,10 +483,12 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
                    let buffer = outputFeature.imageBufferValue {
                     outputBuffer = buffer
                     CAPLog.print("✅ Using first available output: \(firstOutputName)")
-                } else {
-                    CAPLog.print("❌ U²‑Net output not found")
-                    return nil
                 }
+            }
+            
+            guard let maskBuffer = outputBuffer else {
+                CAPLog.print("❌ U²‑Net output not found")
+                return nil
             }
             
             // Scale mask back to original image size
