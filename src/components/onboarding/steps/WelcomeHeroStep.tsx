@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Logger } from "@/utils/logger";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +11,37 @@ interface WelcomeHeroStepProps {
 
 export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState(0);
+  const autoScrollRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  const screens = [
+    {
+      title: "Discover new fits and dress better",
+      image: "/lovable-uploads/outfitgrader-ai-2.png"
+    },
+    {
+      title: "Generate fits using the app",
+      image: "/lovable-uploads/outfitgrader-ai-3.png"
+    },
+    {
+      title: "Get ratings for your fit and advice",
+      image: "/lovable-uploads/outfitgrader-ai-6.png"
+    }
+  ];
+
+  // Auto-scroll through screens
+  useEffect(() => {
+    autoScrollRef.current = setInterval(() => {
+      setCurrentScreen((prev) => (prev + 1) % screens.length);
+    }, 3000);
+
+    return () => {
+      if (autoScrollRef.current) {
+        clearInterval(autoScrollRef.current);
+      }
+    };
+  }, [screens.length]);
 
   const handleGetStarted = async () => {
     if (isProcessing) return;
@@ -57,86 +87,114 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 safe-area-inset">
-      {/* Content */}
-      <div className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto flex-1">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mb-12"
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-8">
+        {/* App Title */}
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-4xl font-bold text-black mb-12 text-center"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
-          <h1 className="text-4xl font-bold text-black mb-3" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-            OutfitGrader AI
-          </h1>
-          
-          <p className="text-base text-gray-600 leading-relaxed" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-            Your AI Style Assistant
-          </p>
-        </motion.div>
+          OutfitGrader AI
+        </motion.h1>
 
-        {/* Feature checklist - 3 items max */}
-        <motion.div
+        {/* Phone Mockup with Sliding Screens */}
+        <div className="relative w-full max-w-[280px] mb-8">
+          <div className="relative overflow-hidden rounded-[40px] bg-black p-2 shadow-2xl">
+            <div className="bg-white rounded-[32px] overflow-hidden relative h-[560px]">
+              {/* Status Bar */}
+              <div className="flex items-center justify-start px-6 pt-3 pb-2">
+                <span className="text-black text-sm font-semibold">12:34</span>
+              </div>
+
+              {/* Sliding Screens */}
+              <div className="relative h-[calc(100%-50px)] overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentScreen}
+                    initial={{ opacity: 0, x: 300 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -300 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    className="absolute inset-0"
+                  >
+                    <img
+                      src={screens[currentScreen].image}
+                      alt={screens[currentScreen].title}
+                      className="w-full h-full object-contain"
+                      style={{
+                        imageRendering: 'crisp-edges',
+                        WebkitTransform: 'translate3d(0, 0, 0)',
+                        transform: 'translate3d(0, 0, 0)',
+                        backfaceVisibility: 'hidden',
+                        WebkitBackfaceVisibility: 'hidden'
+                      }}
+                    />
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Screen Title Text */}
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={currentScreen}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="text-black text-center text-base font-medium mb-6 px-4"
+            style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
+          >
+            {screens[currentScreen].title}
+          </motion.p>
+        </AnimatePresence>
+
+        {/* Pagination Dots */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {screens.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => {
+                if (autoScrollRef.current) {
+                  clearInterval(autoScrollRef.current);
+                }
+                setCurrentScreen(index);
+                autoScrollRef.current = setInterval(() => {
+                  setCurrentScreen((prev) => (prev + 1) % screens.length);
+                }, 3000);
+              }}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                currentScreen === index ? 'bg-black w-6' : 'bg-gray-300'
+              }`}
+              aria-label={`Go to screen ${index + 1}`}
+            />
+          ))}
+        </div>
+
+        {/* Join for Free Button */}
+        <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="mb-16 space-y-6 w-full"
+          onClick={handleGetStarted}
+          disabled={isProcessing}
+          className="w-full max-w-sm bg-black text-white font-semibold py-4 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
-          <div className="flex items-center gap-5 text-left">
-            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
+          {isProcessing ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              <span>Joining...</span>
             </div>
-            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
-              Grade any outfit instantly
-            </span>
-          </div>
-          <div className="flex items-center gap-5 text-left">
-            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
-              Get personalized style tips
-            </span>
-          </div>
-          <div className="flex items-center gap-5 text-left">
-            <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <span className="text-base text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
-              Track your style evolution
-            </span>
-          </div>
-        </motion.div>
-
-        {/* CTA Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="w-full mt-auto"
-        >
-          <button
-            onClick={handleGetStarted}
-            disabled={isProcessing}
-            className="w-full bg-black text-white font-semibold py-5 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-            style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}
-          >
-            {isProcessing ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>Getting Started...</span>
-              </div>
-            ) : (
-              "Get Started"
-            )}
-          </button>
-        </motion.div>
+          ) : (
+            "Join for free"
+          )}
+        </motion.button>
       </div>
     </div>
   );

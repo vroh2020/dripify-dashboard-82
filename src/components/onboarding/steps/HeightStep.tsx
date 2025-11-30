@@ -1,43 +1,19 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
-import { Sparkles, Briefcase, Star, ShoppingBag } from "lucide-react";
 
-interface StyleGoalStepProps {
-  onNext: (goal: string) => void;
+interface HeightStepProps {
+  onNext: (height: string) => void;
   onBack: () => void;
 }
 
-const STYLE_GOALS = [
-  {
-    id: "complement-beauty",
-    text: "To learn how to complement my natural beauty",
-    icon: Sparkles
-  },
-  {
-    id: "dress-success",
-    text: "To dress for success",
-    icon: Briefcase
-  },
-  {
-    id: "stand-out",
-    text: "To stand out from the crowd",
-    icon: Star
-  },
-  {
-    id: "shop-smart",
-    text: "To shop smart and buy less",
-    icon: ShoppingBag
-  }
-];
-
-export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
-  const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+export const HeightStep = ({ onNext, onBack }: HeightStepProps) => {
+  const [height, setHeight] = useState<string>("");
+  const [unit, setUnit] = useState<"cm" | "ft">("cm");
 
   const handleContinue = () => {
-    if (selectedGoal) {
-      const selectedGoalData = STYLE_GOALS.find(g => g.id === selectedGoal);
-      onNext(selectedGoalData?.text || selectedGoal);
+    if (height.trim()) {
+      onNext(`${height} ${unit}`);
     }
   };
 
@@ -66,7 +42,7 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
           <div className="w-full max-w-[280px] h-[3px] bg-gray-200 rounded-full relative">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: "36%" }}
+              animate={{ width: "25%" }}
               transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
               className="absolute left-0 top-0 h-full bg-black rounded-full"
             />
@@ -74,7 +50,7 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
         </div>
       </div>
 
-      {/* Title */}
+      {/* Title + subtitle */}
       <div className="px-6 mt-4">
         <motion.h1
           initial={{ opacity: 0, y: 12 }}
@@ -82,34 +58,46 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="text-[28px] font-bold text-black"
         >
-          What's your main style goal?
+          Your height
         </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 0.7, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="text-[16px] text-black opacity-70 mt-2 leading-relaxed"
+        >
+          This helps us recommend outfits that fit your proportions.
+        </motion.p>
       </div>
 
-      {/* Options - moved way down with more spacing between each */}
-      <div className="px-6 mt-40 space-y-5">
-        {STYLE_GOALS.map((goal, index) => {
-          const IconComponent = goal.icon;
-          return (
-            <motion.button
-              key={goal.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.4,
-                delay: 0.2 + index * 0.1,
-                ease: [0.16, 1, 0.3, 1]
-              }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setSelectedGoal(goal.id)}
-              className={`w-full h-[58px] rounded-2xl text-[17px] font-semibold transition-all duration-200 flex items-center gap-4 px-4
-                ${selectedGoal === goal.id ? "bg-black text-white" : "bg-[#F7F7FB] text-black hover:bg-gray-100"}`}
+      {/* Input field */}
+      <div className="px-6 mt-40">
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={height}
+            onChange={(e) => setHeight(e.target.value)}
+            placeholder={unit === "cm" ? "170" : "5'8\""}
+            className="flex-1 h-[58px] bg-[#F7F7FB] border border-gray-200 rounded-2xl px-6 text-[17px] font-semibold text-black placeholder:text-gray-400 focus:outline-none focus:border-black transition-colors"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setUnit("cm")}
+              className={`h-[58px] px-4 rounded-2xl text-[17px] font-semibold transition-all duration-200
+                ${unit === "cm" ? "bg-black text-white" : "bg-[#F7F7FB] text-black hover:bg-gray-100"}`}
             >
-              <IconComponent size={20} strokeWidth={2} />
-              <span className="flex-1 text-left">{goal.text}</span>
-            </motion.button>
-          );
-        })}
+              cm
+            </button>
+            <button
+              onClick={() => setUnit("ft")}
+              className={`h-[58px] px-4 rounded-2xl text-[17px] font-semibold transition-all duration-200
+                ${unit === "ft" ? "bg-black text-white" : "bg-[#F7F7FB] text-black hover:bg-gray-100"}`}
+            >
+              ft
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Continue button */}
@@ -120,11 +108,11 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
         className="mt-auto px-6 pb-[80px]"
       >
         <motion.button
-          disabled={!selectedGoal}
-          whileTap={selectedGoal ? { scale: 0.98 } : {}}
+          disabled={!height.trim()}
+          whileTap={height.trim() ? { scale: 0.98 } : {}}
           onClick={handleContinue}
           className={`w-full h-[56px] rounded-2xl text-[17px] font-semibold transition-all duration-200 
-            ${selectedGoal ? "bg-black text-white hover:bg-gray-900" : "bg-gray-300 text-white cursor-not-allowed"}`}
+            ${height.trim() ? "bg-black text-white hover:bg-gray-900" : "bg-gray-300 text-white cursor-not-allowed"}`}
         >
           Continue
         </motion.button>
@@ -132,3 +120,4 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
     </motion.div>
   );
 };
+

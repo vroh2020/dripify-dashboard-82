@@ -499,4 +499,92 @@
     height: 100vh;
     height: 100dvh;
   }
+
+  /* ========================================
+     CROSS-iOS VERSION COMPATIBILITY
+     Maintains consistent quality on iPhone 10-14+
+     ======================================== */
+  
+  /* Image quality optimization for all devices */
+  img, video {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    -webkit-perspective: 1000;
+    perspective: 1000;
+  }
+  
+  /* Force subpixel rendering for better quality on older iOS */
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* Fix blurry rendering on older iOS versions */
+  @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    * {
+      -webkit-font-smoothing: subpixel-antialiased;
+    }
+    
+    img {
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+    }
+  }
+  
+  /* Prevent layout shifts and improve rendering */
+  button, a, input, select, textarea {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  /* Ensure consistent rendering across all iOS Safari versions */
+  @supports (-webkit-touch-callout: none) {
+    /* iOS Safari specific optimizations */
+    body {
+      -webkit-text-size-adjust: 100%;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Better canvas/image rendering */
+    canvas, img, video {
+      -webkit-transform: translate3d(0, 0, 0);
+      transform: translate3d(0, 0, 0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    
+    /* Prevent font rendering issues */
+    * {
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+  }
+  
+  /* Fix for older iOS versions (10-12) */
+  @media screen and (-webkit-min-device-pixel-ratio: 2) {
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+    
+    body {
+      -webkit-font-smoothing: antialiased;
+    }
+  }
+  
+  /* Specific fixes for iPhone X and older */
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+  }
 }

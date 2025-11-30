@@ -6,6 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+// Enhanced validation function
+function validateImageData(image: any): boolean {
+  if (!image || typeof image !== 'string') return false;
+  const base64Pattern = /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i;
+  const urlPattern = /^https?:\/\/.+\.(jpeg|jpg|png|webp|gif)(\?.*)?$/i;
+  return base64Pattern.test(image) || urlPattern.test(image);
+}
+
 // Rate limiting
 const clientRequests = new Map();
 
@@ -80,6 +88,7 @@ serve(async (req) => {
     const { image } = await req.json();
     
     if (!image) {
+      console.error('❌ No image provided in request');
       return new Response(
         JSON.stringify({ error: 'No image provided' }),
         { 
@@ -88,6 +97,23 @@ serve(async (req) => {
         }
       );
     }
+
+    if (!validateImageData(image)) {
+      console.error('❌ Invalid image data format:', typeof image, image.substring(0, 50));
+      return new Response(
+        JSON.stringify({ error: 'Invalid image data. Please provide a valid image URL or base64 data.' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('✅ Image validated:', {
+      hasImage: !!image,
+      imageType: image.startsWith('data:') ? 'base64' : 'url',
+      imageLength: image.length
+    });
 
     // Get API key from environment
     const nebiusApiKey = Deno.env.get('NEBIUS_API_KEY');
@@ -98,7 +124,7 @@ serve(async (req) => {
 
     // Prepare API payload for Nebius
     const apiPayload = {
-      model: "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+      model: "Qwen/Qwen2.5-VL-72B-Instruct",
       temperature: 0.3, // Lower temperature for more consistent categorization
       messages: [
         {
@@ -124,7 +150,12 @@ serve(async (req) => {
       ]
     };
 
-    console.log('Calling Nebius API for closet item analysis...');
+    console.log('🚀 Calling Nebius API for closet item analysis...');
+    console.log('📝 Request details:', {
+      model: apiPayload.model,
+      imageType: image.startsWith('data:') ? 'base64' : 'url',
+      hasApiKey: !!nebiusApiKey
+    });
     const response = await fetch('https://api.studio.nebius.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -137,8 +168,9 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Nebius API error:', response.status, errorText);
-      throw new Error(`AI service error: ${response.status}`);
+      console.error('❌ Nebius API error:', response.status, errorText);
+      console.error('Request payload:', JSON.stringify(apiPayload).substring(0, 500));
+      throw new Error(`AI service error (${response.status}): ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
@@ -218,12 +250,21 @@ serve(async (req) => {
       }
     });
 
-  } catch (error) {
-    console.error('Error in analyze-closet-item function:', error);
-    return new Response(JSON.stringify({
-      error: error.message || 'Analysis service temporarily unavailable',
-      details: 'Please try again in a moment. If the problem persists, contact support.'
-    }), {
+  } catch (error: any) {
+    console.error('❌ Error in analyze-closet-item function:', error);
+    console.error('Error stack:', error?.stack);
+    console.error('Error name:', error?.name);
+    
+    // More detailed error response for debugging
+    const errorMessage = error?.message || 'Analysis service temporarily unavailable';
+    const errorDetails = {
+      error: errorMessage,
+      details: 'Please try again in a moment. If the problem persists, contact support.',
+      type: error?.name || 'UnknownError',
+      stack: process.env.DENO_ENV === 'development' ? error?.stack : undefined
+    };
+    
+    return new Response(JSON.stringify(errorDetails), {
       status: 500,
       headers: {
         ...corsHeaders,

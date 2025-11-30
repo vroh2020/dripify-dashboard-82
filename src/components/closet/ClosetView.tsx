@@ -222,15 +222,134 @@ export default function ClosetView() {
 
       try {
         console.log('🤖 Attempting AI analysis...');
-        // Convert blob to base64 for AI analysis if needed, or pass public URL
-        // For now assuming existing edge function can handle URL or we might need to pass base64
-        // To keep it simple, we'll use the publicUrl if available
         
-        const { data: analysis, error: aiError } = await supabase.functions.invoke('analyze-closet-item', {
-          body: { image: publicUrl }
+        // Compress image before converting to base64 (max 1024px on longest side, 0.8 quality)
+        const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDimension = 1024;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > height) {
+              if (width > maxDimension) {
+                height = (height * maxDimension) / width;
+                width = maxDimension;
+              }
+            } else {
+              if (height > maxDimension) {
+                width = (width * maxDimension) / height;
+                height = maxDimension;
+              }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              reject(new Error('Could not get canvas context'));
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to compress image'));
+              }
+            }, 'image/jpeg', 0.8);
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = URL.createObjectURL(processedBlob);
         });
         
-        if (!aiError && analysis && analysis.category) {
+        // Convert compressed blob to base64 for AI analysis
+        const base64Image = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(compressedBlob);
+        });
+        
+        // Log base64 image size for debugging
+        console.log('📊 Base64 image size:', (base64Image.length / 1024).toFixed(2), 'KB');
+        
+        let analysis;
+        let aiError;
+        
+        try {
+          const result = await supabase.functions.invoke('analyze-closet-item', {
+            body: { image: base64Image }
+          });
+          analysis = result.data;
+          aiError = result.error;
+          
+          // If we got an error, try to fetch directly to get the actual error response
+          if (aiError) {
+            console.log('🔄 Attempting direct fetch to get error details...');
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              const response = await fetch('https://jjqwhxamjxsiotnhhqco.supabase.co/functions/v1/analyze-closet-item', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqcXdoeGFtanhzaW90bmhocWNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMDQxNTQsImV4cCI6MjA1MzY4MDE1NH0.4KMTPF3R6-XQCeRVPSuuWibRawzjEtk60RFCQZr2dz0'}`,
+                  'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqcXdoeGFtanhzaW90bmhocWNvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMDQxNTQsImV4cCI6MjA1MzY4MDE1NH0.4KMTPF3R6-XQCeRVPSuuWibRawzjEtk60RFCQZr2dz0'
+                },
+                body: JSON.stringify({ image: base64Image })
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('📋 Direct fetch error response:', response.status, errorText);
+                try {
+                  const errorJson = JSON.parse(errorText);
+                  console.error('📋 Parsed error:', errorJson);
+                  if (errorJson.error) {
+                    throw new Error(errorJson.error);
+                  }
+                } catch (e) {
+                  throw new Error(`Edge function error (${response.status}): ${errorText.substring(0, 200)}`);
+                }
+              }
+            } catch (fetchErr: any) {
+              console.error('❌ Direct fetch also failed:', fetchErr);
+            }
+          }
+        } catch (err: any) {
+          console.error('❌ Exception during invoke:', err);
+          aiError = err;
+        }
+        
+        if (aiError) {
+          console.error('❌ AI analysis error:', aiError);
+          console.error('Error details:', JSON.stringify(aiError, null, 2));
+          
+          // Try to extract the actual error message from the response
+          let errorMessage = 'AI analysis failed';
+          if (aiError.message) {
+            errorMessage = aiError.message;
+          }
+          
+          // Try to get response body if available
+          if ((aiError as any).context) {
+            console.error('Error context:', (aiError as any).context);
+          }
+          
+          console.error('❌ Final error message:', errorMessage);
+          throw new Error(errorMessage);
+        }
+        
+        if (!analysis) {
+          console.error('❌ No analysis data returned');
+          throw new Error('No analysis data returned from AI service');
+        }
+        
+        if (analysis && analysis.category) {
           itemData = {
             title: analysis.title || 'New Item',
             brand: analysis.brand || '',
@@ -241,9 +360,12 @@ export default function ClosetView() {
             attributes: analysis.attributes || {}
           };
           console.log('🎯 AI analysis successful:', itemData);
+        } else {
+          console.warn('⚠️ AI analysis returned invalid data:', analysis);
         }
-      } catch (aiError) {
-        console.log('📊 AI analysis failed, using defaults:', aiError);
+      } catch (aiError: any) {
+        console.error('❌ AI analysis failed:', aiError?.message || aiError);
+        console.log('📊 Using default values:', itemData);
       }
 
       // Insert to database

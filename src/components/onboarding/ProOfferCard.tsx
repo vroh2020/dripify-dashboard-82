@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ExternalLink, Sparkles } from "lucide-react";
+import { RefreshCw, ExternalLink, Check, Lock, Bell, Crown } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-
 import { motion } from "framer-motion";
 
 interface ProOfferCardProps {
@@ -161,7 +160,7 @@ const getPlanConfig = (offerings: any) => {
   return config;
 };
 
-// Plan Option Component - Vertical Stacking Design
+// Plan Option Component - Side-by-side Design (White Theme)
 const PlanOption = ({ planKey, isSelected, onSelect, offerings }: { 
   planKey: string; 
   isSelected: boolean; 
@@ -173,178 +172,59 @@ const PlanOption = ({ planKey, isSelected, onSelect, offerings }: {
   
   return (
     <button 
-      className={`w-full rounded-lg border p-4 transition-all duration-300 relative mb-3 ${
+      className={`flex-1 rounded-xl border-2 p-4 transition-all relative ${
         isSelected 
-          ? 'border-blue-400 bg-gray-800/50' 
-          : 'border-gray-600 bg-gray-900/50 hover:border-gray-500'
+          ? 'border-black bg-black text-white' 
+          : 'border-gray-200 bg-white text-black hover:border-gray-300'
       }`}
       onClick={() => onSelect(planKey as 'weekly' | 'monthly')}
     >
-      <div className="flex items-center justify-between">
-        {/* Left side - Title and pricing */}
-        <div className="text-left flex-1">
-          <p className="font-semibold text-base text-white">
-            {planKey === 'weekly' ? '3-Day Trial' : 'Monthly Plan'}
-          </p>
-          
-          {planKey === 'weekly' ? (
-            <span className="text-sm text-gray-400">then {planConfig.price} per week</span>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 line-through whitespace-nowrap">$19.99</span>
-              <span className="text-base font-semibold text-white whitespace-nowrap">{planConfig.price} per month</span>
-            </div>
-          )}
+      {/* 3 DAYS FREE Badge for weekly */}
+      {planKey === 'weekly' && (
+        <div className="absolute -top-2 -right-2 bg-black text-white text-xs font-bold px-2 py-1 rounded">
+          3 DAYS FREE
         </div>
-
-        {/* Right side - Badge and selection */}
-        <div className="flex items-center gap-3">
-          {planKey === 'weekly' ? (
-            <span className="text-lg font-bold text-white">FREE</span>
-          ) : (
-            <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-              SAVE 50%
-            </div>
+      )}
+      <div className="text-left">
+        <p className="font-semibold text-base mb-1">
+          {planKey === 'weekly' ? 'Weekly' : 'Monthly'}
+        </p>
+        <p className="text-sm">
+          {planKey === 'weekly' ? `${planConfig.price} /week` : `${planConfig.price} /mo`}
+        </p>
+      </div>
+      <div className="flex justify-end mt-2">
+        <div
+          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+            isSelected
+              ? 'border-white bg-white'
+              : 'border-gray-300 bg-white'
+          }`}
+        >
+          {isSelected && (
+            <Check className="w-3 h-3 text-black" strokeWidth={3} />
           )}
-          
-          {/* Radio button */}
-          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-            isSelected 
-              ? 'border-blue-400 bg-blue-400' 
-              : 'border-gray-400'
-          }`}>
-            {isSelected && (
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-            )}
-          </div>
         </div>
       </div>
     </button>
   );
 };
 
-// Clean Auto-Scrollable Feature Display Component
-const FeatureDisplay = () => {
-  const features = [
-    {
-      id: 1,
-      title: "Unlimited Outfit Grading",
-      description: "Get AI feedback on every outfit",
-      image: "/lovable-uploads/image111.png"
-    },
-    {
-      id: 2,
-      title: "Style Score Tracking",
-      description: "See your style improve over time",
-      image: "/lovable-uploads/image222.png"
-    },
-    {
-      id: 3,
-      title: "Outfit Suggestions",
-      description: "Get new looks from your closet",
-      image: "/lovable-uploads/image333.png"
-    }
-  ];
-
-  return (
-    <div className="space-y-3">
-      {features.map((feature) => (
-        <div 
-          key={feature.id}
-          className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm"
-        >
-          <div className="flex items-start gap-3">
-            <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-              <img
-                src={feature.image}
-                alt={feature.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1 pt-1">
-              <h3 
-                className="text-[20px] font-bold text-black mb-1 leading-tight" 
-                style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
-              >
-                {feature.title}
-              </h3>
-              <p 
-                className="text-[15px] text-gray-600 leading-snug" 
-                style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
-              >
-                {feature.description}
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+// Calculate billing date (3 days from now)
+const getBillingDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 3);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 // Error Message Component
 const ErrorMessage = ({ message = "Payment didn't go through. Please try again." }) => (
-  <div className="bg-red-500/20 border border-red-500/40 rounded-xl p-3 mb-4 text-center backdrop-blur-sm">
-    <div className="flex items-center justify-center gap-2 mb-1">
-      <div className="w-5 h-5 bg-red-500/30 rounded-full flex items-center justify-center">
-        <span className="text-red-300 text-xs">⚠️</span>
-      </div>
-    </div>
-    <p className="text-red-300 text-xs font-medium">
+  <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-center">
+    <p className="text-red-600 text-sm font-medium">
       {message}
     </p>
   </div>
 );
-
-// CTA Button Component
-const CTAButton = ({ isProcessing, hasError, onClick, disabled, selectedPlan }: { isProcessing: any; hasError: any; onClick: any; disabled: any; selectedPlan: string }) => {
-  const getButtonContent = () => {
-    if (isProcessing) {
-      return (
-        <div className="flex items-center justify-center gap-2">
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-          <span className="text-sm">Activating Premium...</span>
-        </div>
-      );
-    }
-    
-    if (hasError) {
-      return (
-        <div className="flex items-center justify-center gap-2">
-          <RefreshCw className="w-4 h-4" />
-          <span className="text-sm">Try Again</span>
-        </div>
-      );
-    }
-    
-    // Show different CTA text based on selected plan
-    if (selectedPlan === 'weekly') {
-      return (
-        <div className="flex items-center justify-center gap-2">
-          <Sparkles className="w-4 h-4" />
-          <span className="text-sm">Start 3-Day Free Trial →</span>
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex items-center justify-center gap-2">
-          <Sparkles className="w-4 h-4" />
-          <span className="text-sm">Unlock Premium Access →</span>
-        </div>
-      );
-    }
-  };
-
-  return (
-    <Button
-      onClick={onClick}
-      disabled={disabled}
-      className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 h-12 text-sm font-semibold rounded-xl transition-all duration-300 hover:scale-102 active:scale-98 shadow-lg shadow-red-500/25 hover:shadow-red-500/40 text-white mb-3 border-0"
-    >
-      {getButtonContent()}
-    </Button>
-  );
-};
 
 // Legal Links Component
 const LegalLinks = () => {
@@ -357,28 +237,26 @@ const LegalLinks = () => {
   };
 
   return (
-    <div className="text-center mt-4">
-      <div className="flex items-center justify-center gap-3 mb-2">
+    <div className="text-center mb-3">
+      <div className="flex items-center justify-center gap-3 mb-1">
         <button
           onClick={openPrivacyPolicy}
-          className="text-gray-500 hover:text-black font-medium transition-colors flex items-center gap-1 text-xs"
-          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
+          className="text-gray-500 hover:text-gray-700 font-medium transition-colors flex items-center gap-1 text-xs underline"
         >
           <span>Privacy Policy</span>
-          <ExternalLink className="w-3 h-3" />
+          <ExternalLink className="w-2 h-2" />
         </button>
-        <span className="text-gray-300">•</span>
+        <span className="text-gray-400">•</span>
         <button
           onClick={openTermsOfUse}
-          className="text-gray-500 hover:text-black font-medium transition-colors flex items-center gap-1 text-xs"
-          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
+          className="text-gray-500 hover:text-gray-700 font-medium transition-colors flex items-center gap-1 text-xs underline"
         >
           <span>Terms of Use</span>
-          <ExternalLink className="w-3 h-3" />
+          <ExternalLink className="w-2 h-2" />
         </button>
       </div>
-      <p className="text-gray-500 text-xs" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
-        By subscribing, you agree to our Terms and Privacy Policy
+      <p className="text-gray-400 text-xs">
+        By subscribing, you agree to our Terms of Use and Privacy Policy
       </p>
     </div>
   );
@@ -401,22 +279,22 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
   };
 
   return (
-    <div className="mb-4">
-      <button
+    <div className="mb-3">
+      <Button
         onClick={handleRestoreClick}
         disabled={isRestoring}
-        className="w-full text-gray-600 hover:text-black font-medium py-2 transition-colors text-sm"
-        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
+        variant="outline"
+        className="w-full border-2 border-gray-200 text-gray-600 hover:text-gray-800 hover:border-gray-300 bg-white font-medium py-2 rounded-xl transition-all duration-300 hover:bg-gray-50"
       >
         {isRestoring ? (
           <div className="flex items-center justify-center gap-2">
-            <div className="w-3 h-3 border-2 border-gray-300 border-t-black rounded-full animate-spin"></div>
-            <span>Restoring Purchases...</span>
+            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            <span className="text-xs">Restoring Purchases...</span>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2">
             <RefreshCw className="w-3 h-3" />
-            <span>Already purchased?</span>
+            <span className="text-xs">Already purchased?</span>
           </div>
         )}
       </Button>
@@ -424,12 +302,12 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
       {restoreMsg && (
         <div className={`mt-2 p-2 rounded-xl text-center text-xs font-medium ${
           restoreMsg.includes('✓') || restoreMsg.includes('success') 
-            ? 'bg-green-500/20 border border-green-500/30 text-green-300' 
+            ? 'bg-green-50 border border-green-200 text-green-700' 
             : restoreMsg.includes('web') 
-            ? 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
+            ? 'bg-blue-50 border border-blue-200 text-blue-700'
             : restoreMsg.includes('Ready to unlock') 
-            ? 'bg-purple-500/20 border border-purple-500/30 text-purple-300'
-            : 'bg-red-500/20 border border-red-500/30 text-red-300'
+            ? 'bg-purple-50 border border-purple-200 text-purple-700'
+            : 'bg-red-50 border border-red-200 text-red-700'
         }`}>
           {restoreMsg.includes('web') ? (
             <div className="flex items-center justify-center gap-2">
@@ -484,10 +362,10 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   // Show loading state while auth is initializing
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-sm">Loading your experience...</p>
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/70 text-sm">Loading your experience...</p>
         </div>
       </div>
     );
@@ -496,13 +374,13 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
   // Show error state if no user after loading
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
         <div className="text-center">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-gray-900 text-xl">!</span>
+          <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-400 text-xl">!</span>
           </div>
-          <p className="text-gray-900 text-sm mb-2">Authentication Error</p>
-          <p className="text-gray-600 text-xs">Please refresh the page and try again</p>
+          <p className="text-white/70 text-sm mb-2">Authentication Error</p>
+          <p className="text-white/50 text-xs">Please refresh the page and try again</p>
         </div>
       </div>
     );
@@ -571,111 +449,142 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   };
 
-
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -30 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
-      className="min-h-screen bg-white flex flex-col px-4 pt-12 pb-6 relative"
-      style={{ minHeight: '100dvh' }}
-    >
-      {/* Close Button - Top Right */}
-      <button 
-        onClick={onContinue}
-        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors z-10"
-      >
-        <svg className="w-5 h-5 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-
-      {/* Content Area */}
-      <div className="flex-1 flex flex-col max-w-sm mx-auto w-full">
-        
+    <div className="min-h-screen bg-white flex flex-col">
+      <div className="flex-1 flex flex-col px-6 pt-12 pb-8">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-center mb-8"
+          transition={{ duration: 0.5 }}
+          className="text-[28px] font-bold text-black text-center mb-8 leading-tight"
+          style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
-          <h1 className="text-[34px] font-bold text-black mb-3" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
-            Start Your Free Trial
-          </h1>
-          <p className="text-[15px] text-gray-600 leading-relaxed px-4" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
-            Get unlimited outfit grading and personalized style insights
-          </p>
-        </motion.div>
+          Start your 3-day FREE trial to continue.
+        </motion.h1>
 
-        {/* Feature Cards */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="mb-8 space-y-4"
-        >
-          <FeatureDisplay />
-        </motion.div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Pricing Section */}
+        {/* Timeline Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-          className="text-center mb-6"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="mb-8 space-y-6"
         >
-          <div className="text-[28px] font-bold text-black mb-1" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
-            $4.99/week
+          {/* Today */}
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mt-1">
+              <Lock className="w-5 h-5 text-orange-500" strokeWidth={2.5} />
+            </div>
+            <div className="flex-1">
+              <p className="text-black font-semibold text-base mb-1">Today</p>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                Unlock all OutfitGrader AI features like style analysis, outfit matching, and more.
+              </p>
+            </div>
           </div>
-          <p className="text-[15px] text-gray-600" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}>
-            Billed weekly after 3-day free trial
-          </p>
+
+          {/* In 2 Days - Reminder */}
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mt-1">
+              <Bell className="w-5 h-5 text-orange-500" strokeWidth={2.5} />
+            </div>
+            <div className="flex-1">
+              <p className="text-black font-semibold text-base mb-1">In 2 Days - Reminder</p>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                We&apos;ll send you a reminder that your trial is ending soon.
+              </p>
+            </div>
+          </div>
+
+          {/* In 3 Days - Billing Starts */}
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mt-1">
+              <Crown className="w-5 h-5 text-black" strokeWidth={2.5} />
+            </div>
+            <div className="flex-1">
+              <p className="text-black font-semibold text-base mb-1">In 3 Days - Billing Starts</p>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                You&apos;ll be charged on {getBillingDate()} unless you cancel anytime before.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Subscription Options - Side by Side */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="mb-6"
+        >
+          <div className="flex gap-3">
+            {(['monthly', 'weekly'] as Array<'monthly' | 'weekly'>).map((planKey) => (
+              <PlanOption
+                key={planKey}
+                planKey={planKey}
+                isSelected={selectedPlan === planKey}
+                onSelect={(key: 'weekly' | 'monthly') => setSelectedPlan(key)}
+                offerings={offerings}
+              />
+            ))}
+          </div>
+        </motion.div>
+
+        {/* No Payment Due */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="flex items-center justify-center gap-2 mb-6"
+        >
+          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+            <Check size={14} className="text-white" strokeWidth={3} />
+          </div>
+          <span className="text-black font-medium text-sm">No Payment Due Now</span>
         </motion.div>
 
         {/* Error Display */}
         {hasError && <ErrorMessage />}
 
         {/* CTA Button */}
-        <motion.div
+        <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="mb-4"
-        >
-          <button
-            onClick={handlePurchase}
-            disabled={isProcessing}
-            className="w-full bg-black text-white font-semibold py-4 px-8 rounded-xl text-[18px] transition-all duration-200 hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-            style={{ 
-              fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif',
-              height: '64px'
-            }}
-          >
-            {isProcessing ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>Processing...</span>
-              </div>
-            ) : (
-              "Start Free Trial"
-            )}
-          </button>
-        </motion.div>
-
-        {/* Other Plans Link */}
-        <button 
-          onClick={() => setSelectedPlan(prev => prev === 'weekly' ? 'monthly' : 'weekly')}
-          className="text-[15px] text-gray-600 text-center mb-6 underline hover:text-black transition-colors"
+          transition={{ delay: 0.4, duration: 0.5 }}
+          onClick={handlePurchase}
+          disabled={isProcessing}
+          className="w-full bg-black text-white font-semibold py-4 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 active:scale-98 mb-3 disabled:bg-gray-400 disabled:cursor-not-allowed"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
-          Other plans
-        </button>
+          {isProcessing ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>Activating Premium...</span>
+            </div>
+          ) : hasError ? (
+            <div className="flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              <span>Try Again</span>
+            </div>
+          ) : selectedPlan === 'weekly' ? (
+            <span>Start My 3-Day Free Trial</span>
+          ) : (
+            <span>Start My Journey</span>
+          )}
+        </motion.button>
+
+        {/* Fine Print */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="text-center text-sm text-gray-500 mb-4"
+        >
+          {selectedPlan === 'weekly' 
+            ? '3 days free, then $4.99 per week'
+            : 'Just $9.99 per month'
+          }
+        </motion.p>
 
         {/* Restore Purchases */}
         <RestorePurchasesButton 
@@ -687,6 +596,6 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         {/* Legal Links */}
         <LegalLinks />
       </div>
-    </motion.div>
+    </div>
   );
 };

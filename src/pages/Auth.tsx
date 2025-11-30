@@ -6,15 +6,21 @@ import { handleError } from "@/utils/errorHandler";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from '@capacitor/core';
 
-// Import new onboarding step components
+// Import onboarding step components
 import { WelcomeHeroStep } from "../components/onboarding/steps/WelcomeHeroStep";
-import { StyleGoalStep } from "../components/onboarding/steps/StyleGoalStep";
-import { PainPointStep } from "../components/onboarding/steps/PainPointStep";
-import { ClosetSizeStep } from "../components/onboarding/steps/ClosetSizeStep";
-import { ShoppingFrequencyNewStep } from "../components/onboarding/steps/ShoppingFrequencyNewStep";
+import { GenderSelectionStep } from "../components/onboarding/steps/GenderSelectionStep";
+import { AgeRangeStep } from "../components/onboarding/steps/AgeRangeStep";
+import { HeightStep } from "../components/onboarding/steps/HeightStep";
+import { SizeStep } from "../components/onboarding/steps/SizeStep";
+import { ShoppingExperienceStep } from "../components/onboarding/steps/ShoppingExperienceStep";
+import { BrandPreferenceStep } from "../components/onboarding/steps/BrandPreferenceStep";
+import { OccasionDifficultyStep } from "../components/onboarding/steps/OccasionDifficultyStep";
+import { StyleKnowledgeStep } from "../components/onboarding/steps/StyleKnowledgeStep";
+import { WardrobeStylingStep } from "../components/onboarding/steps/WardrobeStylingStep";
 import { ColorAnalysisIntroStep } from "../components/onboarding/steps/ColorAnalysisIntroStep";
 import { PersonalizingStep } from "../components/onboarding/steps/PersonalizingStep";
-import { PaywallStep } from "../components/onboarding/steps/PaywallStep";
+import { FreeTrialPaywallStep } from "../components/onboarding/steps/FreeTrialPaywallStep";
+import { ProOfferCard } from "../components/onboarding/ProOfferCard";
 
 
 export const AuthOnboardingWizard = () => {
@@ -210,46 +216,91 @@ export const AuthOnboardingWizard = () => {
 
   // Track when user reaches paywall step
   useEffect(() => {
-    if (step === 8 && userId) {
-      trackUserAction('paywall_reached', { step: 8 }).catch(console.error);
+    if (step === 14 && userId) {
+      trackUserAction('paywall_reached', { step: 14 }).catch(console.error);
     }
   }, [step, userId]);
 
-  // New 10-step onboarding handlers
-  const handleStyleGoal = async (goal: string) => {
-    setOnboardingData(prev => ({ ...prev, style_goal: goal }));
+  // Onboarding handlers
+  const handleGender = async (gender: string) => {
+    setOnboardingData(prev => ({ ...prev, gender }));
     if (userId) {
-      saveOnboardingStep('style_goal', { goal }).catch(console.error);
-      trackUserAction('style_goal_selected', { goal, step: 2 }).catch(console.error);
+      saveOnboardingStep('gender', { gender }).catch(console.error);
+      trackUserAction('gender_selected', { gender, step: 2 }).catch(console.error);
     }
     setStep(3);
   };
 
-  const handlePainPoint = async (painPoint: string) => {
-    setOnboardingData(prev => ({ ...prev, pain_point: painPoint }));
+  const handleAgeRange = async (ageRange: string) => {
+    setOnboardingData(prev => ({ ...prev, age_range: ageRange }));
     if (userId) {
-      saveOnboardingStep('pain_point', { painPoint }).catch(console.error);
-      trackUserAction('pain_point_selected', { painPoint, step: 3 }).catch(console.error);
+      saveOnboardingStep('age_range', { ageRange }).catch(console.error);
+      trackUserAction('age_range_selected', { ageRange, step: 3 }).catch(console.error);
     }
     setStep(4);
   };
 
-  const handleClosetSize = async (closetSize: string) => {
-    setOnboardingData(prev => ({ ...prev, closet_size: closetSize }));
+  const handleHeight = async (height: string) => {
+    setOnboardingData(prev => ({ ...prev, height }));
     if (userId) {
-      saveOnboardingStep('closet_size', { closetSize }).catch(console.error);
-      trackUserAction('closet_size_selected', { closetSize, step: 4 }).catch(console.error);
+      saveOnboardingStep('height', { height }).catch(console.error);
+      trackUserAction('height_entered', { height, step: 4 }).catch(console.error);
     }
     setStep(5);
   };
 
-  const handleShoppingFrequency = async (frequency: string) => {
-    setOnboardingData(prev => ({ ...prev, shopping_frequency: frequency }));
+  const handleSize = async (size: string) => {
+    setOnboardingData(prev => ({ ...prev, size }));
     if (userId) {
-      saveOnboardingStep('shopping_frequency', { frequency }).catch(console.error);
-      trackUserAction('shopping_frequency_selected', { frequency, step: 5 }).catch(console.error);
+      saveOnboardingStep('size', { size }).catch(console.error);
+      trackUserAction('size_selected', { size, step: 5 }).catch(console.error);
     }
-    setStep(6); // Go to color analysis intro
+    setStep(6);
+  };
+
+  const handleShoppingExperience = async (experience: string) => {
+    setOnboardingData(prev => ({ ...prev, shopping_experience: experience }));
+    if (userId) {
+      saveOnboardingStep('shopping_experience', { experience }).catch(console.error);
+      trackUserAction('shopping_experience_selected', { experience, step: 6 }).catch(console.error);
+    }
+    setStep(7);
+  };
+
+  const handleBrandPreference = async (preference: string) => {
+    setOnboardingData(prev => ({ ...prev, brand_preference: preference }));
+    if (userId) {
+      saveOnboardingStep('brand_preference', { preference }).catch(console.error);
+      trackUserAction('brand_preference_selected', { preference, step: 7 }).catch(console.error);
+    }
+    setStep(8);
+  };
+
+  const handleOccasionDifficulty = async (occasion: string) => {
+    setOnboardingData(prev => ({ ...prev, occasion_difficulty: occasion }));
+    if (userId) {
+      saveOnboardingStep('occasion_difficulty', { occasion }).catch(console.error);
+      trackUserAction('occasion_difficulty_selected', { occasion, step: 8 }).catch(console.error);
+    }
+    setStep(9);
+  };
+
+  const handleStyleKnowledge = async (knowledge: string) => {
+    setOnboardingData(prev => ({ ...prev, style_knowledge: knowledge }));
+    if (userId) {
+      saveOnboardingStep('style_knowledge', { knowledge }).catch(console.error);
+      trackUserAction('style_knowledge_selected', { knowledge, step: 9 }).catch(console.error);
+    }
+    setStep(10);
+  };
+
+  const handleWardrobeStyling = async (answer: string) => {
+    setOnboardingData(prev => ({ ...prev, wardrobe_styling: answer }));
+    if (userId) {
+      saveOnboardingStep('wardrobe_styling', { answer }).catch(console.error);
+      trackUserAction('wardrobe_styling_selected', { answer, step: 10 }).catch(console.error);
+    }
+    setStep(11); // Go to color analysis intro
   };
 
   const handlePhotoCapture = async (imageFile: File) => {
@@ -257,19 +308,28 @@ export const AuthOnboardingWizard = () => {
     
     if (userId) {
       saveOnboardingStep('selfie_captured', { hasPhoto: true }).catch(console.error);
-      trackUserAction('selfie_captured', { fileSize: imageFile.size, step: 6 }).catch(console.error);
+      trackUserAction('selfie_captured', { fileSize: imageFile.size, step: 11 }).catch(console.error);
     }
     
-    setStep(7); // Go to personalizing step
+    setStep(12); // Go to personalizing step
   };
 
   const handlePersonalizingComplete = async () => {
     if (userId) {
       saveOnboardingStep('personalization_completed', { completedAt: new Date().toISOString() }).catch(console.error);
-      trackUserAction('personalization_completed', { step: 7 }).catch(console.error);
+      trackUserAction('personalization_completed', { step: 12 }).catch(console.error);
     }
     
-    setStep(8); // Go directly to paywall (no results shown)
+    setStep(13); // Go to free trial paywall step
+  };
+
+  const handleFreeTrialPaywallComplete = async (tier: string) => {
+    if (userId) {
+      saveOnboardingStep('free_trial_paywall_completed', { tier }).catch(console.error);
+      trackUserAction('free_trial_paywall_completed', { tier, step: 13 }).catch(console.error);
+    }
+    
+    setStep(14); // Go directly to ProOfferCard (skip TrialTimelineStep)
   };
 
   const handlePaywallComplete = async (tier: string) => {
@@ -279,7 +339,7 @@ export const AuthOnboardingWizard = () => {
           subscriptionTier: tier,
           completedAt: new Date().toISOString()
         }).catch(console.error);
-        trackUserAction('paywall_completed', { tier, step: 10 }).catch(console.error);
+        trackUserAction('paywall_completed', { tier, step: 14 }).catch(console.error);
       }
       
       // Mark onboarding as completed
@@ -351,46 +411,86 @@ export const AuthOnboardingWizard = () => {
           )}
           
           {step === 2 && (
-          <StyleGoalStep 
-            key="style-goal"
-            onNext={handleStyleGoal}
+          <GenderSelectionStep 
+            key="gender-selection"
+            onNext={handleGender}
             onBack={() => handleBackToStep(1)}
             />
           )}
           
           {step === 3 && (
-          <PainPointStep 
-            key="pain-point"
-            onNext={handlePainPoint}
+          <AgeRangeStep 
+            key="age-range"
+            onNext={handleAgeRange}
             onBack={() => handleBackToStep(2)}
             />
           )}
           
           {step === 4 && (
-          <ClosetSizeStep 
-            key="closet-size"
-            onNext={handleClosetSize}
+          <HeightStep 
+            key="height"
+            onNext={handleHeight}
             onBack={() => handleBackToStep(3)}
             />
           )}
           
-        {step === 5 && (
-          <ShoppingFrequencyNewStep 
-            key="shopping-frequency"
-            onNext={handleShoppingFrequency}
+          {step === 5 && (
+          <SizeStep 
+            key="size"
+            onNext={handleSize}
             onBack={() => handleBackToStep(4)}
             />
           )}
           
           {step === 6 && (
+          <ShoppingExperienceStep 
+            key="shopping-experience"
+            onNext={handleShoppingExperience}
+            onBack={() => handleBackToStep(5)}
+            />
+          )}
+          
+          {step === 7 && (
+          <BrandPreferenceStep 
+            key="brand-preference"
+            onNext={handleBrandPreference}
+            onBack={() => handleBackToStep(6)}
+            />
+          )}
+          
+          {step === 8 && (
+          <OccasionDifficultyStep 
+            key="occasion-difficulty"
+            onNext={handleOccasionDifficulty}
+            onBack={() => handleBackToStep(7)}
+            />
+          )}
+          
+          {step === 9 && (
+          <StyleKnowledgeStep 
+            key="style-knowledge"
+            onNext={handleStyleKnowledge}
+            onBack={() => handleBackToStep(8)}
+            />
+          )}
+          
+          {step === 10 && (
+          <WardrobeStylingStep 
+            key="wardrobe-styling"
+            onNext={handleWardrobeStyling}
+            onBack={() => handleBackToStep(9)}
+            />
+          )}
+          
+          {step === 11 && (
           <ColorAnalysisIntroStep 
             key="color-analysis-intro"
             onCapture={handlePhotoCapture}
-            onBack={() => handleBackToStep(5)}
+            onBack={() => handleBackToStep(10)}
           />
         )}
         
-        {step === 7 && (
+        {step === 12 && (
           <PersonalizingStep 
             key="personalizing"
             userImage={selectedImage ? URL.createObjectURL(selectedImage) : undefined}
@@ -398,10 +498,20 @@ export const AuthOnboardingWizard = () => {
           />
         )}
         
-        {step === 8 && (
-          <PaywallStep 
-            key="paywall"
-            onComplete={handlePaywallComplete}
+        {step === 13 && (
+          <FreeTrialPaywallStep 
+            key="free-trial-paywall"
+            onComplete={handleFreeTrialPaywallComplete}
+          />
+        )}
+        
+        {step === 14 && (
+          <ProOfferCard 
+            key="pro-offer-card"
+            onContinue={() => {
+              // ProOfferCard handles purchase internally, just complete onboarding
+              handlePaywallComplete('pro');
+            }}
           />
         )}
         </AnimatePresence>
