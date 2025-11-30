@@ -8,11 +8,19 @@ import CoreML
 
 @objc(BackgroundRemovalPlugin)
 public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
+    // REQUIRED for Capacitor 6+/7+ - tells Capacitor how to find this plugin
     public let identifier = "BackgroundRemovalPlugin"
     public let jsName = "BackgroundRemoval"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "removeBackground", returnType: CAPPluginReturnPromise)
     ]
+    
+    public override func load() {
+        super.load()
+        CAPLog.print("✅ BackgroundRemovalPlugin loaded and registered successfully")
+        CAPLog.print("📦 Plugin jsName: \(jsName)")
+        CAPLog.print("📦 Plugin identifier: \(identifier)")
+    }
     
     // Lazy load U²‑Net model (optional - only if model is added to project)
     private lazy var u2netModel: MLModel? = {

@@ -19,9 +19,10 @@ function isPluginAvailable(): boolean {
       return false;
     }
     
-    // Try to access the plugin
-    const plugins = (Capacitor as any).Plugins;
-    return plugins && typeof plugins.BackgroundRemoval !== 'undefined';
+    // For Capacitor 7+, plugins are always "available" as proxies
+    // The real test is when we call the native method
+    // Just check if we're on native iOS platform
+    return Capacitor.isNativePlatform();
   } catch (error) {
     console.warn('⚠️ Error checking plugin availability:', error);
     return false;
@@ -66,64 +67,68 @@ export async function removeImageBackground(imageDataUrl: string): Promise<strin
       // Validate input
       if (!imageDataUrl || imageDataUrl.length === 0) {
         console.warn('⚠️ Empty image data provided');
-        return imageDataUrl;
+        throw new Error('Empty image data provided');
       }
       
+      console.log('📞 Calling native BackgroundRemoval plugin...');
       const result = await BackgroundRemoval.removeBackground({ image: imageDataUrl });
+      console.log('📥 Native plugin responded!');
       
-      console.log('📥 Plugin response received:', {
-        hasImageData: !!result.imageData,
-        hasImage: !!result.image,
-        success: result.success,
-        error: result.error,
-        imageDataLength: result.imageData?.length || 0,
-        imageLength: result.image?.length || 0,
-        originalLength: imageDataUrl.length
+      // Log EVERYTHING for debugging
+      console.log('📥 Plugin response details:', {
+        hasImageData: !!result?.imageData,
+        hasImage: !!result?.image,
+        success: result?.success,
+        error: result?.error,
+        imageDataLength: result?.imageData?.length || 0,
+        imageLength: result?.image?.length || 0,
+        originalLength: imageDataUrl.length,
+        resultType: typeof result,
+        resultKeys: result ? Object.keys(result) : 'null'
       });
       
       // Handle both imageData (from Swift) and image (fallback)
-      const processedImage = result.imageData || result.image;
+      const processedImage = result?.imageData || result?.image;
       
-      // CRITICAL: Check if we got an error message
-      if (result.error) {
+      // Check success flag FIRST (most reliable)
+      if (result?.success === false) {
+        const errorMsg = result?.error || 'Background removal failed - Vision could not detect objects in your photo';
+        console.error('❌ Plugin returned success: false');
+        console.error('Error:', errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Check if we got an error message
+      if (result?.error) {
         console.error('❌ Background removal error from plugin:', result.error);
-        console.error('This means Vision framework could not detect objects in your image');
-        console.error('Common reasons:');
-        console.error('  1. Flat clothing items (Vision works better with 3D objects)');
-        console.error('  2. Low contrast between item and background');
-        console.error('  3. Similar colors between item and background');
-        console.error('  4. Item too small or unclear in photo');
-        throw new Error(result.error); // Throw so we can catch and show user
+        throw new Error(result.error);
       }
       
       if (!processedImage) {
         console.error('❌ No image data in plugin response');
-        console.error('Full result:', JSON.stringify(result, null, 2));
-        throw new Error('Plugin returned no image data');
+        throw new Error('Plugin returned no image data - background removal failed');
       }
       
-      // Check if success is explicitly false
-      if (result.success === false) {
-        const errorMsg = result.error || 'Background removal failed - Vision could not detect objects';
-        console.error('❌ Plugin returned success: false');
-        console.error('Error message:', errorMsg);
-        throw new Error(errorMsg);
-      }
+      // Check if the result looks like it was actually processed (PNG with transparency)
+      const isPNG = processedImage.includes('image/png');
+      const sizeChange = Math.abs(processedImage.length - imageDataUrl.length) / imageDataUrl.length;
       
-      // Verify the result is different from input (actual processing occurred)
+      console.log('📊 Processing analysis:', {
+        isPNG,
+        sizeChangePercent: (sizeChange * 100).toFixed(1) + '%',
+        processedLength: processedImage.length,
+        originalLength: imageDataUrl.length
+      });
+      
+      // If output is exactly the same as input, it failed
       if (processedImage === imageDataUrl) {
-        const errorMsg = result.error || 'No processing occurred - Vision may not have detected objects';
-        console.warn('⚠️ Background removal returned original image (no processing occurred)');
-        console.warn('This means Vision framework could not identify the clothing item');
-        console.warn('Error:', errorMsg);
-        throw new Error(errorMsg);
+        console.error('❌ Output identical to input - no processing occurred');
+        throw new Error('Background removal failed - Vision could not detect the clothing item. Try: 1) Better lighting, 2) Higher contrast (dark item on light background), 3) Photo of item hanging (3D shape works better)');
       }
       
       // Success!
-      console.log('✅ Background removed successfully (iOS 17+)');
-      console.log('📦 Original size:', imageDataUrl.length, 'characters');
-      console.log('📦 Processed size:', processedImage.length, 'characters');
-      console.log('📊 Size change:', ((processedImage.length - imageDataUrl.length) / imageDataUrl.length * 100).toFixed(1) + '%');
+      console.log('✅ Background removed successfully!');
+      console.log('📊 Size change:', (sizeChange * 100).toFixed(1) + '%');
       return processedImage;
     } catch (error) {
       console.error('❌ iOS background removal threw exception:', error);
