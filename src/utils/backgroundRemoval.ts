@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 interface BackgroundRemovalPlugin {
   removeBackground(options: { image: string }): Promise<{ 
@@ -29,8 +29,8 @@ function isPluginAvailable(): boolean {
   }
 }
 
-// Register the plugin
-const BackgroundRemoval = Capacitor.registerPlugin<BackgroundRemovalPlugin>('BackgroundRemoval');
+// Register the plugin using Capacitor 7's registerPlugin
+const BackgroundRemoval = registerPlugin<BackgroundRemovalPlugin>('BackgroundRemoval');
 
 /**
  * Remove background from an image
