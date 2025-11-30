@@ -8,7 +8,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
-        // Note: BackgroundRemovalPlugin is auto-registered via CAP_PLUGIN macro in BackgroundRemovalPlugin.m
+        // Note: BackgroundRemovalPlugin is auto-registered via CAPBridgedPlugin protocol in Swift
         return true
     }
 

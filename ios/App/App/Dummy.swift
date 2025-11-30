@@ -9,18 +9,13 @@
 // 2. App-Swift.h bridging header is generated
 // 3. Swift classes are exposed to Objective-C at runtime
 //
-// NOTE: BackgroundRemovalPlugin.m does NOT import App-Swift.h
-// (importing it causes "duplicate interface definition" errors)
-// The CAP_PLUGIN macro only registers the plugin name.
-// The actual plugin registration happens via CAPBridgedPlugin protocol in Swift.
+// NOTE: Do NOT add initialize() - it's deprecated/forbidden in Swift 5+
 //
 
 import Foundation
 
-// This class exists only to ensure Swift compilation happens
-// Without at least one Swift file, Xcode won't generate App-Swift.h
+// Minimal dummy class to force Swift compilation and App-Swift.h generation
+// Empty class - exists only to trigger Swift bridging header generation
 @objc class DummySwiftClass: NSObject {
-    @objc static func initialize() {
-        // No-op - just ensures this class is included in the build
-    }
+    // No methods needed - just the class declaration is enough
 }
