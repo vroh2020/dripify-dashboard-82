@@ -9,7 +9,8 @@ import CoreML
 @objc(BackgroundRemovalPlugin)
 public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
     // REQUIRED for Capacitor 6+/7+ - tells Capacitor how to find this plugin
-    public let identifier = "BackgroundRemovalPlugin"
+    // Both identifier and jsName should match the JavaScript registration name
+    public let identifier = "BackgroundRemoval"
     public let jsName = "BackgroundRemoval"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "removeBackground", returnType: CAPPluginReturnPromise)
@@ -20,6 +21,21 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPLog.print("✅ BackgroundRemovalPlugin loaded and registered successfully")
         CAPLog.print("📦 Plugin jsName: \(jsName)")
         CAPLog.print("📦 Plugin identifier: \(identifier)")
+        
+        // Test alert to verify plugin is loaded on Appflow builds
+        // Remove this after confirming plugin works in production
+        #if DEBUG
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            guard let viewController = self.bridge?.viewController else { return }
+            let alert = UIAlertController(
+                title: "✅ Plugin Loaded",
+                message: "BackgroundRemoval is active and registered",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            viewController.present(alert, animated: true)
+        }
+        #endif
     }
     
     // Lazy load U²‑Net model (optional - only if model is added to project)

@@ -7,11 +7,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // CRITICAL: Register custom BackgroundRemoval plugin with Capacitor 7+
-        // Without this, the plugin won't be found!
-        CAPBridgeViewController.registerPlugin(BackgroundRemovalPlugin.self)
-        print("✅ BackgroundRemovalPlugin registered with Capacitor")
-        
+        // Override point for customization after application launch.
+        // Note: BackgroundRemovalPlugin is auto-registered via CAP_PLUGIN macro in BackgroundRemovalPlugin.m
         return true
     }
 
