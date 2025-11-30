@@ -129,8 +129,8 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
         // Process on background thread
         DispatchQueue.global(qos: .userInitiated).async {
             if #available(iOS 17.0, *) {
-            self.processImage(cgImage: processedCGImage, originalBase64: base64Image, call: call)
-            } else if #available(iOS 15.0, *) {
+                self.processImage(cgImage: processedCGImage, originalBase64: base64Image, call: call)
+            } else {
                 // iOS 15-16: Use person segmentation only
                 self.processImageIOS15(cgImage: processedCGImage, originalBase64: base64Image, call: call)
             }
@@ -229,7 +229,7 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPLog.print("🔄 Step 3: U²‑Net failed, trying person segmentation fallback...")
         showStatusAlert(title: "Processing Image", message: "Step 3/3: Trying person segmentation...")
         
-        if #available(iOS 15.0, *), let rawPersonMask = tryPersonSegmentation(cgImage: cgImage) {
+        if let rawPersonMask = tryPersonSegmentation(cgImage: cgImage) {
             CAPLog.print("✅ Person segmentation fallback succeeded!")
             
             // Refine mask edges
@@ -396,17 +396,12 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
         do {
             try handler.perform([request])
             
-            guard let result = request.results?.first else {
+            guard let result = request.results?.first as? VNPixelBufferObservation else {
                 return nil
             }
             
-            // Generate mask
-            let mask = try result.generateScaledMaskForImage(
-                forInstances: result.allInstances,
-                from: handler
-            )
-            
-            return mask
+            // Get the mask pixel buffer directly
+            return result.pixelBuffer
         } catch {
             CAPLog.print("⚠️ Person segmentation failed: \(error.localizedDescription)")
             return nil
@@ -456,7 +451,7 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
             CAPLog.print("📋 Model input: \(inputDescription.name), type: \(inputDescription.type)")
             
             // Create MLFeatureValue from pixel buffer
-            let inputFeature = try MLFeatureValue(pixelBuffer: pixelBuffer)
+            let inputFeature = MLFeatureValue(pixelBuffer: pixelBuffer)
             
             // Create input provider
             let inputProvider = try MLDictionaryFeatureProvider(dictionary: [inputDescription.name: inputFeature])
