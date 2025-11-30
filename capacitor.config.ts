@@ -1,6 +1,10 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
-const config: CapacitorConfig = {
+type TrendzaCapacitorConfig = CapacitorConfig & {
+  packageClassList?: string[];
+};
+
+const config: TrendzaCapacitorConfig = {
   appId: 'com.genstyle.app', // This matches your bundle ID
   appName: 'OutfitGrader AI',
   webDir: 'dist',
@@ -28,8 +32,20 @@ const config: CapacitorConfig = {
       // Apple Sign In plugin configuration - native iOS
       clientId: 'service.com.genstyle.app',
       scopes: 'email name'
-    }
-  }
+    },
+    BackgroundRemoval: {}
+  },
+  packageClassList: [
+    'SignInWithApple',
+    'InAppReviewPlugin',
+    'AppPlugin',
+    'CAPBrowserPlugin',
+    'CAPCameraPlugin',
+    'PreferencesPlugin',
+    'SplashScreenPlugin',
+    'PurchasesPlugin',
+    'BackgroundRemovalPlugin'
+  ]
 };
 
 export default config;
