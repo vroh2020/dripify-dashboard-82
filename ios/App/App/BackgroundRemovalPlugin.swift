@@ -39,7 +39,29 @@ public class BackgroundRemovalPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }()
     
-    @objc func removeBackground(_ call: CAPPluginCall) {
+    @objc public func removeBackground(_ call: CAPPluginCall) {
+        // DEBUG: Show alert to confirm plugin is called
+        let iosVersion = UIDevice.current.systemVersion
+        CAPLog.print("🔥 removeBackground called! iOS version: \(iosVersion)")
+        
+        DispatchQueue.main.async {
+            guard let viewController = self.bridge?.viewController else { 
+                CAPLog.print("❌ No view controller available for alert")
+                return 
+            }
+            let alert = UIAlertController(
+                title: "🔧 Plugin Called!",
+                message: "BackgroundRemoval plugin invoked.\niOS: \(iosVersion)\n\nProcessing image...",
+                preferredStyle: .alert
+            )
+            viewController.present(alert, animated: true)
+            
+            // Auto dismiss after 1.5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                alert.dismiss(animated: true)
+            }
+        }
+        
         // Check if iOS 15+ (required for person segmentation fallback)
         // iOS 17+ gets Vision framework, iOS 15-16 gets person segmentation only
         guard #available(iOS 15.0, *) else {
