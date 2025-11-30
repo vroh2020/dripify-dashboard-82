@@ -86,8 +86,8 @@ export const BrandPreferenceStep = ({ onNext, onBack }: BrandPreferenceStepProps
         </motion.h1>
       </div>
 
-      {/* Options */}
-      <div className="px-6 mt-40 space-y-5">
+      {/* Options - Moved higher for better even spacing */}
+      <div className="px-6 mt-24 space-y-5">
         {BRAND_PREFERENCES.map((preference, index) => {
           const IconComponent = preference.icon;
           return (

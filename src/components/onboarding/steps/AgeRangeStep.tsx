@@ -71,8 +71,8 @@ export const AgeRangeStep = ({ onNext, onBack }: AgeRangeStepProps) => {
         </motion.p>
       </div>
 
-      {/* Options */}
-      <div className="px-6 mt-16 space-y-6">
+      {/* Options - Moved higher for better even spacing */}
+      <div className="px-6 mt-24 space-y-5">
         {AGE_RANGES.map((ageRange, index) => (
           <motion.button
             key={ageRange}

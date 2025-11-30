@@ -88,22 +88,22 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-8">
-        {/* App Title */}
+      <div className="flex-1 flex flex-col items-center px-6 pt-8 pb-6">
+        {/* App Title - More compact */}
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-4xl font-bold text-black mb-12 text-center"
+          className="text-4xl font-bold text-black mb-6 text-center"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
           OutfitGrader AI
         </motion.h1>
 
-        {/* Phone Mockup with Sliding Screens */}
-        <div className="relative w-full max-w-[280px] mb-8">
+        {/* Phone Mockup with Sliding Screens - Smaller */}
+        <div className="relative w-full max-w-[240px] mb-4">
           <div className="relative overflow-hidden rounded-[40px] bg-black p-2 shadow-2xl">
-            <div className="bg-white rounded-[32px] overflow-hidden relative h-[560px]">
+            <div className="bg-white rounded-[32px] overflow-hidden relative h-[480px]">
               {/* Status Bar */}
               <div className="flex items-center justify-start px-6 pt-3 pb-2">
                 <span className="text-black text-sm font-semibold">12:34</span>
@@ -139,7 +139,7 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
           </div>
         </div>
 
-        {/* Screen Title Text */}
+        {/* Screen Title Text - Compact */}
         <AnimatePresence mode="wait">
           <motion.p
             key={currentScreen}
@@ -147,15 +147,15 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="text-black text-center text-base font-medium mb-6 px-4"
+            className="text-black text-center text-base font-medium mb-3 px-4"
             style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
           >
             {screens[currentScreen].title}
           </motion.p>
         </AnimatePresence>
 
-        {/* Pagination Dots */}
-        <div className="flex items-center justify-center gap-2 mb-8">
+        {/* Pagination Dots - Compact */}
+        <div className="flex items-center justify-center gap-2 mb-6">
           {screens.map((_, index) => (
             <button
               key={index}
@@ -176,14 +176,14 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
           ))}
         </div>
 
-        {/* Join for Free Button */}
+        {/* Join for Free Button - Visible without scrolling */}
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           onClick={handleGetStarted}
           disabled={isProcessing}
-          className="w-full max-w-sm bg-black text-white font-semibold py-4 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+          className="w-full max-w-sm bg-black text-white font-semibold py-4 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
           {isProcessing ? (

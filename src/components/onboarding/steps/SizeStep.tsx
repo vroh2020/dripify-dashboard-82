@@ -68,8 +68,8 @@ export const SizeStep = ({ onNext, onBack }: SizeStepProps) => {
         </motion.p>
       </div>
 
-      {/* Options */}
-      <div className="px-6 mt-40 space-y-5">
+      {/* Options - Moved higher for better even spacing */}
+      <div className="px-6 mt-24 space-y-5">
         {SIZES.map((size, index) => (
           <motion.button
             key={size}

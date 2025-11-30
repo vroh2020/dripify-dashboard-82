@@ -70,8 +70,8 @@ export const HeightStep = ({ onNext, onBack }: HeightStepProps) => {
         </motion.p>
       </div>
 
-      {/* Input field */}
-      <div className="px-6 mt-40">
+      {/* Input field - Moved higher for better even spacing */}
+      <div className="px-6 mt-24">
         <div className="flex items-center gap-3">
           <input
             type="text"

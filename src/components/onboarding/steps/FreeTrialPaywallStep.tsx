@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Check, Bell } from "lucide-react";
+import { Check } from "lucide-react";
 
 interface FreeTrialPaywallStepProps {
   onComplete: (tier: string) => void;
@@ -65,44 +65,13 @@ export const FreeTrialPaywallStep = ({ onComplete }: FreeTrialPaywallStepProps) 
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="flex-1 flex flex-col px-6 pt-12 pb-8">
-        {/* Animated Bell */}
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.9 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            rotate: [0, -8, 8, -6, 6, 0],
-          }}
-          transition={{
-            duration: 1.2,
-            ease: "easeInOut",
-            repeat: Infinity,
-            repeatDelay: 1.6,
-          }}
-          className="relative mx-auto mb-8"
-        >
-          <div className="w-28 h-28 rounded-full bg-[#F4F4F7] flex items-center justify-center">
-            <Bell className="w-14 h-14 text-black" strokeWidth={1.8} />
-          </div>
-          {/* Red notification badge */}
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: [0, 1.1, 1], opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="absolute -right-1 -bottom-1 w-8 h-8 rounded-full bg-red-500 border-4 border-white flex items-center justify-center"
-          >
-            <span className="text-white text-sm font-semibold">1</span>
-          </motion.div>
-        </motion.div>
-
-        {/* Main Heading */}
+      <div className="flex-1 flex flex-col px-6 pt-14 pb-8">
+        {/* Main Heading - Removed bell, compact spacing */}
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-[26px] font-bold text-black text-center mb-4 leading-tight"
+          transition={{ duration: 0.5 }}
+          className="text-[28px] font-bold text-black text-center mb-2 leading-tight"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
           We'll send you a reminder before your free trial ends.
@@ -112,18 +81,18 @@ export const FreeTrialPaywallStep = ({ onComplete }: FreeTrialPaywallStepProps) 
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
           className="text-center text-sm text-gray-500 mb-6"
         >
           Enjoy OutfitGrader AI now. We&apos;ll notify you before any billing starts so you can cancel anytime.
         </motion.p>
 
-        {/* Sliding Image Carousel */}
+        {/* Sliding Image Carousel - Smaller, compact */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mb-6 mx-auto max-w-[280px]"
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mb-6 mx-auto max-w-[240px]"
         >
           <div
             ref={scrollRef}
@@ -139,21 +108,21 @@ export const FreeTrialPaywallStep = ({ onComplete }: FreeTrialPaywallStepProps) 
                 <img
                   src={image.src}
                   alt={image.alt}
-                  className="w-full h-auto max-h-[500px] object-contain rounded-2xl"
+                  className="w-full h-auto max-h-[400px] object-contain rounded-2xl"
                 />
               </div>
             ))}
           </div>
         </motion.div>
 
-        {/* Spacer to push CTA toward bottom while keeping content centered */}
-        <div className="flex-1" />
+        {/* Small spacer for better spacing */}
+        <div className="h-8" />
 
         {/* No Payment Due */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.35 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
           className="flex items-center justify-center gap-2 mb-4"
         >
           <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
@@ -166,7 +135,7 @@ export const FreeTrialPaywallStep = ({ onComplete }: FreeTrialPaywallStepProps) 
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.45 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
           onClick={handleTryFree}
           className="w-full bg-black text-white font-semibold py-4 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 active:scale-98"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
