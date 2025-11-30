@@ -71,34 +71,69 @@ export async function removeImageBackground(imageDataUrl: string): Promise<strin
       
       const result = await BackgroundRemoval.removeBackground({ image: imageDataUrl });
       
+      console.log('📥 Plugin response received:', {
+        hasImageData: !!result.imageData,
+        hasImage: !!result.image,
+        success: result.success,
+        error: result.error,
+        imageDataLength: result.imageData?.length || 0,
+        imageLength: result.image?.length || 0,
+        originalLength: imageDataUrl.length
+      });
+      
       // Handle both imageData (from Swift) and image (fallback)
       const processedImage = result.imageData || result.image;
       
-      if (processedImage && result.success !== false) {
-        // Verify the result is different from input (actual processing occurred)
-        if (processedImage !== imageDataUrl) {
-          console.log('✅ Background removed successfully (iOS 17+)');
-          console.log('📦 Processed image size:', processedImage.length, 'characters');
-          return processedImage;
-        } else {
-          console.warn('⚠️ Background removal returned original image (no processing occurred)');
-          const errorMsg = result.error || 'No processing occurred';
-          console.warn('Error:', errorMsg);
-          return imageDataUrl;
-        }
-      } else {
-        const errorMsg = result.error || 'Unknown error';
-        console.warn('⚠️ Background removal failed:', errorMsg);
-        console.log('ℹ️ Using original image without background removal');
-        return imageDataUrl;
+      // CRITICAL: Check if we got an error message
+      if (result.error) {
+        console.error('❌ Background removal error from plugin:', result.error);
+        console.error('This means Vision framework could not detect objects in your image');
+        console.error('Common reasons:');
+        console.error('  1. Flat clothing items (Vision works better with 3D objects)');
+        console.error('  2. Low contrast between item and background');
+        console.error('  3. Similar colors between item and background');
+        console.error('  4. Item too small or unclear in photo');
+        throw new Error(result.error); // Throw so we can catch and show user
       }
+      
+      if (!processedImage) {
+        console.error('❌ No image data in plugin response');
+        console.error('Full result:', JSON.stringify(result, null, 2));
+        throw new Error('Plugin returned no image data');
+      }
+      
+      // Check if success is explicitly false
+      if (result.success === false) {
+        const errorMsg = result.error || 'Background removal failed - Vision could not detect objects';
+        console.error('❌ Plugin returned success: false');
+        console.error('Error message:', errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Verify the result is different from input (actual processing occurred)
+      if (processedImage === imageDataUrl) {
+        const errorMsg = result.error || 'No processing occurred - Vision may not have detected objects';
+        console.warn('⚠️ Background removal returned original image (no processing occurred)');
+        console.warn('This means Vision framework could not identify the clothing item');
+        console.warn('Error:', errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // Success!
+      console.log('✅ Background removed successfully (iOS 17+)');
+      console.log('📦 Original size:', imageDataUrl.length, 'characters');
+      console.log('📦 Processed size:', processedImage.length, 'characters');
+      console.log('📊 Size change:', ((processedImage.length - imageDataUrl.length) / imageDataUrl.length * 100).toFixed(1) + '%');
+      return processedImage;
     } catch (error) {
       console.error('❌ iOS background removal threw exception:', error);
       if (error instanceof Error) {
         console.error('Error message:', error.message);
         console.error('Error stack:', error.stack);
+        // Re-throw so caller can handle it properly
+        throw error;
       }
-      return imageDataUrl; // Fallback to original
+      throw new Error('Unknown error during background removal');
     }
   }
   
@@ -134,13 +169,13 @@ export async function removeBackgroundFromBlob(blob: Blob): Promise<Blob> {
           resolve(processedBlob);
         } catch (fetchError) {
           console.error('❌ Failed to convert processed image to blob:', fetchError);
-          // Fallback: return original blob
-          resolve(blob);
+          // Re-throw error so caller can handle it
+          reject(new Error(`Failed to convert processed image to blob: ${fetchError}`));
         }
       } catch (error) {
         console.error('❌ Error processing image:', error);
-        // Fallback: return original blob
-        resolve(blob);
+        // Re-throw error so caller can handle it properly
+        reject(error);
       }
     };
     

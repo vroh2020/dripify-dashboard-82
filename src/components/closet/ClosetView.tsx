@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ArrowLeft, Globe, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { removeBackgroundFromBlob } from '@/utils/backgroundRemoval';
+import { removeBackgroundFromBlob, isBackgroundRemovalAvailable } from '@/utils/backgroundRemoval';
+import { useToast } from '@/hooks/use-toast';
 
 // Import extracted components
 import PiecesTab from './PiecesTab';
@@ -71,6 +72,7 @@ export default function ClosetView() {
   const [selectedItem, setSelectedItem] = useState<ClosetItem | null>(null);
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [showWebSearch, setShowWebSearch] = useState(false);
+  const { toast } = useToast();
   const FREE_LIMIT = 10;
 
   // Load items and outfits from Supabase (real data, no mocks)
@@ -177,9 +179,79 @@ export default function ClosetView() {
     try {
       setIsUploading(true);
       console.log('🎨 Processing image...');
+      console.log('📦 Original blob size:', blob.size, 'bytes');
+      
+      // Check if background removal is available
+      const bgRemovalAvailable = isBackgroundRemovalAvailable();
+      if (!bgRemovalAvailable) {
+        console.warn('⚠️ Background removal not available - using original image');
+        toast({
+          title: "Background Removal Unavailable",
+          description: "Background removal requires iOS 17.0+ and the plugin to be registered. Using original image.",
+          variant: "destructive",
+        });
+      }
       
       // Remove background using native iOS Vision framework (FREE & FAST on iOS 17+!)
-      const processedBlob = await removeBackgroundFromBlob(blob);
+      const startTime = Date.now();
+      let processedBlob = blob;
+      
+      try {
+        processedBlob = await removeBackgroundFromBlob(blob);
+        const duration = Date.now() - startTime;
+        console.log(`⏱️ Background removal took ${duration}ms`);
+        console.log('📦 Original blob size:', blob.size, 'bytes');
+        console.log('📦 Processed blob size:', processedBlob.size, 'bytes');
+        
+        // Check if background removal actually worked
+        const sizeDifference = Math.abs(processedBlob.size - blob.size);
+        const sizeChangePercent = (sizeDifference / blob.size) * 100;
+        
+        if (sizeChangePercent < 5) {
+          // Size is too similar - probably didn't work
+          console.warn('⚠️ Processed blob size is too similar to original - background removal likely failed');
+          console.warn('Size difference:', sizeChangePercent.toFixed(2) + '%');
+          toast({
+            title: "Background Removal Failed",
+            description: "Vision couldn't detect the clothing item. Try: 1) Better contrast (dark item on light bg), 2) Item hanging or on mannequin (3D shape), 3) Clear, well-lit photo. Using original image.",
+            variant: "destructive",
+          });
+        } else {
+          console.log('✅ Background removal successful - image was processed');
+          console.log('Size change:', sizeChangePercent.toFixed(2) + '%');
+          toast({
+            title: "Background Removed",
+            description: `Successfully removed background in ${duration}ms`,
+            variant: "success",
+          });
+        }
+      } catch (error: any) {
+        const duration = Date.now() - startTime;
+        console.log(`⏱️ Background removal failed after ${duration}ms`);
+        console.error('❌ Background removal failed with error:', error);
+        console.error('Error message:', error?.message);
+        
+        // Show user-friendly error message
+        let errorMessage = "Background removal failed. ";
+        if (error?.message?.includes("No objects detected")) {
+          errorMessage += "Vision couldn't detect the clothing item. Try a photo with better contrast (dark item on light background) or take a photo of the item hanging (3D shape works better than flat lays).";
+        } else if (error?.message?.includes("iOS 17")) {
+          errorMessage += "Your device needs iOS 17.0 or later for background removal.";
+        } else if (error?.message) {
+          errorMessage += error.message;
+        } else {
+          errorMessage += "Unknown error occurred.";
+        }
+        
+        toast({
+          title: "Background Removal Failed",
+          description: errorMessage + " Using original image.",
+          variant: "destructive",
+        });
+        
+        // Use original blob
+        processedBlob = blob;
+      }
 
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
