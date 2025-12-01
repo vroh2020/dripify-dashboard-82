@@ -17,6 +17,7 @@
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
 		504EC3201FED79650016851F /* BackgroundRemovalPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC31F1FED79650016851F /* BackgroundRemovalPlugin.swift */; };
 		504EC3231FED79650016851F /* Dummy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3241FED79650016851F /* Dummy.swift */; };
+		B0E8E2A12CE4F6D400A1FD3C /* BackgroundRemovalPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = B0E8E29F2CE4F6D400A1FD3C /* BackgroundRemovalPlugin.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 		504EC31F1FED79650016851F /* BackgroundRemovalPlugin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundRemovalPlugin.swift; sourceTree = "<group>"; };
 		504EC3241FED79650016851F /* Dummy.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Dummy.swift; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
+		B0E8E29F2CE4F6D400A1FD3C /* BackgroundRemovalPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BackgroundRemovalPlugin.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +82,7 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC31F1FED79650016851F /* BackgroundRemovalPlugin.swift */,
+				B0E8E29F2CE4F6D400A1FD3C /* BackgroundRemovalPlugin.m */,
 				504EC3241FED79650016851F /* Dummy.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -239,6 +242,7 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				504EC3201FED79650016851F /* BackgroundRemovalPlugin.swift in Sources */,
+				B0E8E2A12CE4F6D400A1FD3C /* BackgroundRemovalPlugin.m in Sources */,
 				504EC3231FED79650016851F /* Dummy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
