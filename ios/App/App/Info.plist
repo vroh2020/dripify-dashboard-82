@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key> <!-- Marketing version -->
 	<string>2.00</string>
 	<key>CFBundleVersion</key> <!-- Build number -->
-	<string>7</string>
+	<string>8</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>
