@@ -144,7 +144,6 @@ export default function PiecesTab({
   onToggleFavorite
 }: PiecesTabProps) {
   const hasActiveFilters = Object.keys(activeFilters).length > 0;
-  const isOverLimit = items.length >= freeLimit;
 
   // Preload all images instantly when items change
   useEffect(() => {
@@ -162,11 +161,6 @@ export default function PiecesTab({
         <h2 className="text-2xl font-bold text-gray-900">My Closet</h2>
         <p className="text-gray-600">
           {items.length} {items.length === 1 ? 'item' : 'items'}
-          {isOverLimit && (
-            <span className="text-orange-600 ml-2">
-              • {items.length - freeLimit} over free limit
-            </span>
-          )}
         </p>
       </div>
 

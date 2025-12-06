@@ -5,14 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
-import { useNavigate } from "react-router-dom";
 import { useStatsStore } from "@/store/statsStore";
-import { ProUpgrade } from "@/components/subscription/ProUpgrade";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfileStats } from "@/components/profile/ProfileStats";
-import { Button } from "@/components/ui/button";
-import { Crown, BadgeInfo, LogOut, ShieldCheck, User, Star, Trash2, Heart, AlertTriangle, Bug } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 
 interface Profile {
@@ -27,7 +24,6 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
   const { isPro } = useSubscription();
   const { signOut } = useAuth();
 
@@ -73,10 +69,10 @@ const Profile = () => {
         return;
       }
 
-      if (data) {
+      if (data && !error) {
         setProfile({
-          username: data.username || user.email?.split('@')[0] || 'User',
-          avatar_url: data.avatar_url,
+          username: (data as any).username || user.email?.split('@')[0] || 'User',
+          avatar_url: (data as any).avatar_url || null,
           id: user.id
         });
       }
@@ -165,27 +161,6 @@ const Profile = () => {
         </Card>
 
         <ProfileStats stats={stats} />
-
-        {/* Debug Section - Background Removal Debugger */}
-        <Card className="bg-black/20 backdrop-blur-lg border-white/10">
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center space-y-4">
-              <div className="flex items-center gap-2 text-white font-semibold text-lg mb-2">
-                <Bug className="w-5 h-5" />
-                Background Removal Debugger
-              </div>
-              <p className="text-white/70 text-sm text-center mb-4">
-                Check plugin registration and test background removal functionality
-              </p>
-              <Button
-                onClick={() => navigate('/debug/background-removal')}
-                className="bg-white text-black hover:bg-gray-200 font-semibold rounded-xl px-6 py-3 w-full"
-              >
-                Open Debugger
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {error && (
           <Card className="bg-red-500/10 backdrop-blur-lg border-red-500/30">

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import type { Session, User } from '@supabase/supabase-js';
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 
 interface AuthState {
@@ -27,15 +26,22 @@ export function useAuth(): AuthState & AuthActions {
     error: null
   });
 
-  // Check for existing session on mount
+  // Use ref to track if we've initialized to prevent duplicate updates
+  const initializedRef = useRef(false);
+  const lastSessionIdRef = useRef<string | null>(null);
+
+  // Consolidated auth initialization - only use onAuthStateChange to prevent duplicate updates
   useEffect(() => {
-    const checkSession = async () => {
+    let mounted = true;
+
+    // Get initial session
+    const initAuth = async () => {
       try {
-        console.log('🔍 Checking for existing session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
+        if (!mounted) return;
+
         if (error) {
-          console.error('❌ Error getting session:', error);
           setAuthState({
             session: null,
             user: null,
@@ -47,7 +53,7 @@ export function useAuth(): AuthState & AuthActions {
         }
 
         if (session?.user) {
-          console.log('✅ Found existing session for user:', session.user.id);
+          lastSessionIdRef.current = session.user.id;
           setAuthState({
             session,
             user: session.user,
@@ -56,7 +62,6 @@ export function useAuth(): AuthState & AuthActions {
             error: null
           });
         } else {
-          console.log('ℹ️ No existing session found');
           setAuthState({
             session: null,
             user: null,
@@ -65,8 +70,9 @@ export function useAuth(): AuthState & AuthActions {
             error: null
           });
         }
+        initializedRef.current = true;
       } catch (error) {
-        console.error('❌ Error checking session:', error);
+        if (!mounted) return;
         setAuthState({
           session: null,
           user: null,
@@ -74,39 +80,67 @@ export function useAuth(): AuthState & AuthActions {
           isAuthenticated: false,
           error: 'Failed to check session'
         });
+        initializedRef.current = true;
       }
     };
 
-    checkSession();
-  }, []);
-
-  // Listen for auth changes
-  useEffect(() => {
+    // Listen for auth changes - but only update if session actually changed
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state changed:', event, session?.user?.id);
-        
+      async (_event, session) => {
+        if (!mounted) return;
+
+        // Skip INITIAL_SESSION event if we already initialized
+        if (_event === 'INITIAL_SESSION' && initializedRef.current) {
+          return;
+        }
+
+        // Only update if session actually changed
+        const currentSessionId = session?.user?.id || null;
+        if (currentSessionId === lastSessionIdRef.current && session?.user) {
+          return; // Session hasn't changed, skip update
+        }
+
+        lastSessionIdRef.current = currentSessionId;
+
         if (session?.user) {
-          setAuthState({
-            session,
-            user: session.user,
-            isLoading: false,
-            isAuthenticated: true,
-            error: null
+          setAuthState(prev => {
+            // Only update if state actually changed
+            if (prev.user?.id === session.user.id && prev.isAuthenticated) {
+              return prev;
+            }
+            return {
+              session,
+              user: session.user,
+              isLoading: false,
+              isAuthenticated: true,
+              error: null
+            };
           });
         } else {
-          setAuthState({
-            session: null,
-            user: null,
-            isLoading: false,
-            isAuthenticated: false,
-            error: null
+          setAuthState(prev => {
+            // Only update if we were authenticated before
+            if (!prev.isAuthenticated) {
+              return prev;
+            }
+            return {
+              session: null,
+              user: null,
+              isLoading: false,
+              isAuthenticated: false,
+              error: null
+            };
           });
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Initialize auth
+    initAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const clearAllStorage = useCallback(async () => {
@@ -139,15 +173,15 @@ export function useAuth(): AuthState & AuthActions {
         try {
           const databases = await window.indexedDB.databases();
           await Promise.all(
-            databases.map(db => {
-              if (db.name) {
-                return new Promise((resolve, reject) => {
+            databases
+              .filter(db => db.name)
+              .map(db => {
+                return new Promise<void>((resolve, reject) => {
                   const deleteReq = window.indexedDB.deleteDatabase(db.name!);
-                  deleteReq.onsuccess = () => resolve(void 0);
+                  deleteReq.onsuccess = () => resolve();
                   deleteReq.onerror = () => reject(deleteReq.error);
                 });
-              }
-            })
+              })
           );
         } catch (error) {
           console.warn('Could not clear IndexedDB:', error);

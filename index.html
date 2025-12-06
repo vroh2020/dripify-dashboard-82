@@ -5,6 +5,7 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="format-detection" content="telephone=no" />
     <title>OutfitGrader AI</title>
@@ -13,7 +14,7 @@
     <meta property="og:image" content="/og-image.png" />
     
     <!-- CRITICAL: Preload essential resources -->
-    <link rel="preload" href="/src/main.tsx" as="script" crossorigin="anonymous">
+    <link rel="modulepreload" href="/src/main.tsx" crossorigin="anonymous">
     
     <!-- DNS prefetch for external resources -->
     <link rel="dns-prefetch" href="//jjqwhxamjxsiotnhhqco.supabase.co">
@@ -95,8 +96,90 @@
       </div>
     </div>
 
-    <!-- Performance monitoring -->
+    <!-- Performance monitoring and error suppression -->
     <script>
+      // CRITICAL: Define browser API globally BEFORE anything else loads
+      (function() {
+        'use strict';
+        
+        // Define browser API fallback on global scope
+        if (typeof window.browser === 'undefined') {
+          if (typeof chrome !== 'undefined') {
+            window.browser = chrome;
+          } else {
+            window.browser = {
+              runtime: {
+                sendMessage: function() { return Promise.resolve(); },
+                onMessage: { addListener: function() {}, removeListener: function() {} }
+              },
+              storage: {
+                local: { 
+                  get: function() { return Promise.resolve({}); }, 
+                  set: function() { return Promise.resolve(); } 
+                }
+              }
+            };
+          }
+        }
+        
+        // Also define on global scope (for extensions that check global)
+        if (typeof browser === 'undefined') {
+          if (typeof chrome !== 'undefined') {
+            self.browser = chrome;
+          } else {
+            self.browser = window.browser;
+          }
+        }
+        
+        // Global error handler to catch and suppress extension errors
+        window.addEventListener('error', function(event) {
+          const errorMsg = event.message || '';
+          const errorSource = event.filename || '';
+          
+          // Suppress browser extension errors
+          if (errorMsg.includes('browser is not defined') ||
+              errorSource.includes('checkPageManual.js') ||
+              errorSource.includes('overlays.js') ||
+              errorSource.includes('content.js') ||
+              errorMsg.includes('checkPageManual') ||
+              errorMsg.includes('overlays') ||
+              errorMsg.includes('content.js')) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+          }
+        }, true); // Use capture phase to catch early
+        
+        // Suppress console errors from browser extensions
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.error = function(...args) {
+          const errorStr = String(args.join(' '));
+          // Filter out browser extension errors and onnxruntime warnings
+          if (errorStr.includes('browser is not defined') || 
+              errorStr.includes('checkPageManual.js') || 
+              errorStr.includes('overlays.js') || 
+              errorStr.includes('content.js') ||
+              errorStr.includes('onnxruntime') ||
+              errorStr.includes('VerifyEachNodeIsAssignedToAnEp')) {
+            return; // Suppress these errors
+          }
+          originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+          const warnStr = String(args.join(' '));
+          // Filter out onnxruntime warnings
+          if (warnStr.includes('onnxruntime') ||
+              warnStr.includes('VerifyEachNodeIsAssignedToAnEp') ||
+              warnStr.includes('powerPreference')) {
+            return; // Suppress these warnings
+          }
+          originalWarn.apply(console, args);
+        };
+      })();
+      
       // Performance timing
       window.APP_PERFORMANCE = {
         startTime: performance.now(),

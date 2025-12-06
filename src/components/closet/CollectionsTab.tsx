@@ -41,10 +41,10 @@ export default function CollectionsTab({
   const hasOutfits = outfits.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="flex-1 bg-white min-h-screen p-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Collections</h2>
+      <div className="mb-6">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Collections</h2>
         <p className="text-gray-600">
           {outfits.length} {outfits.length === 1 ? 'outfit' : 'outfits'} saved
         </p>
@@ -52,156 +52,89 @@ export default function CollectionsTab({
 
       {/* Simple Empty State */}
       {!hasOutfits && (
-        <div className="text-center py-16">
-          <p className="text-gray-500 text-lg">No saved outfits yet</p>
-          <p className="text-gray-400 text-sm mt-2">Create outfits in the Fits tab to see them here</p>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-xl font-semibold text-gray-900 mb-2">No saved outfits yet</p>
+            <p className="text-gray-600 mb-6">Create outfits in the Fits tab to see them here</p>
+            <button
+              onClick={onOpenFitStylist}
+              className="bg-black text-white px-6 py-3 rounded-xl font-semibold hover:bg-gray-900 transition-colors"
+            >
+              Go to Fits Tab
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Outfits Grid */}
+      {/* Collections Grid - Matching Reference Design */}
       {hasOutfits && (
-        <div className="space-y-6">
-          {/* Go-To Looks Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Go-To Looks</h3>
-              <span className="text-sm text-gray-500">{Math.min(outfits.length, 6)} Fits</span>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              {outfits.slice(0, 6).map((outfit) => (
-                <div
-                  key={outfit.id}
-                  className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer group relative"
-                  onClick={() => onEditOutfit(outfit)}
-                >
-                  {/* Outfit Preview - Vertical stacked thumbnails */}
-                  <div className="relative aspect-square bg-white p-4">
-                    {outfit.items.length > 0 ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-3">
-                        {outfit.items.slice(0, 4).map((item, i) => (
-                          <div key={item.id} className={`w-14 ${i === 3 ? 'h-10' : 'h-14'} rounded-xl overflow-hidden border border-gray-100 shadow-sm`}>
-                            <img
-                              src={item.source_image_url}
-                              alt={item.title}
-                              className="w-full h-full object-contain p-1"
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {outfits.map((outfit) => (
+            <motion.div
+              key={outfit.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group relative"
+              onClick={() => onEditOutfit(outfit)}
+            >
+              {/* Collection Header - Name and Count */}
+              <div className="px-4 py-3">
+                <h4 className="font-semibold text-gray-900 text-sm mb-1">{outfit.name}</h4>
+                <p className="text-xs text-gray-500">
+                  1 Fit
+                </p>
+              </div>
+
+              {/* Vertical Stack of 4 Items Preview */}
+              <div className="px-4 pb-4">
+                {outfit.items.length > 0 ? (
+                  <div className="flex flex-col items-center gap-2">
+                    {outfit.items.slice(0, 4).map((item, index) => (
+                      <div
+                        key={item.id}
+                        className="w-14 h-14 bg-white border border-gray-100 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+                      >
+                        {item.source_image_url ? (
+                          <img
+                            src={item.source_image_url}
+                            alt={item.title}
+                            className="w-full h-full object-contain p-1"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 text-gray-300" />
                           </div>
-                        ))}
-                        {outfit.items.length > 4 && (
-                          <div className="text-xs text-gray-500">+{outfit.items.length - 4} more</div>
                         )}
                       </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Sparkles className="w-8 h-8 text-gray-400" />
-                      </div>
-                    )}
+                    ))}
                   </div>
-                  
-                  {/* Outfit Info */}
-                  <div className="p-4">
-                    <h4 className="font-bold text-gray-900 text-sm truncate">{outfit.name}</h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {outfit.items.length} piece{outfit.items.length !== 1 ? 's' : ''}
-                      {outfit.score && (
-                        <span className="ml-1 text-green-600">• {outfit.score}%</span>
-                      )}
-                    </p>
+                ) : (
+                  <div className="flex items-center justify-center py-6">
+                    <Sparkles className="w-6 h-6 text-gray-400" />
                   </div>
-
-                  {/* Action button */}
-                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <motion.button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteOutfit(outfit.id);
-                      }}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4 text-gray-600 hover:text-red-600" />
-                    </motion.button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* More Outfits - Clean Single Section */}
-          {outfits.length > 6 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">More Outfits</h3>
-                <span className="text-sm text-gray-500">{outfits.length - 6} Fits</span>
+                )}
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                {outfits.slice(6).map((outfit) => (
-                  <div
-                    key={outfit.id}
-                    className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all cursor-pointer group relative"
-                    onClick={() => onEditOutfit(outfit)}
-                  >
-                    {/* Clean Outfit Preview */}
-                    <div className="relative aspect-square bg-gray-50 p-4">
-                      {outfit.items.length > 0 ? (
-                        <div className="relative w-full h-full flex items-center justify-center">
-                          {/* Main item display */}
-                          {outfit.items[0] && (
-                            <div className="absolute inset-2 rounded-xl overflow-hidden bg-white shadow-sm">
-                              <img
-                                src={outfit.items[0].source_image_url}
-                                alt={outfit.items[0].title}
-                                className="w-full h-full object-contain p-2"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          )}
-                          
-                          {/* Item count badge */}
-                          {outfit.items.length > 1 && (
-                            <div className="absolute bottom-2 right-2 w-6 h-6 bg-gray-200 text-black rounded-full flex items-center justify-center text-xs font-bold">
-                              {outfit.items.length}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Sparkles className="w-8 h-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Clean Outfit Info */}
-                    <div className="p-4">
-                      <h4 className="font-bold text-gray-900 text-sm truncate">{outfit.name}</h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {outfit.items.length} piece{outfit.items.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
 
-                    {/* Single Action Button */}
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <motion.button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteOutfit(outfit.id);
-                        }}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4 text-gray-600 hover:text-red-600" />
-                      </motion.button>
-                    </div>
-                  </div>
-                ))}
+              {/* Delete button */}
+              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <motion.button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteOutfit(outfit.id);
+                  }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-gray-900" />
+                </motion.button>
               </div>
-            </div>
-          )}
+            </motion.div>
+          ))}
         </div>
       )}
     </div>

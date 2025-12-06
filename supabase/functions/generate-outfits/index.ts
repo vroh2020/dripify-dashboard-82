@@ -3,12 +3,24 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+// Category normalization function (handles case-insensitive and variations)
+function normalizeCategory(cat: string | undefined): string {
+  if (!cat) return 'other';
+  const normalized = cat.toLowerCase().trim();
+  // Handle common variations
+  if (normalized.includes('top') || normalized === 'shirt' || normalized === 'blouse') return 'tops';
+  if (normalized.includes('bottom') || normalized === 'pants' || normalized === 'jeans' || normalized === 'shorts' || normalized === 'skirt') return 'bottoms';
+  if (normalized.includes('shoe') || normalized === 'sneaker' || normalized === 'boot') return 'shoes';
+  return normalized;
 }
 
 // Rate limiting
 const clientRequests = new Map();
 
-function checkRateLimit(clientId: string, maxRequests = 5, windowMs = 60000) {
+function checkRateLimit(clientId: string, maxRequests = 10, windowMs = 60000) {
   const now = Date.now();
   const client = clientRequests.get(clientId) || { count: 0, resetTime: now + windowMs };
   
@@ -26,72 +38,82 @@ function checkRateLimit(clientId: string, maxRequests = 5, windowMs = 60000) {
   return true;
 }
 
-const OUTFIT_GENERATION_PROMPT = `You are a professional fashion stylist and AI outfit curator. Your task is to create stunning outfit combinations using items from a user's digital closet.
+// STRICT Fashion AI with category enforcement
+const OUTFIT_GENERATION_PROMPT = `You are a professional fashion stylist AI. Your job is to create COMPLETE, WEARABLE outfits that match the user's request.
 
-INSTRUCTIONS:
-1. Analyze the user's closet items and their attributes (category, color, style, brand, etc.)
-2. Create 3-5 different outfit combinations that match the specified occasion and preferences
-3. Each outfit should include 3-6 items from their closet (tops, bottoms, shoes, accessories, etc.)
-4. Provide detailed styling rationale for each outfit
-5. Score each outfit based on style coherence, appropriateness, and visual appeal (1-100)
-6. Suggest missing items that would enhance the outfit (optional)
+CRITICAL RULES - YOU MUST FOLLOW THESE EXACTLY:
 
-RESPOND IN THIS EXACT JSON FORMAT:
+1. EVERY SINGLE OUTFIT MUST INCLUDE THESE 3 REQUIRED ITEMS (NO EXCEPTIONS):
+   - EXACTLY ONE item from category "tops" (shirt, t-shirt, blouse, sweater, jacket, hoodie, etc.)
+   - EXACTLY ONE item from category "bottoms" (pants, jeans, shorts, skirt, etc.)
+   - EXACTLY ONE item from category "shoes" (sneakers, boots, dress shoes, sandals, etc.)
+
+2. STEP-BY-STEP PROCESS FOR EACH OUTFIT:
+   Step 1: Look at the TOPS section and pick ONE top that matches the occasion
+   Step 2: Look at the BOTTOMS section and pick ONE bottom that matches the occasion
+   Step 3: Look at the SHOES section and pick ONE pair of shoes that matches the occasion
+   Step 4: Verify you have exactly 1 top + 1 bottom + 1 shoes
+   Step 5: Only then add optional accessories if they enhance the outfit
+
+3. OPTIONAL categories (ONLY add if they enhance):
+   - Accessories (hats, bags, jewelry) - ONLY if they make sense
+   - Outerwear (coats, jackets) - ONLY if weather/occasion requires it
+
+4. NEVER DO THIS:
+   - Create an outfit without a top (THIS IS FORBIDDEN)
+   - Create an outfit without a bottom (THIS IS FORBIDDEN)
+   - Create an outfit without shoes (THIS IS FORBIDDEN)
+   - Include multiple items from the same category
+   - Include items that don't match the occasion
+
+5. OCCASION MATCHING:
+   - "formal" = dress shirt/blazer + dress pants + dress shoes (NO casual items like t-shirts or sneakers)
+   - "casual" = t-shirt/jeans/sneakers (relaxed, comfortable)
+   - "date night" = stylish, put-together, slightly elevated
+   - "work" = professional, appropriate for office
+   - "party" = bold, fun, statement pieces
+   - "workout" = athletic wear only
+
+6. VALIDATION CHECKLIST (check each outfit before including it):
+   ✓ Has exactly 1 item from "tops" category? (REQUIRED - CHECK THIS FIRST)
+   ✓ Has exactly 1 item from "bottoms" category? (REQUIRED)
+   ✓ Has exactly 1 item from "shoes" category? (REQUIRED)
+   ✓ Matches the occasion? (REQUIRED)
+   ✓ Colors/style work together? (REQUIRED)
+   ✓ No duplicate categories? (REQUIRED)
+
+Output ONLY this JSON format (NO other text, NO explanations):
 {
   "outfits": [
     {
       "id": "outfit_1",
-      "item_ids": ["item_id_1", "item_id_2", "item_id_3"],
+      "item_ids": ["top_id_from_tops_section", "bottom_id_from_bottoms_section", "shoes_id_from_shoes_section"],
       "score": 85,
-      "rationale": "This outfit combines your navy blazer with white jeans for a perfect smart-casual look. The brown leather shoes add sophistication while the minimalist accessories keep it modern and clean.",
-      "style_notes": ["smart-casual", "color-coordinated", "versatile"],
-      "missing_items": [
-        {
-          "category": "accessories",
-          "description": "A leather watch or bracelet",
-          "reason": "Would add a polished finishing touch",
-          "priority": "medium"
-        }
-      ]
+      "rationale": "Brief explanation",
+      "style_notes": ["formal", "professional"]
     }
-  ],
-  "total_generated": 3,
-  "generation_metadata": {
-    "occasion": "work",
-    "style_preference": "classic",
-    "weather": "mild"
-  }
+  ]
 }
 
-STYLING GUIDELINES:
-- Ensure color coordination and harmony
-- Consider the occasion's dress code and appropriateness  
-- Balance proportions and silhouettes
-- Include practical elements (weather, comfort, functionality)
-- Mix textures and patterns thoughtfully
-- Consider the user's style preferences
-- Suggest versatile pieces that work for multiple occasions
-
-SCORING CRITERIA:
-90-100: Exceptional - Perfect coordination, highly appropriate, fashion-forward
-80-89: Great - Well-coordinated, appropriate, stylish
-70-79: Good - Decent coordination, mostly appropriate
-60-69: Okay - Basic coordination, somewhat appropriate
-Below 60: Needs improvement
-
-Be creative, practical, and focus on making the user look and feel amazing!`;
+REMEMBER: Every outfit MUST have 1 top + 1 bottom + 1 shoes. If you cannot find items in all 3 categories, DO NOT create that outfit. Generate 2-3 complete outfits only.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { 
+      status: 204,
+      headers: corsHeaders 
+    })
   }
+
+  const startTime = Date.now();
 
   try {
     // Rate limiting
     const clientId = req.headers.get('x-forwarded-for') || 'anonymous';
     if (!checkRateLimit(clientId)) {
+      console.warn('Rate limit hit:', clientId);
       return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        JSON.stringify({ error: 'Rate limit exceeded. Try again in a minute.' }),
         { 
           status: 429, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -99,19 +121,12 @@ serve(async (req) => {
       );
     }
 
-    const { 
-      occasion, 
-      weather, 
-      style_preference, 
-      color_preference, 
-      specific_requirements,
-      closet_items,
-      user_preferences 
-    } = await req.json();
+    const { occasion, closet_items } = await req.json();
     
     if (!occasion || !closet_items || !Array.isArray(closet_items)) {
+      console.error('Missing params');
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters: occasion and closet_items' }),
+        JSON.stringify({ error: 'Missing required: occasion and closet_items' }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -129,64 +144,94 @@ serve(async (req) => {
       );
     }
 
-    // Get API key from environment
     const nebiusApiKey = Deno.env.get('NEBIUS_API_KEY');
     if (!nebiusApiKey) {
-      console.error('NEBIUS_API_KEY not found in environment');
-      throw new Error('Service configuration error - API key missing');
+      console.error('API key missing');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // Prepare closet items summary for AI
-    const closetSummary = closet_items.map((item: any) => ({
-      id: item.id,
-      title: item.title || 'Untitled',
-      category: item.category,
-      brand: item.brand,
-      color: item.color,
-      season: item.season,
-      tags: item.tags || [],
-      attributes: item.attributes || {}
-    }));
+    // Organize items by category (using normalized categories)
+    const itemsByCategory = closet_items.reduce((acc: any, item: any) => {
+      const cat = normalizeCategory(item.category);
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(item);
+      return acc;
+    }, {});
 
-    // Build context for AI
-    const contextPrompt = `
-OCCASION: ${occasion}
-WEATHER: ${weather || 'mild'}
-STYLE PREFERENCE: ${style_preference || 'classic'}
-${color_preference ? `COLOR PREFERENCE: ${color_preference}` : ''}
-${specific_requirements ? `SPECIAL REQUIREMENTS: ${specific_requirements}` : ''}
+    // Log category distribution for debugging
+    console.log('Category distribution:', {
+      tops: itemsByCategory.tops?.length || 0,
+      bottoms: itemsByCategory.bottoms?.length || 0,
+      shoes: itemsByCategory.shoes?.length || 0,
+      other: Object.keys(itemsByCategory).filter(k => !['tops', 'bottoms', 'shoes'].includes(k)).length
+    });
 
-USER'S CLOSET ITEMS:
-${closetSummary.map((item: any, index: number) => 
-  `${index + 1}. ID: ${item.id}
-     Title: ${item.title}
-     Category: ${item.category}
-     Brand: ${item.brand || 'Unknown'}
-     Color: ${item.color || 'Unknown'}
-     Tags: ${item.tags.join(', ') || 'None'}
-     Season: ${item.season || 'All-season'}`
-).join('\n\n')}
+    // Context with user's ACTUAL REQUEST and organized item details
+    const contextPrompt = `USER'S REQUEST: "${occasion}"
 
-Please create 3-4 outfit combinations using these items. Focus on creating cohesive, stylish outfits that are perfect for the specified occasion.
-    `;
+AVAILABLE CLOSET ITEMS (organized by category):
 
-    // Prepare API payload for Nebius
+TOPS (${itemsByCategory.tops?.length || 0} available):
+${(itemsByCategory.tops || []).map((item: any) => {
+  const tags = Array.isArray(item.tags) ? item.tags.join(', ') : 'none';
+  const brand = item.brand || 'no brand';
+  return `  - [ID: ${item.id}] "${item.title}" | Color: ${item.color || 'unknown'} | Brand: ${brand} | Tags: ${tags}`;
+}).join('\n')}
+
+BOTTOMS (${itemsByCategory.bottoms?.length || 0} available):
+${(itemsByCategory.bottoms || []).map((item: any) => {
+  const tags = Array.isArray(item.tags) ? item.tags.join(', ') : 'none';
+  const brand = item.brand || 'no brand';
+  return `  - [ID: ${item.id}] "${item.title}" | Color: ${item.color || 'unknown'} | Brand: ${brand} | Tags: ${tags}`;
+}).join('\n')}
+
+SHOES (${itemsByCategory.shoes?.length || 0} available):
+${(itemsByCategory.shoes || []).map((item: any) => {
+  const tags = Array.isArray(item.tags) ? item.tags.join(', ') : 'none';
+  const brand = item.brand || 'no brand';
+  return `  - [ID: ${item.id}] "${item.title}" | Color: ${item.color || 'unknown'} | Brand: ${brand} | Tags: ${tags}`;
+}).join('\n')}
+
+${Object.keys(itemsByCategory).filter(cat => !['tops', 'bottoms', 'shoes'].includes(cat)).length > 0 ? `OTHER ITEMS:
+${Object.entries(itemsByCategory)
+  .filter(([cat]) => !['tops', 'bottoms', 'shoes'].includes(cat))
+  .map((entry) => {
+    const [cat, items] = entry as [string, any[]];
+    return `${cat.toUpperCase()} (${items.length}):
+${items.map((item: any) => {
+  const tags = Array.isArray(item.tags) ? item.tags.join(', ') : 'none';
+  const brand = item.brand || 'no brand';
+  return `  - [ID: ${item.id}] "${item.title}" | Color: ${item.color || 'unknown'} | Brand: ${brand}`;
+}).join('\n')}`;
+  }).join('\n\n')}` : ''}
+
+INSTRUCTIONS:
+1. Generate 2-3 COMPLETE outfits for: "${occasion}"
+2. Each outfit MUST include: 1 top + 1 bottom + 1 shoes (REQUIRED)
+3. Match the occasion exactly (e.g., if "formal", use formal pieces only)
+4. Only add accessories/outerwear if they enhance the outfit
+5. Ensure colors and styles work together harmoniously
+6. Use the item IDs exactly as shown above`;
+
     const apiPayload = {
-      model: "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
-      temperature: 0.7, // Balanced creativity and consistency
+      model: "Qwen/Qwen3-235B-A22B-Instruct-2507", // Proven to work - Quality 92
+      temperature: 0.5, // Lower temperature for more consistent, structured output
+      max_tokens: 1500, // Increased for better quality and completeness
       messages: [
-        {
-          role: "system",
-          content: OUTFIT_GENERATION_PROMPT
-        },
-        {
-          role: "user",
-          content: contextPrompt
-        }
+        { role: "system", content: OUTFIT_GENERATION_PROMPT },
+        { role: "user", content: contextPrompt }
       ]
     };
 
-    console.log('Calling Nebius API for outfit generation...');
+    console.log(`Calling Nebius API (${closet_items.length} items)...`);
+    const apiStart = Date.now();
+    
     const response = await fetch('https://api.studio.nebius.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -194,131 +239,280 @@ Please create 3-4 outfit combinations using these items. Focus on creating cohes
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(apiPayload),
-      signal: AbortSignal.timeout(45000) // Longer timeout for complex generation
+      signal: AbortSignal.timeout(25000) // 25s timeout
     });
+
+    const apiTime = Date.now() - apiStart;
+    console.log(`Nebius responded in ${apiTime}ms`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Nebius API error:', response.status, errorText);
-      throw new Error(`AI service error: ${response.status}`);
+      console.error('Nebius error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service error', 
+          details: `Status ${response.status}` 
+        }),
+        { 
+          status: 502, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const data = await response.json();
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('Invalid API response format:', data);
-      throw new Error('Invalid response from AI service');
+    if (!data.choices?.[0]?.message?.content) {
+      console.error('Invalid response format');
+      return new Response(
+        JSON.stringify({ error: 'Invalid AI response' }),
+        { 
+          status: 502, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const generationContent = data.choices[0].message.content;
-    console.log('Raw generation response:', generationContent);
 
-    // Parse JSON response
+    // Parse JSON with thinking tag handling
     let generationResult;
     try {
-      // Extract JSON from response (in case there's extra text)
-      const jsonMatch = generationContent.match(/\{[\s\S]*\}/);
-      const jsonString = jsonMatch ? jsonMatch[0] : generationContent;
-      generationResult = JSON.parse(jsonString);
-    } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
+      console.log('Raw AI response length:', generationContent.length);
       
-      // Fallback: create a basic outfit using available items
+      let jsonString = generationContent;
+      
+      // Kimi-K2 may include <think> tags - remove them
+      if (jsonString.includes('<think>') || jsonString.includes('</think>')) {
+        console.log('Removing thinking tags...');
+        // Extract everything AFTER the closing </think> tag
+        const thinkEndIndex = jsonString.lastIndexOf('</think>');
+        if (thinkEndIndex !== -1) {
+          jsonString = jsonString.substring(thinkEndIndex + 8).trim();
+        }
+      }
+      
+      // Remove markdown code blocks
+      if (jsonString.includes('```json')) {
+        jsonString = jsonString.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+      } else if (jsonString.includes('```')) {
+        jsonString = jsonString.replace(/```\s*/g, '');
+      }
+      
+      // Extract JSON object
+      const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonString = jsonMatch[0];
+      }
+      
+      jsonString = jsonString.trim();
+      
+      generationResult = JSON.parse(jsonString);
+      console.log('✓ JSON parsed successfully, outfits:', generationResult.outfits?.length || 0);
+      
+    } catch (parseError: any) {
+      console.error('JSON parse failed:', parseError.message);
+      console.error('Content preview:', generationContent.substring(0, 300));
+      
       const fallbackOutfit = createFallbackOutfit(closet_items, occasion);
       generationResult = {
         outfits: [fallbackOutfit],
+        fallback: true
+      };
+    }
+
+    if (!generationResult.outfits || !Array.isArray(generationResult.outfits)) {
+      throw new Error('Invalid outfit format');
+    }
+
+    // Validate and enhance outfits with strict category checking
+    const enhancedOutfits = generationResult.outfits
+      .map((outfit: any) => {
+        const outfitItems = outfit.item_ids
+          .map((id: string) => closet_items.find((item: any) => item.id === id))
+          .filter(Boolean);
+
+        // Categorize items (with normalized category matching)
+        const categories = {
+          tops: outfitItems.filter((item: any) => normalizeCategory(item.category) === 'tops'),
+          bottoms: outfitItems.filter((item: any) => normalizeCategory(item.category) === 'bottoms'),
+          shoes: outfitItems.filter((item: any) => normalizeCategory(item.category) === 'shoes'),
+          other: outfitItems.filter((item: any) => {
+            const cat = normalizeCategory(item.category);
+            return cat && !['tops', 'bottoms', 'shoes'].includes(cat);
+          })
+        };
+
+        // Log what categories were found for debugging
+        if (!categories.tops.length || !categories.bottoms.length || !categories.shoes.length) {
+          console.log('Outfit category breakdown:', {
+            itemIds: outfit.item_ids,
+            itemCategories: outfitItems.map((i: any) => ({ id: i.id, category: i.category, normalized: normalizeCategory(i.category) })),
+            foundTops: categories.tops.length,
+            foundBottoms: categories.bottoms.length,
+            foundShoes: categories.shoes.length
+          });
+        }
+
+        // Check if outfit is complete (has required categories)
+        const hasTop = categories.tops.length > 0;
+        const hasBottom = categories.bottoms.length > 0;
+        const hasShoes = categories.shoes.length > 0;
+        const isComplete = hasTop && hasBottom && hasShoes;
+
+        // Check for duplicates (multiple items from same category)
+        const hasDuplicates = categories.tops.length > 1 || 
+                             categories.bottoms.length > 1 || 
+                             categories.shoes.length > 1;
+
+        return {
+          ...outfit,
+          items: outfitItems,
+          categories,
+          is_complete: isComplete,
+          has_duplicates: hasDuplicates,
+          missing_categories: [
+            !hasTop && 'tops',
+            !hasBottom && 'bottoms',
+            !hasShoes && 'shoes'
+          ].filter(Boolean),
+          validation_score: isComplete && !hasDuplicates ? outfit.score : Math.max(0, outfit.score - 30)
+        };
+      })
+      // Filter out incomplete outfits or those with duplicates
+      .filter((outfit: any) => {
+        const isValid = outfit.is_complete && !outfit.has_duplicates && outfit.items.length >= 3;
+        if (!isValid) {
+          console.warn(`Filtered invalid outfit:`, {
+            hasTop: outfit.categories.tops.length > 0,
+            hasBottom: outfit.categories.bottoms.length > 0,
+            hasShoes: outfit.categories.shoes.length > 0,
+            hasDuplicates: outfit.has_duplicates,
+            itemCount: outfit.items.length
+          });
+        }
+        return isValid;
+      })
+      // Sort by validation score (best outfits first)
+      .sort((a: any, b: any) => b.validation_score - a.validation_score);
+
+    const totalTime = Date.now() - startTime;
+    
+    // If no valid outfits after filtering, create fallback
+    if (enhancedOutfits.length === 0) {
+      console.warn('No valid outfits generated, creating fallback...');
+      const fallbackOutfit = createFallbackOutfit(closet_items, occasion);
+      const fallbackEnhanced = {
+        ...fallbackOutfit,
+        items: fallbackOutfit.item_ids
+          .map((id: string) => closet_items.find((item: any) => item.id === id))
+          .filter(Boolean),
+        is_complete: true,
+        has_duplicates: false,
+        validation_score: 75
+      };
+      
+      return new Response(JSON.stringify({
+        outfits: [fallbackEnhanced],
         total_generated: 1,
+        fallback_used: true,
         generation_metadata: {
           occasion,
-          style_preference: style_preference || 'classic',
-          weather: weather || 'mild',
-          fallback: true
+          timestamp: new Date().toISOString(),
+          generation_time_ms: totalTime
         }
-      };
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Validate and enhance the result
-    if (!generationResult.outfits || !Array.isArray(generationResult.outfits)) {
-      throw new Error('Invalid outfit generation result');
-    }
+    console.log(`✓ Generated ${enhancedOutfits.length} valid outfits in ${totalTime}ms`);
 
-    // Enhance outfits with actual item data
-    const enhancedOutfits = generationResult.outfits.map((outfit: any) => {
-      const outfitItems = outfit.item_ids
-        .map((id: string) => closet_items.find((item: any) => item.id === id))
-        .filter(Boolean);
-
-      return {
-        ...outfit,
-        items: outfitItems,
-        missing_items: outfit.missing_items || []
-      };
-    }).filter((outfit: any) => outfit.items.length > 0); // Only include outfits with valid items
-
-    console.log('Outfit generation completed successfully');
-    
     return new Response(JSON.stringify({
       outfits: enhancedOutfits,
       total_generated: enhancedOutfits.length,
       generation_metadata: {
         occasion,
-        style_preference: style_preference || 'classic',
-        weather: weather || 'mild',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        generation_time_ms: totalTime
       }
     }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('Error in generate-outfits function:', error);
+    const totalTime = Date.now() - startTime;
+    console.error('Error after', totalTime, 'ms:', error.message);
     return new Response(JSON.stringify({
-      error: error.message || 'Outfit generation service temporarily unavailable',
-      details: 'Please try again in a moment. If the problem persists, contact support.'
+      error: 'Service temporarily unavailable',
+      details: error.message
     }), {
       status: 500,
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
 
-// Fallback outfit creation function
 function createFallbackOutfit(closetItems: any[], occasion: string) {
-  // Simple logic to create a basic outfit
-  const tops = closetItems.filter(item => item.category === 'tops');
-  const bottoms = closetItems.filter(item => item.category === 'bottoms');
-  const shoes = closetItems.filter(item => item.category === 'shoes');
-  const outerwear = closetItems.filter(item => item.category === 'outerwear');
+  // Filter by category (using normalized categories)
+  const tops = closetItems.filter(item => normalizeCategory(item.category) === 'tops');
+  const bottoms = closetItems.filter(item => normalizeCategory(item.category) === 'bottoms');
+  const shoes = closetItems.filter(item => normalizeCategory(item.category) === 'shoes');
   
-  const outfitItems = [];
+  const outfitItems: string[] = [];
   
-  // Add a top
-  if (tops.length > 0) outfitItems.push(tops[0].id);
+  // For formal occasions, try to pick more formal pieces
+  const isFormal = occasion.toLowerCase().includes('formal') || 
+                   occasion.toLowerCase().includes('work') ||
+                   occasion.toLowerCase().includes('business');
   
-  // Add bottoms
-  if (bottoms.length > 0) outfitItems.push(bottoms[0].id);
+  if (tops.length > 0) {
+    // For formal, prefer items with formal tags
+    if (isFormal) {
+      const formalTop = tops.find((t: any) => 
+        t.tags?.some((tag: string) => 
+          ['formal', 'dress', 'business', 'professional', 'blazer', 'shirt'].includes(tag.toLowerCase())
+        )
+      ) || tops[0];
+      outfitItems.push(formalTop.id);
+    } else {
+      outfitItems.push(tops[0].id);
+    }
+  }
   
-  // Add shoes
-  if (shoes.length > 0) outfitItems.push(shoes[0].id);
+  if (bottoms.length > 0) {
+    if (isFormal) {
+      const formalBottom = bottoms.find((b: any) =>
+        b.tags?.some((tag: string) =>
+          ['formal', 'dress', 'business', 'professional', 'pants', 'slacks'].includes(tag.toLowerCase())
+        )
+      ) || bottoms[0];
+      outfitItems.push(formalBottom.id);
+    } else {
+      outfitItems.push(bottoms[0].id);
+    }
+  }
   
-  // Add outerwear for formal occasions
-  if ((occasion === 'work' || occasion === 'formal') && outerwear.length > 0) {
-    outfitItems.push(outerwear[0].id);
+  if (shoes.length > 0) {
+    if (isFormal) {
+      const formalShoes = shoes.find((s: any) =>
+        s.tags?.some((tag: string) =>
+          ['formal', 'dress', 'business', 'professional', 'dress shoes', 'oxford'].includes(tag.toLowerCase())
+        )
+      ) || shoes[0];
+      outfitItems.push(formalShoes.id);
+    } else {
+      outfitItems.push(shoes[0].id);
+    }
   }
 
   return {
-    id: "fallback_outfit_1",
+    id: "fallback_1",
     item_ids: outfitItems,
     score: 75,
-    rationale: `A classic ${occasion} outfit combining your available pieces. This combination provides a solid foundation that you can accessorize and personalize to match your style.`,
-    style_notes: ["classic", "versatile", "appropriate"],
+    rationale: `A ${occasion} outfit using your available pieces.`,
+    style_notes: isFormal ? ["formal", "professional"] : ["classic", "versatile"],
     missing_items: []
   };
 }
 
-console.log('Outfit Generation Edge Function is running...');
+console.log('Edge Function ready ✓');

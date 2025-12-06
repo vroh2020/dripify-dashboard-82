@@ -15,27 +15,6 @@ const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname.split('/')[1] || 'dashboard';
-  console.log('🎯 Path calculation:', {
-    fullPath: location.pathname,
-    splitResult: location.pathname.split('/'),
-    currentPath: currentPath
-  });
-  
-  // Add render counter to prevent infinite loops
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
-  
-  // Prevent excessive logging
-  if (renderCountRef.current <= 3) {
-    console.log('🎯 Index component rendered:', {
-      currentPath,
-      location: location.pathname,
-      renderCount: renderCountRef.current,
-      timestamp: new Date().toISOString()
-    });
-  } else if (renderCountRef.current === 4) {
-    console.warn('⚠️ Index component rendering too frequently - stopping logs');
-  }
 
   // Sync tab value with URL
   useEffect(() => {
@@ -45,16 +24,11 @@ const Index = () => {
   }, [location.pathname, navigate]);
 
   const handleTabChange = (value: string) => {
-    console.log('🎯 Tab changed to:', value);
-    console.log('🎯 Current location before navigation:', location.pathname);
     navigate(`/${value}`);
   };
 
   // Simple conditional rendering instead of nested Routes
   const renderContent = () => {
-    console.log('🎯 Rendering content for path:', currentPath);
-    console.log('🎯 Full location pathname:', location.pathname);
-    
     try {
       switch (currentPath) {
         case 'dashboard':
@@ -70,7 +44,6 @@ const Index = () => {
           return <ScanView />;
       }
     } catch (error) {
-      console.error('🎯 Error rendering content:', error);
       return (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
@@ -100,12 +73,8 @@ const Index = () => {
         <div className="flex-1 overflow-y-auto overflow-x-hidden pt-2">
           {(() => {
             try {
-              console.log('🎯 Attempting to render content...');
-              const content = renderContent();
-              console.log('🎯 Content rendered successfully');
-              return content;
+              return renderContent();
             } catch (error) {
-              console.error('🎯 Error rendering content:', error);
               return (
                 <div className="flex items-center justify-center min-h-[50vh] text-gray-900">
                   <div className="text-center">
@@ -135,7 +104,6 @@ const Index = () => {
             
             <TabsTrigger 
               value="closet" 
-              onClick={() => console.log('🎯 Closet tab clicked!')}
               className="flex flex-col items-center justify-center gap-0.5 data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 rounded-none transition-all duration-200 text-gray-600 hover:text-gray-900 h-full"
             >
               <Shirt className="h-4 w-4" />

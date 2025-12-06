@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ArrowLeft, Globe, Image as ImageIcon } from 'lucide-react';
+import { Heart, ArrowLeft, Globe, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { removeBackgroundFromBlob, isBackgroundRemovalAvailable } from '@/utils/backgroundRemoval';
-import { useToast } from '@/hooks/use-toast';
 
 // Import extracted components
 import PiecesTab from './PiecesTab';
@@ -72,29 +71,36 @@ export default function ClosetView() {
   const [selectedItem, setSelectedItem] = useState<ClosetItem | null>(null);
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [showWebSearch, setShowWebSearch] = useState(false);
-  const { toast } = useToast();
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const FREE_LIMIT = 10;
 
-  // Load items and outfits from Supabase (real data, no mocks)
+  // Cache and loading state to prevent duplicate loads
+  const loadingRef = useRef(false);
+  const lastLoadTimeRef = useRef<number>(0);
+  const CACHE_DURATION = 30000; // 30 seconds cache
+
+  // Load items and outfits from Supabase (real data, no mocks) with caching
   const loadData = useCallback(async () => {
+    // Prevent duplicate concurrent loads
+    if (loadingRef.current) {
+      return;
+    }
+
+    // Check cache - don't reload if data was loaded recently
+    const now = Date.now();
+    if (now - lastLoadTimeRef.current < CACHE_DURATION && items.length > 0) {
+      return;
+    }
+
+    loadingRef.current = true;
     try {
-      console.log('🔄 Loading data from Supabase...');
       const { data: auth, error: authError } = await supabase.auth.getUser();
       
-      if (authError) {
-        console.error('❌ Auth error:', authError);
+      if (authError || !auth?.user) {
         return;
       }
-      
-      if (!auth?.user) {
-        console.warn('⚠️  No authenticated user found');
-        return;
-      }
-
-      console.log('✅ User authenticated:', auth.user.id);
 
       // Load items and outfits in parallel for maximum speed
-      console.log('📦 Loading data in parallel...');
       const [itemsResult, outfitsResult] = await Promise.all([
         supabase
           .from('trendza_closet_items')
@@ -109,19 +115,12 @@ export default function ClosetView() {
       const { data: itemRows, error: itemsErr } = itemsResult;
       const { data: outfitRows, error: outfitsErr } = outfitsResult;
       
-      if (itemsErr) {
-        console.error('❌ Items load error:', itemsErr);
-      } else {
-        console.log('📦 Raw items from DB:', itemRows?.length || 0, itemRows);
-      }
-      
       let normalizedItems: ClosetItem[] = [];
       if (!itemsErr && itemRows) {
         normalizedItems = itemRows
           .filter((r: any) => {
             const hasImage = r.source_image_url;
             const hasValidTitle = r.title && r.title !== 'Untitled' && r.title !== 'Analyzing...';
-            console.log(`📋 Item ${r.id}: title="${r.title}", hasImage=${hasImage}, hasValidTitle=${hasValidTitle}`);
             return hasImage && hasValidTitle;
           })
           .map((r: any) => ({
@@ -138,14 +137,7 @@ export default function ClosetView() {
             favorite: false
           }));
         
-        console.log('📦 Filtered items:', normalizedItems.length);
         setItems(normalizedItems);
-      }
-        
-      if (outfitsErr) {
-        console.error('❌ Outfits load error:', outfitsErr);
-      } else {
-        console.log('👔 Raw outfits from DB:', outfitRows?.length || 0, outfitRows);
       }
         
       if (!outfitsErr && outfitRows) {
@@ -161,110 +153,91 @@ export default function ClosetView() {
           items: (Array.isArray(o.item_ids) ? o.item_ids : []).map((id: string) => itemMap.get(id)).filter(Boolean) as ClosetItem[]
         }));
         setOutfits(normalizedOutfits);
-        console.log('👔 Normalized outfits:', normalizedOutfits.length);
       }
       
-      console.log('✅ Data loading complete');
+      lastLoadTimeRef.current = Date.now();
     } catch (e) {
-      console.error('❌ Data load error:', e);
+      // Silent error handling - data will reload on next attempt
+    } finally {
+      loadingRef.current = false;
     }
-  }, []);
+  }, [items.length]);
 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const processAndSaveImage = async (blob: Blob, sourceUrl: string | null = null) => {
+  // Batch process multiple images with sequential background removal (model can only handle one at a time)
+  const processMultipleImages = async (files: File[]) => {
+    if (files.length === 0) return;
+    
+    setUploadProgress({ current: 0, total: files.length });
+    setIsUploading(true);
+
     try {
-      setIsUploading(true);
-      console.log('🎨 Processing image...');
-      console.log('📦 Original blob size:', blob.size, 'bytes');
-      
-      // Check if background removal is available
-      const bgRemovalAvailable = isBackgroundRemovalAvailable();
-      if (!bgRemovalAvailable) {
-        console.warn('⚠️ Background removal not available - using original image');
-        toast({
-          title: "Background Removal Unavailable",
-          description: "Background removal requires iOS 17.0+ and the plugin to be registered. Using original image.",
-          variant: "destructive",
-        });
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) {
+        setIsUploading(false);
+        setUploadProgress(null);
+        return;
       }
-      
-      // Remove background using native iOS Vision framework (FREE & FAST on iOS 17+!)
-      const startTime = Date.now();
-      let processedBlob = blob;
-      
-      try {
-        processedBlob = await removeBackgroundFromBlob(blob);
-        const duration = Date.now() - startTime;
-        console.log(`⏱️ Background removal took ${duration}ms`);
-        console.log('📦 Original blob size:', blob.size, 'bytes');
-        console.log('📦 Processed blob size:', processedBlob.size, 'bytes');
+
+      // Process images sequentially - background removal model can only handle one at a time
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file) continue;
         
-        // Check if background removal actually worked
-        const sizeDifference = Math.abs(processedBlob.size - blob.size);
-        const sizeChangePercent = (sizeDifference / blob.size) * 100;
+        setUploadProgress({ current: i, total: files.length });
         
-        if (sizeChangePercent < 5) {
-          // Size is too similar - probably didn't work
-          console.warn('⚠️ Processed blob size is too similar to original - background removal likely failed');
-          console.warn('Size difference:', sizeChangePercent.toFixed(2) + '%');
-          toast({
-            title: "Background Removal Failed",
-            description: "Vision couldn't detect the clothing item. Try: 1) Better contrast (dark item on light bg), 2) Item hanging or on mannequin (3D shape), 3) Clear, well-lit photo. Using original image.",
-            variant: "destructive",
-          });
-        } else {
-          console.log('✅ Background removal successful - image was processed');
-          console.log('Size change:', sizeChangePercent.toFixed(2) + '%');
-          toast({
-            title: "Background Removed",
-            description: `Successfully removed background in ${duration}ms`,
-            variant: "success",
-          });
-        }
-      } catch (error: any) {
-        const duration = Date.now() - startTime;
-        console.log(`⏱️ Background removal failed after ${duration}ms`);
-        console.error('❌ Background removal failed with error:', error);
-        console.error('Error message:', error?.message);
+        // Convert file to blob
+        const blob = await file.arrayBuffer().then(b => new Blob([b], { type: file.type }));
         
-        // Show user-friendly error message
-        let errorMessage = "Background removal failed. ";
-        if (error?.message?.includes("No objects detected")) {
-          errorMessage += "Vision couldn't detect the clothing item. Try a photo with better contrast (dark item on light background) or take a photo of the item hanging (3D shape works better than flat lays).";
-        } else if (error?.message?.includes("iOS 17")) {
-          errorMessage += "Your device needs iOS 17.0 or later for background removal.";
-        } else if (error?.message) {
-          errorMessage += error.message;
-        } else {
-          errorMessage += "Unknown error occurred.";
+        // Process background removal sequentially (one at a time)
+        let processedBlob = blob;
+        if (isBackgroundRemovalAvailable()) {
+          try {
+            processedBlob = await removeBackgroundFromBlob(blob);
+          } catch (error) {
+            console.warn('Background removal failed for one image, using original:', error);
+            processedBlob = blob;
+          }
         }
         
-        toast({
-          title: "Background Removal Failed",
-          description: errorMessage + " Using original image.",
-          variant: "destructive",
-        });
-        
-        // Use original blob
-        processedBlob = blob;
+        // Save the image
+        setUploadProgress({ current: i + 1, total: files.length });
+        await processAndSaveImage(processedBlob, null, false); // false = don't update isUploading
       }
+
+    } catch (error) {
+      console.error('❌ Batch upload error:', error);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const processAndSaveImage = async (blob: Blob, sourceUrl: string | null = null, updateUploadingState: boolean = true) => {
+    try {
+      if (updateUploadingState) {
+        setIsUploading(true);
+      }
+      
+      // Background removal is now handled in batch processing
+      // So we use the blob as-is (it's already processed)
+      const processedBlob = blob;
 
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
-        console.warn('Cannot save item: user not authenticated');
-        setIsUploading(false);
+        if (updateUploadingState) {
+          setIsUploading(false);
+        }
         return;
       }
 
       // Upload image to storage
       const timestamp = Date.now();
       const storagePath = `closet/${auth.user.id}/${timestamp}_no_bg.png`;
-      
-      console.log('☁️ Uploading image to storage...');
       
       const { error: uploadErr } = await supabase.storage
         .from('style_images')
@@ -276,9 +249,6 @@ export default function ClosetView() {
           .from('style_images')
           .getPublicUrl(storagePath);
         publicUrl = publicUrlData?.publicUrl || sourceUrl || '';
-        console.log('✅ Image uploaded to storage:', storagePath);
-      } else {
-        console.warn('Storage upload failed, using source URL if available:', uploadErr);
       }
 
       // Try AI analysis for better categorization
@@ -293,8 +263,6 @@ export default function ClosetView() {
       };
 
       try {
-        console.log('🤖 Attempting AI analysis...');
-        
         // Compress image before converting to base64 (max 1024px on longest side, 0.8 quality)
         const compressedBlob = await new Promise<Blob>((resolve, reject) => {
           const img = new Image();
@@ -347,9 +315,6 @@ export default function ClosetView() {
           reader.readAsDataURL(compressedBlob);
         });
         
-        // Log base64 image size for debugging
-        console.log('📊 Base64 image size:', (base64Image.length / 1024).toFixed(2), 'KB');
-        
         let analysis;
         let aiError;
         
@@ -362,7 +327,6 @@ export default function ClosetView() {
           
           // If we got an error, try to fetch directly to get the actual error response
           if (aiError) {
-            console.log('🔄 Attempting direct fetch to get error details...');
             try {
               const { data: { session } } = await supabase.auth.getSession();
               const response = await fetch('https://jjqwhxamjxsiotnhhqco.supabase.co/functions/v1/analyze-closet-item', {
@@ -377,10 +341,8 @@ export default function ClosetView() {
               
               if (!response.ok) {
                 const errorText = await response.text();
-                console.error('📋 Direct fetch error response:', response.status, errorText);
                 try {
                   const errorJson = JSON.parse(errorText);
-                  console.error('📋 Parsed error:', errorJson);
                   if (errorJson.error) {
                     throw new Error(errorJson.error);
                   }
@@ -389,35 +351,22 @@ export default function ClosetView() {
                 }
               }
             } catch (fetchErr: any) {
-              console.error('❌ Direct fetch also failed:', fetchErr);
+              // Silent fallback
             }
           }
         } catch (err: any) {
-          console.error('❌ Exception during invoke:', err);
           aiError = err;
         }
         
         if (aiError) {
-          console.error('❌ AI analysis error:', aiError);
-          console.error('Error details:', JSON.stringify(aiError, null, 2));
-          
-          // Try to extract the actual error message from the response
           let errorMessage = 'AI analysis failed';
           if (aiError.message) {
             errorMessage = aiError.message;
           }
-          
-          // Try to get response body if available
-          if ((aiError as any).context) {
-            console.error('Error context:', (aiError as any).context);
-          }
-          
-          console.error('❌ Final error message:', errorMessage);
           throw new Error(errorMessage);
         }
         
         if (!analysis) {
-          console.error('❌ No analysis data returned');
           throw new Error('No analysis data returned from AI service');
         }
         
@@ -431,13 +380,9 @@ export default function ClosetView() {
             tags: analysis.suggestedTags || [],
             attributes: analysis.attributes || {}
           };
-          console.log('🎯 AI analysis successful:', itemData);
-        } else {
-          console.warn('⚠️ AI analysis returned invalid data:', analysis);
         }
       } catch (aiError: any) {
-        console.error('❌ AI analysis failed:', aiError?.message || aiError);
-        console.log('📊 Using default values:', itemData);
+        // Use default values on error
       }
 
       // Insert to database
@@ -453,7 +398,6 @@ export default function ClosetView() {
         source_image_url: publicUrl
       };
 
-      console.log('💾 Saving to database...', toInsert);
       const { data: inserted, error: insertErr } = await supabase
         .from('trendza_closet_items')
         .insert(toInsert)
@@ -461,8 +405,6 @@ export default function ClosetView() {
         .single();
         
       if (!insertErr && inserted) {
-        console.log('✅ Item saved to database with UUID:', inserted.id);
-        
         const newItem: ClosetItem = {
           id: inserted.id,
           title: inserted.title || 'New Item',
@@ -478,17 +420,16 @@ export default function ClosetView() {
         };
         
         setItems(prev => [newItem, ...prev]);
-        console.log('✅ Item added to local state');
-        
       } else {
-        console.error('Failed to save item to database:', insertErr);
         throw new Error('Database save failed');
       }
     } catch (error) {
-      console.error('❌ Processing error:', error);
+      // Error handling - user will see upload failure
+      console.error('Error processing image:', error);
     } finally {
-      setIsUploading(false);
-      console.log('📷 Process completed');
+      if (updateUploadingState) {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -518,18 +459,45 @@ export default function ClosetView() {
   const handleGalleryUpload = async () => {
     setShowUploadOptions(false);
     try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Photos
-      });
+      const isCapacitor = (window as any).Capacitor?.isNativePlatform?.() || false;
+      
+      if (!isCapacitor) {
+        // Web: Use file input with multiple selection
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.multiple = true;
+        input.onchange = async (e) => {
+          const files = Array.from((e.target as HTMLInputElement).files || []);
+          if (files.length > 0) {
+            await processMultipleImages(files);
+          }
+        };
+        input.click();
+        return;
+      }
 
-      if (!image.dataUrl) return;
+      // Native: Capacitor doesn't support multiple selection directly
+      // So we'll allow selecting one image, but process it immediately
+      // User can select multiple times if needed
+      try {
+        const image = await Camera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Photos
+        });
 
-      const response = await fetch(image.dataUrl);
-      const blob = await response.blob();
-      await processAndSaveImage(blob);
+        if (image.dataUrl) {
+          const response = await fetch(image.dataUrl);
+          const blob = await response.blob();
+          const file = new File([blob], 'image.jpg', { type: blob.type });
+          await processMultipleImages([file]);
+        }
+      } catch (error) {
+        // User cancelled or error occurred - silently handle
+        console.log('Image selection cancelled');
+      }
 
     } catch (error) {
       console.error('❌ Gallery upload error:', error);
@@ -561,8 +529,6 @@ export default function ClosetView() {
       shoes: items.filter(item => item.category === 'shoes'),
       accessories: items.filter(item => item.category === 'accessories')
     };
-
-    console.log('📊 Items by category:', itemsByCategory);
 
     const newOutfit: ClosetItem[] = [];
     
@@ -606,7 +572,6 @@ export default function ClosetView() {
       }
     }
 
-    console.log('✨ Generated complete outfit:', newOutfit.map(item => `${item.category}: ${item.title}`));
     setCurrentOutfit(newOutfit);
   };
 
@@ -716,11 +681,9 @@ export default function ClosetView() {
   const handleSaveFit = async (fitState: FitState, fitName: string) => {
     try {
       setIsSaving(true);
-      console.log('💾 Saving fit:', fitName, fitState);
 
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
-        console.error('User not authenticated');
         setIsSaving(false);
         return;
       }
@@ -736,12 +699,9 @@ export default function ClosetView() {
       );
       
       if (validItems.length === 0) {
-        console.warn('No valid items with proper UUIDs to save');
         setIsSaving(false);
         return;
       }
-
-      console.log('💾 Saving with valid items:', validItems.map(i => ({ id: i.id, title: i.title })));
 
       // Save to Supabase outfits table
       const { data: inserted, error } = await supabase
@@ -757,13 +717,11 @@ export default function ClosetView() {
         .single();
 
       if (error) {
-        console.error('❌ Error saving fit:', error);
         setIsSaving(false);
         return;
       }
 
       if (inserted) {
-        console.log('✅ Fit saved successfully:', inserted.id);
         
         // Add the new outfit to local state
         const newOutfit: Outfit = {
@@ -802,10 +760,7 @@ export default function ClosetView() {
         {/* Back button for non-Pieces tabs */}
         {activeTab !== 'pieces' ? (
           <button
-            onClick={() => {
-              console.log('ClosetView: Back button clicked, setting activeTab to pieces');
-              setActiveTab('pieces');
-            }}
+            onClick={() => setActiveTab('pieces')}
             className="back-button"
           >
             <ArrowLeft size={20} />
@@ -882,41 +837,47 @@ export default function ClosetView() {
         )}
 
         {activeTab === 'collections' && editingOutfit && (
-          <div className="flex-1">
+          <div className="flex-1 bg-white min-h-screen">
             {/* Clean Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <motion.button
                   onClick={() => setEditingOutfit(null)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="back-button"
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                 >
-                  <ArrowLeft size={20} />
+                  <ArrowLeft size={20} className="text-gray-900" />
                 </motion.button>
-                <h1 className="text-heading">{editingOutfit.name}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">{editingOutfit.name}</h1>
               </div>
             </div>
 
-            {/* Clean Outfit Display */}
-            <div className="max-w-sm mx-auto px-6 py-8">
-              <div className="relative min-h-[70vh] flex flex-col items-center justify-center bg-gray-50 rounded-3xl py-16">
+            {/* Clean Outfit Display - Vertical Stack Like FitsTab */}
+            <div className="flex-1 flex items-center justify-center p-6 w-full">
+              <div className="flex flex-col items-center space-y-6">
                 {editingOutfit.items.map((item, index) => (
-                  <motion.div 
+                  <motion.div
                     key={item.id}
-                    className="mb-8"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                    className="w-36 h-36 flex items-center justify-center"
                   >
-                    <div className="w-40 h-40 rounded-3xl overflow-hidden bg-white shadow-xl border-4 border-white">
-                      <img 
-                        src={item.source_image_url || ''} 
+                    {item.source_image_url ? (
+                      <img
+                        src={item.source_image_url}
                         alt={item.title}
-                        className="w-full h-full object-contain p-3"
+                        className="max-w-full max-h-full object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
                       />
-                    </div>
-                    <p className="text-center mt-3 font-medium text-gray-700">{item.title}</p>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-xl">
+                        <Sparkles className="w-8 h-8 text-gray-400" />
+                      </div>
+                    )}
                   </motion.div>
                 ))}
               </div>
@@ -979,6 +940,9 @@ export default function ClosetView() {
                     <ImageIcon size={20} />
                     Choose from Gallery
                   </button>
+                  <p className="text-xs text-gray-500 text-center -mt-2 mb-1">
+                    Select multiple images at once
+                  </p>
                   <button
                     onClick={() => {
                       setShowUploadOptions(false);
@@ -992,6 +956,46 @@ export default function ClosetView() {
                 </div>
               </motion.div>
             </>
+          )}
+        </AnimatePresence>
+
+        {/* Upload Progress Overlay */}
+        <AnimatePresence>
+          {uploadProgress && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4"
+              >
+                <div className="text-center">
+                  <div className="w-16 h-16 border-4 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-black mb-2" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
+                    Processing Images
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Removing backgrounds and uploading...
+                  </p>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <motion.div
+                      className="bg-black h-2 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {uploadProgress.current} of {uploadProgress.total} images
+                  </p>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
 

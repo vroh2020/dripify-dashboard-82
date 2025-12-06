@@ -32,8 +32,7 @@ const config: TrendzaCapacitorConfig = {
       // Apple Sign In plugin configuration - native iOS
       clientId: 'service.com.genstyle.app',
       scopes: 'email name'
-    },
-    BackgroundRemoval: {}
+    }
   },
   packageClassList: [
     'SignInWithApple',
@@ -43,8 +42,7 @@ const config: TrendzaCapacitorConfig = {
     'CAPCameraPlugin',
     'PreferencesPlugin',
     'SplashScreenPlugin',
-    'PurchasesPlugin',
-    'BackgroundRemovalPlugin'
+    'PurchasesPlugin'
   ]
 };
 

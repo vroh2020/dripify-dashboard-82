@@ -61,12 +61,12 @@ export default function ItemDetailModal({
             {/* Content */}
             <div className="p-4 space-y-4">
               {/* Image */}
-              <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+              <div className="aspect-square rounded-xl overflow-hidden bg-white border border-gray-200">
                 {item.source_image_url ? (
                   <img
                     src={item.source_image_url}
                     alt={item.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain p-2"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
