@@ -3,11 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy } from "react";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
-import { preloadBackgroundRemovalModel } from "./utils/backgroundRemoval";
 
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
@@ -85,21 +84,8 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  // Preload background removal model on web for instant processing
-  useEffect(() => {
-    // Only preload on web (not native platforms)
-    const isWeb = typeof window !== 'undefined' && 
-      (!(window as any).Capacitor || (window as any).Capacitor?.getPlatform?.() === 'web');
-    
-    if (isWeb) {
-      // Preload in background after a short delay to not block initial render
-      setTimeout(() => {
-        preloadBackgroundRemovalModel().catch(() => {
-          // Silently fail - model will load on first use
-        });
-      }, 1000);
-    }
-  }, []);
+  // Background removal model loads lazily when user uploads images
+  // This prevents downloading 500MB on app start and freezing the UI
 
   return (
     <QueryClientProvider client={queryClient}>

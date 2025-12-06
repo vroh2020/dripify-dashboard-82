@@ -16,9 +16,9 @@
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<key>CFBundleShortVersionString</key> <!-- Marketing version -->
+	<key>CFBundleShortVersionString</key>
 	<string>2.00</string>
-	<key>CFBundleVersion</key> <!-- Build number -->
+	<key>CFBundleVersion</key>
 	<string>9</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
@@ -69,6 +69,60 @@
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>
+	</array>
+	
+	<!-- CRITICAL: Network Security for HuggingFace Model Downloads -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<!-- Allow HuggingFace CDN for model downloads -->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>huggingface.co</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSTemporaryExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
+			<key>cdn.jsdelivr.net</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSTemporaryExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
+	
+	<!-- WebView Configuration for WASM/Background Removal -->
+	<key>WKWebViewConfiguration</key>
+	<dict>
+		<key>allowFileAccessFromFileURLs</key>
+		<true/>
+		<key>allowsInlineMediaPlayback</key>
+		<true/>
+		<key>mediaTypesRequiringUserActionForPlayback</key>
+		<string>none</string>
+	</dict>
+	<key>WebKitJavaScriptCanAccessClipboard</key>
+	<true/>
+	
+	<!-- Memory & Performance -->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	
+	<!-- Background Modes (optional - for background processing) -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
 	</array>
 </dict>
 </plist>

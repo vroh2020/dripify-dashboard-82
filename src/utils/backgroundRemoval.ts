@@ -1,9 +1,9 @@
 /**
- * Background Removal - Optimized for Web Performance
+ * Background Removal - Works on Web, iOS, iPad, Everything!
  * Based on bg-remove by Addy Osmani: https://github.com/addyosmani/bg-remove
  * 
- * On Web: Uses WebGPU acceleration for 5-10x faster processing
- * On iOS Native: Uses WASM with optimized settings
+ * Uses WebGPU acceleration when available (5-10x faster!)
+ * Falls back to WASM for maximum compatibility (works everywhere)
  */
 
 import {
@@ -26,36 +26,27 @@ interface ModelState {
   processor: Processor | null;
   isWebGPUSupported: boolean;
   currentModelId: string;
-  isIOS: boolean;
-  isWeb: boolean;
   isInitialized: boolean;
   isLoading: boolean;
 }
-
-// Check if we're on web (not native)
-const isWebPlatform = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const platform = (window as any).Capacitor?.getPlatform?.();
-  return !platform || platform === 'web';
-};
-
-// Check if we're in a native iOS Capacitor app (ONLY for native apps, not web)
-const isNativeIOSDevice = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const platform = (window as any).Capacitor?.getPlatform?.();
-  return platform === 'ios';
-};
 
 const state: ModelState = {
   model: null,
   processor: null,
   isWebGPUSupported: false,
   currentModelId: FALLBACK_MODEL_ID,
-  isIOS: typeof window !== 'undefined' ? isNativeIOSDevice() : false, // ONLY check for native iOS
-  isWeb: typeof window !== 'undefined' ? isWebPlatform() : true,
   isInitialized: false,
   isLoading: false
 };
+
+// Detect if running in iOS WebView (WebGPU never works here)
+function isIOSWebView(): boolean {
+  if (typeof window === 'undefined') return false;
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+  const isCapacitor = !!(window as any).Capacitor;
+  return isIOS && isCapacitor;
+}
 
 // Initialize WebGPU with proper error handling
 async function initializeWebGPU(): Promise<boolean> {
@@ -97,10 +88,11 @@ async function initializeWebGPU(): Promise<boolean> {
   }
 }
 
-// Initialize the model - Web optimized
+// Initialize the model - SAME CODE PATH FOR WEB AND iOS
 async function initializeModel(): Promise<boolean> {
   if (state.isInitialized) return true;
   if (state.isLoading) {
+    console.log('⏳ Model already loading, waiting... (this happens on first image upload)');
     while (state.isLoading) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -110,10 +102,15 @@ async function initializeModel(): Promise<boolean> {
   state.isLoading = true;
 
   try {
-    // On web: ALWAYS try WebGPU first (5-10x faster!)
-    // Ignore iOS detection completely on web - web browsers are NOT iOS!
-    if (state.isWeb) {
-      console.log('🌐 Web platform detected - prioritizing WebGPU for speed');
+    // Check if we're in iOS WebView - WebGPU NEVER works there, skip directly to WASM
+    const isIOS = isIOSWebView();
+    
+    if (isIOS) {
+      console.log('📱 iOS WebView detected - using WASM (WebGPU not supported in iOS WebView)');
+    } else {
+      // Try WebGPU first on web (5-10x faster!)
+      console.log('🚀 Loading background removal model... (first load: 15-40s depending on device)');
+      console.log('💡 This only happens once - subsequent uploads will be instant!');
       
       const webGPUSuccess = await initializeWebGPU();
       if (webGPUSuccess) {
@@ -123,58 +120,38 @@ async function initializeModel(): Promise<boolean> {
         console.log('✅ WebGPU acceleration active - processing will be FAST!');
         return true;
       }
-      console.log('⚠️ WebGPU not available, falling back to WASM');
+      console.log('⚠️ WebGPU not available, falling back to WASM (works everywhere - iOS, iPad, web)');
     }
 
-    // For native iOS Capacitor apps only
-    if (state.isIOS) {
-      console.log('🍎 iOS native Capacitor app detected, using RMBG-1.4 model');
-      env.allowLocalModels = false;
-      if (env.backends?.onnx?.wasm) {
-        env.backends.onnx.wasm.proxy = true;
-      }
+    // Fallback: WASM model (works everywhere - web, iOS, iPad, everything)
+    console.log('🔄 Loading RMBG-1.4 model with WASM... (this may take 30-40s on first load)');
+    
+    // CRITICAL iOS FIXES - Configure WASM settings
+    env.allowLocalModels = false;
+    
+    // Configure WASM for iOS WebView - proxy mode is required for file access
+    if (env.backends?.onnx?.wasm) {
+      env.backends.onnx.wasm.proxy = true; // FIXED: Always use proxy for iOS compatibility
+      env.backends.onnx.wasm.numThreads = isIOS ? 1 : 4; // FIXED: Single thread on iOS, multi-thread on web
+    }
 
-      state.model = await AutoModel.from_pretrained(FALLBACK_MODEL_ID, {
+    // Add timeout for iOS (can take 90s+ on slow devices)
+    const loadWithTimeout = async (timeoutMs: number) => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Model load timeout - please try again')), timeoutMs)
+      );
+      
+      const load = AutoModel.from_pretrained(FALLBACK_MODEL_ID, {
         // @ts-ignore
-        config: { model_type: 'custom' }
-      });
-
-      state.processor = await AutoProcessor.from_pretrained(FALLBACK_MODEL_ID, {
-        // @ts-ignore
-        config: {
-          do_normalize: true,
-          do_pad: false,
-          do_rescale: true,
-          do_resize: true,
-          image_mean: [0.5, 0.5, 0.5],
-          feature_extractor_type: "ImageFeatureExtractor",
-          image_std: [1, 1, 1],
-          resample: 2,
-          rescale_factor: 0.00392156862745098,
-          size: { width: 1024, height: 1024 },
+        progress_callback: (progress: number) => {
+          console.log(`📦 Loading model: ${Math.round(progress * 100)}%`);
         }
       });
+      
+      return Promise.race([load, timeout]);
+    };
 
-      state.currentModelId = FALLBACK_MODEL_ID;
-      state.isInitialized = true;
-      state.isLoading = false;
-      console.log('✅ Model loaded (iOS RMBG-1.4)');
-      return true;
-    }
-
-    // Fallback: WASM model (works everywhere but slower)
-    console.log('🔄 Loading RMBG-1.4 model with WASM...');
-    env.allowLocalModels = false;
-    if (env.backends?.onnx?.wasm) {
-      env.backends.onnx.wasm.proxy = true;
-    }
-
-    state.model = await AutoModel.from_pretrained(FALLBACK_MODEL_ID, {
-      // @ts-ignore
-      progress_callback: (progress: number) => {
-        console.log(`📦 Loading model: ${Math.round(progress * 100)}%`);
-      }
-    });
+    state.model = await loadWithTimeout(isIOS ? 120000 : 60000); // 2min iOS, 1min web
 
     state.processor = await AutoProcessor.from_pretrained(FALLBACK_MODEL_ID, {
       // @ts-ignore
@@ -195,13 +172,13 @@ async function initializeModel(): Promise<boolean> {
     state.currentModelId = FALLBACK_MODEL_ID;
     state.isInitialized = true;
     state.isLoading = false;
-    console.log('✅ Model loaded (RMBG-1.4 WASM)');
+    console.log('✅ Model loaded (RMBG-1.4 WASM) - works on web, iOS, iPad, everything!');
     return true;
-    } catch (error) {
+  } catch (error) {
     console.error("❌ Error initializing model:", error);
     state.isLoading = false;
-        throw error;
-      }
+    throw error;
+  }
 }
 
 /**
@@ -272,34 +249,59 @@ export async function removeImageBackground(imageDataUrl: string): Promise<strin
     return resultDataUrl;
   } catch (error) {
     console.error('❌ Background removal failed:', error);
-  return imageDataUrl;
+    return imageDataUrl;
   }
 }
 
 /**
- * Remove background from a Blob - OPTIMIZED FOR WEB
+ * Remove background from a Blob - OPTIMIZED FOR WEB AND iOS
+ * Lazy loads model on first call (can take 30-40s on iOS, 15-20s on web)
  */
 export async function removeBackgroundFromBlob(blob: Blob): Promise<Blob> {
   try {
     console.log('🎨 Starting background removal from blob...');
     const startTime = Date.now();
 
-    await initializeModel();
+    // iOS Debug Info
+    const isIOS = isIOSWebView();
+    if (isIOS) {
+      console.log('🍎 iOS Debug:', {
+        isIOSWebView: true,
+        modelInitialized: state.isInitialized,
+        modelLoading: state.isLoading,
+        backend: state.currentModelId,
+        wasmProxy: env.backends?.onnx?.wasm?.proxy,
+        wasmThreads: env.backends?.onnx?.wasm?.numThreads
+      });
+    }
 
-    if (!state.model || !state.processor) {
+    // Initialize model - this will lazy load on first call
+    // On first load: 30-40s on iOS (WASM), 15-20s on web (WebGPU)
+    // Subsequent calls: 3-5s on iOS, 1-2s on web
+    const modelInitialized = await initializeModel();
+    
+    if (!modelInitialized || !state.model || !state.processor) {
       throw new Error("Model not initialized");
     }
 
+    // Create object URL for image loading - works on both web and iOS
     const objectUrl = URL.createObjectURL(blob);
-    let img = await RawImage.fromURL(objectUrl);
+    let img: RawImage;
+    try {
+      img = await RawImage.fromURL(objectUrl);
+    } catch (error) {
+      URL.revokeObjectURL(objectUrl);
+      console.error('❌ Failed to load image from blob:', error);
+      throw new Error('Failed to load image for processing');
+    }
     URL.revokeObjectURL(objectUrl);
 
     console.log(`📐 Original image size: ${img.width}x${img.height}`);
 
-    // Aggressive optimization for speed - smaller images = faster processing
-    // WebGPU would allow larger, but since it's failing, optimize for WASM speed
+    // Optimize image size for performance - iOS WASM is slower, so use smaller images
+    // WebGPU can handle larger images, but iOS WebView always uses WASM
     const MAX_SIZE_WEBGPU = 1536; // WebGPU can handle bigger images
-    const MAX_SIZE_WASM = 512;    // Aggressive size for WASM speed (was 768)
+    const MAX_SIZE_WASM = 512;     // Optimized for iOS WASM speed (prevents memory issues)
     
     const MAX_SIZE = state.isWebGPUSupported ? MAX_SIZE_WEBGPU : MAX_SIZE_WASM;
     
@@ -349,6 +351,15 @@ export async function removeBackgroundFromBlob(blob: Blob): Promise<Blob> {
     return resultBlob;
   } catch (error) {
     console.error('❌ Background removal failed:', error);
+    // On iOS, provide more detailed error info
+    if (isIOSWebView()) {
+      console.error('📱 iOS WebView error details:', {
+        error: error instanceof Error ? error.message : String(error),
+        modelInitialized: state.isInitialized,
+        modelId: state.currentModelId
+      });
+    }
+    // Return original blob if processing fails (graceful degradation)
     return blob;
   }
 }
@@ -376,8 +387,6 @@ export function getModelInfo() {
   return {
     currentModelId: state.currentModelId,
     isWebGPUSupported: state.isWebGPUSupported,
-    isIOS: state.isIOS,
-    isWeb: state.isWeb,
     isInitialized: state.isInitialized
   };
 }

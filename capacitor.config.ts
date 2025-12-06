@@ -5,11 +5,21 @@ type TrendzaCapacitorConfig = CapacitorConfig & {
 };
 
 const config: TrendzaCapacitorConfig = {
-  appId: 'com.genstyle.app', // This matches your bundle ID
+  appId: 'com.genstyle.app',
   appName: 'OutfitGrader AI',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
+  },
+  // CRITICAL: iOS WebView configuration for WASM/Background Removal
+  ios: {
+    contentInset: 'never',
+    // Allow external CDN access for HuggingFace model downloads
+    limitsNavigationsToAppBoundDomains: false,
+    // Disable link previews to improve performance
+    allowsLinkPreview: false,
+    // Enable scrolling (important for WASM file loading)
+    scrollEnabled: true
   },
   plugins: {
     SplashScreen: {
@@ -23,13 +33,11 @@ const config: TrendzaCapacitorConfig = {
       splashImmersive: true,
     },
     PurchasesPlugin: {
-      // RevenueCat Capacitor plugin configuration
-      apiKey: "", // Will be set dynamically from Supabase
+      apiKey: "",
       useAmazonSandbox: false,
       shouldShowInAppMessagesAutomatically: true
     },
     SignInWithApple: {
-      // Apple Sign In plugin configuration - native iOS
       clientId: 'service.com.genstyle.app',
       scopes: 'email name'
     }
