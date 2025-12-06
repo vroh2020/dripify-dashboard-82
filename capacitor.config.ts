@@ -22,6 +22,17 @@ const config: TrendzaCapacitorConfig = {
     scrollEnabled: true
   },
   plugins: {
+    Camera: {
+      photoAlbum: true,
+      allowEditing: false,
+      resultType: "base64",
+      presentationStyle: "fullscreen",
+      gallery: {
+        source: "photoLibrary",
+        presentationStyle: "popover",
+        limit: 0 // 🔥 unlimited multi-select
+      }
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,

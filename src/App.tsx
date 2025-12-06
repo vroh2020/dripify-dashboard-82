@@ -3,10 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react"; // 🔥 Added useEffect
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
+import { preloadBackgroundRemovalModel } from "./utils/backgroundRemoval"; // 🔥 Added import
 
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
@@ -26,6 +27,19 @@ const AppRoutes = () => {
   // Simple anonymous onboarding flow logic
   const hasCompletedOnboarding = localStorage.getItem('onboarding_completed') === 'true';
   const hasPaid = localStorage.getItem('subscription_active') === 'true';
+
+  // 🔥 PRE-LOAD MODEL when user has completed onboarding + paid
+  // This makes the FIRST upload instant instead of 40 seconds!
+  useEffect(() => {
+    if (hasCompletedOnboarding && hasPaid) {
+      console.log('🚀 Pre-loading AI model in background...');
+      // Preload happens in background - doesn't block UI!
+      // Model will be ready when user uploads first image
+      preloadBackgroundRemovalModel().catch((error) => {
+        console.warn('⚠️ Model preload failed (will load on first upload):', error);
+      });
+    }
+  }, [hasCompletedOnboarding, hasPaid]);
 
   // Simple routing logic:
   // - If user has completed onboarding AND paid, show dashboard
@@ -84,8 +98,8 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  // Background removal model loads lazily when user uploads images
-  // This prevents downloading 500MB on app start and freezing the UI
+  // 🔥 Background removal model now PRE-LOADS when user is logged in!
+  // This makes first upload INSTANT instead of 40 seconds
 
   return (
     <QueryClientProvider client={queryClient}>

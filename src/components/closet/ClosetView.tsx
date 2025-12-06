@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ArrowLeft, Globe, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Heart, ArrowLeft, Camera as CameraIcon, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { removeBackgroundFromBlob, isBackgroundRemovalAvailable } from '@/utils/backgroundRemoval';
+import { Capacitor } from '@capacitor/core';
 
 // Import extracted components
 import PiecesTab from './PiecesTab';
 import FitsTab from './FitsTab';
 import CollectionsTab from './CollectionsTab';
 import ItemDetailModal from './ItemDetailModal';
-import WebSearchModal from './WebSearchModal';
 
 interface ClosetItem {
   id: string;
@@ -70,7 +70,6 @@ export default function ClosetView() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ClosetItem | null>(null);
   const [showUploadOptions, setShowUploadOptions] = useState(false);
-  const [showWebSearch, setShowWebSearch] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const FREE_LIMIT = 10;
 
@@ -168,7 +167,7 @@ export default function ClosetView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Batch process multiple images with sequential background removal (model can only handle one at a time)
+  // Batch process multiple images with parallel background removal
   const processMultipleImages = async (files: File[]) => {
     if (files.length === 0) return;
     
@@ -176,6 +175,24 @@ export default function ClosetView() {
     setIsUploading(true);
 
     try {
+      // Process all images in parallel for background removal
+      const processedBlobs = await Promise.all(
+        files.map(async (file) => {
+          const blob = await file.arrayBuffer().then(b => new Blob([b], { type: file.type }));
+          
+          if (isBackgroundRemovalAvailable()) {
+            try {
+              return await removeBackgroundFromBlob(blob);
+            } catch (error) {
+              console.warn('Background removal failed for one image, using original:', error);
+              return blob;
+            }
+          }
+          return blob;
+        })
+      );
+
+      // Now process and save each image sequentially (to avoid overwhelming the API)
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
         setIsUploading(false);
@@ -183,30 +200,12 @@ export default function ClosetView() {
         return;
       }
 
-      // Process images sequentially - background removal model can only handle one at a time
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file) continue;
-        
-        setUploadProgress({ current: i, total: files.length });
-        
-        // Convert file to blob
-        const blob = await file.arrayBuffer().then(b => new Blob([b], { type: file.type }));
-        
-        // Process background removal sequentially (one at a time)
-        let processedBlob = blob;
-        if (isBackgroundRemovalAvailable()) {
-          try {
-            processedBlob = await removeBackgroundFromBlob(blob);
-          } catch (error) {
-            console.warn('Background removal failed for one image, using original:', error);
-            processedBlob = blob;
-          }
+      for (let i = 0; i < processedBlobs.length; i++) {
+        const processedBlob = processedBlobs[i];
+        if (processedBlob) {
+          setUploadProgress({ current: i + 1, total: files.length });
+          await processAndSaveImage(processedBlob, null, false); // false = don't update isUploading
         }
-        
-        // Save the image
-        setUploadProgress({ current: i + 1, total: files.length });
-        await processAndSaveImage(processedBlob, null, false); // false = don't update isUploading
       }
 
     } catch (error) {
@@ -433,33 +432,66 @@ export default function ClosetView() {
     }
   };
 
-  // Camera disabled temporarily
-  // const handleCameraCapture = async () => {
-  //   setShowUploadOptions(false);
-  //   try {
-  //     console.log('📷 Starting camera capture...');
-  //     const image = await Camera.getPhoto({
-  //       quality: 90,
-  //       allowEditing: false,
-  //       resultType: CameraResultType.DataUrl,
-  //       source: CameraSource.Camera
-  //     });
+  const handleCameraCapture = async () => {
+    setShowUploadOptions(false);
+    try {
+      const isCapacitor = Capacitor?.isNativePlatform?.() || false;
+      
+      if (!isCapacitor) {
+        // Web: Use file input with camera preference
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment';
+        input.onchange = async (e) => {
+          const files = Array.from((e.target as HTMLInputElement).files || []);
+          if (files.length > 0) {
+            await processMultipleImages(files);
+          }
+        };
+        input.click();
+        return;
+      }
 
-  //     if (!image.dataUrl) return;
+      // Native: Use Capacitor Camera with permission check
+      console.log('📷 Starting camera capture...');
+      
+      // Check camera permissions
+      const cameraPermissions = await Camera.checkPermissions();
+      if (cameraPermissions.camera !== 'granted') {
+        const requested = await Camera.requestPermissions({ permissions: ['camera'] });
+        if (requested.camera !== 'granted') {
+          console.error('Camera permission denied');
+          return;
+        }
+      }
+      
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+        correctOrientation: true,
+        width: 1024,
+        height: 1024,
+        presentationStyle: 'popover'
+      });
 
-  //     const response = await fetch(image.dataUrl);
-  //     const blob = await response.blob();
-  //     await processAndSaveImage(blob);
+      if (!image.dataUrl) return;
 
-  //   } catch (error) {
-  //     console.error('❌ Camera capture error:', error);
-  //   }
-  // };
+      const response = await fetch(image.dataUrl);
+      const blob = await response.blob();
+      await processAndSaveImage(blob);
+
+    } catch (error) {
+      console.error('❌ Camera capture error:', error);
+    }
+  };
 
   const handleGalleryUpload = async () => {
     setShowUploadOptions(false);
     try {
-      const isCapacitor = (window as any).Capacitor?.isNativePlatform?.() || false;
+      const isCapacitor = Capacitor?.isNativePlatform?.() || false;
       
       if (!isCapacitor) {
         // Web: Use file input with multiple selection
@@ -477,26 +509,79 @@ export default function ClosetView() {
         return;
       }
 
-      // Native: Capacitor doesn't support multiple selection directly
-      // So we'll allow selecting one image, but process it immediately
-      // User can select multiple times if needed
-      try {
-        const image = await Camera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: CameraResultType.DataUrl,
-          source: CameraSource.Photos
-        });
-
-        if (image.dataUrl) {
-          const response = await fetch(image.dataUrl);
-          const blob = await response.blob();
-          const file = new File([blob], 'image.jpg', { type: blob.type });
-          await processMultipleImages([file]);
+      // Native iOS: Loop to allow selecting multiple images
+      // Keep asking until user cancels or says no to adding more
+      
+      // Check photo library permissions first
+      const photoPermissions = await Camera.checkPermissions();
+      if (photoPermissions.photos !== 'granted') {
+        const requested = await Camera.requestPermissions({ permissions: ['photos'] });
+        if (requested.photos !== 'granted') {
+          console.error('Photo library permission denied');
+          return;
         }
-      } catch (error) {
-        // User cancelled or error occurred - silently handle
-        console.log('Image selection cancelled');
+      }
+      
+      const selectedImages: Blob[] = [];
+      let userWantsMore = true;
+      let isFirstImage = true;
+
+      while (userWantsMore) {
+        try {
+          const image = await Camera.getPhoto({
+            quality: 90,
+            allowEditing: false,
+            resultType: CameraResultType.DataUrl,
+            source: CameraSource.Photos,
+            correctOrientation: true,
+            width: 1024,
+            height: 1024,
+            presentationStyle: 'popover'
+          });
+
+          if (image.dataUrl) {
+            const response = await fetch(image.dataUrl);
+            const blob = await response.blob();
+            selectedImages.push(blob);
+            
+            // After each selection, ask if user wants to add more
+            // Skip confirmation for first image to make flow smoother
+            if (isFirstImage) {
+              isFirstImage = false;
+              // Automatically continue for first image
+              userWantsMore = true;
+            } else {
+              // Ask if user wants to add more after subsequent images
+              const wantsMore = window.confirm(
+                `Added ${selectedImages.length} image${selectedImages.length > 1 ? 's' : ''}.\n\nAdd another image?`
+              );
+              userWantsMore = wantsMore;
+            }
+          } else {
+            userWantsMore = false;
+          }
+        } catch (error: any) {
+          // User cancelled or error occurred - stop the loop
+          // If we have at least one image, that's fine - process what we have
+          if (selectedImages.length > 0) {
+            userWantsMore = false; // Process the images we have
+          } else {
+            // No images selected, user cancelled
+            userWantsMore = false;
+          }
+          // Don't log user cancellation as an error
+          if (!error?.message?.includes('User cancelled') && !error?.message?.includes('cancel')) {
+            console.error('Gallery selection error:', error);
+          }
+        }
+      }
+
+      if (selectedImages.length > 0) {
+        // Convert blobs to files for batch processing
+        const files = selectedImages.map((blob, index) => 
+          new File([blob], `image_${index}.jpg`, { type: blob.type || 'image/jpeg' })
+        );
+        await processMultipleImages(files);
       }
 
     } catch (error) {
@@ -504,20 +589,6 @@ export default function ClosetView() {
     }
   };
 
-  const handleWebImageSelect = async (imageUrl: string) => {
-    setShowWebSearch(false);
-    try {
-      setIsUploading(true);
-      // Proxy the image fetch if needed or fetch directly
-      // For the demo URLs, direct fetch works
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      await processAndSaveImage(blob, imageUrl);
-    } catch (error) {
-      console.error('❌ Web image fetch error:', error);
-      setIsUploading(false);
-    }
-  };
 
   const generateSmartOutfit = () => {
     if (items.length < 2) return;
@@ -895,13 +966,6 @@ export default function ClosetView() {
           />
         </AnimatePresence>
 
-        {/* Web Search Modal */}
-        <WebSearchModal
-          isOpen={showWebSearch}
-          onClose={() => setShowWebSearch(false)}
-          onSelectImage={handleWebImageSelect}
-        />
-
         {/* Upload Options Action Sheet */}
         <AnimatePresence>
           {showUploadOptions && (
@@ -925,14 +989,13 @@ export default function ClosetView() {
                   Add New Piece
                 </h3>
                 <div className="space-y-3">
-                  {/* Camera disabled temporarily */}
-                  {/* <button
+                  <button
                     onClick={handleCameraCapture}
                     className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-3"
                   >
                     <CameraIcon size={20} />
                     Take Photo
-                  </button> */}
+                  </button>
                   <button
                     onClick={handleGalleryUpload}
                     className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-3"
@@ -941,18 +1004,10 @@ export default function ClosetView() {
                     Choose from Gallery
                   </button>
                   <p className="text-xs text-gray-500 text-center -mt-2 mb-1">
-                    Select multiple images at once
+                    {Capacitor?.isNativePlatform?.() 
+                      ? 'Select multiple images from your gallery' 
+                      : 'Select multiple images at once'}
                   </p>
-                  <button
-                    onClick={() => {
-                      setShowUploadOptions(false);
-                      setShowWebSearch(true);
-                    }}
-                    className="w-full bg-gray-100 text-black font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-200 flex items-center justify-center gap-3"
-                  >
-                    <Globe size={20} />
-                    Search Online
-                  </button>
                 </div>
               </motion.div>
             </>
