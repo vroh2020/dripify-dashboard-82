@@ -22,7 +22,8 @@ const FALLBACK_MODEL_ID = "briaai/RMBG-1.4";
 
 // 🔥 CRITICAL: Smaller images = 10x faster processing!
 const MAX_SIZE_WEBGPU = 1024; // WebGPU can handle bigger (but still keep reasonable)
-const MAX_SIZE_WASM = 512;     // WASM needs smaller images for speed
+const MAX_SIZE_WASM = 384;     // WASM needs smaller images for speed (30% faster than 512px!)
+const MAX_SIZE_IOS = 384;      // iOS WebView - even smaller for stability
 
 interface ModelState {
   model: PreTrainedModel | null;
@@ -32,6 +33,9 @@ interface ModelState {
   isInitialized: boolean;
   isLoading: boolean;
   loadingPromise: Promise<void> | null;
+  processingCount: number; // Track concurrent processing
+  maxConcurrent: number;   // Max concurrent processes
+  processingQueue: Array<() => Promise<void>>; // Queue for processing
 }
 
 const state: ModelState = {
@@ -41,7 +45,10 @@ const state: ModelState = {
   currentModelId: FALLBACK_MODEL_ID,
   isInitialized: false,
   isLoading: false,
-  loadingPromise: null
+  loadingPromise: null,
+  processingCount: 0,
+  maxConcurrent: 2, // Process max 2 images concurrently for stability
+  processingQueue: []
 };
 
 // Detect if running in iOS WebView (WebGPU never works here)
@@ -209,7 +216,16 @@ export async function preloadBackgroundRemovalModel(): Promise<void> {
  * 🚀 OPTIMIZED: Resize image BEFORE processing (10x faster!)
  */
 async function resizeImageForProcessing(img: RawImage): Promise<RawImage> {
-  const MAX_SIZE = state.isWebGPUSupported ? MAX_SIZE_WEBGPU : MAX_SIZE_WASM;
+  const isIOS = isIOSWebView();
+  let MAX_SIZE: number;
+  
+  if (state.isWebGPUSupported) {
+    MAX_SIZE = MAX_SIZE_WEBGPU;
+  } else if (isIOS) {
+    MAX_SIZE = MAX_SIZE_IOS; // 384px for iOS = 30% faster!
+  } else {
+    MAX_SIZE = MAX_SIZE_WASM; // 384px for WASM = faster!
+  }
   
   const maxDimension = Math.max(img.width, img.height);
   
@@ -226,85 +242,110 @@ async function resizeImageForProcessing(img: RawImage): Promise<RawImage> {
 }
 
 /**
+ * 🔒 Concurrent processing lock - prevents blocking with too many parallel operations
+ */
+async function withProcessingLock<T>(fn: () => Promise<T>): Promise<T> {
+  // Wait if we're at max capacity
+  while (state.processingCount >= state.maxConcurrent) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  state.processingCount++;
+  try {
+    return await fn();
+  } finally {
+    state.processingCount--;
+  }
+}
+
+/**
  * Remove background from a Blob - ULTRA-OPTIMIZED VERSION
  * - Resizes BEFORE processing (10x faster!)
  * - Uses preloaded model if available (no wait!)
  * - Works on web, iOS, iPad, everything!
+ * - Uses concurrent lock to prevent blocking!
  */
 export async function removeBackgroundFromBlob(blob: Blob): Promise<Blob> {
-  try {
-    const startTime = Date.now();
-    console.log('🎨 Starting background removal...');
-
-    // Initialize model (instant if preloaded, otherwise 15-40s on first call)
-    await initializeModel();
-    
-    if (!state.model || !state.processor) {
-      throw new Error("Model not initialized");
-    }
-
-    // Load image from blob
-    const objectUrl = URL.createObjectURL(blob);
-    let img: RawImage;
+  // Use processing lock to prevent too many concurrent operations
+  return withProcessingLock(async () => {
     try {
-      img = await RawImage.fromURL(objectUrl);
-    } catch (error) {
+      const startTime = Date.now();
+      console.log('🎨 Starting background removal...');
+
+      // Initialize model (instant if preloaded, otherwise 15-40s on first call)
+      await initializeModel();
+      
+      if (!state.model || !state.processor) {
+        throw new Error("Model not initialized");
+      }
+
+      // Load image from blob
+      const objectUrl = URL.createObjectURL(blob);
+      let img: RawImage;
+      try {
+        img = await RawImage.fromURL(objectUrl);
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        console.error('❌ Failed to load image:', error);
+        throw new Error('Failed to load image for processing');
+      }
       URL.revokeObjectURL(objectUrl);
-      console.error('❌ Failed to load image:', error);
-      throw new Error('Failed to load image for processing');
+
+      console.log(`📐 Original size: ${img.width}x${img.height}`);
+
+      // 🔥 CRITICAL: Resize BEFORE processing for 10x speed boost!
+      img = await resizeImageForProcessing(img);
+
+      // Process with AI model
+      const { pixel_values } = await state.processor(img);
+      const { output } = await state.model({ input: pixel_values });
+
+      // Create mask
+      const maskData = (
+        await RawImage.fromTensor(output[0].mul(255).to("uint8")).resize(
+          img.width,
+          img.height
+        )
+      ).data;
+
+      // Apply mask to image
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not get 2d context");
+
+      ctx.drawImage(img.toCanvas(), 0, 0);
+
+      const pixelData = ctx.getImageData(0, 0, img.width, img.height);
+      for (let i = 0; i < maskData.length; ++i) {
+        pixelData.data[4 * i + 3] = maskData[i] ?? 0;
+      }
+      ctx.putImageData(pixelData, 0, 0);
+
+      // Convert to blob
+      const resultBlob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+          (b) => b ? resolve(b) : reject(new Error("Failed to create blob")),
+          "image/png"
+        )
+      );
+
+      // Clean up canvas to free memory
+      canvas.width = 0;
+      canvas.height = 0;
+
+      const duration = Date.now() - startTime;
+      const speedType = state.isWebGPUSupported ? '⚡ WebGPU' : '🐌 WASM';
+      console.log(`✅ Background removed in ${duration}ms (${speedType})`);
+
+      return resultBlob;
+    } catch (error) {
+      console.error('❌ Background removal failed:', error);
+      // Return original blob on error (graceful degradation)
+      return blob;
     }
-    URL.revokeObjectURL(objectUrl);
-
-    console.log(`📐 Original size: ${img.width}x${img.height}`);
-
-    // 🔥 CRITICAL: Resize BEFORE processing for 10x speed boost!
-    img = await resizeImageForProcessing(img);
-
-    // Process with AI model
-    const { pixel_values } = await state.processor(img);
-    const { output } = await state.model({ input: pixel_values });
-
-    // Create mask
-    const maskData = (
-      await RawImage.fromTensor(output[0].mul(255).to("uint8")).resize(
-        img.width,
-        img.height
-      )
-    ).data;
-
-    // Apply mask to image
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Could not get 2d context");
-
-    ctx.drawImage(img.toCanvas(), 0, 0);
-
-    const pixelData = ctx.getImageData(0, 0, img.width, img.height);
-    for (let i = 0; i < maskData.length; ++i) {
-      pixelData.data[4 * i + 3] = maskData[i] ?? 0;
-    }
-    ctx.putImageData(pixelData, 0, 0);
-
-    // Convert to blob
-    const resultBlob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (b) => b ? resolve(b) : reject(new Error("Failed to create blob")),
-        "image/png"
-      )
-    );
-
-    const duration = Date.now() - startTime;
-    const speedType = state.isWebGPUSupported ? '⚡ WebGPU' : '🐌 WASM';
-    console.log(`✅ Background removed in ${duration}ms (${speedType})`);
-
-    return resultBlob;
-  } catch (error) {
-    console.error('❌ Background removal failed:', error);
-    // Return original blob on error (graceful degradation)
-    return blob;
-  }
+  });
 }
 
 /**

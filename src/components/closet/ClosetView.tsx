@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ArrowLeft, Camera as CameraIcon, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { removeBackgroundFromBlob, isBackgroundRemovalAvailable } from '@/utils/backgroundRemoval';
+import { removeBackgroundFromBlob, isBackgroundRemovalAvailable, isModelLoading } from '@/utils/backgroundRemoval';
 import { Capacitor } from '@capacitor/core';
 
 // Import extracted components
@@ -71,7 +71,11 @@ export default function ClosetView() {
   const [selectedItem, setSelectedItem] = useState<ClosetItem | null>(null);
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string>(''); // Status message for user
   const FREE_LIMIT = 10;
+  
+  // Batch processing config - process 2-3 images at a time for optimal speed/stability
+  const BATCH_SIZE = 3;
 
   // Cache and loading state to prevent duplicate loads
   const loadingRef = useRef(false);
@@ -167,52 +171,100 @@ export default function ClosetView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Batch process multiple images with parallel background removal
+  // 🚀 SMART BATCH PROCESSING - Process 2-3 images at a time for optimal speed + stability!
   const processMultipleImages = async (files: File[]) => {
     if (files.length === 0) return;
     
     setUploadProgress({ current: 0, total: files.length });
+    setUploadStatus('Preparing images...');
     setIsUploading(true);
 
     try {
-      // Process all images in parallel for background removal
-      const processedBlobs = await Promise.all(
-        files.map(async (file) => {
-          const blob = await file.arrayBuffer().then(b => new Blob([b], { type: file.type }));
-          
-          if (isBackgroundRemovalAvailable()) {
-            try {
-              return await removeBackgroundFromBlob(blob);
-            } catch (error) {
-              console.warn('Background removal failed for one image, using original:', error);
-              return blob;
-            }
-          }
-          return blob;
-        })
-      );
-
-      // Now process and save each image sequentially (to avoid overwhelming the API)
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
         setIsUploading(false);
         setUploadProgress(null);
+        setUploadStatus('');
         return;
       }
 
+      // Step 1: Check if model needs loading (show status)
+      if (isModelLoading()) {
+        setUploadStatus('Loading AI Model...');
+      }
+
+      // Step 2: Process images in smart batches (2-3 at a time)
+      const processedBlobs: Blob[] = [];
+      let processedCount = 0;
+
+      // Process files in batches
+      for (let batchStart = 0; batchStart < files.length; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, files.length);
+        const batch = files.slice(batchStart, batchEnd);
+
+        // Update status message
+        if (batchStart === 0 && isModelLoading()) {
+          setUploadStatus('Loading AI Model...');
+        } else {
+          setUploadStatus(`Processing ${batchStart + 1}-${batchEnd} of ${files.length}...`);
+        }
+
+        // Process batch in parallel (limited by backgroundRemoval's concurrent lock)
+        const batchPromises = batch.map(async (file) => {
+          try {
+            const blob = await file.arrayBuffer().then(b => new Blob([b], { type: file.type }));
+            
+            if (isBackgroundRemovalAvailable()) {
+              try {
+                return await removeBackgroundFromBlob(blob);
+              } catch (error) {
+                console.warn('Background removal failed for one image, using original:', error);
+                return blob;
+              }
+            }
+            return blob;
+          } catch (error) {
+            console.error('Error processing image in batch:', error);
+            // Return original blob on error
+            const blob = await file.arrayBuffer().then(b => new Blob([b], { type: file.type }));
+            return blob;
+          }
+        });
+
+        // Wait for batch to complete
+        const batchResults = await Promise.all(batchPromises);
+        processedBlobs.push(...batchResults);
+        processedCount += batchResults.length;
+
+        // Update progress after batch completes
+        setUploadProgress({ current: processedCount, total: files.length });
+      }
+
+      // Step 3: Upload and save images sequentially (to avoid overwhelming API)
+      setUploadStatus('Uploading to closet...');
+      
       for (let i = 0; i < processedBlobs.length; i++) {
         const processedBlob = processedBlobs[i];
         if (processedBlob) {
-          setUploadProgress({ current: i + 1, total: files.length });
           await processAndSaveImage(processedBlob, null, false); // false = don't update isUploading
+          
+          // ✅ FIXED: Update progress AFTER processing completes (not before!)
+          setUploadProgress({ current: i + 1, total: files.length });
         }
       }
 
+      setUploadStatus('Complete!');
+      
+      // Brief delay to show completion
+      await new Promise(resolve => setTimeout(resolve, 500));
+
     } catch (error) {
       console.error('❌ Batch upload error:', error);
+      setUploadStatus('Error occurred. Please try again.');
     } finally {
       setIsUploading(false);
       setUploadProgress(null);
+      setUploadStatus('');
     }
   };
 
@@ -1034,8 +1086,8 @@ export default function ClosetView() {
                   <h3 className="text-xl font-bold text-black mb-2" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
                     Processing Images
                   </h3>
-                  <p className="text-gray-600 mb-4">
-                    Removing backgrounds and uploading...
+                  <p className="text-gray-600 mb-4 min-h-[1.5rem]">
+                    {uploadStatus || 'Removing backgrounds and uploading...'}
                   </p>
                   <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                     <motion.div

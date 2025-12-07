@@ -9,6 +9,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
+import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
 
 
 const Index = () => {
@@ -22,6 +23,14 @@ const Index = () => {
       navigate('/scan', { replace: true });
     }
   }, [location.pathname, navigate]);
+
+  // 🚀 PRE-LOAD MODEL as soon as user hits dashboard for instant uploads!
+  useEffect(() => {
+    console.log('🚀 Dashboard loaded - pre-loading AI model in background...');
+    preloadBackgroundRemovalModel().catch((error) => {
+      console.warn('⚠️ Model preload failed (will load on first upload):', error);
+    });
+  }, []); // Run once when dashboard mounts
 
   const handleTabChange = (value: string) => {
     navigate(`/${value}`);

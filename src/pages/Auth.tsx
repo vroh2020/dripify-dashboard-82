@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { Logger } from "@/utils/logger";
 import { handleError } from "@/utils/errorHandler";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from '@capacitor/core';
+import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
 
 // Import onboarding step components
 import { WelcomeHeroStep } from "../components/onboarding/steps/WelcomeHeroStep";
@@ -41,6 +42,9 @@ export const AuthOnboardingWizard = () => {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [onboardingData, setOnboardingData] = useState<any>({});
+  
+  // Track if model preload has started (prevent duplicate calls)
+  const modelPreloadStartedRef = useRef<boolean>(false);
 
   // Get current user ID (no creation - let NewWelcomeStep handle that)
   const getCurrentUserId = async () => {
@@ -221,6 +225,36 @@ export const AuthOnboardingWizard = () => {
     }
   }, [step, userId]);
 
+  // 🚀 PRELOAD MODEL DURING ONBOARDING - Early trigger on photo capture (Step 11)
+  // Gives maximum time for model to download while user is still in onboarding
+  useEffect(() => {
+    if (step === 11 && !modelPreloadStartedRef.current) {
+      modelPreloadStartedRef.current = true;
+      console.log('🚀 [Onboarding] Starting early model preload during photo capture step...');
+      
+      // Start preload in background - doesn't block UI
+      preloadBackgroundRemovalModel().catch((error) => {
+        console.warn('⚠️ [Onboarding] Early model preload failed (will retry later):', error);
+        // Reset flag so we can try again after payment
+        modelPreloadStartedRef.current = false;
+      });
+    }
+  }, [step]);
+
+  // 🚀 PRELOAD MODEL DURING ONBOARDING - Backup trigger after payment (Step 14)
+  // Ensures model starts loading even if user rushed through early steps
+  useEffect(() => {
+    if (step === 14 && !modelPreloadStartedRef.current) {
+      modelPreloadStartedRef.current = true;
+      console.log('🚀 [Onboarding] Starting model preload after payment (backup trigger)...');
+      
+      // Start preload in background - doesn't block UI
+      preloadBackgroundRemovalModel().catch((error) => {
+        console.warn('⚠️ [Onboarding] Backup model preload failed (will load on first upload):', error);
+      });
+    }
+  }, [step]);
+
   // Onboarding handlers
   const handleGender = async (gender: string) => {
     setOnboardingData(prev => ({ ...prev, gender }));
@@ -374,6 +408,9 @@ export const AuthOnboardingWizard = () => {
         title: "Welcome to OutfitGrader AI!",
         description: "Your account is now active.",
       });
+      
+      // Note: Model should already be preloading from Step 11 or Step 14
+      // By the time user reaches dashboard, model will be ready for instant uploads!
       
       // Navigate to main app
       setTimeout(() => {

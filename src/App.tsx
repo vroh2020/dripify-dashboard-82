@@ -3,11 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy, useEffect } from "react"; // 🔥 Added useEffect
+import { Suspense, lazy } from "react";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
-import { preloadBackgroundRemovalModel } from "./utils/backgroundRemoval"; // 🔥 Added import
 
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
@@ -28,18 +27,8 @@ const AppRoutes = () => {
   const hasCompletedOnboarding = localStorage.getItem('onboarding_completed') === 'true';
   const hasPaid = localStorage.getItem('subscription_active') === 'true';
 
-  // 🔥 PRE-LOAD MODEL when user has completed onboarding + paid
-  // This makes the FIRST upload instant instead of 40 seconds!
-  useEffect(() => {
-    if (hasCompletedOnboarding && hasPaid) {
-      console.log('🚀 Pre-loading AI model in background...');
-      // Preload happens in background - doesn't block UI!
-      // Model will be ready when user uploads first image
-      preloadBackgroundRemovalModel().catch((error) => {
-        console.warn('⚠️ Model preload failed (will load on first upload):', error);
-      });
-    }
-  }, [hasCompletedOnboarding, hasPaid]);
+  // Note: Model preloading is now handled in Index.tsx (dashboard container)
+  // This ensures preload happens as soon as user hits the dashboard
 
   // Simple routing logic:
   // - If user has completed onboarding AND paid, show dashboard
