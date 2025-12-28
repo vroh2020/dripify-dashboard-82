@@ -146,14 +146,26 @@ export const SecondPaywall = ({ onContinue, onSkip }: SecondPaywallProps) => {
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">
       {/* X Button - Top Right */}
+      {/* X Button - Top Right with Safe Area Support */}
       <button
         onClick={handleSkip}
-        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors z-10"
+        className="absolute rounded-full bg-white/90 hover:bg-gray-100 flex items-center justify-center transition-all z-50 shadow-lg border border-gray-200"
+        style={{
+          top: `max(16px, calc(16px + env(safe-area-inset-top)))`,
+          right: `max(16px, calc(16px + env(safe-area-inset-right)))`,
+          width: '44px',
+          height: '44px',
+        }}
       >
-        <X className="w-5 h-5 text-gray-600" />
+        <X className="w-6 h-6 text-gray-700" strokeWidth={2.5} />
       </button>
 
-      <div className="flex-1 flex flex-col px-6 pt-16 pb-8">
+      <div 
+        className="flex-1 flex flex-col px-6 pb-8"
+        style={{
+          paddingTop: `max(52px, calc(52px + env(safe-area-inset-top)))`
+        }}
+      >
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

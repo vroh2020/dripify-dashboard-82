@@ -489,15 +489,52 @@
     will-change: transform;
   }
 
-  /* Dynamic viewport height */
+  /* Dynamic viewport height - iOS compatible */
   .min-h-screen-safe {
     min-height: 100vh;
-    min-height: 100dvh;
+    min-height: -webkit-fill-available; /* iOS Safari fallback */
+    min-height: 100dvh; /* Modern browsers */
   }
 
   .h-screen-safe {
     height: 100vh;
-    height: 100dvh;
+    height: -webkit-fill-available; /* iOS Safari fallback */
+    height: 100dvh; /* Modern browsers */
+  }
+  
+  /* Comprehensive safe area support for ALL iOS versions */
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  .safe-area-inset-left {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  
+  .safe-area-inset-right {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  
+  .safe-area-insets {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  
+  /* Full screen safe area container */
+  .screen-safe {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
 
   /* ========================================
@@ -580,11 +617,44 @@
     }
   }
   
-  /* Specific fixes for iPhone X and older */
+  /* Comprehensive safe area fixes for ALL iOS devices */
   @supports (padding: max(0px)) {
     body {
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
+      /* Safe area insets for notch/Dynamic Island (iPhone X+) */
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
+      padding-top: max(0px, env(safe-area-inset-top));
+      padding-bottom: max(0px, env(safe-area-inset-bottom));
+    }
+  }
+  
+  /* Fallback for older iOS versions without safe-area-inset support */
+  @supports not (padding: env(safe-area-inset-top)) {
+    /* iPhone 8 and older - no notch, standard status bar */
+    body {
+      padding-top: 20px; /* Standard status bar height */
+    }
+    
+    @media screen and (max-width: 375px) {
+      body {
+        padding-top: 20px;
+      }
+    }
+  }
+  
+  /* Fix for Dynamic Island (iPhone 14 Pro+) */
+  @supports (padding: env(safe-area-inset-top)) {
+    /* Ensure content doesn't overlap Dynamic Island */
+    .has-dynamic-island {
+      padding-top: max(47px, env(safe-area-inset-top));
+    }
+  }
+  
+  /* Landscape orientation fixes */
+  @media screen and (orientation: landscape) {
+    body {
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
     }
   }
 }

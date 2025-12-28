@@ -49,6 +49,18 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- iOS UI Compatibility - Works with all iOS versions -->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDarkContent</string>
+	<!-- Support for safe areas (iOS 11+) -->
+	<key>UIRequiresFullScreen</key>
+	<false/>
+	<!-- Prevent status bar issues on older iOS -->
+	<key>UIStatusBarHidden</key>
+	<false/>
+	<!-- Support for notched devices (iPhone X+) -->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
