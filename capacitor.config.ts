@@ -61,7 +61,8 @@ const config: TrendzaCapacitorConfig = {
     'CAPCameraPlugin',
     'PreferencesPlugin',
     'SplashScreenPlugin',
-    'PurchasesPlugin'
+    'PurchasesPlugin',
+    'BackgroundRemovalPlugin'
   ]
 };
 

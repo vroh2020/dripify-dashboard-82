@@ -1,174 +1,65 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ExternalLink, Check, Lock, Bell, Crown } from "lucide-react";
+import { RefreshCw, ExternalLink, Check, Lock, Bell, Crown, X } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProOfferCardProps {
   onContinue: () => void;
+  onShowSecondPaywall: () => void;
 }
 
-// Plan configuration - now dynamic from RevenueCat
-const getPlanConfig = (offerings: any) => {
-  if (!offerings || offerings.length === 0) {
-    // Fallback config if offerings not loaded
-    return {
-      weekly: {
-        identifier: "og_499_1w",
-        title: "Weekly Subscription of 4.99",
-        price: "$4.99",
-        period: "/week",
-        length: "1 week",
-        label: null,
-        savings: null,
-        hasTrial: true,
-        trialDays: 3,
-        trialText: "3-day free trial, then $4.99/week",
-        fallback: {
-          identifier: "og_499_1w",
-          title: "Weekly Subscription of 4.99",
-          description: "Weekly subscription for unlimited style analyses",
-          price: 4.99,
-          priceString: "$4.99",
-          currencyCode: "USD",
-          subscriptionPeriod: "P1W",
-        }
-      },
-      monthly: {
-        identifier: "og_999_1m", 
-        title: "Monthly Subscription of 9.99",
-        price: "$9.99",
-        period: "/month",
-        length: "1 month",
-        label: null,
-        savings: null,
-        hasTrial: false,
-        trialDays: 0,
-        trialText: "$9.99/month",
-        fallback: {
-          identifier: "og_999_1m",
-          title: "Monthly Subscription of 9.99",
-          description: "Monthly subscription for unlimited style analyses",
-          price: 9.99,
-          priceString: "$9.99",
-          currencyCode: "USD",
-          subscriptionPeriod: "P1M",
-        }
-      }
-    };
-  }
-
-  const packages = offerings[0]?.availablePackages || [];
-  const config = {
-    weekly: {
-      identifier: "og_499_1w",
-      title: "Weekly Subscription of 4.99",
-      price: "$4.99",
-      period: "/week",
-      length: "1 week",
-      label: null,
-      savings: null,
-      hasTrial: true,
-      trialDays: 3,
-      trialText: "3-day free trial, then $4.99/week",
-      fallback: {
-        identifier: "og_499_1w",
-        title: "Weekly Subscription of 4.99",
-        description: "Weekly subscription for unlimited style analyses",
-        price: 4.99,
-        priceString: "$4.99",
-        currencyCode: "USD",
-        subscriptionPeriod: "P1W",
-      }
-    },
-    monthly: {
-      identifier: "og_999_1m", 
-      title: "Monthly Subscription of 9.99",
-      price: "$9.99",
-      period: "/month",
-      length: "1 month",
-      label: null,
-      savings: null,
-      hasTrial: false,
-      trialDays: 0,
-      trialText: "$9.99/month",
-      fallback: {
-        identifier: "og_999_1m",
-        title: "Monthly Subscription of 9.99",
-        description: "Monthly subscription for unlimited style analyses",
-        price: 9.99,
-        priceString: "$9.99",
-        currencyCode: "USD",
-        subscriptionPeriod: "P1M",
-      }
-    }
-  };
-
-  packages.forEach((pkg: any) => {
-    const product = pkg.product;
-    const identifier = product.identifier;
-    
-    if (identifier.includes('1w')) {
-      config.weekly = {
-        identifier: identifier,
-        title: product.title || "Weekly Subscription",
-        price: product.priceString || "$4.99",
-        period: product.subscriptionPeriod === 'P1W' ? "/week" : "/period",
-        length: "1 week",
-        label: null,
-        savings: null,
-        hasTrial: true,
-        trialDays: 3,
-        trialText: `3-day free trial, then ${product.priceString || "$4.99"}/week`,
-        fallback: {
-          identifier: identifier,
-          title: product.title || "Weekly Subscription",
-          description: "Weekly subscription for unlimited style analyses",
-          price: product.price || 4.99,
-          priceString: product.priceString || "$4.99",
-          currencyCode: product.currencyCode || "USD",
-          subscriptionPeriod: product.subscriptionPeriod || "P1W",
-        }
-      };
-    } else if (identifier.includes('1m')) {
-      config.monthly = {
-        identifier: identifier,
-        title: product.title || "Monthly Subscription",
-        price: product.priceString || "$9.99",
-        period: product.subscriptionPeriod === 'P1M' ? "/month" : "/period",
-        length: "1 month",
-        label: null,
-        savings: null,
-        hasTrial: false,
-        trialDays: 0,
-        trialText: `${product.priceString || "$9.99"}/month`,
-        fallback: {
-          identifier: identifier,
-          title: product.title || "Monthly Subscription",
-          description: "Monthly subscription for unlimited style analyses",
-          price: product.price || 9.99,
-          priceString: product.priceString || "$9.99",
-          currencyCode: product.currencyCode || "USD",
-          subscriptionPeriod: product.subscriptionPeriod || "P1M",
-        }
-      };
-    }
-  });
-
-  return config;
+// Calculate billing date (3 days from now)
+const getBillingDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 3);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-// Plan Option Component - Side-by-side Design (White Theme)
-const PlanOption = ({ planKey, isSelected, onSelect, offerings }: { 
-  planKey: string; 
+// Get plan config from RevenueCat offerings
+const getPlanConfig = (offerings: any) => {
+  const premiumOffering = offerings?.find((o: any) => o.identifier === 'new_paywall');
+  const packages = premiumOffering?.availablePackages || [];
+  
+  const monthlyPkg = packages.find((p: any) => p.identifier === '$rc_monthly');
+  const yearlyPkg = packages.find((p: any) => p.identifier === '$rc_annual');
+  
+  return {
+    monthly: {
+      identifier: monthlyPkg?.product?.identifier || "og_999_1m",
+      title: "Monthly",
+      price: monthlyPkg?.product?.priceString || "$9.99",
+      period: "/mo",
+      package: monthlyPkg
+    },
+    yearly: {
+      identifier: yearlyPkg?.product?.identifier || "og_yearly_2999_1y",
+      title: "Yearly",
+      price: yearlyPkg?.product?.priceString || "$2.49",
+      period: "/mo",
+      hasTrial: true,
+      package: yearlyPkg
+    }
+  };
+};
+
+// Plan Option Component
+const PlanOption = ({ 
+  planKey, 
+  isSelected, 
+  onSelect, 
+  offerings 
+}: { 
+  planKey: 'monthly' | 'yearly'; 
   isSelected: boolean; 
-  onSelect: (key: 'weekly' | 'monthly') => void;
+  onSelect: (key: 'monthly' | 'yearly') => void;
   offerings: any;
 }) => {
   const config = getPlanConfig(offerings);
-  const planConfig = config[planKey as 'weekly' | 'monthly'];
+  const planConfig = config[planKey];
   
   return (
     <button 
@@ -177,20 +68,20 @@ const PlanOption = ({ planKey, isSelected, onSelect, offerings }: {
           ? 'border-black bg-black text-white' 
           : 'border-gray-200 bg-white text-black hover:border-gray-300'
       }`}
-      onClick={() => onSelect(planKey as 'weekly' | 'monthly')}
+      onClick={() => onSelect(planKey)}
     >
-      {/* 3 DAYS FREE Badge for weekly */}
-      {planKey === 'weekly' && (
+      {/* 3 DAYS FREE Badge for yearly */}
+      {planKey === 'yearly' && (
         <div className="absolute -top-2 -right-2 bg-black text-white text-xs font-bold px-2 py-1 rounded">
           3 DAYS FREE
         </div>
       )}
       <div className="text-left">
         <p className="font-semibold text-base mb-1">
-          {planKey === 'weekly' ? 'Weekly' : 'Monthly'}
+          {planConfig.title}
         </p>
         <p className="text-sm">
-          {planKey === 'weekly' ? `${planConfig.price} /week` : `${planConfig.price} /mo`}
+          {planConfig.price} {planConfig.period}
         </p>
       </div>
       <div className="flex justify-end mt-2">
@@ -208,13 +99,6 @@ const PlanOption = ({ planKey, isSelected, onSelect, offerings }: {
       </div>
     </button>
   );
-};
-
-// Calculate billing date (3 days from now)
-const getBillingDate = () => {
-  const date = new Date();
-  date.setDate(date.getDate() + 3);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 // Error Message Component
@@ -263,7 +147,15 @@ const LegalLinks = () => {
 };
 
 // Restore Purchases Button Component
-const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRestore: any; isRestoring: any; restoreMsg: any }) => {
+const RestorePurchasesButton = ({ 
+  onRestore, 
+  isRestoring, 
+  restoreMsg 
+}: { 
+  onRestore: any; 
+  isRestoring: any; 
+  restoreMsg: any 
+}) => {
   const isNativePlatform = () => {
     return !!(window as any).Capacitor || 
            !!(window as any).cordova || 
@@ -288,7 +180,7 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
       >
         {isRestoring ? (
           <div className="flex items-center justify-center gap-2">
-            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            <div className="w-3 h-3 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin"></div>
             <span className="text-xs">Restoring Purchases...</span>
           </div>
         ) : (
@@ -332,19 +224,64 @@ const RestorePurchasesButton = ({ onRestore, isRestoring, restoreMsg }: { onRest
   );
 };
 
-// Main Component - The subscription gateway
-export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
+// Track paywall interactions
+const trackPaywallEvent = async (userId: string, event: string, data: any = {}) => {
+  try {
+    // Get current step_data
+    const { data: currentData } = await supabase
+      .from('onboarding_v2')
+      .select('step_data')
+      .eq('user_id', userId)
+      .single();
+    
+    const stepData = (currentData?.step_data as any) || {};
+    const paywallTracking = stepData.paywall_tracking || {};
+    
+    // Add new event
+    paywallTracking[event] = {
+      ...data,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Update with merged data
+    await supabase
+      .from('onboarding_v2')
+      .update({
+        step_data: {
+          ...stepData,
+          paywall_tracking: paywallTracking
+        }
+      })
+      .eq('user_id', userId);
+    
+    console.log('✅ Paywall event tracked:', event, data);
+  } catch (error) {
+    console.error('❌ Failed to track paywall event:', error);
+  }
+};
+
+// Main Component
+export const ProOfferCard = ({ onContinue, onShowSecondPaywall }: ProOfferCardProps) => {
   const { offerings, purchaseProduct, isPro, restorePurchases } = useSubscription();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   
-  // ALL hooks must be called before any conditional returns
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('weekly'); // Default to trial option
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly'); // Default to yearly (trial)
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreMsg, setRestoreMsg] = useState('');
   const [shouldContinueAfterRestore, setShouldContinueAfterRestore] = useState(false);
+
+  // Track paywall 1 view on mount
+  useEffect(() => {
+    if (user?.id) {
+      trackPaywallEvent(user.id, 'paywall_1_viewed', {
+        offerings_loaded: !!offerings,
+        default_plan: 'yearly'
+      });
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (shouldContinueAfterRestore && isPro) {
@@ -359,39 +296,34 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   }, [user]);
   
-  // Show loading state while auth is initializing
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white/70 text-sm">Loading your experience...</p>
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-sm">Loading your experience...</p>
         </div>
       </div>
     );
   }
   
-  // Show error state if no user after loading
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-400 text-xl">!</span>
+          <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-600 text-xl">!</span>
           </div>
-          <p className="text-white/70 text-sm mb-2">Authentication Error</p>
-          <p className="text-white/50 text-xs">Please refresh the page and try again</p>
+          <p className="text-gray-600 text-sm mb-2">Authentication Error</p>
+          <p className="text-gray-500 text-xs">Please refresh the page and try again</p>
         </div>
       </div>
     );
   }
 
-  const getProduct = (planKey: 'weekly' | 'monthly') => {
+  const getProduct = (planKey: 'monthly' | 'yearly') => {
     const config = getPlanConfig(offerings)[planKey];
-    const product = offerings?.[0]?.availablePackages?.find(
-      (pkg: any) => pkg.product.identifier === config.identifier
-    );
-    return product || config.fallback;
+    return config.package;
   };
 
   const handlePurchase = async () => {
@@ -400,11 +332,27 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     setIsProcessing(true);
     setHasError(false);
     
+    // Track purchase attempt
+    if (user?.id) {
+      trackPaywallEvent(user.id, 'paywall_1_purchase_attempt', {
+        plan: selectedPlan,
+        plan_details: getPlanConfig(offerings)[selectedPlan]
+      });
+    }
+    
     try {
       const selectedProduct = getProduct(selectedPlan);
       const success = await purchaseProduct(selectedProduct);
       
       if (success) {
+        // Track successful purchase
+        if (user?.id) {
+          trackPaywallEvent(user.id, 'paywall_1_purchase_success', {
+            plan: selectedPlan,
+            tier: 'pro'
+          });
+        }
+        
         toast({ 
           title: "Welcome to Pro!", 
           description: "Your subscription is now active." 
@@ -412,10 +360,26 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
         setTimeout(onContinue, 1000);
       } else {
         setHasError(true);
+        
+        // Track failed purchase
+        if (user?.id) {
+          trackPaywallEvent(user.id, 'paywall_1_purchase_failed', {
+            plan: selectedPlan,
+            reason: 'purchase_returned_false'
+          });
+        }
       }
     } catch (error) {
       console.error("Purchase error:", error);
       setHasError(true);
+      
+      // Track error
+      if (user?.id) {
+        trackPaywallEvent(user.id, 'paywall_1_purchase_error', {
+          plan: selectedPlan,
+          error: String(error)
+        });
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -449,8 +413,28 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
     }
   };
 
+  const handleShowSecondPaywall = () => {
+    // Track X button click
+    if (user?.id) {
+      trackPaywallEvent(user.id, 'paywall_1_dismissed', {
+        selected_plan_at_dismiss: selectedPlan,
+        action: 'clicked_x_button'
+      });
+    }
+    
+    onShowSecondPaywall();
+  };
+
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col relative">
+      {/* X Button - Top Right */}
+      <button
+        onClick={handleShowSecondPaywall}
+        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors z-10"
+      >
+        <X className="w-5 h-5 text-gray-600" />
+      </button>
+
       <div className="flex-1 flex flex-col px-6 pt-12 pb-8">
         {/* Header */}
         <motion.h1
@@ -491,7 +475,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             <div className="flex-1">
               <p className="text-black font-semibold text-base mb-1">In 2 Days - Reminder</p>
               <p className="text-gray-600 text-sm leading-relaxed">
-                We&apos;ll send you a reminder that your trial is ending soon.
+                We'll send you a reminder that your trial is ending soon.
               </p>
             </div>
           </div>
@@ -504,7 +488,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
             <div className="flex-1">
               <p className="text-black font-semibold text-base mb-1">In 3 Days - Billing Starts</p>
               <p className="text-gray-600 text-sm leading-relaxed">
-                You&apos;ll be charged on {getBillingDate()} unless you cancel anytime before.
+                You'll be charged on {getBillingDate()} unless you cancel anytime before.
               </p>
             </div>
           </div>
@@ -518,12 +502,12 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           className="mb-6"
         >
           <div className="flex gap-3">
-            {(['monthly', 'weekly'] as Array<'monthly' | 'weekly'>).map((planKey) => (
+            {(['monthly', 'yearly'] as Array<'monthly' | 'yearly'>).map((planKey) => (
               <PlanOption
                 key={planKey}
                 planKey={planKey}
                 isSelected={selectedPlan === planKey}
-                onSelect={(key: 'weekly' | 'monthly') => setSelectedPlan(key)}
+                onSelect={setSelectedPlan}
                 offerings={offerings}
               />
             ))}
@@ -566,7 +550,7 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
               <RefreshCw className="w-4 h-4" />
               <span>Try Again</span>
             </div>
-          ) : selectedPlan === 'weekly' ? (
+          ) : selectedPlan === 'yearly' ? (
             <span>Start My 3-Day Free Trial</span>
           ) : (
             <span>Start My Journey</span>
@@ -580,8 +564,8 @@ export const ProOfferCard = ({ onContinue }: ProOfferCardProps) => {
           transition={{ delay: 0.5, duration: 0.5 }}
           className="text-center text-sm text-gray-500 mb-4"
         >
-          {selectedPlan === 'weekly' 
-            ? '3 days free, then $4.99 per week'
+          {selectedPlan === 'yearly' 
+            ? '3 days free, then $29.99 per year'
             : 'Just $9.99 per month'
           }
         </motion.p>

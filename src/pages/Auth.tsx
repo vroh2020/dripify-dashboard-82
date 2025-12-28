@@ -22,6 +22,7 @@ import { ColorAnalysisIntroStep } from "../components/onboarding/steps/ColorAnal
 import { PersonalizingStep } from "../components/onboarding/steps/PersonalizingStep";
 import { FreeTrialPaywallStep } from "../components/onboarding/steps/FreeTrialPaywallStep";
 import { ProOfferCard } from "../components/onboarding/ProOfferCard";
+import { SecondPaywall } from "../components/onboarding/SecondPaywall";
 
 
 export const AuthOnboardingWizard = () => {
@@ -36,6 +37,9 @@ export const AuthOnboardingWizard = () => {
     setStepState(n);
     localStorage.setItem(stepKey, String(n));
   };
+
+  // Paywall step tracking
+  const [paywallStep, setPaywallStep] = useState<'first' | 'second' | 'free'>('first');
 
   // State for onboarding data
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -366,58 +370,111 @@ export const AuthOnboardingWizard = () => {
     setStep(14); // Go directly to ProOfferCard (skip TrialTimelineStep)
   };
 
-  const handlePaywallComplete = async (tier: string) => {
+  const handlePaywallComplete = async (tier: string, paywallSource: 'paywall_1' | 'paywall_2' | 'free' = 'paywall_1') => {
+    console.log('🎯 handlePaywallComplete called with:', { tier, paywallSource });
+    
     try {
       if (userId) {
+        console.log('💾 Saving paywall completion data for user:', userId);
+        // Save comprehensive paywall completion data
         saveOnboardingStep('paywall_completed', { 
           subscriptionTier: tier,
-          completedAt: new Date().toISOString()
+          paywallSource,
+          completedAt: new Date().toISOString(),
+          finalDecision: tier === 'free' ? 'skipped_both_paywalls' : `purchased_${paywallSource}`
         }).catch(console.error);
-        trackUserAction('paywall_completed', { tier, step: 14 }).catch(console.error);
+        
+        trackUserAction('paywall_completed', { 
+          tier, 
+          step: 14,
+          paywallSource,
+          decision: tier
+        }).catch(console.error);
       }
       
       // Mark onboarding as completed
+      console.log('💾 Setting localStorage values...');
       localStorage.setItem('onboarding_completed', 'true');
-      localStorage.setItem('subscription_active', 'true');
+      // For free tier, still mark as "active" so they can access the app
+      localStorage.setItem('subscription_active', 'true'); // Always true - free users can still use app
+      localStorage.setItem('subscription_tier', tier);
+      console.log('✅ localStorage updated');
         
-      // Mark as completed in database
+      // Mark as completed in database with tier tracking
       if (userId) {
           try {
+          console.log('📝 Updating database...');
+          
+          // First, try to get current step_data
+          const { data: currentData, error: fetchError } = await supabase
+            .from('onboarding_v2')
+            .select('step_data')
+            .eq('user_id', userId)
+            .maybeSingle();
+          
+          if (fetchError) {
+            console.warn('⚠️ Could not fetch step_data:', fetchError);
+          }
+          
+          const stepData = (currentData?.step_data as any) || {};
+          
+          // Add final paywall state
+          const updatedStepData = {
+            ...stepData,
+            paywall_final_state: {
+              tier,
+              paywallSource,
+              timestamp: new Date().toISOString(),
+              userJourney: paywallSource === 'paywall_2' ? 'dismissed_paywall_1_then_purchased' : 
+                           paywallSource === 'free' ? 'dismissed_both_paywalls' : 'purchased_paywall_1'
+            }
+          };
+          
+          // Update with upsert to handle missing row
           const { error } = await supabase
               .from('onboarding_v2')
-              .update({
+              .upsert({
+                user_id: userId,
                 completed: true,
                 completed_at: new Date().toISOString(),
-              subscription_tier: tier,
-                current_step: 'completed'
-              })
-              .eq('user_id', userId);
+                current_step: 'completed',
+                step_data: updatedStepData
+              }, {
+                onConflict: 'user_id'
+              });
           
           if (error) {
             console.error('❌ Database error:', error);
+            // Don't throw - continue anyway
           } else {
-            console.log('✅ Onboarding completed successfully');
+            console.log('✅ Database updated successfully with tier:', tier);
           }
         } catch (dbError) {
-          console.error('❌ Failed to save onboarding:', dbError);
+          console.error('❌ Failed to save to database:', dbError);
           // Don't throw - let user continue even if DB save fails
         }
       }
       
+      console.log('📢 Showing toast notification...');
       toast({
-        title: "Welcome to OutfitGrader AI!",
-        description: "Your account is now active.",
+        title: tier === 'free' ? "Welcome to OutfitGrader AI!" : "Welcome to Premium!",
+        description: tier === 'free' 
+          ? "You have 3 free outfit ratings per month." 
+          : "Your subscription is now active.",
       });
       
       // Note: Model should already be preloading from Step 11 or Step 14
       // By the time user reaches dashboard, model will be ready for instant uploads!
       
       // Navigate to main app
+      console.log('🚀 Navigating to /scan in 1 second...');
       setTimeout(() => {
+        console.log('🚀 NAVIGATING NOW to /scan');
         window.location.href = '/scan';
       }, 1000);
       
     } catch (error) {
+      console.error('❌ Error in handlePaywallComplete:', error);
       handleError(error, 'Auth:handlePaywallComplete');
     }
   };
@@ -542,12 +599,33 @@ export const AuthOnboardingWizard = () => {
           />
         )}
         
-        {step === 14 && (
+        {step === 14 && paywallStep === 'first' && (
           <ProOfferCard 
             key="pro-offer-card"
             onContinue={() => {
-              // ProOfferCard handles purchase internally, just complete onboarding
-              handlePaywallComplete('pro');
+              // User purchased from first paywall
+              handlePaywallComplete('pro', 'paywall_1');
+            }}
+            onShowSecondPaywall={() => {
+              // User clicked X, show second paywall
+              console.log('🔄 User dismissed paywall 1, showing paywall 2');
+              setPaywallStep('second');
+            }}
+          />
+        )}
+
+        {step === 14 && paywallStep === 'second' && (
+          <SecondPaywall
+            key="second-paywall"
+            onContinue={() => {
+              // User purchased from second paywall
+              handlePaywallComplete('budget', 'paywall_2');
+            }}
+            onSkip={() => {
+              // User skipped both paywalls, give them free version
+              console.log('🆓 User dismissed paywall 2, entering free tier');
+              setPaywallStep('free');
+              handlePaywallComplete('free', 'free');
             }}
           />
         )}
