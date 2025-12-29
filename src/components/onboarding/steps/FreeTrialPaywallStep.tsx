@@ -84,7 +84,7 @@ export const FreeTrialPaywallStep = ({ onComplete }: FreeTrialPaywallStepProps) 
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-center text-sm text-gray-500 mb-6"
         >
-          Enjoy OutfitGrader AI now. We&apos;ll notify you before any billing starts so you can cancel anytime.
+          Enjoy trendza now. We&apos;ll notify you before any billing starts so you can cancel anytime.
         </motion.p>
 
         {/* Sliding Image Carousel - Smaller, compact */}

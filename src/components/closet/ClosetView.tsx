@@ -74,8 +74,8 @@ export default function ClosetView() {
   const [uploadStatus, setUploadStatus] = useState<string>(''); // Status message for user
   const FREE_LIMIT = 10;
   
-  // Batch processing config - SINGLE IMAGE AT A TIME for best quality + speed!
-  const BATCH_SIZE = 1; // Process one image at a time - highest quality!
+  // Batch processing config - process multiple images efficiently
+  const BATCH_SIZE = 3; // Process images in batches for better throughput
 
   // Cache and loading state to prevent duplicate loads
   const loadingRef = useRef(false);
@@ -546,11 +546,11 @@ export default function ClosetView() {
       const isCapacitor = Capacitor?.isNativePlatform?.() || false;
       
       if (!isCapacitor) {
-        // Web: Use file input - SINGLE IMAGE ONLY for speed!
+        // Web: Use file input with multiple selection enabled
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        input.multiple = false; // 🔥 DISABLED - Single image for FAST processing!
+        input.multiple = true; // Allow multiple image selection
         input.onchange = async (e) => {
           const files = Array.from((e.target as HTMLInputElement).files || []);
           if (files.length > 0) {

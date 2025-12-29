@@ -6,7 +6,7 @@ type TrendzaCapacitorConfig = CapacitorConfig & {
 
 const config: TrendzaCapacitorConfig = {
   appId: 'com.genstyle.app',
-  appName: 'OutfitGrader AI',
+  appName: 'trendza',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

@@ -108,7 +108,7 @@ export const NewWelcomeStep = ({ onNext, onUserCreated }: NewWelcomeStepProps) =
             Get your outfit checked with
           </h1>
           <h2 className="text-headline-lg font-headline-bold text-red-500 mb-6">
-            OutfitGrader AI
+            trendza
           </h2>
           <p className="text-gray-300 text-body-lg font-interface max-w-sm mx-auto">
             Take a selfie and get personalized advice on how to improve your style

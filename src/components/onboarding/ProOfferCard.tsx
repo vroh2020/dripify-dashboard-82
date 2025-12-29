@@ -473,7 +473,7 @@ export const ProOfferCard = ({ onContinue, onShowSecondPaywall }: ProOfferCardPr
             <div className="flex-1">
               <p className="text-black font-semibold text-base mb-1">Today</p>
               <p className="text-gray-600 text-sm leading-relaxed">
-                Unlock all OutfitGrader AI features like style analysis, outfit matching, and more.
+                Unlock all trendza features like style analysis, outfit matching, and more.
               </p>
             </div>
           </div>

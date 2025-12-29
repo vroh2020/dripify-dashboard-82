@@ -97,7 +97,7 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
           className="text-4xl font-bold text-black mb-6 text-center"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
-          OutfitGrader AI
+          trendza
         </motion.h1>
 
         {/* Phone Mockup with Sliding Screens - Smaller */}

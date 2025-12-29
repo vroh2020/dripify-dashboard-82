@@ -31,7 +31,7 @@ export const CelebrationNewStep = ({ onNext }: CelebrationNewStepProps) => {
         </motion.div>
         <div className="text-center space-y-6">
           <motion.h2 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-5xl font-bold text-gray-900 leading-tight">You're all set!</motion.h2>
-          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="max-w-md mx-auto text-xl text-gray-600">Ready to unlock your style potential with OutfitGrader AI Pro?</motion.p>
+          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="max-w-md mx-auto text-xl text-gray-600">Ready to unlock your style potential with trendza Pro?</motion.p>
           <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1 }} className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
             <Sparkles className="w-8 h-8 text-gray-600 mx-auto mb-2" />
             <p className="text-gray-900 font-medium">Unlimited style analyses • Premium features • Personal recommendations</p>

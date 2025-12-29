@@ -15,7 +15,7 @@ export const DashboardHeader = () => {
     >
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-black tracking-tight">
-          OutfitGrader AI
+          trendza
         </h1>
       </div>
 

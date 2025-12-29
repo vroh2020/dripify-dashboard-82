@@ -457,7 +457,7 @@ export const AuthOnboardingWizard = () => {
       
       console.log('📢 Showing toast notification...');
       toast({
-        title: tier === 'free' ? "Welcome to OutfitGrader AI!" : "Welcome to Premium!",
+        title: tier === 'free' ? "Welcome to trendza!" : "Welcome to Premium!",
         description: tier === 'free' 
           ? "You have 3 free outfit ratings per month." 
           : "Your subscription is now active.",
