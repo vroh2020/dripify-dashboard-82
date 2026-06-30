@@ -107,6 +107,26 @@
     outline-offset: 2px;
   }
 
+  /* Global keyboard-focus ring for interactive elements.
+   * The codebase globally strips `-webkit-tap-highlight-color: transparent`
+   * on buttons, so on iOS WebView and Safari the native blue tap halo is
+   * gone — keyboard / switch-control users effectively tap blind. This rule
+   * tightens the global `*:focus-visible` rule above so the ring stays
+   * visible against the many `bg-black` CTAs in this app (using
+   * var(--accent-purple) which reads on both light + dark surfaces).
+   * Excludes [role="tab"] so we don't fight Radix's own
+   * data-[state=active]:focus styling on TabsTrigger.
+   */
+  button:focus-visible:not(:disabled):not([role="tab"]),
+  [role="button"]:focus-visible:not(:disabled) {
+    outline: 3px solid var(--accent-purple);
+    outline-offset: 3px;
+  }
+  a:focus-visible {
+    outline: 3px solid var(--accent-purple);
+    outline-offset: 2px;
+  }
+
   /* Selection styles */
   ::selection {
     background: var(--accent-purple);
@@ -413,6 +433,40 @@
 }
 
 @layer utilities {
+  /* ========================================
+     APP SHELL LAYOUT PRIMITIVES
+     iOS-native safe-area aware spacing tokens
+     used consistently by every screen so the
+     bottom tab bar + FAB never collide with
+     content or with each other.
+     ======================================== */
+  .nav-height {
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Bottom padding for page content so it
+   * never slips under the bottom tab bar. */
+  .pb-nav {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Bottom padding for page content that sits
+   * behind a 56px Floating Action Button (FAB):
+   * nav bar (64px) + safe area + FAB-height gap (56px).
+   * The FAB itself is positioned 20px above the nav top
+   * via inline style in ScanView, so this padding just
+   * has to clear the FAB, not the whole nav+FAB column. */
+  .pb-nav-fab {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 56px);
+  }
+  /* Top padding for content under the iOS status bar
+   * / Dynamic Island. Renamed from `pt-safe` to avoid
+   * a future collision with tailwindcss-safe-area plugin. */
+  .pt-status-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  /* Bottom safe-area padding with no nav bar. */
+  .pb-status-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
   /* Custom utilities for OutfitGrader AI */
   .text-balance {
     text-wrap: balance;
@@ -573,6 +627,20 @@
     }
   }
   
+  /* iOS-feel active-state feedback for plain (non-motion) buttons.
+   * Use the `.ios-press` utility class explicitly on elements that
+   * need it. framer-motion's `whileTap` already provides its own
+   * press transform for every <motion.button> in the codebase, so
+   * we intentionally do NOT add a global `:active` transform — it
+   * would double up with framer-motion's JS-driven transform on
+   * every motion button (ClosetView tabs, FitsTab, etc.) and the
+   * two would cancel, jitter, or land on the wrong scale. */
+  button.ios-press:not(:disabled):active,
+  [role="button"].ios-press:not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+    transition: transform 120ms ease-out;
+  }
+
   /* Prevent layout shifts and improve rendering */
   button, a, input, select, textarea {
     -webkit-appearance: none;

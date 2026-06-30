@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ArrowLeft, Camera as CameraIcon, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Heart, ArrowLeft, Camera as CameraIcon, Image as ImageIcon, Sparkles, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { removeBackgroundFromBlob, isBackgroundRemovalAvailable, isModelLoading } from '@/utils/backgroundRemoval';
 import { Capacitor } from '@capacitor/core';
+import { useToast } from '@/hooks/use-toast';
 
 // Import extracted components
 import PiecesTab from './PiecesTab';
@@ -72,8 +73,15 @@ export default function ClosetView() {
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>(''); // Status message for user
+  // Show a lightweight loading skeleton until the first Supabase query resolves,
+  // so tab navigation stops feeling like a 3-second blank-screen freeze.
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Track whether the first load failed so we can surface a retry affordance
+  // instead of silently leaving the user on an empty PiecesTab.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { toast } = useToast();
   const FREE_LIMIT = 10;
-  
+
   // Batch processing config - process multiple images efficiently
   const BATCH_SIZE = 3; // Process images in batches for better throughput
 
@@ -81,6 +89,16 @@ export default function ClosetView() {
   const loadingRef = useRef(false);
   const lastLoadTimeRef = useRef<number>(0);
   const CACHE_DURATION = 30000; // 30 seconds cache
+  // Monotonic counter: every loadData invocation captures its id at start and
+  // checks it in `finally`. If a newer retry has fired, the older in-flight
+  // load is a "stale" promise and must not touch shared state — otherwise
+  // its finally block would overwrite the retry's setIsInitialLoad(true)
+  // and the toast/banner would flicker back to the previous error.
+  const loadRequestIdRef = useRef(0);
+  // Tracks whether the component is still mounted. Used to short-circuit
+  // state mutations from any in-flight loadData when the user navigates
+  // away from /closet before the Supabase query resolves.
+  const mountedRef = useRef(true);
 
   // Load items and outfits from Supabase (real data, no mocks) with caching
   const loadData = useCallback(async () => {
@@ -96,6 +114,8 @@ export default function ClosetView() {
     }
 
     loadingRef.current = true;
+    const requestId = ++loadRequestIdRef.current;
+    const isStale = () => requestId !== loadRequestIdRef.current || !mountedRef.current;
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       
@@ -114,6 +134,11 @@ export default function ClosetView() {
           .select('id, name, item_ids, score, rationale, created_at')
           .order('created_at', { ascending: false })
       ]);
+      // Bail before mutating any state: the resolved-but-stale promise must
+      // not push data into PiecesTab / FitsTab that's already based on a
+      // newer load. (React 18 now silences the unmounted-component warning,
+      // but the wasted work and race risk remain.)
+      if (isStale()) return;
       
       const { data: itemRows, error: itemsErr } = itemsResult;
       const { data: outfitRows, error: outfitsErr } = outfitsResult;
@@ -157,17 +182,47 @@ export default function ClosetView() {
         }));
         setOutfits(normalizedOutfits);
       }
-      
+
       lastLoadTimeRef.current = Date.now();
-    } catch (e) {
-      // Silent error handling - data will reload on next attempt
+      // Clear stale error state once a load resolves successfully.
+      setLoadError(null);
+    } catch (e: any) {
+      // Don't overwrite a newer retry's state — if this is a stale response,
+      // swallow it silently. Only the newest load owns the error UI.
+      if (isStale()) return;
+      const message = e?.message || 'Unable to reach your closet';
+      console.error('Closet load failed:', e);
+      setLoadError(message);
+      toast({
+        title: "Couldn't load closet",
+        description: message,
+        variant: 'destructive',
+      });
     } finally {
+      if (isStale()) return;
       loadingRef.current = false;
+      setIsInitialLoad(false);
     }
-  }, [items.length]);
+  }, [items.length, toast]);
+
+  const retryLoad = useCallback(() => {
+    // Bypass the time-based cache so the user actually gets a fresh attempt.
+    lastLoadTimeRef.current = 0;
+    loadingRef.current = false;
+    setLoadError(null);
+    setIsInitialLoad(true);
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
+    // React 18 StrictMode (dev) runs this effect setup -> cleanup -> setup
+    // on the SAME component instance. Re-asserting mountedRef.current at
+    // the top of each setup keeps the gate correct across that cycle.
+    mountedRef.current = true;
     loadData();
+    return () => {
+      mountedRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -877,46 +932,110 @@ export default function ClosetView() {
   // Removed old FitStylistComponent - using optimized FitsTab instead
 
   return (
-    <div className="container-mobile">
-      {/* Navigation Header */}
-      <div className="flex items-center justify-between mb-8 safe-area-top">
+    <div className="px-4 pt-3 pb-nav-fab min-h-full">
+      {/* Navigation Header — tab switcher sits above the content,
+       * not on a bottom-bar like the app shell does. The 3-way
+       * segmented control reads as a single iOS-style pill. */}
+      <div className="flex items-center justify-between mb-4">
         {/* Back button for non-Pieces tabs */}
         {activeTab !== 'pieces' ? (
           <button
             onClick={() => setActiveTab('pieces')}
-            className="back-button"
+            aria-label="Back to Pieces"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} />
           </button>
         ) : (
-          <div className="w-10" /> // Spacer
+          <div className="w-9" />
         )}
 
-        {/* Tab Navigation */}
-        <div className="flex-1 mx-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-1 grid grid-cols-3 gap-1">
-            {(['outfits','fits','collections'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab === 'outfits' ? 'pieces' : tab)}
-                className={`${
-                  (tab === 'outfits' && activeTab === 'pieces') || (tab !== 'outfits' && activeTab === tab)
-                    ? 'bg-black text-white shadow-sm' 
-                    : 'text-gray-600 hover:text-black'
-                } rounded-xl py-2 text-sm font-semibold capitalize transition-all`}
-              >
-                {tab}
-              </button>
-            ))}
+        {/* Segmented Tab Control */}
+        <div className="flex-1 mx-3">
+          <div className="bg-gray-100 rounded-xl p-1 grid grid-cols-3 gap-1" role="tablist">
+            {(['Pieces','Fits','Collections'] as const).map((label) => {
+              const tab: 'pieces' | 'fits' | 'collections' = label.toLowerCase() as 'pieces' | 'fits' | 'collections';
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(tab)}
+                  className={`${
+                    isActive
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  } rounded-lg py-1.5 text-[13px] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-9" /> {/* Spacer */}
       </div>
 
       <div className="flex-1">
+        {/* Inline retry banner: only renders after a load failure so a hung
+            Supabase request can't permanently strand the user on an empty
+            closet. Sits above the skeleton / PiecesTab and reads as a
+            clear recovery path. role="status" + aria-live="polite" because
+            the toast already announces the failure to assistive tech; we
+            avoid double-announcement while still surfacing the recovery
+            affordance to sighted users. */}
+        {loadError && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-red-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}>
+                Couldn't load your closet
+              </p>
+              <p className="text-xs text-red-700 truncate" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
+                {loadError}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={retryLoad}
+              className="flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+              style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}
+            >
+              <RefreshCw size={14} />
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Loading skeleton: keeps the screen populated while Supabase
+            queries resolve so tab navigation doesn't feel frozen. */}
+        {isInitialLoad && (
+          <div className="space-y-6 animate-pulse" aria-busy="true" aria-live="polite">
+            <div>
+              <div className="h-7 w-32 bg-gray-200 rounded mb-2" />
+              <div className="h-4 w-20 bg-gray-200 rounded" />
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-9 w-20 bg-gray-200 rounded-full flex-shrink-0" />
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="aspect-square bg-gray-200 rounded-2xl" />
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-gray-200 rounded-2xl" />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Pieces Tab */}
-        {activeTab === 'pieces' && (
+        {!isInitialLoad && activeTab === 'pieces' && (
           <PiecesTab
             items={items}
             filteredItems={filteredItems}
@@ -1018,7 +1137,10 @@ export default function ClosetView() {
           />
         </AnimatePresence>
 
-        {/* Upload Options Action Sheet */}
+        {/* Upload Options Action Sheet — z-[60] so it correctly
+            * overlays the bottom tab bar. Spring transition matches
+            * iOS sheet animation timing. role="dialog" + aria-modal
+            * makes it discoverable to assistive tech. */}
         <AnimatePresence>
           {showUploadOptions && (
             <>
@@ -1026,38 +1148,41 @@ export default function ClosetView() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 z-50"
+                className="fixed inset-0 bg-black/50 z-[60]"
                 onClick={() => setShowUploadOptions(false)}
               />
               <motion.div
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: 100, opacity: 0 }}
-                className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 z-50"
+                transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+                className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-6 z-[60]"
                 style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Add to closet"
               >
-                <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-                <h3 className="text-xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                  Add New Piece
-                </h3>
-                <div className="space-y-3">
+                <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-5" />
+                <h3 className="text-lg font-bold text-black mb-1">Add New Piece</h3>
+                <p className="text-sm text-gray-500 mb-5">Capture with camera or pick from your library</p>
+                <div className="space-y-2.5">
                   <button
                     onClick={handleCameraCapture}
-                    className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-3"
+                    className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                   >
-                    <CameraIcon size={20} />
+                    <CameraIcon size={20} strokeWidth={2.5} />
                     Take Photo
                   </button>
                   <button
                     onClick={handleGalleryUpload}
-                    className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-3"
+                    className="w-full bg-gray-100 text-black font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-200 flex items-center justify-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                   >
-                    <ImageIcon size={20} />
+                    <ImageIcon size={20} strokeWidth={2.5} />
                     Choose from Gallery
                   </button>
-                  <p className="text-xs text-gray-500 text-center -mt-2 mb-1">
-                    {Capacitor?.isNativePlatform?.() 
-                      ? 'Select multiple images from your gallery' 
+                  <p className="text-[11px] text-gray-500 text-center mt-3">
+                    {Capacitor?.isNativePlatform?.()
+                      ? 'Select multiple images from your gallery'
                       : 'Select multiple images at once'}
                   </p>
                 </div>
@@ -1066,38 +1191,44 @@ export default function ClosetView() {
           )}
         </AnimatePresence>
 
-        {/* Upload Progress Overlay */}
+        {/* Upload Progress Overlay — z-[70] above the upload sheet
+            * so the wizard can read the spinner + progress even when
+            * the sheet is technically still mounted (they never coexist
+            * in practice, but stacking order matters at the boundary). */}
         <AnimatePresence>
           {uploadProgress && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Processing images"
             >
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
+                initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4"
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                className="bg-white rounded-2xl p-7 max-w-sm w-full mx-4 shadow-xl"
               >
                 <div className="text-center">
-                  <div className="w-16 h-16 border-4 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-black mb-2" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                    Processing Images
-                  </h3>
-                  <p className="text-gray-600 mb-4 min-h-[1.5rem]">
-                    {uploadStatus || 'Removing backgrounds and uploading...'}
+                  <div className="w-14 h-14 border-[3px] border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-black mb-1">Processing Images</h3>
+                  <p className="text-sm text-gray-500 mb-5 min-h-[1.25rem]">
+                    {uploadStatus || 'Removing backgrounds…'}
                   </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
                     <motion.div
-                      className="bg-black h-2 rounded-full"
+                      className="bg-black h-1.5 rounded-full"
                       initial={{ width: 0 }}
                       animate={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                       transition={{ duration: 0.3 }}
                     />
                   </div>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     {uploadProgress.current} of {uploadProgress.total} images
                   </p>
                 </div>

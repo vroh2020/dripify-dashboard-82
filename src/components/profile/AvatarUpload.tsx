@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Camera, Upload } from "lucide-react";
+import { Camera, Upload, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateFileUpload, checkRateLimit, sanitizeTextInput } from "@/utils/security";
@@ -44,12 +44,12 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
       // Additional security: Check for malicious file content patterns
       const fileContent = await file.arrayBuffer();
       const uint8Array = new Uint8Array(fileContent);
-      
+
       // Check for common script injection patterns in file headers
       const fileHeader = Array.from(uint8Array.slice(0, 1024))
         .map(byte => String.fromCharCode(byte))
         .join('');
-      
+
       const maliciousPatterns = [
         /<script/i,
         /javascript:/i,
@@ -58,7 +58,7 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
         /<object/i,
         /<embed/i
       ];
-      
+
       for (const pattern of maliciousPatterns) {
         if (pattern.test(fileHeader)) {
           throw new Error('File contains suspicious content and cannot be uploaded');
@@ -98,7 +98,7 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
       // Update the user's avatar_url in the profiles table
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ 
+        .update({
           avatar_url: publicUrl,
           updated_at: new Date().toISOString()
         })
@@ -111,7 +111,7 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
 
       // Call the onAvatarUpdate callback
       onAvatarUpdate(publicUrl);
-      
+
       toast({
         title: "Avatar updated",
         description: "Your profile picture has been updated successfully.",
@@ -166,9 +166,13 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4">
+    <div className="flex flex-col items-center space-y-3">
       <div className="relative group">
-        <div className="w-20 h-20 rounded-full overflow-hidden bg-white/10 border-2 border-white/20">
+        {/* Avatar surface — bordered circle. The hidden file input
+            * sits transparently over the avatar so the whole 80×80
+            * circle is a tap target. The Upload icon sits centered
+            * and reveals on hover/focus via group-hover &:focus-within. */}
+        <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200">
           {preview ? (
             <img
               src={preview}
@@ -178,34 +182,34 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <Camera className="w-8 h-8 text-white/50" />
+              <User className="w-9 h-9 text-gray-400" strokeWidth={1.5} />
             </div>
           )}
         </div>
-        
-        {/* Upload overlay */}
-        <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-          <Upload className="w-6 h-6 text-white" />
+
+        {/* Upload hint overlay. Reads as an edit affordance. */}
+        <div className="absolute inset-0 bg-black/55 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none">
+          <Upload className="w-5 h-5 text-white" strokeWidth={2} />
         </div>
-        
-        {/* Hidden file input */}
+
+        {/* Hidden file input is the actual interactive element. */}
         <input
           type="file"
           accept="image/jpeg,image/jpg,image/png,image/webp"
           onChange={handleFileSelect}
           disabled={uploading}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-          aria-label="Upload avatar image"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+          aria-label={`Upload avatar for ${username}`}
         />
       </div>
-      
+
       <div className="text-center">
-        <h3 className="text-lg font-medium text-white">{username}</h3>
-        <p className="text-sm text-white/60 mt-1">
-          {uploading ? 'Uploading...' : 'Click to change avatar'}
+        <h3 className="text-base font-semibold text-black">{username}</h3>
+        <p className="text-xs text-gray-500 mt-1">
+          {uploading ? 'Uploading…' : 'Tap to change avatar'}
         </p>
-        <p className="text-xs text-white/40 mt-1">
-          JPG, PNG, WebP • Max 10MB
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          JPG, PNG, WebP · Max 10MB
         </p>
       </div>
     </div>

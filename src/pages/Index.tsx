@@ -6,7 +6,7 @@ import ClosetView from "@/components/closet/ClosetView";
 import { Scan, Shirt } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
 import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
@@ -24,13 +24,37 @@ const Index = () => {
     }
   }, [location.pathname, navigate]);
 
-  // 🚀 PRE-LOAD MODEL as soon as user hits dashboard for instant uploads!
+  // 🚀 PRE-LOAD MODEL but only after the browser is idle, so a 100MB+ ONNX
+  // download doesn't compete with the user's first taps / haptics / animations.
+  // requestIdleCallback is fire-and-forget on unmount (browsers can't cancel
+  // it) — the body-level `cancelled` flag is the only post-unmount guard.
+  // Safari/WebView older than iOS 16.4 falls back to a 4s setTimeout.
   useEffect(() => {
-    console.log('🚀 Dashboard loaded - pre-loading AI model in background...');
-    preloadBackgroundRemovalModel().catch((error) => {
-      console.warn('⚠️ Model preload failed (will load on first upload):', error);
-    });
-  }, []); // Run once when dashboard mounts
+    let cancelled = false;
+    let timeoutId: number | undefined;
+    let idleId: number | undefined;
+
+    const fire = () => {
+      if (cancelled) return;
+      preloadBackgroundRemovalModel().catch((error) => {
+        console.warn('⚠️ Model preload failed (will load on first upload):', error);
+      });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(fire, { timeout: 4000 });
+    } else {
+      timeoutId = window.setTimeout(fire, 4000);
+    }
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      if (idleId !== undefined && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+    };
+  }, []); // Run once when dashboard mounts, but deferred to idle.
 
   const handleTabChange = (value: string) => {
     navigate(`/${value}`);
@@ -77,9 +101,9 @@ const Index = () => {
     >
       <DashboardHeader />
       
-      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col h-[calc(100dvh-88px)]">
+      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col" style={{ height: 'calc(100dvh - 56px - env(safe-area-inset-top, 0px))' }}>
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden pt-2">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {(() => {
             try {
               return renderContent();
@@ -89,7 +113,7 @@ const Index = () => {
                   <div className="text-center">
                     <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
                     <p className="text-gray-600 mb-4">Error loading dashboard content</p>
-                    <button 
+                    <button
                       onClick={() => window.location.reload()}
                       className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white"
                     >
@@ -102,33 +126,40 @@ const Index = () => {
           })()}
         </div>
 
-        {/* Bottom Navigation - Fixed */}
-        <motion.div 
-          initial={{ y: 100, opacity: 0 }} 
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-white border-t border-gray-200 safe-area-bottom shadow-sm"
+        {/* Bottom Navigation — uses `.nav-height` from index.css so it
+            * always has 64px of content + safe-area-inset-bottom padding
+            * for the home indicator on every iPhone (SE through 15 Pro Max
+            * + Dynamic Island). A subtle top border + a translucent blur
+            * background gives the iOS-native "tab bar over content" feel. */}
+        <div
+          className="bg-white/85 backdrop-blur-lg border-t border-gray-200/80 shadow-[0_-1px_3px_rgba(0,0,0,0.04)]"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
-          <TabsList className="w-full h-16 grid grid-cols-2 bg-transparent gap-0 p-0">
-            
-            <TabsTrigger 
-              value="closet" 
-              className="flex flex-col items-center justify-center gap-0.5 data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 rounded-none transition-all duration-200 text-gray-600 hover:text-gray-900 h-full"
-            >
-              <Shirt className="h-4 w-4" />
-              <span className="text-xs font-medium">Closet</span>
-            </TabsTrigger>
-            
-            <TabsTrigger 
-              value="scan" 
-              className="flex flex-col items-center justify-center gap-0.5 data-[state=active]:bg-gray-50 data-[state=active]:text-gray-900 rounded-none transition-all duration-200 text-gray-600 hover:text-gray-900 h-full"
-            >
-              <Scan className="h-4 w-4" />
-              <span className="text-xs font-medium">Scan</span>
-            </TabsTrigger>
-
-          </TabsList>
-        </motion.div>
+          <motion.div
+            initial={{ y: 24, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <TabsList className="w-full h-16 grid grid-cols-2 bg-transparent gap-0 p-0">
+              <TabsTrigger
+                value="closet"
+                aria-label="Closet tab"
+                className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-500 hover:text-gray-900 rounded-none h-full transition-colors focus-visible:outline-none focus-visible:bg-gray-100"
+              >
+                <Shirt className="h-5 w-5" strokeWidth={1.75} />
+                <span className="text-[11px] font-semibold tracking-wide">Closet</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="scan"
+                aria-label="Scan tab"
+                className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-500 hover:text-gray-900 rounded-none h-full transition-colors focus-visible:outline-none focus-visible:bg-gray-100"
+              >
+                <Scan className="h-5 w-5" strokeWidth={1.75} />
+                <span className="text-[11px] font-semibold tracking-wide">Scan</span>
+              </TabsTrigger>
+            </TabsList>
+          </motion.div>
+        </div>
       </Tabs>
     </div>
   );

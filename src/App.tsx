@@ -5,8 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import Auth from "./pages/Auth";
-import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
+import { SubscriptionProvider, useSubscription } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
+import { useAuth } from "./hooks/useAuth";
 
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
@@ -23,16 +24,28 @@ const queryClient = new QueryClient({
 });
 
 const AppRoutes = () => {
-  // Simple anonymous onboarding flow logic
-  const hasCompletedOnboarding = localStorage.getItem('onboarding_completed') === 'true';
-  const hasPaid = localStorage.getItem('subscription_active') === 'true';
+  // Route gating is driven by the live `useAuth` + `useSubscription` React
+  // state. The gate is optimistic during loading (defaults to `true`) so:
+  //   1. A paid user never sees a brief flash of `/auth` on launch.
+  //   2. There is no localStorage read in the gate path, so a momentarily
+  //      cleared `subscription_active` key (the original "1-second bounce
+  //      from Closet → Scan" symptom) cannot flip the gate.
+  // Once loading resolves, the live hooks are authoritative: an
+  // unauthenticated user is bounced to `/auth`, an unpaid user is bounced
+  // once the SubscriptionProvider has confirmed sub state.
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isPro, isLoading: subLoading } = useSubscription();
 
-  // Note: Model preloading is now handled in Index.tsx (dashboard container)
-  // This ensures preload happens as soon as user hits the dashboard
+  const hasCompletedOnboarding = authLoading ? true : isAuthenticated;
+  const hasPaid = subLoading ? true : isPro;
 
   // Simple routing logic:
-  // - If user has completed onboarding AND paid, show dashboard
-  // - Otherwise, show onboarding
+  // - While EITHER hook is still loading, optimistically assume the user
+  //   is valid so we never bounce a paid user mid-session (the original
+  //   "1-second bounce from Closet → Scan" symptom).
+  // - Once loaded, gate strictly on the live `isAuthenticated && isPro`
+  //   values. There is NO localStorage read in this gate, which is what
+  //   makes it immune to momentarily-cleared cache keys.
   const shouldShowDashboard = hasCompletedOnboarding && hasPaid;
 
   return (

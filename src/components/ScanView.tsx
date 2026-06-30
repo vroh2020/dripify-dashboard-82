@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Sparkles, ArrowLeft, X, Plus } from "lucide-react";
+import { Camera, Sparkles, ArrowLeft, X, Plus, TrendingUp, Star, Flame, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeStyle } from "@/utils/imageAnalysis";
 import { useScanStore } from "@/store/scanStore";
@@ -338,7 +338,7 @@ export const ScanView = () => {
   };
 
   return (
-    <div className="container-mobile">
+    <div className="px-4 pt-4 pb-nav-fab min-h-full">
       <AnimatePresence mode="wait">
         {!selectedImage && !showResults && !analyzing && (
           <motion.div
@@ -348,16 +348,15 @@ export const ScanView = () => {
             exit={{ opacity: 0, y: -20 }}
             className="flex-1"
           >
-            {/* Header */}
-            <div className="mb-6 safe-area-top">
-              <p className="text-sm text-gray-600" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                Track your style journey
-              </p>
+            {/* Header — eyebrow label that pairs with the app header above */}
+            <div className="mb-5">
+              <p className="text-xs uppercase tracking-wider text-gray-500 font-medium">Your Week</p>
+              <h1 className="text-2xl font-bold text-black tracking-tight mt-1">Style Dashboard</h1>
             </div>
 
             {/* Calendar Week View */}
             <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1">
                 {weekDays.map((day, index) => (
                   <div
                     key={index}
@@ -367,187 +366,100 @@ export const ScanView = () => {
                         : 'text-gray-600'
                     }`}
                   >
-                    <span className="text-xs font-medium mb-1" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
-                      {day.day}
-                    </span>
-                    <span className="text-sm font-bold" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                      {day.date}
-                    </span>
+                    <span className="text-xs font-medium mb-1">{day.day}</span>
+                    <span className="text-sm font-bold">{day.date}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Main Stat - Scans This Week */}
-            <div className="mb-8 text-center">
-              <div className="text-7xl font-bold text-black mb-2" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                {stats.scansThisWeek}
+            {/* Main Stat - Scans This Week. Hero stat makes the page
+                * declarative ("here's your week") rather than a sales pitch. */}
+            <div className="mb-6 flex items-end justify-between gap-3">
+              <div>
+                <div className="text-6xl font-bold text-black tracking-tighter leading-none">{stats.scansThisWeek}</div>
+                <p className="text-sm text-gray-500 mt-1">Scans this week</p>
               </div>
-              <p className="text-base text-gray-600" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                Scans this week
-              </p>
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 px-2.5 py-1 rounded-full bg-gray-100">
+                <Flame className="w-3.5 h-3.5 text-orange-500" />
+                <span className="font-medium">{Math.min(stats.currentStreak, 7)}-day streak</span>
+              </div>
             </div>
 
-            {/* Three Circular Stats */}
-            <div className="mb-8 grid grid-cols-3 gap-4">
-              {/* Average Score */}
-              <div className="text-center">
-                <div className="relative w-20 h-20 mx-auto mb-3">
-                  <svg className="transform -rotate-90 w-20 h-20">
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="#E5E5E5"
-                      strokeWidth="8"
-                      fill="none"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="#FF6B6B"
-                      strokeWidth="8"
-                      fill="none"
-                      strokeDasharray={`${(stats.averageScore / 100) * 201} 201`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold text-black" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                      {stats.averageScore}
-                    </span>
+            {/* Three Square Stat Cards — replacing the 3 SVG circles,
+                * which had hard-coded #FF6B6B / #FFA500 / #6B9FFF that
+                * bypassed the design system. Square cards with a
+                * single accent color read more iOS-native and scale
+                * better across screen densities. */}
+            <div className="mb-6 grid grid-cols-3 gap-3">
+              {[
+                { label: 'Average', value: stats.averageScore, icon: TrendingUp, accent: 'text-orange-600 bg-orange-50' },
+                { label: 'Best', value: stats.bestScore, icon: Star, accent: 'text-yellow-600 bg-yellow-50' },
+                { label: 'Days', value: stats.currentStreak, icon: Flame, accent: 'text-orange-600 bg-orange-50' },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={stat.label} className="bg-white border border-gray-200 rounded-2xl p-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${stat.accent}`}>
+                      <Icon className="w-4 h-4" strokeWidth={2.5} />
+                    </div>
+                    <div className="text-2xl font-bold text-black tracking-tight leading-none">{stat.value}</div>
+                    <div className="text-xs text-gray-500 mt-1">{stat.label}</div>
                   </div>
-                </div>
-                <p className="text-xs font-medium text-gray-900 mb-1" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}>
-                  {stats.averageScore}
-                </p>
-                <p className="text-xs text-gray-500" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                  Average
-                </p>
-              </div>
-
-              {/* Best Score */}
-              <div className="text-center">
-                <div className="relative w-20 h-20 mx-auto mb-3">
-                  <svg className="transform -rotate-90 w-20 h-20">
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="#E5E5E5"
-                      strokeWidth="8"
-                      fill="none"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="#FFA500"
-                      strokeWidth="8"
-                      fill="none"
-                      strokeDasharray={`${(stats.bestScore / 100) * 201} 201`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold text-black" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                      {stats.bestScore}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs font-medium text-gray-900 mb-1" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}>
-                  {stats.bestScore}
-                </p>
-                <p className="text-xs text-gray-500" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                  Best score
-                </p>
-              </div>
-
-              {/* Streak */}
-              <div className="text-center">
-                <div className="relative w-20 h-20 mx-auto mb-3">
-                  <svg className="transform -rotate-90 w-20 h-20">
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="#E5E5E5"
-                      strokeWidth="8"
-                      fill="none"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="32"
-                      stroke="#6B9FFF"
-                      strokeWidth="8"
-                      fill="none"
-                      strokeDasharray={`${(Math.min(stats.currentStreak, 7) / 7) * 201} 201`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold text-black" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                      {stats.currentStreak}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs font-medium text-gray-900 mb-1" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}>
-                  {stats.currentStreak} days
-                </p>
-                <p className="text-xs text-gray-500" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                  Streak
-                </p>
-              </div>
+                );
+              })}
             </div>
 
             {/* Recently Uploaded Section */}
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-black mb-4" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}>
-                Recently uploaded
-              </h2>
-              
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold text-black tracking-tight">Recently uploaded</h2>
+                {recentScans.length > 0 && (
+                  <span className="text-xs text-gray-500">{recentScans.length} {recentScans.length === 1 ? 'scan' : 'scans'}</span>
+                )}
+              </div>
+
               {recentScans.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4 mx-auto">
-                    <Camera size={32} className="text-gray-400" />
+                <button
+                  type="button"
+                  onClick={handleShowUploadOptions}
+                  aria-label="Upload your first outfit"
+                  className="w-full text-center py-10 hover:bg-gray-50 rounded-2xl transition-colors border-2 border-dashed border-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                >
+                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3 mx-auto">
+                    <Camera size={28} className="text-gray-500" />
                   </div>
-                  <p className="text-gray-500 mb-6" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                    No scans yet. Upload your first outfit!
-                  </p>
-                </div>
+                  <p className="text-gray-700 text-sm font-medium">Upload your first outfit</p>
+                  <p className="text-gray-500 text-xs mt-1">Get a personalized style score in seconds</p>
+                </button>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {recentScans.map((scan, index) => (
                     <motion.div
                       key={scan.id}
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      transition={{ delay: index * 0.06 }}
                       onClick={() => handleViewScan(scan)}
                       className="cursor-pointer"
                     >
-                      <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
+                      <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md hover:border-gray-300 transition-all">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-3">
                             <img
                               src={scan.imageUrl}
                               alt="Outfit scan"
-                              className="w-16 h-16 rounded-xl object-cover"
+                              className="w-14 h-14 rounded-xl object-cover bg-gray-100"
                             />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 500 }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">
                                 {new Date(scan.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                               </p>
-                              <p className="text-xs text-gray-500" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>
-                                Score: {scan.score}/100
-                              </p>
+                              <p className="text-xs text-gray-500">Score</p>
                             </div>
-                            <div className="flex items-center">
-                              <div className="text-2xl font-bold text-black" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                                {scan.score}
-                              </div>
+                            <div className="flex items-baseline gap-0.5">
+                              <div className="text-2xl font-bold text-black tracking-tight">{scan.score}</div>
+                              <div className="text-xs text-gray-400 font-medium">/100</div>
                             </div>
                           </div>
                         </CardContent>
@@ -558,12 +470,19 @@ export const ScanView = () => {
               )}
             </div>
 
-            {/* Add Photo FAB */}
+            {/* Add Photo FAB — positioned above the bottom tab bar
+                * (64px nav + safe-area-inset-bottom) with breathing room so
+                * the icon is always visible above the bottom nav on every
+                * iPhone (button + home indicator / Dynamic Island).
+                * z-50 keeps it above page content; the Upload Photo sheet
+                * lives at z-[60] so it correctly overlays the tab bar. */}
             <button
               onClick={handleShowUploadOptions}
-              className="fixed bottom-24 right-6 w-14 h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:bg-gray-900 transition-all z-50"
+              aria-label="Upload a photo"
+              className="fixed right-5 w-14 h-14 bg-black rounded-full flex items-center justify-center shadow-lg hover:bg-gray-900 transition-all z-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+              style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px) + 20px)' }}
             >
-              <Plus size={24} className="text-white" />
+              <Plus size={26} className="text-white" strokeWidth={2.5} />
             </button>
 
             {/* Upload Options Modal */}
@@ -574,34 +493,35 @@ export const ScanView = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/50 z-50"
+                    className="fixed inset-0 bg-black/50 z-[60]"
                     onClick={() => setShowUploadOptions(false)}
                   />
                   <motion.div
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
-                    className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 z-50"
+                    transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+                    className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-6 z-[60]"
                     style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+                    role="dialog"
+                    aria-label="Upload options"
                   >
-                    <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
-                    <h3 className="text-xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 700 }}>
-                      Upload Photo
-                    </h3>
-                    <div className="space-y-3">
+                    <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-5" />
+                    <h3 className="text-lg font-bold text-black mb-1">Upload Photo</h3>
+                    <p className="text-sm text-gray-500 mb-5">Add a new piece to your wardrobe</p>
+                    <div className="space-y-2.5">
                       <button
                         onClick={handleTakePhoto}
-                        className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-2"
-                        style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}
+                        className="w-full bg-black text-white font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-900 flex items-center justify-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                       >
-                        <Camera size={20} />
+                        <Camera size={20} strokeWidth={2.5} />
                         Take Photo
                       </button>
                       <button
                         onClick={handleChooseFromGallery}
-                        className="w-full bg-gray-100 text-black font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-200 flex items-center justify-center gap-2"
-                        style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif', fontWeight: 600 }}
+                        className="w-full bg-gray-100 text-black font-semibold py-4 px-6 rounded-2xl text-base transition-all hover:bg-gray-200 flex items-center justify-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                       >
+                        <ImageIcon size={20} strokeWidth={2.5} />
                         Choose from Gallery
                       </button>
                     </div>

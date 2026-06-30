@@ -166,7 +166,11 @@ export const useRevenueCatManager = () => {
         const newSubscription = {
           isActive: true,
           expirationDate: expiryDate,
-          productId: product.identifier,
+          // Web simulation may be called without a real RevenueCat
+          // product object (the ProOfferCard CTA fires the simulation
+          // path with no argument). Fall back to a stable identifier
+          // so the rest of the flow can run end-to-end in the dev demo.
+          productId: product?.identifier ?? 'web-simulation-product',
           offeringId: 'web-simulation'
         };
         

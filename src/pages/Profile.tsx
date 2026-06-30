@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -126,31 +127,32 @@ const Profile = () => {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1F3D] py-8 px-4 flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-[#9b87f5] border-t-transparent animate-spin" />
+      <div className="min-h-screen bg-white px-4 pt-safe pb-nav flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-black animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1A1F2C] to-[#2C1F3D] py-8 px-4">
+    <div className="min-h-screen bg-white px-4 pt-safe pb-nav">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-2xl mx-auto space-y-6"
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="max-w-2xl mx-auto space-y-5 py-6"
       >
-        <ProfileHeader 
-          isPro={isPro} 
-          onLogout={handleLogout} 
-          isLoggingOut={loggingOut} 
+        <ProfileHeader
+          isPro={isPro}
+          onLogout={handleLogout}
+          isLoggingOut={loggingOut}
         />
 
-        <Card className="bg-black/20 backdrop-blur-lg border-white/10">
+        <Card className="bg-white border border-gray-200 rounded-2xl">
           <CardContent className="p-6">
             <div className="flex flex-col items-center space-y-4">
               {profile && (
-                <AvatarUpload 
-                  avatarUrl={profile.avatar_url} 
+                <AvatarUpload
+                  avatarUrl={profile.avatar_url}
                   userId={profile.id}
                   username={profile.username}
                   onAvatarUpdate={handleAvatarUpdate}
@@ -163,22 +165,22 @@ const Profile = () => {
         <ProfileStats stats={stats} />
 
         {error && (
-          <Card className="bg-red-500/10 backdrop-blur-lg border-red-500/30">
+          <Card className="bg-red-50 border border-red-200 rounded-2xl">
             <CardContent className="p-4">
-              <p className="text-red-400 text-center">{error}</p>
+              <p className="text-red-700 text-center text-sm font-medium">{error}</p>
             </CardContent>
           </Card>
         )}
 
         {/* Danger Zone - Delete Account */}
-        <Card className="border border-red-300 bg-transparent rounded-2xl mt-6 shadow-md">
+        <Card className="border border-gray-200 bg-white rounded-2xl mt-6">
           <CardContent className="space-y-4 p-6">
-            <div className="flex items-center gap-2 text-white font-bold text-lg mb-1">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
+            <div className="flex items-center gap-2 text-gray-900 font-bold text-base">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
               Danger Zone
             </div>
-            <div className="text-white font-semibold text-base">Delete Account</div>
-            <div className="text-white text-sm mb-4">
+            <div className="text-gray-900 font-semibold text-base">Delete Account</div>
+            <div className="text-gray-600 text-sm">
               Permanently delete your account and all associated data. This action cannot be undone.
             </div>
             <div className="flex justify-center">

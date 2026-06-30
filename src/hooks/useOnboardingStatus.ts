@@ -9,12 +9,24 @@ interface OnboardingStatus {
   hasCompletedOnboarding: boolean;
   checkOnboardingStatus: () => Promise<void>;
   retryCount: number;
+  /**
+   * True only after the 5s safety timeout fired while the underlying
+   * Supabase call was still pending. Callers should use this to tell
+   * "user has not onboarded" apart from "we don't know yet" before
+   * deciding to lock the user out of the protected shell.
+   */
+  loadHung: boolean;
 }
 
 export function useOnboardingStatus(): OnboardingStatus & { refetch: () => Promise<void> } {
   const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  // True only when the safety timeout fired before a result arrived.
+  // Callers can use this to distinguish "user has not onboarded" from
+  // "we don't know yet because the server never answered" — important for
+  // AppRoutes, which would otherwise lock an authenticated user out.
+  const [loadHung, setLoadHung] = useState(false);
   const { isAuthenticated, user } = useAuth();
   const { isPro, subscription } = useSubscription();
   
@@ -115,14 +127,20 @@ export function useOnboardingStatus(): OnboardingStatus & { refetch: () => Promi
     checkOnboardingStatus();
   }, [isAuthenticated, user?.id]); // REMOVED extra dependencies that caused loops
 
+  // Safety net for a hung Supabase response. We deliberately do NOT flip
+  // `hasCompletedOnboarding` to false here — the previous behavior silently
+  // kicked authenticated users out of the protected shell mid-session
+  // (the "1-second bounce from Closet → Scan" symptom in user reports).
+  // Instead, we log a warning and surface `loadHung` so AppRoutes / callers
+  // can decide whether to keep showing the shell or escalate.
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (isLoading) {
-        console.warn('⚠️ Onboarding status check timeout - forcing completion');
+        console.warn('⚠️ Onboarding status check timed out after 5s — keeping last known status');
         setIsLoading(false);
-        setHasCompletedOnboarding(false);
+        setLoadHung(true);
       }
-    }, 5000); // Increased from 3s to 5s
+    }, 5000);
 
     return () => clearTimeout(timeout);
   }, [isLoading]);
@@ -132,6 +150,7 @@ export function useOnboardingStatus(): OnboardingStatus & { refetch: () => Promi
     hasCompletedOnboarding,
     checkOnboardingStatus,
     retryCount,
-    refetch
+    loadHung,
+    refetch,
   };
-} 
+}
