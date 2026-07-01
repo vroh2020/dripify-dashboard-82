@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ExternalLink, Check, Lock, Bell, Crown, X } from "lucide-react";
+import { RefreshCw, ExternalLink, Check, Lock, Bell, Crown } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ProOfferCardProps {
   onContinue: () => void;
-  onShowSecondPaywall: () => void;
+  onSkipToFreeTier: () => void;
 }
 
 // Calculate billing date (3 days from now)
@@ -261,7 +261,7 @@ const trackPaywallEvent = async (userId: string, event: string, data: any = {}) 
 };
 
 // Main Component
-export const ProOfferCard = ({ onContinue, onShowSecondPaywall }: ProOfferCardProps) => {
+export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps) => {
   const { offerings, purchaseProduct, isPro, restorePurchases } = useSubscription();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -413,35 +413,24 @@ export const ProOfferCard = ({ onContinue, onShowSecondPaywall }: ProOfferCardPr
     }
   };
 
-  const handleShowSecondPaywall = () => {
-    // Track X button click
+  const handleSkipToFreeTier = () => {
+    // Track the user opting into the limited free tier.
+    // The previous X-button path is gone (per product decision):
+    // free tier is now an explicit, single-click opt-in from
+    // the bottom of the paywall.
     if (user?.id) {
-      trackPaywallEvent(user.id, 'paywall_1_dismissed', {
-        selected_plan_at_dismiss: selectedPlan,
-        action: 'clicked_x_button'
+      trackPaywallEvent(user.id, 'paywall_1_free_tier_skipped', {
+        selected_plan_at_skip: selectedPlan,
+        action: 'clicked_continue_with_free'
       });
     }
-    
-    onShowSecondPaywall();
+
+    onSkipToFreeTier();
   };
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative">
-      {/* X Button - Top Right with Safe Area Support */}
-      <button
-        onClick={handleShowSecondPaywall}
-        className="absolute rounded-full bg-white/90 hover:bg-gray-100 flex items-center justify-center transition-all z-50 shadow-lg border border-gray-200"
-        style={{
-          top: `max(16px, calc(16px + env(safe-area-inset-top)))`,
-          right: `max(16px, calc(16px + env(safe-area-inset-right)))`,
-          width: '44px',
-          height: '44px',
-        }}
-      >
-        <X className="w-6 h-6 text-gray-700" strokeWidth={2.5} />
-      </button>
-
-      <div 
+      <div
         className="flex-1 flex flex-col px-6 pb-8"
         style={{
           paddingTop: `max(48px, calc(48px + env(safe-area-inset-top)))`
@@ -587,6 +576,21 @@ export const ProOfferCard = ({ onContinue, onShowSecondPaywall }: ProOfferCardPr
           isRestoring={isRestoring}
           restoreMsg={restoreMsg}
         />
+
+        {/* Free-Tier Opt-Out — explicit, low-prominence affordance. */}
+        {/* Apple App Store Guideline 3.1.2 requires a working way to */}
+        {/* access the app without subscribing. Keeping this visible but */}
+        {/* visually subordinate (gray, no border) signals it is the */}
+        {/* "less recommended" path — same pattern Stripe, Notion, and */}
+        {/* most revenuecat demos use to stay compliant without losing */}
+        {/* primary CTA emphasis. */}
+        <button
+          type="button"
+          onClick={handleSkipToFreeTier}
+          className="w-full text-center text-sm text-gray-500 hover:text-gray-900 transition-colors py-3 mt-2 underline-offset-4 hover:underline"
+        >
+          Continue with limited free tier
+        </button>
 
         {/* Legal Links */}
         <LegalLinks />

@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import Auth from "./pages/Auth";
-import { SubscriptionProvider, useSubscription } from "./components/subscription/SubscriptionProvider";
+import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { useAuth } from "./hooks/useAuth";
 
@@ -24,29 +24,54 @@ const queryClient = new QueryClient({
 });
 
 const AppRoutes = () => {
-  // Route gating is driven by the live `useAuth` + `useSubscription` React
-  // state. The gate is optimistic during loading (defaults to `true`) so:
-  //   1. A paid user never sees a brief flash of `/auth` on launch.
-  //   2. There is no localStorage read in the gate path, so a momentarily
-  //      cleared `subscription_active` key (the original "1-second bounce
-  //      from Closet → Scan" symptom) cannot flip the gate.
-  // Once loading resolves, the live hooks are authoritative: an
-  // unauthenticated user is bounced to `/auth`, an unpaid user is bounced
-  // once the SubscriptionProvider has confirmed sub state.
+  // Route gating model — free-tier friendly.
+  //
+  // We now allow the dashboard to render for any user that has:
+  //   1. Completed authentication (live `useAuth`), AND
+  //   2. Completed onboarding (the localStorage flag the paywall
+  //      completion path sets — `AuthOnboardingWizard.handlePaywallComplete`
+  //      writes `onboarding_completed=true` for both paid and free tiers).
+  //
+  // We deliberately do NOT gate on `isPro` here anymore. The previous
+  // `isAuthenticated && isPro` rule meant free-tier users could never
+  // reach `/scan` even after the paywall flow completed, which forced
+  // `Auth.tsx` to fall back to a full-document `window.location.href`
+  // reload that wiped React state and re-rendered the paywall on
+  // remount — the "second paywall's X button bounces back to first
+  // paywall" loop bug.
+  //
+  // The premium feature gating still happens inside pages
+  // (ScanView/ClosetView/Profile read `useSubscription().isPro`), so
+  // free-tier users land in the dashboard with premium features
+  // disabled, which is the standard freemium model.
+  //
+  // The localStorage read is scoped to ONBOARDING COMPLETION, not
+  // subscription status, so a momentarily-cleared cache key cannot
+  // bounce a paid user.
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { isPro, isLoading: subLoading } = useSubscription();
 
-  const hasCompletedOnboarding = authLoading ? true : isAuthenticated;
-  const hasPaid = subLoading ? true : isPro;
+  const onboardingCompletedFromCache =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('onboarding_completed') === 'true'
+      : false;
 
-  // Simple routing logic:
-  // - While EITHER hook is still loading, optimistically assume the user
-  //   is valid so we never bounce a paid user mid-session (the original
-  //   "1-second bounce from Closet → Scan" symptom).
-  // - Once loaded, gate strictly on the live `isAuthenticated && isPro`
-  //   values. There is NO localStorage read in this gate, which is what
-  //   makes it immune to momentarily-cleared cache keys.
-  const shouldShowDashboard = hasCompletedOnboarding && hasPaid;
+  // IMPORTANT: both branches must consult the cached
+  // `onboarding_completed` flag. If we only consult it during
+  // `authLoading`, then the moment auth resolves (`isAuthenticated`
+  // flips true for any logged-in user), the gate degenerates to a
+  // pure auth check — which would let a brand-new user mid-onboarding
+  // through to /scan before the wizard has run. The paywall flow writes
+  // `onboarding_completed=true` only via
+  // `AuthOnboardingWizard.handlePaywallComplete`, so reading the flag
+  // on both sides of the loading boundary is the single source of truth.
+  const hasCompletedOnboarding = authLoading
+    ? onboardingCompletedFromCache
+    : isAuthenticated && onboardingCompletedFromCache;
+
+  // Optimistic during auth loading: a real subscriber should never see
+  // a flash of `/auth` on launch, but if the cache says onboarding is
+  // not done we must NOT bypass the wizard.
+  const shouldShowDashboard = hasCompletedOnboarding;
 
   return (
     <Routes>
@@ -60,7 +85,7 @@ const AppRoutes = () => {
         } 
       />
       
-      {/* Dashboard routes - only if completed onboarding and paid */}
+      {/* Dashboard routes - only if completed onboarding (free or paid) */}
       {shouldShowDashboard ? (
         <>
           <Route 
@@ -92,7 +117,10 @@ const AppRoutes = () => {
           <Route path="*" element={<Navigate to="/scan" replace />} />
         </>
       ) : (
-        // Not completed onboarding or not paid - redirect to auth
+        // Not authenticated or onboarding not yet completed.
+        // Free-tier and paid users who finished onboarding fall into the
+        // dashboard branch above; this is strictly the "haven't onboarded
+        // yet" -> kick them back to /auth path.
         <Route path="*" element={<Navigate to="/auth" replace />} />
       )}
     </Routes>

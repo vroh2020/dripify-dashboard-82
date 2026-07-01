@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { Logger } from "@/utils/logger";
 import { handleError } from "@/utils/errorHandler";
 import { supabase } from "@/integrations/supabase/client";
-import { Capacitor } from '@capacitor/core';
 import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
 
 // Import onboarding step components
@@ -22,7 +22,6 @@ import { ColorAnalysisIntroStep } from "../components/onboarding/steps/ColorAnal
 import { PersonalizingStep } from "../components/onboarding/steps/PersonalizingStep";
 import { FreeTrialPaywallStep } from "../components/onboarding/steps/FreeTrialPaywallStep";
 import { ProOfferCard } from "../components/onboarding/ProOfferCard";
-import { SecondPaywall } from "../components/onboarding/SecondPaywall";
 
 
 export const AuthOnboardingWizard = () => {
@@ -31,22 +30,24 @@ export const AuthOnboardingWizard = () => {
   const [step, setStepState] = useState<number>(() => {
     const saved = localStorage.getItem(stepKey);
     return saved ? parseInt(saved, 10) : 1;
-  });
-  
-  const setStep = (n: number) => {
+  });  const setStep = (n: number) => {
     setStepState(n);
     localStorage.setItem(stepKey, String(n));
   };
 
-  // Paywall step tracking
-  const [paywallStep, setPaywallStep] = useState<'first' | 'second' | 'free'>('first');
+  // React Router navigation. We deliberately avoid `window.location.href`
+  // here — a full document reload wipes React state and was the root
+  // cause of the "free-tier user bounces back into the first paywall"
+  // loop. `navigate('/scan')` keeps the React tree alive so the new
+  // App.tsx route gate can re-evaluate hasCompletedOnboarding without
+  // losing the current component state.
+  const navigate = useNavigate();
 
   // State for onboarding data
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [onboardingData, setOnboardingData] = useState<any>({});
-  
+
   // Track if model preload has started (prevent duplicate calls)
   const modelPreloadStartedRef = useRef<boolean>(false);
 
@@ -147,74 +148,6 @@ export const AuthOnboardingWizard = () => {
       Logger.error('Auth', 'Error tracking user action:', error);
       return false;
     }
-  };
-
-  // Save analysis results to analysis_results table
-  const saveAnalysisResult = async (imageUrl: string, analysisData: any, score: number) => {
-    if (!userId) return false;
-    
-    try {
-      const { error } = await supabase
-        .from('analysis_results')
-        .insert({
-          user_id: userId,
-          image_url: imageUrl,
-          analysis_data: analysisData,
-          score: score,
-          created_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      
-      return true;
-    } catch (error) {
-      Logger.error('Auth', 'Error saving analysis result:', error);
-      return false;
-    }
-  };
-
-  // Fake analysis function - no AI credits used
-  const performFakeAnalysis = async (imageFile: File): Promise<any> => {
-    // Generate realistic fake scores
-    const baseScore = Math.floor(Math.random() * 15) + 75; // 75-90 base
-    const variance = 10; // Allow some variation
-    
-    const fakeAnalysis = {
-      overallScore: Math.min(100, baseScore + Math.floor(Math.random() * variance)),
-      breakdown: [
-        { 
-          category: 'Style', 
-          score: Math.min(100, baseScore + Math.floor(Math.random() * variance) - 5), 
-          emoji: '',
-          feedback: "Great style choices! Your outfit shows confidence."
-        },
-        { 
-          category: 'Fit', 
-          score: Math.min(100, baseScore + Math.floor(Math.random() * variance)), 
-          emoji: '',
-          feedback: "The fit looks good on you. Well proportioned."
-        },
-        { 
-          category: 'Color', 
-          score: Math.min(100, baseScore + Math.floor(Math.random() * variance) - 3), 
-          emoji: '',
-          feedback: "Nice color coordination. The palette works well."
-        }
-      ],
-      tips: [
-        "Consider adding a statement accessory to elevate the look",
-        "The color combination works great for your style",
-        "This outfit shows good understanding of proportions"
-      ],
-      summary: "Looking sharp! You have a good eye for putting together outfits that work well together."
-    };
-    
-    return {
-      success: true,
-      imageUrl: URL.createObjectURL(imageFile), // Local URL, no upload
-      analysis: fakeAnalysis,
-      timestamp: new Date().toISOString()
-    };
   };
 
   // Initialize user tracking on component mount
@@ -463,16 +396,21 @@ export const AuthOnboardingWizard = () => {
           : "Your subscription is now active.",
       });
       
-      // Note: Model should already be preloading from Step 11 or Step 14
-      // By the time user reaches dashboard, model will be ready for instant uploads!
-      
-      // Navigate to main app
-      console.log('🚀 Navigating to /scan in 1 second...');
+      // The model is preloading from Step 11 or Step 14 (see the
+      // useEffects above). By the time the user lands in the dashboard
+      // it will be ready for instant uploads.
+
+      // Hand off to React Router instead of `window.location.href`.
+      // A full-document reload would wipe this component's state and
+      // was the root cause of the free-tier paywall loop; SPA
+      // navigation keeps the React tree alive and lets App.tsx's
+      // route gate re-evaluate against the freshly-set
+      // localStorage `onboarding_completed=true` flag without a
+      // state regression.
       setTimeout(() => {
-        console.log('🚀 NAVIGATING NOW to /scan');
-        window.location.href = '/scan';
+        navigate('/scan');
       }, 1000);
-      
+
     } catch (error) {
       console.error('❌ Error in handlePaywallComplete:', error);
       handleError(error, 'Auth:handlePaywallComplete');
@@ -599,32 +537,18 @@ export const AuthOnboardingWizard = () => {
           />
         )}
         
-        {step === 14 && paywallStep === 'first' && (
-          <ProOfferCard 
+        {step === 14 && (
+          <ProOfferCard
             key="pro-offer-card"
             onContinue={() => {
-              // User purchased from first paywall
+              // User purchased from the paywall
               handlePaywallComplete('pro', 'paywall_1');
             }}
-            onShowSecondPaywall={() => {
-              // User clicked X, show second paywall
-              console.log('🔄 User dismissed paywall 1, showing paywall 2');
-              setPaywallStep('second');
-            }}
-          />
-        )}
-
-        {step === 14 && paywallStep === 'second' && (
-          <SecondPaywall
-            key="second-paywall"
-            onContinue={() => {
-              // User purchased from second paywall
-              handlePaywallComplete('budget', 'paywall_2');
-            }}
-            onSkip={() => {
-              // User skipped both paywalls, give them free version
-              console.log('🆓 User dismissed paywall 2, entering free tier');
-              setPaywallStep('free');
+            onSkipToFreeTier={() => {
+              // User opted into the limited free tier from the
+              // bottom of the paywall. No second paywall — the X
+              // button path has been removed per product decision,
+              // and free-tier users now go straight through.
               handlePaywallComplete('free', 'free');
             }}
           />
