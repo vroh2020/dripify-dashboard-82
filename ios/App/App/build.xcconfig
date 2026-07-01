@@ -1,12 +1,12 @@
 
 // Provisioning profile configuration
-PROVISIONING_PROFILE_SPECIFIER = "Appp"
+PROVISIONING_PROFILE_SPECIFIER = "Dripify AI"
 DEVELOPMENT_TEAM = TN748MMP9M
 CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
 
 // Bundle identifier should match what's in capacitor.config.ts
-PRODUCT_BUNDLE_IDENTIFIER = com.velpuri.app
+PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app
 
 // Swift compiler settings to fix Xcode 16.4 compatibility issues
 SWIFT_SUPPRESS_WARNINGS = YES
