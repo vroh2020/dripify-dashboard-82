@@ -76,42 +76,82 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Onboarding route - always accessible */}
-      <Route 
-        path="/auth" 
+      <Route
+        path="/auth"
         element={
-          shouldShowDashboard ? 
-            <Navigate to="/dashboard" replace /> : 
+          shouldShowDashboard ?
+            <Navigate to="/scan" replace /> :
             <Auth />
-        } 
+        }
       />
-      
-      {/* Dashboard routes - only if completed onboarding (free or paid) */}
+
+      {/* App routes - only if completed onboarding (free or paid) */}
       {shouldShowDashboard ? (
         <>
-          <Route 
-            path="/scan" 
+          {/* `/scan` is the home + dashboard (ScanView owns recent scans,
+              calendar week, stats). `/scan/*` covers any future subroutes. */}
+          <Route
+            path="/scan"
             element={
               <Suspense fallback={null}>
                 <Index />
               </Suspense>
-            } 
+            }
+          />
+          <Route
+            path="/scan/:rest*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
           />
 
-          <Route 
-            path="/closet" 
+          {/* `/fits` covers the new top-level Fits tab + its subroutes
+              (`/fits/builder`, `/fits/:id`). The view handles subroutes
+              internally via pathname parse. */}
+          <Route
+            path="/fits"
             element={
               <Suspense fallback={null}>
                 <Index />
               </Suspense>
-            } 
+            }
           />
-          <Route 
-            path="/profile" 
+          <Route
+            path="/fits/:rest*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+
+          {/* Closet tab + any future subroutes (e.g. `/closet/collections`). */}
+          <Route
+            path="/closet"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/closet/:rest*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+
+          <Route
+            path="/profile"
             element={
               <Suspense fallback={null}>
                 <Profile />
               </Suspense>
-            } 
+            }
           />
           <Route path="/" element={<Navigate to="/scan" replace />} />
           <Route path="*" element={<Navigate to="/scan" replace />} />

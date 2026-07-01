@@ -1,0 +1,355 @@
+/**
+ * useClosetData — single source of truth for the user's wardrobe + outfits.
+ *
+ * Why a hook instead of letting `ClosetView` and `FitsView` each fetch their
+ * own data: now that Fits is a top-level tab (its own route), the two views
+ * no longer share a component tree, so prop-drilling won't work. Putting the
+ * read + the small mutations here means both views read the same cache, and
+ * a save in the Fits builder instantly reflects in the Closet tab without a
+ * manual refetch.
+ *
+ * Race-safety follows the same pattern ClosetView had locally:
+ * - loadingRef blocks a duplicate concurrent load
+ * - lastLoadTimeRef gives us a 30s cache window on the slow queries
+ * - loadRequestIdRef makes stale resolutions no-op (a retry wins)
+ * - mountedRef guards against React 18 strict-mode double-mount
+ *
+ * Returns the raw normalized arrays plus a small set of mutations so callers
+ * don't need to know the Supabase table names — they just deal with domain
+ * types (`ClosetItem`, `Outfit`).
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+/**
+ * The local view of a closet item. Source of truth: `trendza_closet_items`,
+ * with a permissive `.favorite` mirror held in React state only — the DB
+ * doesn't store it today, and adding a column for it would block this
+ * refactor on a migration. Keep state-local for now; future work can
+ * persist.
+ */
+export interface ClosetItem {
+  id: string;
+  title: string;
+  brand?: string;
+  category: string;
+  color: string;
+  season?: string;
+  tags: string[];
+  attributes: Record<string, any>;
+  source_image_url?: string;
+  created_at: string;
+  favorite?: boolean;
+}
+
+/**
+ * Saved fit (set of closet items the user named + saved).
+ * Source of truth: `trendza_outfits`. Items are hydrated on load by joining
+ * against `items`.
+ */
+export interface SavedOutfit {
+  id: string;
+  name: string;
+  item_ids: string[];
+  score?: number;
+  rationale?: string;
+  created_at: string;
+  items: ClosetItem[];
+}
+
+/**
+ * What the builder hands to `saveOutfit`: which items go into the fit.
+ * `null` slots are filtered before save so the caller doesn't need to
+ * pre-clean.
+ */
+export interface SaveOutfitInput {
+  name: string;
+  items: Array<ClosetItem | null>;
+}
+
+interface UseClosetDataReturn {
+  items: ClosetItem[];
+  outfits: SavedOutfit[];
+  isLoading: boolean;
+  isInitialLoad: boolean;
+  loadError: string | null;
+  /** Manual refetch (bypasses the 30s time-based cache). */
+  refresh: () => void;
+  /** Surface the retry banner; same as refresh but with intent naming. */
+  retry: () => void;
+  /** Persist a new outfit and prepend it to the local list. */
+  saveOutfit: (input: SaveOutfitInput) => Promise<SavedOutfit | null>;
+  /** Delete a saved outfit + drop from local state. */
+  deleteOutfit: (id: string) => Promise<void>;
+  /** Local-only favorite toggle; no DB round-trip. */
+  toggleFavorite: (itemId: string) => void;
+  /**
+   * Insert a freshly uploaded item (post-background-removal + AI analysis +
+   * Supabase storage upload). Caller passes the already-processed blob /
+   * analysis result so the hook stays storage- and AI-agnostic.
+   */
+  insertItem: (item: ClosetItem) => void;
+}
+
+const CACHE_DURATION_MS = 30_000;
+
+/**
+ * Filter rows that are still being uploaded/analyzed. A row whose title is
+ * `Untitled` or `Analyzing...` is a placeholder the upload pipeline writes
+ * before AI returns; without this filter the closet would briefly show
+ * blank entries during upload.
+ */
+function normalizeItem(r: any): ClosetItem | null {
+  const hasImage = r?.source_image_url;
+  const hasValidTitle =
+    r?.title && r.title !== 'Untitled' && r.title !== 'Analyzing...';
+  if (!hasImage || !hasValidTitle) return null;
+  return {
+    id: r.id,
+    title: r.title,
+    brand: r.brand ?? '',
+    category: r.category ?? 'tops',
+    color: r.color ?? 'unknown',
+    season: r.season ?? 'all',
+    tags: Array.isArray(r.tags) ? r.tags : [],
+    attributes: r.attributes ?? {},
+    source_image_url: r.source_image_url,
+    created_at: r.created_at,
+    favorite: false,
+  };
+}
+
+function normalizeOutfit(r: any, itemMap: Map<string, ClosetItem>): SavedOutfit {
+  const itemIds = Array.isArray(r.item_ids) ? r.item_ids : [];
+  return {
+    id: r.id,
+    name: r.name ?? 'Fit',
+    item_ids: itemIds,
+    ...(r.score !== null && r.score !== undefined && { score: r.score }),
+    ...(r.rationale !== null &&
+      r.rationale !== undefined && { rationale: r.rationale }),
+    created_at: r.created_at,
+    items: itemIds
+      .map((id: string) => itemMap.get(id))
+      .filter((i): i is ClosetItem => Boolean(i)),
+  };
+}
+
+export function useClosetData(): UseClosetDataReturn {
+  const { toast } = useToast();
+  const [items, setItems] = useState<ClosetItem[]>([]);
+  const [outfits, setOutfits] = useState<SavedOutfit[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadingRef = useRef(false);
+  const lastLoadTimeRef = useRef(0);
+  const loadRequestIdRef = useRef(0);
+  // Reactive sync for the `isLoading` boolean — the ref above is the
+  // duplicate-load gate, but callers want a value they can render against.
+  const [isLoading, setIsLoading] = useState(false);
+  // Tracks whether the component is still mounted. Used to short-circuit
+  // state mutations from any in-flight fetch when the user navigates
+  // away from the route before Supabase resolves.
+  const mountedRef = useRef(true);
+
+  const load = useCallback(async () => {
+    // Block concurrent duplicate loads.
+    if (loadingRef.current) return;
+
+    // Time-based cache: if we fetched recently and have data, skip.
+    const now = Date.now();
+    if (
+      now - lastLoadTimeRef.current < CACHE_DURATION_MS &&
+      items.length > 0
+    ) {
+      return;
+    }
+
+    loadingRef.current = true;
+    setIsLoading(true);
+    const requestId = ++loadRequestIdRef.current;
+    // `isStale` closes over the request id we just captured — if a retry
+    // bumps the counter, or the component unmounts, this promise must not
+    // touch shared state.
+    const isStale = () =>
+      requestId !== loadRequestIdRef.current || !mountedRef.current;
+
+    try {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth?.user) {
+        // No session — leave lists empty and clear initial-load so the
+        // views don't sit on a spinner. Not an error worth a toast.
+        if (!isStale()) setIsInitialLoad(false);
+        return;
+      }
+
+      const [itemsResult, outfitsResult] = await Promise.all([
+        supabase
+          .from('trendza_closet_items')
+          .select(
+            'id, title, brand, category, color, season, tags, attributes, source_image_url, created_at'
+          )
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('trendza_outfits')
+          .select('id, name, item_ids, score, rationale, created_at')
+          .order('created_at', { ascending: false }),
+      ]);
+
+      // Bail before mutating state: a resolved-but-stale promise must
+      // not push data into either view that's already moved on.
+      if (isStale()) return;
+
+      const itemRows = (itemsResult.data ?? []) as any[];
+      const normalizedItems = itemRows
+        .map(normalizeItem)
+        .filter((i): i is ClosetItem => i !== null);
+
+      const itemMap = new Map<string, ClosetItem>();
+      normalizedItems.forEach((i) => itemMap.set(i.id, i));
+
+      const outfitRows = (outfitsResult.data ?? []) as any[];
+      const normalizedOutfits = outfitRows.map((r) =>
+        normalizeOutfit(r, itemMap)
+      );
+
+      setItems(normalizedItems);
+      setOutfits(normalizedOutfits);
+      lastLoadTimeRef.current = Date.now();
+      // Clear stale error state once a load resolves successfully.
+      setLoadError(null);
+    } catch (e: any) {
+      if (isStale()) return;
+      const message = e?.message ?? 'Unable to reach your closet';
+      // eslint-disable-next-line no-console
+      console.error('Closet load failed:', e);
+      setLoadError(message);
+      toast({
+        title: "Couldn't load closet",
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      if (isStale()) return;
+      loadingRef.current = false;
+      setIsLoading(false);
+      setIsInitialLoad(false);
+    }
+  }, [items.length, toast]);
+
+  const refresh = useCallback(() => {
+    lastLoadTimeRef.current = 0;
+    loadingRef.current = false;
+    setLoadError(null);
+    setIsInitialLoad(true);
+    load();
+  }, [load]);
+
+  const retry = refresh;
+
+  // Initial load on mount; reset mountedRef for React 18 StrictMode
+  // double-mount so the gate stays correct.
+  useEffect(() => {
+    mountedRef.current = true;
+    load();
+    return () => {
+      mountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveOutfit = useCallback(
+    async (input: SaveOutfitInput): Promise<SavedOutfit | null> => {
+      const validItems = input.items.filter(
+        (i): i is ClosetItem =>
+          i !== null &&
+          typeof i.id === 'string' &&
+          i.id.length > 0 &&
+          !i.id.startsWith('temp_') &&
+          i.id.length === 36 // UUID v4 length — guards against bad ids
+      );
+      if (validItems.length === 0) return null;
+
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth?.user) return null;
+
+      const { data, error } = await supabase
+        .from('trendza_outfits')
+        .insert({
+          user_id: auth.user.id,
+          name: input.name,
+          item_ids: validItems.map((i) => i.id),
+          // Mock rationale — the builder UI is the source of truth for the
+          // display name; numeric score is a placeholder until we wire the
+          // scoring engine into the builder.
+          rationale: 'Created with Fit Stylist',
+        })
+        .select('id, name, item_ids, score, rationale, created_at')
+        .single();
+
+      if (error || !data) return null;
+
+      const newOutfit: SavedOutfit = {
+        id: data.id,
+        name: data.name ?? input.name,
+        item_ids: Array.isArray(data.item_ids) ? data.item_ids : [],
+        ...(data.score !== null &&
+          data.score !== undefined && { score: data.score }),
+        ...(data.rationale !== null &&
+          data.rationale !== undefined && { rationale: data.rationale }),
+        created_at: data.created_at,
+        items: validItems,
+      };
+      setOutfits((prev) => [newOutfit, ...prev]);
+      return newOutfit;
+    },
+    []
+  );
+
+  const deleteOutfit = useCallback(async (id: string) => {
+    try {
+      await supabase.from('trendza_outfits').delete().eq('id', id);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Delete outfit failed:', e);
+    } finally {
+      // Optimistic update regardless — the row is gone from this user's
+      // view even if the network request hiccuped.
+      setOutfits((prev) => prev.filter((o) => o.id !== id));
+    }
+  }, []);
+
+  const toggleFavorite = useCallback((itemId: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === itemId ? { ...i, favorite: !i.favorite } : i
+      )
+    );
+  }, []);
+
+  /**
+   * Used by the ClosetView upload pipeline after a successful insert —
+   * prepends the new row so it appears at the top of the grid without
+   * forcing a full refetch.
+   */
+  const insertItem = useCallback((item: ClosetItem) => {
+    setItems((prev) => [item, ...prev]);
+  }, []);
+
+  return {
+    items,
+    outfits,
+    isLoading,
+    isInitialLoad,
+    loadError,
+    refresh,
+    retry,
+    saveOutfit,
+    deleteOutfit,
+    toggleFavorite,
+    insertItem,
+  };
+}

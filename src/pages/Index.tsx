@@ -1,12 +1,11 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardView } from "@/components/DashboardView";
 import { ScanView } from "@/components/ScanView";
-
 import ClosetView from "@/components/closet/ClosetView";
-import { Scan, Shirt } from "lucide-react";
+import { FitsView } from "@/components/fits/FitsView";
+import { Scan, Shirt, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
 import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
@@ -15,11 +14,14 @@ import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPath = location.pathname.split('/')[1] || 'dashboard';
+  // Top-level route segment: only the first path part is a tab. The
+  // remaining segments route inside the view (e.g. `/fits/builder`).
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const currentPath = pathSegments[0] ?? 'scan';
 
-  // Sync tab value with URL
+  // `/` lands the user on Scan, which is also the dashboard / home.
   useEffect(() => {
-    if (location.pathname === '/' || location.pathname === '/dashboard') {
+    if (location.pathname === '/') {
       navigate('/scan', { replace: true });
     }
   }, [location.pathname, navigate]);
@@ -60,16 +62,17 @@ const Index = () => {
     navigate(`/${value}`);
   };
 
-  // Simple conditional rendering instead of nested Routes
+  // Top-level tab dispatch. Sub-routes (e.g. `/fits/builder`, `/closet/collections`)
+  // are handled inside each view component via `useLocation()` parse.
   const renderContent = () => {
     try {
       switch (currentPath) {
-        case 'dashboard':
-          return <DashboardView />;
         case 'scan':
           return <ScanView />;
         case 'closet':
           return <ClosetView />;
+        case 'fits':
+          return <FitsView />;
         case 'profile':
           return <Profile />;
 
@@ -140,7 +143,7 @@ const Index = () => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            <TabsList className="w-full h-16 grid grid-cols-2 bg-transparent gap-0 p-0">
+            <TabsList className="w-full h-16 grid grid-cols-3 bg-transparent gap-0 p-0">
               <TabsTrigger
                 value="closet"
                 aria-label="Closet tab"
@@ -148,6 +151,14 @@ const Index = () => {
               >
                 <Shirt className="h-5 w-5" strokeWidth={1.75} />
                 <span className="text-[11px] font-semibold tracking-wide">Closet</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="fits"
+                aria-label="Fits tab"
+                className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-500 hover:text-gray-900 rounded-none h-full transition-colors focus-visible:outline-none focus-visible:bg-gray-100"
+              >
+                <Sparkles className="h-5 w-5" strokeWidth={1.75} />
+                <span className="text-[11px] font-semibold tracking-wide">Fits</span>
               </TabsTrigger>
               <TabsTrigger
                 value="scan"
