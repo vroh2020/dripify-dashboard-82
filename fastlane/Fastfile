@@ -11,8 +11,8 @@ platform :ios do
       targets: ["App"],
       build_configurations: ["Debug", "Release"],
       code_sign_identity: "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      profile_name: "Dripify AI",
-      bundle_identifier: "com.genstyle.app"
+      profile_name: "Appp",
+      bundle_identifier: "com.velpuri.app"
     )
     
     # Build the app
@@ -23,7 +23,7 @@ platform :ios do
       export_options: {
         method: "app-store",
         provisioningProfiles: {
-          "com.genstyle.app" => "Dripify AI"
+          "com.velpuri.app" => "Appp"
         },
         signingStyle: "manual",
         teamID: "TN748MMP9M"

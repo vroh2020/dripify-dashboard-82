@@ -13,8 +13,8 @@
     		<string>Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>com.genstyle.app</key>
-        <string>Dripify AI</string>
+        <key>com.velpuri.app</key>
+        <string>Appp</string>
     </dict>
     <key>stripSwiftSymbols</key>
     <true/>

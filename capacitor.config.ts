@@ -5,7 +5,7 @@ type TrendzaCapacitorConfig = CapacitorConfig & {
 };
 
 const config: TrendzaCapacitorConfig = {
-  appId: 'com.genstyle.app',
+  appId: 'com.velpuri.app',
   appName: 'trendza',
   webDir: 'dist',
   server: {
@@ -49,7 +49,7 @@ const config: TrendzaCapacitorConfig = {
       shouldShowInAppMessagesAutomatically: true
     },
     SignInWithApple: {
-      clientId: 'service.com.genstyle.app',
+      clientId: 'service.com.velpuri.app',
       scopes: 'email name'
     }
   },

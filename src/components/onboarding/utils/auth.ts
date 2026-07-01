@@ -35,8 +35,8 @@ const handleNativeAppleSignIn = async (): Promise<boolean> => {
     
     // Fixed: Use app scheme for native iOS
     const options = {
-      clientId: 'service.com.genstyle.app',
-      redirectURI: 'com.genstyle.app://auth/callback', // Fixed: Use app scheme
+      clientId: 'service.com.velpuri.app',
+      redirectURI: 'com.velpuri.app://auth/callback', // Fixed: Use app scheme
       scopes: 'email name',
       state: 'native-ios',
       nonce: nonce // Use generated nonce
@@ -76,7 +76,7 @@ const handleWebAppleSignIn = async (): Promise<boolean> => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: 'com.genstyle.app://auth/callback',
+          redirectTo: 'com.velpuri.app://auth/callback',
           queryParams: {
             scope: 'name email'
           },

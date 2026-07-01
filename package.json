@@ -113,30 +113,30 @@
   "ios": {
     "debug": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "OutfitGrader AI",
+      "provisioningProfile": "Appp",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
-      "bundleIdentifier": "com.genstyle.app"
+      "bundleIdentifier": "com.velpuri.app"
     },
     "release": {
       "codeSignIdentity": "Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)",
-      "provisioningProfile": "OutfitGrader AI",
+      "provisioningProfile": "Appp",
       "developmentTeam": "TN748MMP9M",
       "packageType": "app-store",
       "automaticProvisioning": false,
-      "bundleIdentifier": "com.genstyle.app"
+      "bundleIdentifier": "com.velpuri.app"
     }
   },
   "cordova": {},
   "capacitor": {
     "ios": {
-      "provisioningProfile": "OutfitGrader AI"
+      "provisioningProfile": "Appp"
     }
   },
   "capacitor-build": {
     "ios": {
-      "provisioningProfile": "OutfitGrader AI"
+      "provisioningProfile": "Appp"
     }
   }
 }

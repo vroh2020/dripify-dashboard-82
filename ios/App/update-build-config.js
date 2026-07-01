@@ -13,11 +13,11 @@ if (fs.existsSync(buildConfigPath)) {
   console.log('build.xcconfig found, verifying contents...');
   let configContent = fs.readFileSync(buildConfigPath, 'utf8');
   const requiredSettings = [
-    'PROVISIONING_PROFILE_SPECIFIER = Drip Check',
+    'PROVISIONING_PROFILE_SPECIFIER = "Appp"',
     'DEVELOPMENT_TEAM = TN748MMP9M',
     'CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)',
     'CODE_SIGN_STYLE = Manual',
-    'PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app'
+    'PRODUCT_BUNDLE_IDENTIFIER = com.velpuri.app'
   ];
   
   let needsUpdate = false;
@@ -32,13 +32,13 @@ if (fs.existsSync(buildConfigPath)) {
     console.log('Updating build.xcconfig with required settings...');
     fs.writeFileSync(buildConfigPath, 
 `// Provisioning profile configuration
-PROVISIONING_PROFILE_SPECIFIER = Drip Check
+PROVISIONING_PROFILE_SPECIFIER = "Appp"
 DEVELOPMENT_TEAM = TN748MMP9M
 CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
 
 // Bundle identifier should match what's in capacitor.config.ts
-PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app
+PRODUCT_BUNDLE_IDENTIFIER = com.velpuri.app
 
 // Include build.xcconfig in Xcode project
 #include? "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"
@@ -49,13 +49,13 @@ PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app
   console.log('Creating build.xcconfig...');
   fs.writeFileSync(buildConfigPath, 
 `// Provisioning profile configuration
-PROVISIONING_PROFILE_SPECIFIER = Drip Check
+PROVISIONING_PROFILE_SPECIFIER = "Appp"
 DEVELOPMENT_TEAM = TN748MMP9M
 CODE_SIGN_IDENTITY = Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)
 CODE_SIGN_STYLE = Manual
 
 // Bundle identifier should match what's in capacitor.config.ts
-PRODUCT_BUNDLE_IDENTIFIER = com.genstyle.app
+PRODUCT_BUNDLE_IDENTIFIER = com.velpuri.app
 
 // Include build.xcconfig in Xcode project
 #include? "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"
@@ -72,9 +72,9 @@ const hasBuildConfig = pbxproj.includes('build.xcconfig');
 console.log('Applying build settings via command line...');
 try {
   // Set provisioning profile specifier for both Debug and Release configurations
-  execSync(`/usr/libexec/PlistBuddy -c "Add :buildSettings:PROVISIONING_PROFILE_SPECIFIER string Drip Check" ${projectPath}/project.pbxproj || true`, { stdio: 'inherit' });
-  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Debug PROVISIONING_PROFILE_SPECIFIER="Drip Check" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
-  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Release PROVISIONING_PROFILE_SPECIFIER="Drip Check" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
+  execSync(`/usr/libexec/PlistBuddy -c "Add :buildSettings:PROVISIONING_PROFILE_SPECIFIER string Appp" ${projectPath}/project.pbxproj || true`, { stdio: 'inherit' });
+  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Debug PROVISIONING_PROFILE_SPECIFIER="Appp" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
+  execSync(`xcodebuild -project ${projectPath} -scheme App -configuration Release PROVISIONING_PROFILE_SPECIFIER="Appp" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution: Velpuri Enterprises Inc. (TN748MMP9M)" DEVELOPMENT_TEAM=TN748MMP9M build -showBuildSettings || true`, { stdio: 'inherit' });
 } catch (error) {
   console.error('Warning: Command failed, but continuing:', error.message);
 }
@@ -95,7 +95,7 @@ try {
   console.log('Setting bundle ID in Info.plist...');
   const infoPlistPath = path.join(__dirname, 'App', 'Info.plist');
   if (fs.existsSync(infoPlistPath)) {
-    execSync(`/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.genstyle.app" ${infoPlistPath}`, { stdio: 'inherit' });
+    execSync(`/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.velpuri.app" ${infoPlistPath}`, { stdio: 'inherit' });
   }
 } catch (error) {
   console.error('Warning: Failed to set bundle ID in Info.plist:', error.message);
