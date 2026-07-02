@@ -292,14 +292,23 @@ export const AuthOnboardingWizard = () => {
     }
     
     setStep(13); // Go to free trial paywall step
-  };
-
-  const handleFreeTrialPaywallComplete = async (tier: string) => {
+  };  const handleFreeTrialPaywallComplete = async (tier: string) => {
     if (userId) {
       saveOnboardingStep('free_trial_paywall_completed', { tier }).catch(console.error);
       trackUserAction('free_trial_paywall_completed', { tier, step: 13 }).catch(console.error);
     }
-    
+
+    // 🧪 TESTING-ONLY bypass. Open the app with
+    //   `http://localhost:3000/auth?bypass_paywall=1`
+    // to skip ProOfferCard entirely and land on the dashboard as if
+    // the user completed a "pro" purchase. Real shipping behavior is
+    // untouched — remove this guard before pushing to TestFlight.
+    if (typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('bypass_paywall') === '1') {
+      Logger.info('Auth', '🧪 [TEST] Paywall bypass via ?bypass_paywall=1 — skipping ProOfferCard');
+      return handlePaywallComplete('pro', 'paywall_1');
+    }
+
     setStep(14); // Go directly to ProOfferCard (skip TrialTimelineStep)
   };
 
