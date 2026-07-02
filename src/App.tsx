@@ -72,13 +72,25 @@ const AppRoutes = () => {
   // Optimistic during auth loading: a real subscriber should never see
   // a flash of `/auth` on launch, but if the cache says onboarding is
   // not done we must NOT bypass the wizard.
-  // 🧪 TESTING: while in `npm run dev`, force-render the dashboard
-  // regardless of auth/onboarding state. Vite replaces
-  // `import.meta.env.DEV` with `false` at production build time, so
-  // this auto-disables in shipped iOS/Android binaries. Flip the
-  // `||` out (keep `hasCompletedOnboarding` only) to restore the
-  // real production gate.
-  const shouldShowDashboard = import.meta.env.DEV || hasCompletedOnboarding;
+  // 🧪 TESTING: dashboard bypass that survives production builds,
+  // iOS TestFlight, Appetize, and Capacitor WebView. Two ways to flip
+  // it on:
+  //   1. localStorage flag (sticky across reloads — works in Appetize
+  //      remote DevTools and inside the Capacitor WebView alike):
+  //        localStorage.setItem('dev_force_dashboard','true'); location.reload();
+  //      To disable:
+  //        localStorage.removeItem('dev_force_dashboard'); location.reload();
+  //   2. URL query (one-off, also works in Appetize launch URL):
+  //        ?force_dashboard=1 appended to any path.
+  // When neither flag is set, behavior is identical to the real
+  // production gate (controlled entirely by `hasCompletedOnboarding`).
+  const forceDashboard =
+    (typeof window !== 'undefined' &&
+      localStorage.getItem('dev_force_dashboard') === 'true') ||
+    (typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('force_dashboard') === '1');
+
+  const shouldShowDashboard = forceDashboard || hasCompletedOnboarding;
 
   return (
     <Routes>

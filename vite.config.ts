@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react-swc'
 import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
@@ -17,6 +17,16 @@ export default defineConfig({
         "./src/components/whering/NextImageShim.tsx"
       ),
     },
+  },
+  define: {
+    // Polyfill `process.env.NODE_ENV` for any third-party module that
+    // slipped into the bundle (e.g. a stranded chunk from
+    // `node_modules/next/dist/client/image-component.js` if Vite's
+    // pre-bundler raced ahead of the resolve.alias for `next/image`).
+    // Vite replaces `process.env.NODE_ENV` with a string literal at
+    // build/dev time, so the browser never sees `ReferenceError:
+    // process is not defined` even if a stale chunk surfaces.
+    'process.env.NODE_ENV': JSON.stringify(mode),
   },
   build: {
     chunkSizeWarningLimit: 1000,
@@ -41,8 +51,15 @@ export default defineConfig({
       'lucide-react',
       '@supabase/supabase-js',
     ],
-    // CRITICAL: Exclude transformers - causes WASM issues on iOS if optimized
-    exclude: ['@huggingface/transformers']
+    // CRITICAL: Exclude these from pre-bundling —
+    //   - `@huggingface/transformers`: large WASM bundle that breaks on
+    //     iOS if eager-bundled.
+    //   - `next/image`: Vite's pre-bundler resolves the module path
+    //     BEFORE `resolve.alias` runs, so even with the correct alias
+    //     the optimizer creates a stranded `next_image` chunk that
+    //     references `process.env`. Excluding it forces the alias to
+    //     be the sole resolver.
+    exclude: ['@huggingface/transformers', 'next/image']
   },
   server: {
     port: 3000,
@@ -53,4 +70,4 @@ export default defineConfig({
       'Cross-Origin-Opener-Policy': 'same-origin',
     }
   },
-})
+}))
