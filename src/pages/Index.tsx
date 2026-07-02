@@ -275,7 +275,7 @@ const Index = () => {
       switch (currentPath) {
         case "dress-me":
           return (
-            <div className="whering-theme bg-muted h-full">
+            <div className="whering-theme bg-muted h-full overflow-hidden">
               <Shuffler
                 closetItems={items}
                 demoItems={demoItems}
@@ -292,13 +292,13 @@ const Index = () => {
           );
         case "wardrobe":
           return (
-            <div className="whering-theme bg-muted h-full">
+            <div className="whering-theme bg-muted h-full overflow-hidden">
               <Wardrobe items={items} demoItems={demoItems} onRefresh={refresh} />
             </div>
           );
         case "canvas":
           return (
-            <div className="whering-theme bg-muted h-full">
+            <div className="whering-theme bg-muted h-full overflow-hidden">
               <Canvas
                 closetItems={items}
                 outfits={outfits}
@@ -336,7 +336,7 @@ const Index = () => {
           return <Profile />;
         default:
           return (
-            <div className="whering-theme bg-muted h-full">
+            <div className="whering-theme bg-muted h-full overflow-hidden">
               <Shuffler
                 closetItems={items}
                 demoItems={demoItems}
