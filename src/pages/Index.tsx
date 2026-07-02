@@ -108,7 +108,8 @@ function FabBottomSheet({
         initial={{ y: "100%" }}
         animate={{ y: open ? 0 : "100%" }}
         transition={{ type: "spring", stiffness: 360, damping: 32 }}
-        className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-white pb-10 pt-3 shadow-2xl"
+        className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-white pt-3 shadow-2xl"
+        style={{ paddingBottom: `calc(40px + env(safe-area-inset-bottom, 0px))` }}
       >
         <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-gray-200" />
         <div className="flex items-center justify-between px-6 pb-2 pt-1">
@@ -169,8 +170,13 @@ function FabButton({ onClick }: { onClick: () => void }) {
         thrust();
         onClick();
       }}
-      className="relative z-30 flex items-center justify-center rounded-full bg-black text-white shadow-[0_14px_40px_rgba(0,0,0,0.18)] transition-transform active:scale-95"
-      style={{ height: 58, width: 58, marginTop: -29 }}
+      className="relative z-30 flex items-center justify-center rounded-full bg-black text-white transition-transform active:scale-95"
+      style={{
+        height: 58,
+        width: 58,
+        marginTop: -29,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12)",
+      }}
     >
       <Plus className="h-7 w-7" strokeWidth={2.5} />
     </button>
@@ -394,9 +400,13 @@ const Index = () => {
       className="h-full app-content bg-white relative overflow-x-hidden flex flex-col"
       style={{ paddingTop: `env(safe-area-inset-top)` }}
     >
-      {/* TEST MODE BANNER */}
+      {/* TEST MODE BANNER — safe-area-aware so the Dynamic Island / notch
+           never clips the text or buttons */}
       {isTestDashboard && !testBannerDismissed && (
-        <div className="flex-shrink-0 bg-yellow-400 text-black px-4 py-2 flex items-center justify-between text-sm font-semibold">
+        <div
+          className="flex-shrink-0 bg-yellow-400 text-black px-4 py-2 flex items-center justify-between text-sm font-semibold"
+          style={{ paddingTop: `calc(8px + env(safe-area-inset-top, 0px))` }}
+        >
           <span>🧪 TEST MODE — Dashboard Preview</span>
           <div className="flex gap-2">
             <button

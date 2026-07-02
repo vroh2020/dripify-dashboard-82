@@ -37,9 +37,15 @@ const config: TrendzaCapacitorConfig = {
     // Continue button is pushed up above the keyboard instead of being
     // covered by it.
     Keyboard: {
-      resize: "body",
+      // CRITICAL: "none" stops WebKit from shrinking the entire viewport when the
+      // native keyboard appears. WebKit would otherwise reduce window.innerHeight
+      // from ~850px to ~400px and force every flex container to collapse (the
+      // "layout explosion" bug seen on the Save modal). With "none", the WebView
+      // stays fixed and the keyboard simply overlays — we handle scroll-to-input
+      // programmatically in main.tsx via Keyboard.setScroll().
+      resize: "none",
       style: "dark",
-      resizeOnFullScreen: true,
+      resizeOnFullScreen: false,
     },
     Camera: {
       photoAlbum: true,

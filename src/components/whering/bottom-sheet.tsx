@@ -56,8 +56,10 @@ export function BottomSheet({
 
       {/* Sheet */}
       <div
-        className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-card pb-8 pt-3 shadow-2xl"
+        className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-card pb-8 pt-3"
         style={{
+          paddingBottom: `calc(32px + env(safe-area-inset-bottom, 0px))`,
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.10), 0 -1px 3px rgba(0,0,0,0.06)",
           transform: open ? "translateY(0)" : "translateY(100%)",
           transition: "transform 0.34s cubic-bezier(0.175, 0.885, 0.32, 1.1)",
         }}
