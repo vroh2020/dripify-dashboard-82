@@ -3,11 +3,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import Auth from "./pages/Auth";
 import { SubscriptionProvider } from "./components/subscription/SubscriptionProvider";
 import { AuthErrorBoundary } from "./components/auth/AuthErrorBoundary";
 import { useAuth } from "./hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
@@ -51,6 +52,30 @@ const AppRoutes = () => {
   // bounce a paid user.
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
+  // ── TEST MODE: skip onboarding, jump straight to dashboard ──
+  // Activate via localStorage: localStorage.setItem('test_dashboard','true')
+  // or URL param: ?test_dashboard=true
+  // Seeds onboarding_completed + subscription_active so the route gate
+  // opens and demo wardrobes render. The yellow TEST MODE banner in
+  // Index.tsx reminds you this is active.
+  const isTestDashboard =
+    typeof window !== 'undefined' &&
+    (localStorage.getItem('test_dashboard') === 'true' ||
+     new URLSearchParams(window.location.search).get('test_dashboard') === 'true');
+
+  // Persist the flag so a refresh after the URL param is gone still works.
+  // useEffect prevents setItem on every render cycle.
+  // Also auto-signs in anonymously so dashboard Supabase calls don't crash.
+  useEffect(() => {
+    if (isTestDashboard) {
+      localStorage.setItem('test_dashboard', 'true');
+      localStorage.setItem('onboarding_completed', 'true');
+      localStorage.setItem('subscription_active', 'true');
+      // Auto-create an anonymous session so dashboard works immediately
+      supabase.auth.signInAnonymously().catch(() => {});
+    }
+  }, [isTestDashboard]);
+
   const onboardingCompletedFromCache =
     typeof window !== 'undefined'
       ? localStorage.getItem('onboarding_completed') === 'true'
@@ -69,10 +94,12 @@ const AppRoutes = () => {
     ? onboardingCompletedFromCache
     : isAuthenticated && onboardingCompletedFromCache;
 
-  // Optimistic during auth loading: a real subscriber should never see
-  // a flash of `/auth` on launch, but if the cache says onboarding is
-  // not done we must NOT bypass the wizard.
-  const shouldShowDashboard = hasCompletedOnboarding;
+  // Test mode bypasses onboarding. Show dashboard during authLoading
+  // so the anonymous sign-in (triggered in useEffect) has time to
+  // complete before lazy-loaded dashboard components mount.
+  const shouldShowDashboard = isTestDashboard
+    ? (isAuthenticated || authLoading)
+    : hasCompletedOnboarding;
 
   return (
     <Routes>

@@ -371,6 +371,19 @@ const Index = () => {
     }
   };
 
+  // ── TEST MODE: dismissible yellow banner ──
+  const [testBannerDismissed, setTestBannerDismissed] = useState(false);
+  const isTestDashboard =
+    typeof window !== 'undefined' &&
+    localStorage.getItem('test_dashboard') === 'true';
+
+  const exitTestMode = () => {
+    localStorage.removeItem('test_dashboard');
+    localStorage.removeItem('onboarding_completed');
+    localStorage.removeItem('subscription_active');
+    window.location.href = '/auth';
+  };
+
   return (
     // `app-content` opts this wrapper into the iPad letterbox rule
     // (max-width 480px centered with a soft drop shadow) defined in
@@ -381,6 +394,27 @@ const Index = () => {
       className="h-full app-content bg-white relative overflow-x-hidden flex flex-col"
       style={{ paddingTop: `env(safe-area-inset-top)` }}
     >
+      {/* TEST MODE BANNER */}
+      {isTestDashboard && !testBannerDismissed && (
+        <div className="flex-shrink-0 bg-yellow-400 text-black px-4 py-2 flex items-center justify-between text-sm font-semibold">
+          <span>🧪 TEST MODE — Dashboard Preview</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTestBannerDismissed(true)}
+              className="underline text-xs"
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={exitTestMode}
+              className="bg-black text-white px-3 py-0.5 rounded-full text-xs font-bold hover:bg-gray-800"
+            >
+              Exit Test
+            </button>
+          </div>
+        </div>
+      )}
+
       <DashboardHeader />
 
       <Tabs
