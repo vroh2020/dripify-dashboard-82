@@ -72,25 +72,13 @@ const AppRoutes = () => {
   // Optimistic during auth loading: a real subscriber should never see
   // a flash of `/auth` on launch, but if the cache says onboarding is
   // not done we must NOT bypass the wizard.
-  // 🧪 TESTING: dashboard bypass that survives production builds,
-  // iOS TestFlight, Appetize, and Capacitor WebView. Two ways to flip
-  // it on:
-  //   1. localStorage flag (sticky across reloads — works in Appetize
-  //      remote DevTools and inside the Capacitor WebView alike):
-  //        localStorage.setItem('dev_force_dashboard','true'); location.reload();
-  //      To disable:
-  //        localStorage.removeItem('dev_force_dashboard'); location.reload();
-  //   2. URL query (one-off, also works in Appetize launch URL):
-  //        ?force_dashboard=1 appended to any path.
-  // When neither flag is set, behavior is identical to the real
-  // production gate (controlled entirely by `hasCompletedOnboarding`).
-  const forceDashboard =
-    (typeof window !== 'undefined' &&
-      localStorage.getItem('dev_force_dashboard') === 'true') ||
-    (typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('force_dashboard') === '1');
-
-  const shouldShowDashboard = forceDashboard || hasCompletedOnboarding;
+  // 🧪 TESTING — hardcoded ON for QA / Appetize / iOS-sim testing.
+  // Flip the single word below from `true` → `false` to restore the
+  // real auth/onboarding gate before pushing to TestFlight / App Store.
+  // Search the file for `SHOULD_SHOW_DASHBOARD_FORCE_QA` to find this.
+  const SHOULD_SHOW_DASHBOARD_FORCE_QA = true;
+  const shouldShowDashboard =
+    SHOULD_SHOW_DASHBOARD_FORCE_QA || hasCompletedOnboarding;
 
   return (
     <Routes>
