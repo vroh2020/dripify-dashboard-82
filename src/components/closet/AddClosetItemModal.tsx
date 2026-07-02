@@ -391,7 +391,7 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
                   ) : (
                     <div className="space-y-4">
                       {/* Image Preview */}
-                      <Card className="bg-[#2A2F3C] border-[#403E43] overflow-hidden">                      <Card className="bg-[#2A2F3C] border-[#403E43] overflow-hidden">
+                      <Card className="bg-[#2A2F3C] border-[#403E43] overflow-hidden">
                           <CardContent className="p-0">
                           <div className="relative">
                             <CachedImage

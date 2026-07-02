@@ -1,210 +1,139 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import Image from "next/image"
-import { Shuffle, Bookmark, Check } from "lucide-react"
+import { Shuffle, Bookmark, Check, ChevronLeft, ChevronRight } from "lucide-react"
+import { useDrag } from "@use-gesture/react"
+import { motion, AnimatePresence } from "framer-motion"
 import { NamePrompt } from "@/components/whering/NamePrompt"
 import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
 import type { ClosetItem, SavedOutfit } from "@/hooks/useClosetData"
 import { FEMALE_DEMO_ITEMS } from "@/lib/demo-wardrobe"
 
-// ─── Internal display item (bridges ClosetItem to the ShufflerRow's contract) ───
+// ─── Swipeable Canvas Item ───
 
-interface ShufflerDisplayItem {
-  id: string
-  name: string
-  src: string
-  closetItem?: ClosetItem
-}
-
-function mapClosetToDisplay(items: ClosetItem[], category: string): ShufflerDisplayItem[] {
-  return items
-    .filter((i) => i.category === category && i.source_image_url)
-    .map((i) => ({
-      id: i.id,
-      name: i.title,
-      src: i.source_image_url!,
-      closetItem: i,
-    }))
-}
-
-function mapDemoToDisplay(items: ClosetItem[]): ShufflerDisplayItem[] {
-  return items.map((ci) => ({
-    id: ci.id,
-    name: ci.title,
-    src: ci.source_image_url ?? "/placeholder.svg",
-    closetItem: ci,
-  }))
-}
-
-// ─── ShufflerRow (unchanged contract, works with ShufflerDisplayItem) ───
-
-function ShufflerRow({
+function SwipeableItem({
   items,
-  heightClass,
+  index,
   onIndexChange,
-  registerScroller,
+  className,
+  heightPercent,
+  zIndex,
 }: {
-  items: ShufflerDisplayItem[]
-  heightClass: string
-  onIndexChange: (index: number) => void
-  registerScroller: (fn: (index: number) => void) => void
+  items: { id: string; name: string; src: string; closetItem?: ClosetItem }[]
+  index: number
+  onIndexChange: (idx: number) => void
+  className: string
+  heightPercent: number
+  zIndex: number
 }) {
-  const rowRef = useRef<HTMLDivElement>(null)
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([])
+  const ref = useRef<HTMLDivElement>(null)
+  const firedRef = useRef(false)
+  const item = items[index]
+  const canSwipe = items.length > 1
 
-  // Wrap-around carousel state.
-  // - `activeRealIdx` tracks the user-facing item index (0..items.length-1)
-  //   regardless of where it sits in the cloned renderItems array.
-  // - `lastRenderedIdx` tracks where in the cloned list we're currently
-  //   resting so the scrollend jump knows which clone to correct.
-  // - `scrollTimeout` debounces a `scroll` listener into a reliable
-  //   `scrollend` polyfill (Safari iOS 15/16 don't ship the native event).
-  const activeRealIdx = useRef(-1)
-  const lastRenderedIdx = useRef(0)
-  const scrollTimeout = useRef<NodeJS.Timeout>()
-
-  // Clone first and last items at the boundaries so swiping past either
-  // end lands on a clone, then silently snaps back to the real item.
-  // Disabled for 0/1-item rows because wrap-around would feel jittery
-  // when there's nothing to scroll to anyway.
-  const hasClones = items.length > 1
-  const renderItems = useMemo(
-    () =>
-      hasClones
-        ? [items[items.length - 1], ...items, items[0]]
-        : items,
-    [items, hasClones],
-  )
-
-  // Map a `renderItems` index back to the user-facing item index. The
-  // clones at the ends are 0 and (renderItems.length-1), and they
-  // represent the *real* first and last items respectively.
-  const getRealIndex = useCallback(
-    (renderIdx: number): number => {
-      if (!hasClones) return renderIdx
-      if (renderIdx === 0) return items.length - 1
-      if (renderIdx === renderItems.length - 1) return 0
-      return renderIdx - 1
-    },
-    [hasClones, items.length, renderItems.length],
-  )
-
-  // Imperative scrollTo used by the parent's Shuffle button. Translate
-  // the parent's domain index (0..items.length-1) into the renderItems
-  // index space (+1 to skip the leading clone).
-  useEffect(() => {
-    registerScroller((index: number) => {
-      const safeIdx = Math.max(0, Math.min(index, items.length - 1))
-      const renderIdx = hasClones ? safeIdx + 1 : safeIdx
-      const el = itemRefs.current[renderIdx]
-      if (el && rowRef.current) {
-        rowRef.current.scrollTo({ left: el.offsetLeft, behavior: "smooth" })
+  const bind = useDrag(
+    ({ first, movement: [mx], last, cancel }) => {
+      if (!canSwipe) return
+      // Imperative DOM manipulation — same pattern as canvas.tsx DraggableItem.
+      // Avoids React re-render overhead and guarantees snap-back on partial drags.
+      if (ref.current) {
+        ref.current.style.transform = `translateX(calc(-50% + ${mx}px))`
       }
-    })
-  }, [registerScroller, hasClones, items.length])
-
-  // IntersectionObserver — read the focus state, but emit the *real*
-  // index so the parent never sees a clone. Storing `lastRenderedIdx`
-  // here lets the scroll-jump useEffect below know where we landed.
-  useEffect(() => {
-    const root = rowRef.current
-    if (!root) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting || entry.intersectionRatio < 0.6) continue
-          const index = itemRefs.current.findIndex(
-            (el) => el === entry.target,
-          )
-          if (index === -1) continue
-          lastRenderedIdx.current = index
-          const realIdx = getRealIndex(index)
-          if (realIdx !== activeRealIdx.current) {
-            activeRealIdx.current = realIdx
-            haptic("light")
-            onIndexChange(realIdx)
-          }
+      if (last) {
+        if (Math.abs(mx) > 60 && !firedRef.current) {
+          firedRef.current = true
+          haptic("light")
+          const dir = mx > 0 ? -1 : 1
+          const next = (index + dir + items.length) % items.length
+          onIndexChange(next)
         }
-      },
-      { root, threshold: [0.6] },
-    )
-
-    itemRefs.current.forEach((el) => el && observer.observe(el))
-    return () => observer.disconnect()
-  }, [onIndexChange, getRealIndex, renderItems])
-
-  // Wrap jump — when the user finishes a flick and lands on a clone
-  // (renderIdx 0 or last), silently scroll back to the matching real
-  // item without animation. 150ms is the standard scrollend fallback
-  // window for `scroll` event silence on iOS WebView.
-  useEffect(() => {
-    const root = rowRef.current
-    if (!root) return
-    const onScroll = () => {
-      window.clearTimeout(scrollTimeout.current)
-      scrollTimeout.current = window.setTimeout(() => {
-        if (!hasClones) return
-        const currentRenderIdx = lastRenderedIdx.current
-        if (
-          currentRenderIdx === 0 ||
-          currentRenderIdx === renderItems.length - 1
-        ) {
-          const targetRenderIdx = getRealIndex(currentRenderIdx) + 1
-          const targetEl = itemRefs.current[targetRenderIdx]
-          if (targetEl) {
-            root.scrollTo({ left: targetEl.offsetLeft, behavior: "auto" })
-          }
+        // Snap back to center after drag ends
+        if (ref.current) {
+          ref.current.style.transition = "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)"
+          ref.current.style.transform = "translateX(-50%)"
+          setTimeout(() => { if (ref.current) ref.current.style.transition = "" }, 250)
         }
-      }, 150)
-    }
-    root.addEventListener("scroll", onScroll, { passive: true } as AddEventListenerOptions)
-    return () => {
-      root.removeEventListener("scroll", onScroll)
-      window.clearTimeout(scrollTimeout.current)
-    }
-  }, [hasClones, getRealIndex, renderItems.length])
+      }
+      if (first) firedRef.current = false
+      if (Math.abs(mx) > 120) cancel()
+    },
+    {
+      axis: "x",
+      filterTaps: true,
+      rubberband: 0.15,
+    },
+  )
 
-  // Initial centering — skip ahead past the leading clone so the user
-  // starts on the real first item, never on a clone.
-  useEffect(() => {
-    if (!hasClones) return
-    const target = itemRefs.current[1]
-    if (target && rowRef.current) {
-      rowRef.current.scrollTo({ left: target.offsetLeft, behavior: "auto" })
-    }
-  }, [hasClones])
+  if (!item) return null
 
   return (
     <div
-      ref={rowRef}
-      className={cn(
-        "no-scrollbar snap-x-center flex w-full overflow-x-scroll",
-        heightClass,
-      )}
+      ref={ref}
+      {...bind()}
+      className={className}
+      style={{
+        height: `${heightPercent}%`,
+        zIndex,
+        touchAction: "none",
+        transform: "translateX(-50%)",
+        willChange: "transform",
+      }}
     >
-      {renderItems.map((item, i) => (
-        <div
-          key={`${item.id}-${i}`}
-          ref={(el) => {
-            itemRefs.current[i] = el
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={item.id}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="relative h-full w-full pointer-events-none"
+          style={{
+            filter: "drop-shadow(0px 15px 25px rgba(0, 0, 0, 0.12))",
           }}
-          className="snap-item flex w-full flex-none items-center justify-center px-6"
         >
-          <div className="relative h-full w-full max-w-[280px]">
-            <Image
-              src={item.src || "/placeholder.svg"}
-              alt={item.name}
-              fill
-              sizes="280px"
-              className="object-contain"
-              priority={i === 0 || i === 1}
-            />
-          </div>
-        </div>
-      ))}
+          <Image
+            src={item.src || "/placeholder.svg"}
+            alt={item.name}
+            fill
+            sizes="(max-width: 480px) 85vw, 400px"
+            className="object-contain"
+            draggable={false}
+            priority={false}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Arrow hints when multiple items available */}
+      {canSwipe && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous item"
+            onClick={(e) => {
+              e.stopPropagation()
+              haptic("light")
+              onIndexChange((index - 1 + items.length) % items.length)
+            }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next item"
+            onClick={(e) => {
+              e.stopPropagation()
+              haptic("light")
+              onIndexChange((index + 1) % items.length)
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </>
+      )}
     </div>
   )
 }
@@ -227,51 +156,47 @@ export function Shuffler({
   const [saving, setSaving] = useState(false)
   const [showNamePrompt, setShowNamePrompt] = useState(false)
 
-  const scrollers = useRef<{
-    top?: (i: number) => void
-    bottom?: (i: number) => void
-    shoe?: (i: number) => void
-  }>({})
-
-  // Track when each row's scroller is registered so we can auto-shuffle
-  const readyCount = useRef(0)
-  const didInitialShuffle = useRef(false)
-  const registerWithCount = (key: 'top' | 'bottom' | 'shoe') => (fn: (index: number) => void) => {
-    scrollers.current[key] = fn
-    readyCount.current += 1
-    // Once all 3 rows have registered their scrollers, auto-shuffle silently
-    if (readyCount.current >= 3 && !didInitialShuffle.current) {
-      didInitialShuffle.current = true
-      // Use a microtask so the scroll DOM write lands before we read .length
-      Promise.resolve().then(() => shuffleAll(true))
-    }
-  }
-
-  // Build per-category items: real closet items first, fall back to hardcoded
+  // Build per-category items
   const topsDisplay = useMemo(() => {
-    const real = mapClosetToDisplay(closetItems, "tops");
-    return real.length > 0 ? real : mapDemoToDisplay(demoItems.filter(d => d.category === "tops" || d.category === "outerwear"));
-  }, [closetItems, demoItems]);
+    const real = closetItems
+      .filter((i) => (i.category === "tops" || i.category === "outerwear") && i.source_image_url)
+      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
+    return real.length > 0 ? real : demoItems
+      .filter((d) => d.category === "tops" || d.category === "outerwear")
+      .map((d) => ({ id: d.id, name: d.title, src: d.source_image_url ?? "/placeholder.svg", closetItem: d }))
+  }, [closetItems, demoItems])
+
   const bottomsDisplay = useMemo(() => {
-    const real = mapClosetToDisplay(closetItems, "bottoms");
-    return real.length > 0 ? real : mapDemoToDisplay(demoItems.filter(d => d.category === "bottoms"));
-  }, [closetItems, demoItems]);
+    const real = closetItems
+      .filter((i) => i.category === "bottoms" && i.source_image_url)
+      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
+    return real.length > 0 ? real : demoItems
+      .filter((d) => d.category === "bottoms")
+      .map((d) => ({ id: d.id, name: d.title, src: d.source_image_url ?? "/placeholder.svg", closetItem: d }))
+  }, [closetItems, demoItems])
+
   const shoesDisplay = useMemo(() => {
-    const real = mapClosetToDisplay(closetItems, "shoes");
-    return real.length > 0 ? real : mapDemoToDisplay(demoItems.filter(d => d.category === "shoes"));
-  }, [closetItems, demoItems]);
+    const real = closetItems
+      .filter((i) => i.category === "shoes" && i.source_image_url)
+      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
+    return real.length > 0 ? real : demoItems
+      .filter((d) => d.category === "shoes")
+      .map((d) => ({ id: d.id, name: d.title, src: d.source_image_url ?? "/placeholder.svg", closetItem: d }))
+  }, [closetItems, demoItems])
 
   const setTop    = useCallback((i: number) => { setIndices((p) => ({ ...p, top: i })); setSaved(false) }, [])
   const setBottom = useCallback((i: number) => { setIndices((p) => ({ ...p, bottom: i })); setSaved(false) }, [])
   const setShoe   = useCallback((i: number) => { setIndices((p) => ({ ...p, shoe: i })); setSaved(false) }, [])
 
-  const shuffleAll = (silent = false) => {
-    if (!silent) haptic("medium")
+  const shuffleAll = useCallback(() => {
+    haptic("medium")
     setSaved(false)
-    scrollers.current.top?.(Math.floor(Math.random() * topsDisplay.length))
-    scrollers.current.bottom?.(Math.floor(Math.random() * bottomsDisplay.length))
-    scrollers.current.shoe?.(Math.floor(Math.random() * shoesDisplay.length))
-  }
+    setIndices({
+      top: Math.floor(Math.random() * topsDisplay.length),
+      bottom: Math.floor(Math.random() * bottomsDisplay.length),
+      shoe: Math.floor(Math.random() * shoesDisplay.length),
+    })
+  }, [topsDisplay.length, bottomsDisplay.length, shoesDisplay.length])
 
   const handleSaveClick = () => {
     haptic("medium")
@@ -279,7 +204,6 @@ export function Shuffler({
   }
 
   const handleConfirmSave = async (name: string) => {
-    console.log('👗 [Shuffler] Save initiated — name:', name)
     setShowNamePrompt(false)
     setSaving(true)
 
@@ -289,19 +213,16 @@ export function Shuffler({
       shoesDisplay[indices.shoe]?.closetItem ?? null,
     ]
     const validItems = selected.filter((i): i is ClosetItem => i !== null)
-    console.log('👗 [Shuffler] Valid items:', validItems.length, validItems.map(i => ({ id: i.id, title: i.title })))
 
     if (validItems.length === 0) {
-      console.warn('👗 [Shuffler] No items to save')
       setSaving(false)
       return
     }
 
-    // Save portrait layout positions so edit mode reconstructs the exact Shuffler look
     const positions = validItems.map((item, i) => {
       const y = item.category === "shoes" ? 200
               : item.category === "bottoms" ? 70
-              : -90 // tops / outerwear
+              : -90
       return {
         item_id: item.id,
         x: 0,
@@ -311,31 +232,23 @@ export function Shuffler({
         z: i + 1,
       }
     })
-    const metadata = { source: "shuffler", positions }
 
     haptic("medium")
-
-    console.log('👗 [Shuffler] Calling onSaveOutfit...')
     try {
-      const result = await onSaveOutfit(name, validItems, metadata)
-      console.log('👗 [Shuffler] onSaveOutfit result:', result ? `Saved! id=${result.id}` : 'FAILED — returned null')
+      const result = await onSaveOutfit(name, validItems, { source: "shuffler", positions })
       if (result) {
         setSaved(true)
         haptic("medium")
-        console.log('👗 [Shuffler] Navigating to /fits...')
         onSaved?.()
-      } else {
-        console.error('👗 [Shuffler] Save returned null — check Supabase logs')
       }
-    } catch (err) {
-      console.error('👗 [Shuffler] Save threw exception:', err)
+    } catch {
+      // save failed — user stays on the shuffler
     }
     setSaving(false)
   }
 
   return (
     <div className="flex h-full flex-col relative">
-      {/* Name prompt overlay */}
       {showNamePrompt && (
         <NamePrompt
           onConfirm={handleConfirmSave}
@@ -349,38 +262,43 @@ export function Shuffler({
             Dress Me
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {"Today's Shuffle"}
+            Today's Shuffle
           </h1>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex-[4]">
-          <ShufflerRow
-            items={topsDisplay}
-            heightClass="h-full"
-            onIndexChange={setTop}
-            registerScroller={registerWithCount('top')}
-          />
-        </div>
-        <div className="flex-[4]">
-          <ShufflerRow
-            items={bottomsDisplay}
-            heightClass="h-full"
-            onIndexChange={setBottom}
-            registerScroller={registerWithCount('bottom')}
-          />
-        </div>
-        <div className="flex-[3]">
-          <ShufflerRow
-            items={shoesDisplay}
-            heightClass="h-full"
-            onIndexChange={setShoe}
-            registerScroller={registerWithCount('shoe')}
-          />
-        </div>
+      {/* ─── OUTFIT CANVAS BOARD ─── */}
+      <div className="relative flex-1 w-full mt-4 mb-4" style={{ minHeight: 0 }}>
+        {/* TOP: Shirt / Outerwear — pinned to top, z-10 */}
+        <SwipeableItem
+          items={topsDisplay}
+          index={indices.top}
+          onIndexChange={setTop}
+          className="absolute top-0 left-1/2 w-[85%] group"
+          heightPercent={45}
+          zIndex={10}
+        />
+        {/* BOTTOM: Pants / Skirt — starts at 35% to overlap shirt hem */}
+        <SwipeableItem
+          items={bottomsDisplay}
+          index={indices.bottom}
+          onIndexChange={setBottom}
+          className="absolute top-[35%] left-1/2 w-[85%] group"
+          heightPercent={50}
+          zIndex={5}
+        />
+        {/* SHOES — pinned to bottom, z-15 so cuffs tuck behind */}
+        <SwipeableItem
+          items={shoesDisplay}
+          index={indices.shoe}
+          onIndexChange={setShoe}
+          className="absolute bottom-0 left-1/2 w-[85%] group"
+          heightPercent={25}
+          zIndex={15}
+        />
       </div>
 
+      {/* ─── Controls ─── */}
       <div className="flex items-center justify-center gap-3 px-5 pb-2 pt-3">
         <button
           type="button"
@@ -399,7 +317,7 @@ export function Shuffler({
         </button>
         <button
           type="button"
-          onClick={() => shuffleAll()}
+          onClick={shuffleAll}
           className="flex items-center justify-center gap-2 rounded-full bg-foreground px-7 text-sm font-semibold text-background lift-shadow"
           style={{ height: 52 }}
         >

@@ -94,7 +94,6 @@ export const ClosetItemCard = ({ item, viewMode, onDelete }: ClosetItemCardProps
                 fit="cover"
                 className="h-full w-full"
               />
-            </div>
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={handleToggleFavorite}
