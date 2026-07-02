@@ -21,7 +21,7 @@ export const SizeStep = ({ onNext, onBack }: SizeStepProps) => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: "-100%" }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-white flex flex-col"
+      className="screen-safe app-content bg-white flex flex-col"
     >
       {/* Header */}
       <div className="flex items-center px-6 pt-14 pb-2">
@@ -69,7 +69,7 @@ export const SizeStep = ({ onNext, onBack }: SizeStepProps) => {
       </div>
 
       {/* Options - Moved higher for better even spacing */}
-      <div className="px-6 mt-24 space-y-5">
+      <div className="px-6 mt-12 space-y-5">
         {SIZES.map((size, index) => (
           <motion.button
             key={size}
@@ -95,7 +95,7 @@ export const SizeStep = ({ onNext, onBack }: SizeStepProps) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-auto px-6 pb-[80px]"
+        className="mt-auto px-6 pb-safe-button"
       >
         <motion.button
           disabled={!selectedSize}

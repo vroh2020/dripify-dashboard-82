@@ -23,7 +23,7 @@ export const HeightStep = ({ onNext, onBack }: HeightStepProps) => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: "-100%" }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-white flex flex-col"
+      className="screen-safe app-content bg-white flex flex-col"
     >
       {/* Header */}
       <div className="flex items-center px-6 pt-14 pb-2">
@@ -71,7 +71,7 @@ export const HeightStep = ({ onNext, onBack }: HeightStepProps) => {
       </div>
 
       {/* Input field - Moved higher for better even spacing */}
-      <div className="px-6 mt-24">
+      <div className="px-6 mt-12">
         <div className="flex items-center gap-3">
           <input
             type="text"
@@ -79,7 +79,10 @@ export const HeightStep = ({ onNext, onBack }: HeightStepProps) => {
             value={height}
             onChange={(e) => setHeight(e.target.value)}
             placeholder={unit === "cm" ? "170" : "5'8\""}
-            className="flex-1 h-[58px] bg-[#F7F7FB] border border-gray-200 rounded-2xl px-6 text-[17px] font-semibold text-black placeholder:text-gray-400 focus:outline-none focus:border-black transition-colors"
+            // Reinforced the input border (border-2 + border-gray-400) so it
+            // reads as an actual input on grayish backgrounds. Was border
+            // border-gray-200 which blended into the bg-[#F7F7FB] surface.
+            className="flex-1 h-[58px] bg-white border-2 border-gray-400 rounded-2xl px-6 text-[17px] font-semibold text-black placeholder:text-gray-400 focus:outline-none focus:border-black transition-colors"
           />
           <div className="flex gap-2">
             <button
@@ -100,12 +103,13 @@ export const HeightStep = ({ onNext, onBack }: HeightStepProps) => {
         </div>
       </div>
 
-      {/* Continue button */}
+      {/* Continue button — uses pb-safe-button so the input/Keyboard open
+          path doesn't shove the button under the iOS home indicator. */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-auto px-6 pb-[80px]"
+        className="mt-auto px-6 pb-safe-button"
       >
         <motion.button
           disabled={!height.trim()}

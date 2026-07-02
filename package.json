@@ -23,6 +23,7 @@
     "@capacitor/filesystem": "8.1.2",
     "@capacitor/haptics": "7.0.5",
     "@capacitor/ios": "6.2.1",
+    "@capacitor/keyboard": "6.0.4",
     "@capacitor/preferences": "7.0.1",
     "@capacitor/splash-screen": "7.0.1",
     "@hookform/resolvers": "^3.9.0",

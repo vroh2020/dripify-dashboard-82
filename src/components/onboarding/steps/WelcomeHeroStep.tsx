@@ -87,8 +87,11 @@ export const WelcomeHeroStep = ({ onNext, onUserCreated }: WelcomeHeroStepProps)
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <div className="flex-1 flex flex-col items-center px-6 pt-8 pb-6">
+    // `screen-safe` (see index.css) instead of `min-h-screen` so the
+    // Join-for-free button gets lifted above the iOS home indicator on
+    // notched iPhones. `app-content` opts into the iPad letterbox rule.
+    <div className="screen-safe app-content bg-white flex flex-col">
+      <div className="flex-1 flex flex-col items-center px-6 pt-8 pb-safe-button">
         {/* App Title - More compact */}
         <motion.h1
           initial={{ opacity: 0, y: -20 }}

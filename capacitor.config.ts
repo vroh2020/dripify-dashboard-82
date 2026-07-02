@@ -28,6 +28,19 @@ const config: TrendzaCapacitorConfig = {
     scrollEnabled: false
   },
   plugins: {
+    // iOS Keyboard plugin config — these options take effect ONLY if
+    // @capacitor/keyboard is added to dependencies and `pod 'CapacitorKeyboard'`
+    // is in the iOS Podfile (run `npx cap sync ios` after installing).
+    // Until then, they are inert config that Capacitor swallows safely.
+    // `resize: 'body'` is the critical one: it forces the WKWebView to physically
+    // shrink the <body> viewport when the native keyboard appears so the
+    // Continue button is pushed up above the keyboard instead of being
+    // covered by it.
+    Keyboard: {
+      resize: "body",
+      style: "dark",
+      resizeOnFullScreen: true,
+    },
     Camera: {
       photoAlbum: true,
       allowEditing: false,

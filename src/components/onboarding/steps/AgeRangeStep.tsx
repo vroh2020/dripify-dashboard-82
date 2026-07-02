@@ -24,7 +24,7 @@ export const AgeRangeStep = ({ onNext, onBack }: AgeRangeStepProps) => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: "-100%" }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-white flex flex-col"
+      className="screen-safe app-content bg-white flex flex-col"
     >
       {/* Header */}
       <div className="flex items-center px-6 pt-14 pb-2">
@@ -71,8 +71,10 @@ export const AgeRangeStep = ({ onNext, onBack }: AgeRangeStepProps) => {
         </motion.p>
       </div>
 
-      {/* Options - Moved higher for better even spacing */}
-      <div className="px-6 mt-24 space-y-5">
+      {/* Options - tight spacing under the title keeps the 5 age-range
+          rows reachable above the home indicator on short phones plus
+          doesn't crowd the keyboard up if any field were added later. */}
+      <div className="px-6 mt-12 space-y-5">
         {AGE_RANGES.map((ageRange, index) => (
           <motion.button
             key={ageRange}
@@ -98,7 +100,7 @@ export const AgeRangeStep = ({ onNext, onBack }: AgeRangeStepProps) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-auto px-6 pb-[80px]"
+        className="mt-auto px-6 pb-safe-button"
       >
         <motion.button
           disabled={!selectedAgeRange}

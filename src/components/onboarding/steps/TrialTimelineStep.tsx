@@ -21,7 +21,7 @@ export const TrialTimelineStep = ({ onComplete }: TrialTimelineStepProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="screen-safe app-content bg-white flex flex-col">
       <div className="flex-1 flex flex-col px-6 pt-12 pb-8">
         {/* Back Button */}
         <button

@@ -47,7 +47,7 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: "-100%" }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-white flex flex-col"
+      className="screen-safe app-content bg-white flex flex-col"
     >
       {/* Header */}
       <div className="flex items-center px-6 pt-14 pb-2">
@@ -86,8 +86,10 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
         </motion.h1>
       </div>
 
-      {/* Options - moved way down with more spacing between each */}
-      <div className="px-6 mt-40 space-y-5">
+      {/* Goal options - tightened from mt-12 to mt-12 so the 4 rows don't
+          push the title far away and the Continue button stays anchored
+          above the home indicator. */}
+      <div className="px-6 mt-12 space-y-5">
         {STYLE_GOALS.map((goal, index) => {
           const IconComponent = goal.icon;
           return (
@@ -117,7 +119,7 @@ export const StyleGoalStep = ({ onNext, onBack }: StyleGoalStepProps) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-auto px-6 pb-[80px]"
+        className="mt-auto px-6 pb-safe-button"
       >
         <motion.button
           disabled={!selectedGoal}

@@ -18,7 +18,7 @@ export const GenderSelectionStep = ({ onNext, onBack }: GenderSelectionStepProps
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: "-100%" }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-white flex flex-col"
+      className="screen-safe app-content bg-white flex flex-col"
     >
       {/* Header (MUCH LOWER like screenshot) */}
       <div className="flex items-center px-6 pt-14 pb-2">
@@ -65,8 +65,11 @@ export const GenderSelectionStep = ({ onNext, onBack }: GenderSelectionStepProps
         </motion.p>
       </div>
 
-      {/* Gender buttons - moved way down with more spacing between each */}
-      <div className="px-6 mt-40 space-y-5">
+      {/* Gender buttons - brought UP closer to subtitle (was mt-12 / 160px)
+          which left a barren dead-zone in the middle of the screen on short
+          iPhones. mt-12 is enough breathing room while keeping the title +
+          options visually grouped. */}
+      <div className="px-6 mt-12 space-y-5">
         {GENDERS.map((g, index) => (
           <motion.button
             key={g}
@@ -87,12 +90,15 @@ export const GenderSelectionStep = ({ onNext, onBack }: GenderSelectionStepProps
         ))}
       </div>
 
-      {/* Continue button — lifted HIGH above swipe bar */}
+      {/* Continue button — pinned above the iOS home indicator via
+          `pb-safe-button` (24px + env(safe-area-inset-bottom). Was
+          pb-safe-button (a flat 80px) which would clip on dynamic-island
+          iPhones where the bottom safe area is closer to 34px+47px. */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-auto px-6 pb-[80px]"
+        className="mt-auto px-6 pb-safe-button"
       >
         <motion.button
           disabled={!selectedGender}

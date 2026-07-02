@@ -127,14 +127,22 @@ const Profile = () => {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen app-shell-scroll bg-white px-4 pt-safe pb-nav flex items-center justify-center">
+      // `screen-safe` = 100dvh + bottom safe-area inset built-in, so we
+      // intentionally do NOT add `pb-nav` here — that would double the
+      // home-indicator inset (64px extra) on already-padded iPhones.
+      <div className="screen-safe app-content app-shell-scroll bg-white px-4 flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-black animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen app-shell-scroll bg-white px-4 pt-safe pb-nav">
+    // `screen-safe` enforces 100dvh + safe-area-inset-(top|bottom|
+    // left|right) so the Danger Zone Delete Account button can never
+    // be obscured by the iOS home indicator. `app-shell-scroll` keeps
+    // the long profile settings list scrollable inside the locked
+    // webview (see global html/body `overflow:hidden` rule for why).
+    <div className="screen-safe app-content app-shell-scroll bg-white px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

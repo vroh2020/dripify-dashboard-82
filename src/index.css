@@ -892,4 +892,89 @@
     outline-offset: 4px;
     border-radius: 12px;
   }
+
+  /* ============================================================
+     TABLET / iPad LETTERBOX
+     On wider screens (iPad / iPad Mini / iPad Pro at any
+     orientation, plus landscape iPhone Plus/Max) the mobile-first
+     flex drawers, button containers, and grids stretch awkwardly.
+     Wrapping the root in a centered 480px column with a soft
+     border + shadow mimics how native iOS apps look when running
+     on iPad in "compatibility mode" — same UX, letterboxed, no
+     horizontal scaling artifacts. On phones (≤767px) we keep the
+     native full-bleed layout. Layer behind a light gray so the
+     "card" reads as a phone-shaped app on the iPad's empty area.
+     ============================================================ */
+  @media (min-width: 768px) {
+    html,
+    body {
+      background-color: #ececef;
+    }
+    /* The phone-frame wrapper. Opt-in surface classes (`.app-content`,
+       `.screen-safe`, `.container-mobile`) get letterboxed on iPad so
+       the app reads as a phone-shaped card instead of a stretched
+       website. RBush renderers + the IndexedDB CacheImage layer are
+       unaffected because they key off pixel dimensions of the rendered
+       DOM, not the device viewport. We intentionally do NOT match
+       Tailwind's `.min-h-screen` / `.min-h-[100dvh]` by name — those
+       classes are deep-nested wrappers that should NOT inherit the
+       phone-frame treatment (only the visible app shell does). */
+    #root > div,
+    .app-content,
+    .screen-safe,
+    .container-mobile {
+      max-width: 480px !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      background-color: var(--bg-primary);
+      position: relative;
+      box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.18),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+      border-radius: 28px;
+      overflow: hidden;
+    }
+    /* Suppress the duplicate-frame effect: the React app already
+       renders inside #root > div which inherits the iPad frame
+       treatment above. Any nested element that ALSO matches one of
+       the opt-in classes (e.g. `.screen-safe` re-applied inside
+       onboarding) should NOT layer a second box-shadow over the
+       outer frame. */
+    .app-content .app-content,
+    .screen-safe .screen-safe,
+    .container-mobile .container-mobile {
+      box-shadow: none;
+      border-radius: 0;
+    }
+  }
+
+  /* ============================================================
+     ONBOARDING CONTINUE-BUTTON SAFE SPACER
+     IMPORTANT: this utility adds ONLY a 24px visual gap between
+     the button and the bottom edge of its parent. It does NOT
+     include any env(safe-area-inset-bottom) — the parent is
+     expected to provide that via `.screen-safe` (or another
+     safe-area-aware wrapper). Without that parent, the button
+     would clip under the iOS home indicator on notched devices.
+     So: use `.pb-safe-button` ONLY inside a `.screen-safe` (or
+     equivalently safe-area-padded) ancestor.
+     `.screen-safe` + `.pb-safe-button` gives the correct
+     ~58px gap (24 + 34 env) above the swipe bar on iPhone.
+     ============================================================ */
+  .pb-safe-button {
+    padding-bottom: 24px;
+  }
+
+  /* ============================================================
+     GLOBAL INPUT VISIBILITY (iOS)
+     Inputs and selects get a 16px font-size floor at <768px via
+     the @media rule in `@layer base`, but on landscape / iPad
+     where the inherited font-size can drop below 16px we reinforce
+     it here so iOS Safari does not auto-zoom the page on focus.
+     ============================================================ */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
 }

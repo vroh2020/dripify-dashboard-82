@@ -372,8 +372,13 @@ const Index = () => {
   };
 
   return (
+    // `app-content` opts this wrapper into the iPad letterbox rule
+    // (max-width 480px centered with a soft drop shadow) defined in
+    // index.css. The inline paddingTop for the iOS Dynamic Island /
+    // safe-area is preserved; the parent flex column inside still
+    // renders its FAB + tab bar in their existing positions.
     <div
-      className="min-h-[100dvh] bg-white relative overflow-x-hidden"
+      className="min-h-[100dvh] app-content bg-white relative overflow-x-hidden"
       style={{ paddingTop: `env(safe-area-inset-top)` }}
     >
       <DashboardHeader />

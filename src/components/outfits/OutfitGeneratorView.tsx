@@ -152,7 +152,7 @@ export const OutfitGeneratorView = () => {
 
   if (step === 'generating') {
     return (
-      <div className="min-h-screen bg-white p-4">
+      <div className="screen-safe app-content bg-white p-4">
         <div className="max-w-sm mx-auto space-y-6">
           <div className="flex items-center justify-center min-h-[50vh]">
             <div className="text-center">
@@ -170,7 +170,7 @@ export const OutfitGeneratorView = () => {
 
   if (step === 'results') {
     return (
-      <div className="min-h-screen bg-white p-4">
+      <div className="screen-safe app-content bg-white p-4">
         <div className="max-w-sm mx-auto space-y-6">
           {/* Header */}
           <motion.div
@@ -290,7 +290,7 @@ export const OutfitGeneratorView = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white p-4">
+    <div className="screen-safe app-content bg-white p-4">
       <div className="max-w-sm mx-auto space-y-6">
         {/* Header */}
         <motion.div

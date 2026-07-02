@@ -79,7 +79,15 @@ export function BottomNav({
         <Plus className="h-7 w-7" strokeWidth={2.5} />
       </button>
 
-      <div className="flex items-stretch px-2 pb-6 pt-2">
+      <div
+        className="flex items-stretch px-2 pt-2"
+        style={{
+          // Pad the tab bar above the iOS home indicator. Tailwind's
+          // `pb-6` (24px) is not enough on notched/dynamic-island iPhones
+          // and would render the tab labels underneath the swipe bar.
+          paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         <div className="flex flex-1">
           {left.map((t) => (
             <TabButton

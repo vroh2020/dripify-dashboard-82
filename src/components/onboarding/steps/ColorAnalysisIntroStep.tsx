@@ -32,7 +32,7 @@ export const ColorAnalysisIntroStep = ({ onCapture, onBack }: ColorAnalysisIntro
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: "-100%" }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-white flex flex-col"
+      className="screen-safe app-content bg-white flex flex-col"
     >
       {/* Header */}
       <div className="flex items-center px-6 pt-14 pb-2">
@@ -104,7 +104,7 @@ export const ColorAnalysisIntroStep = ({ onCapture, onBack }: ColorAnalysisIntro
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="px-6 pb-[80px]"
+        className="px-6 pb-safe-button"
       >
         <motion.button
           onClick={handleContinue}
