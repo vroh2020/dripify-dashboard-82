@@ -281,7 +281,7 @@ const Index = () => {
                 demoItems={demoItems}
                 onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
                   console.log('📦 [Index] Shuffler onSaveOutfit called — items:', selectedItems.length, 'name:', name)
-                  return saveOutfit({ name, items: selectedItems, metadata, thumbnail })
+                  return saveOutfit({ name, items: selectedItems, ...(metadata !== undefined && { metadata }), ...(thumbnail !== undefined && { thumbnail }) })
                 }}
                 onSaved={() => {
                   console.log('📍 [Index] onSaved fired — navigating to /fits')
@@ -305,7 +305,7 @@ const Index = () => {
                 demoItems={demoItems}
                 onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
                   console.log('📦 [Index] Canvas onSaveOutfit called — items:', selectedItems.length, 'name:', name)
-                  return saveOutfit({ name, items: selectedItems, metadata, thumbnail })
+                  return saveOutfit({ name, items: selectedItems, ...(metadata !== undefined && { metadata }), ...(thumbnail !== undefined && { thumbnail }) })
                 }}
                 onDeleteOutfit={deleteOutfit}
                 onSaved={() => {
@@ -342,7 +342,7 @@ const Index = () => {
                 demoItems={demoItems}
                 onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
                   console.log('📦 [Index] Shuffler onSaveOutfit called — items:', selectedItems.length, 'name:', name)
-                  return saveOutfit({ name, items: selectedItems, metadata, thumbnail })
+                  return saveOutfit({ name, items: selectedItems, ...(metadata !== undefined && { metadata }), ...(thumbnail !== undefined && { thumbnail }) })
                 }}
                 onSaved={() => {
                   console.log('📍 [Index] onSaved fired — navigating to /fits')

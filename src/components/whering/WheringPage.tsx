@@ -24,7 +24,7 @@ export default function Page() {
 
   const handleSaveOutfit = useCallback(
     async (name: string, selectedItems: ClosetItem[], metadata?: Record<string, any>, thumbnail?: string) => {
-      return saveOutfit({ name, items: selectedItems, metadata, thumbnail })
+      return saveOutfit({ name, items: selectedItems, ...(metadata !== undefined && { metadata }), ...(thumbnail !== undefined && { thumbnail }) })
     },
     [saveOutfit],
   )
