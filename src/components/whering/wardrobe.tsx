@@ -40,41 +40,44 @@ export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="px-5 pb-3 pt-2">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          My Closet
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Wardrobe
-          <span className="ml-2 text-base font-normal text-muted-foreground">
-            {displayItems.length} items
-          </span>
-        </h1>
-      </header>
+      {/* Sticky header — title + filter tabs stay pinned while grid scrolls */}
+      <div className="sticky top-0 z-10 bg-background pt-2">
+        <header className="px-5 pb-3">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            My Closet
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Wardrobe
+            <span className="ml-2 text-base font-normal text-muted-foreground">
+              {displayItems.length} items
+            </span>
+          </h1>
+        </header>
 
-      {/* Filter chips */}
-      {displayItems.length > 0 && (
-        <div className="no-scrollbar flex gap-2 overflow-x-scroll px-5 pb-3">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => {
-                haptic("light")
-                setFilter(f.key)
-              }}
-              className={cn(
-                "flex-none rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                filter === f.key
-                  ? "bg-foreground text-background"
-                  : "bg-card text-muted-foreground soft-shadow",
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      )}
+        {/* Filter chips — horizontally scrollable, stick below the title */}
+        {displayItems.length > 0 && (
+          <div className="no-scrollbar flex gap-2 overflow-x-scroll px-5 pb-3">
+            {filters.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => {
+                  haptic("light")
+                  setFilter(f.key)
+                }}
+                className={cn(
+                  "flex-none rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                  filter === f.key
+                    ? "bg-foreground text-background"
+                    : "bg-card text-muted-foreground soft-shadow",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Items grid — wrapped in pull-to-refresh when items exist */}
       {displayItems.length > 0 ? (
