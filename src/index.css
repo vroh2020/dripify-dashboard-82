@@ -911,31 +911,37 @@
   }
 
   /* ============================================================
-     TABLET / iPad LETTERBOX
-     On wider screens (iPad Pro 12.9" portrait, landscape iPads,
-     and desktop browser previews) the mobile-first flex drawers,
-     button containers, and grids stretch awkwardly. Wrapping the
-     root in a centered 480px column with a soft border + shadow
-     mimics how native iOS apps look when running in "compatibility
-     mode" — same UX, letterboxed, no horizontal scaling artifacts.
+     DESKTOP LETTERBOX
+     On genuine desktop browser windows (laptop / monitor screens
+     ≥1367px wide) the mobile-first flex drawers, button containers,
+     and grids stretch awkwardly. Wrapping the root in a centered
+     480px column with a soft border + shadow mimics how native
+     iOS apps look when running in "compatibility mode" — same UX,
+     letterboxed, no horizontal scaling artifacts.
 
-     Breakpoint is `min-width: 1024px` (not the more common 768px)
-     for two reasons:
-       1. Appetize + many emulator preview iframes report a viewport
-          ≥768px even when simulating an iPhone. Lifting the cutoff
-          past the iPad portrait range (768–834px) keeps phone
-          previews full-bleed so the app doesn't look "narrowed in"
-          inside the simulator frame.
-       2. iPad portrait at 768–834px has enough horizontal real
-          estate to render the native mobile UI without the flex
-          containers visibly stretching — the letterbox is only
-          visually needed on desktop / large-tablet orientations.
+     The threshold was raised from `min-width: 1024px` to
+     `min-width: 1367px` so that every real iPad size in either
+     orientation (mini 744/1133, 10th-gen 820/1180, Air 820/1180,
+     Pro 11" 834/1194, Pro 12.9" 1024/1366) falls into the
+     tablet-layout @media block at the end of this file instead
+     of being shrunk into a phone-card. Only actual desktop
+     browser windows get the letterbox now.
 
-     On phones (≤1023px) and on Appetize mobile previews we keep the
-     native full-bleed layout. Layer behind a light gray so the
-     "card" reads as a phone-shaped app on the tablet's empty area.
+     On phones (≤743px) and on iPads in any orientation
+     (744–1366px) we keep the full-bleed layout. The 1366px
+     upper bound matches the widest iPad in landscape; the
+     1px gap to 1367px is intentional so an iPad Pro 12.9"
+     landscape viewport at exactly 1366px does NOT trigger
+     the letterbox.
      ============================================================ */
-  @media (min-width: 1024px) {
+  /* Desktop letterbox threshold moved to ≥1367px so that all real iPad
+     sizes in either orientation (mini 744/1133, 10th-gen 820/1180, Air
+     820/1180, Pro 11" 834/1194, Pro 12.9" 1024/1366) fall into the
+     tablet-layout @media block at the end of this file instead of
+     being shrunk into a phone-card. Only genuine desktop browser
+     windows (1367px+, e.g. laptop screens at 1440×900) get the
+     centered 480px letterbox treatment now. */
+  @media (min-width: 1367px) {
     html,
     body {
       background-color: #ececef;
@@ -1007,5 +1013,87 @@
   select,
   textarea {
     font-size: max(16px, 1rem);
+  }
+}
+
+/* ============================================================
+   iPad / TABLET (744-1366px) — full-width proper tablet layout
+   covering every iPad size in every orientation:
+
+     iPad mini     portrait  744   landscape  1133
+     iPad 10th/Air portrait  820   landscape  1180
+     iPad Pro 11"  portrait  834   landscape  1194
+     iPad Pro 12.9 portrait 1024   landscape  1366
+
+   Scoped via `min-width: 744px AND max-width: 1366px` so this
+   block is PHYSICALLY DISABLED on iPhone (≤743px) and on the
+   ≥1367px desktop-letterbox zone. The selector chains below
+   target specific elements; existing iPhone classNames are
+   never rewritten, and no component file is modified.
+   `!important` is used only inside this scoped block to
+   override inline styles (e.g. the DraggableItem's
+   `width: 220, height: 220` in canvas.tsx) without modifying
+   the component.
+
+   WHY THIS BREAKPOINT EXISTS — iPad in any orientation lands
+   in a broken middle ground: too wide for the phone UI to
+   read as designed (Canvas garment images render small +
+   centered in a sea of whitespace, category row gets clipped
+   mid-tab, bottom nav stretches to the full width with
+   awkwardly wide tab buttons), but not wide enough to trigger
+   the desktop letterbox (which now only kicks in at ≥1367px).
+   This block fills the gap with a proper tablet layout for
+   every iPad size.
+
+   NOTE — the desktop letterbox threshold was moved from
+   `min-width: 1024px` to `min-width: 1367px` (in the
+   `@media` block above) so the iPad Pro 12.9" portrait
+   width of 1024px now correctly falls into this tablet
+   range instead of being shrunk into a 480px phone-card.
+   ============================================================ */
+@media (min-width: 744px) and (max-width: 1366px) {
+  /* 1. Canvas DraggableItem scale-up.
+     The inline `width: 220, height: 220` with `-ml-[110px]
+     -mt-[110px]` centering in canvas.tsx leaves the garment
+     image looking too small at iPad portrait. !important
+     overrides the inline style to upscale to 290px (modest
+     1.32×) with proportional centering offsets. Garments now
+     read as designed-for-iPad-portrait instead of phone-content
+     in more whitespace. The selector `.absolute.left-1\/2.top-1\/2`
+     uniquely matches the DraggableItem inside `.whering-theme`
+     (the canvas toolbar uses `right-3` not `left-1/2`). */
+  .whering-theme .absolute.left-1\/2.top-1\/2 {
+    width: 290px !important;
+    height: 290px !important;
+    margin-left: -145px !important;
+    margin-top: -145px !important;
+  }
+
+  /* 2. Canvas category row wrap.
+     The category row is `no-scrollbar flex gap-1.5 overflow-x-scroll
+     py-2`. At iPad portrait (820px), the total chip width (~800px)
+     overflows the canvas surface width (~788px) by ~14px, clipping
+     the last chip mid-tab. Wrap to multiple rows instead of
+     horizontal-scroll. The `gap-1.5` discriminator scopes this to
+     the category row only (NOT the thumbnail strip which uses
+     `gap-3`). */
+  .whering-theme .no-scrollbar.overflow-x-scroll.gap-1\.5 {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    justify-content: center !important;
+  }
+
+  /* 3. Dashboard bottom nav constraint.
+     The dashboard bottom nav at Index.tsx:461 has class
+     `lg:max-w-[480px]` which only applies at ≥1024px. At iPad
+     portrait (820px), the nav stretches to 820px edge-to-edge
+     with 4 tabs at ~205px each — awkward. Cap to 600px so tabs
+     get ~150px each, proportional to the iPhone experience but
+     on a wider screen. The selector `.lg\:max-w-\[480px\].fixed
+     .bottom-0` uniquely matches the dashboard bottom nav (the
+     WheringPage reference's phone-frame nav has different
+     classes, and a >767px iPhone would never see this rule). */
+  .lg\:max-w-\[480px\].fixed.bottom-0 {
+    max-width: 600px !important;
   }
 }
