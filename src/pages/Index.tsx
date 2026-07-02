@@ -422,8 +422,8 @@ const Index = () => {
         onValueChange={handleTabChange}
         className="flex flex-col flex-1"
       >
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        {/* Content — min-h-0 lets flex child shrink below content size so the bottom nav stays pinned */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
           {renderContent()}
         </div>
 
