@@ -433,7 +433,7 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
     // `min-h-screen` which undercounted the safe area on dynamic-island
     // iPhones. `app-content` opts the whole paywall into the iPad
     // letterbox rule so the pricing tier toggle + CTA don't sprawl.
-    <div className="screen-safe app-content bg-white flex flex-col relative">
+    <div className="screen-safe app-content bg-white flex flex-col relative h-full">
       <div
         className="flex-1 flex flex-col px-6 pb-safe-button"
         style={{

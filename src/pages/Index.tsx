@@ -378,7 +378,7 @@ const Index = () => {
     // safe-area is preserved; the parent flex column inside still
     // renders its FAB + tab bar in their existing positions.
     <div
-      className="min-h-[100dvh] app-content bg-white relative overflow-x-hidden"
+      className="h-full app-content bg-white relative overflow-x-hidden flex flex-col"
       style={{ paddingTop: `env(safe-area-inset-top)` }}
     >
       <DashboardHeader />
@@ -386,10 +386,7 @@ const Index = () => {
       <Tabs
         value={currentPath}
         onValueChange={handleTabChange}
-        className="flex flex-col"
-        style={{
-          height: "calc(100dvh - 56px - env(safe-area-inset-top, 0px))",
-        }}
+        className="flex flex-col flex-1"
       >
         {/* Content */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">

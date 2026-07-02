@@ -67,7 +67,7 @@ export const FreeTrialPaywallStep = ({ onComplete }: FreeTrialPaywallStepProps) 
     // screen-safe gives 100dvh + safe-area env variables so the
     // "Continue for FREE" button sits above the iOS home indicator.
     // Replaces `min-h-screen` which clipped the CTA on iPhone 14 Pro / 15 Pro.
-    <div className="screen-safe app-content bg-white flex flex-col">
+    <div className="screen-safe app-content bg-white flex flex-col h-full">
       <div className="flex-1 flex flex-col px-6 pt-14 pb-safe-button">
         {/* Main Heading - Removed bell, compact spacing */}
         <motion.h1

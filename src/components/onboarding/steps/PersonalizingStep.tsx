@@ -40,7 +40,7 @@ export const PersonalizingStep = ({ userImage, onComplete }: PersonalizingStepPr
     return () => clearInterval(interval);
   }, [onComplete]);
 
-  return (      <div className="screen-safe app-content bg-white flex flex-col items-center justify-center px-8 py-16">
+  return (      <div className="screen-safe app-content bg-white flex flex-col items-center justify-center px-8 py-16 h-full">
       <div className="w-full max-w-md mx-auto flex flex-col items-center">
         {/* Title */}
         <motion.h1

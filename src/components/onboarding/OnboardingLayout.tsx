@@ -22,13 +22,15 @@ export const OnboardingLayout = ({
   className = ""
 }: OnboardingLayoutProps) => {
   return (
-    // `screen-safe` is defined in index.css and applies 100dvh + env(safe-area-inset-top/bottom/left/right).
+    // `screen-safe` is defined in index.css and applies min-height:100dvh + env(safe-area-inset-top/bottom/left/right).
+    // `h-full` constrains the container to the parent height so the
+    // Continue button (mt-auto) stays within the viewport on simulators.
     // The legacy `container-mobile` was `min-height: 100vh` (overshoots the
     // dynamic-island/home-indicator regions) and lacked safe-area padding,
     // which is exactly why the Continue button was getting clipped on
     // iPhone 14 Pro / 15 Pro. `flex flex-col` is preserved so future step
     // children can still flex-push their footer above the safe area.
-    <div className={`screen-safe app-content flex flex-col ${className}`}>
+    <div className={`screen-safe app-content flex flex-col h-full ${className}`}>
       {/* Header with back button only - no progress indicator */}
       {/* IMPORTANT: do NOT also apply pt-status-safe here. `.screen-safe`
           already sets `padding-top: env(safe-area-inset-top)` on the

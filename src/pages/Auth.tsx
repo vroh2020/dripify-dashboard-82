@@ -424,7 +424,7 @@ export const AuthOnboardingWizard = () => {
 
   return (
     <div
-      className="min-h-screen app-shell-scroll"
+      className="h-full app-shell-scroll"
       style={{ background: 'var(--bg-primary)' }}
     >
         <AnimatePresence mode="wait" initial={false}>

@@ -47,7 +47,7 @@ export const ShoppingFrequencyNewStep = ({ onNext, onBack }: ShoppingFrequencyNe
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: "-100%" }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="screen-safe app-content bg-white flex flex-col"
+      className="screen-safe app-content bg-white flex flex-col h-full"
     >
       {/* Header */}
       <div className="flex items-center px-6 pt-14 pb-2">

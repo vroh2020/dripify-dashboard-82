@@ -123,6 +123,13 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
+  /* Propagate height through the React mount point so
+     `h-full` works for the dashboard (Index.tsx) and any
+     other view that wants to fill the locked viewport. */
+  #root,
+  #root > div {
+    height: 100%;
+  }
   /* Inner scrollable wrappers opt back into pan-y. */
   .app-shell-scroll,
   .app-shell-scroll * {
@@ -643,7 +650,12 @@
     padding-right: env(safe-area-inset-right, 0px);
   }
   
-  /* Full screen safe area container */
+  /* Full screen safe area container.
+     min-height semantics preserved for components outside the
+     onboarding fixed-body chain that rely on it as a floor.
+     Onboarding steps add `h-full` (height:100%) on top so the
+     container is strictly bounded to the parent height and the
+     mt-auto Continue button never escapes the viewport. */
   .screen-safe {
     min-height: 100vh;
     min-height: -webkit-fill-available;
@@ -932,7 +944,11 @@
         0 24px 64px rgba(0, 0, 0, 0.18),
         0 2px 8px rgba(0, 0, 0, 0.08);
       border-radius: 28px;
-      overflow: hidden;
+      /* Removed overflow:hidden — it was clipping the Continue button
+         at the bottom edge of the letterboxed phone frame on iPad.
+         border-radius:28px already clips the visual corners; inner
+         content that legitimately needs clipping (modals, drawers)
+         should use their own overflow:hidden. */
     }
     /* Suppress the duplicate-frame effect: the React app already
        renders inside #root > div which inherits the iPad frame
@@ -950,19 +966,16 @@
 
   /* ============================================================
      ONBOARDING CONTINUE-BUTTON SAFE SPACER
-     IMPORTANT: this utility adds ONLY a 24px visual gap between
-     the button and the bottom edge of its parent. It does NOT
-     include any env(safe-area-inset-bottom) — the parent is
-     expected to provide that via `.screen-safe` (or another
-     safe-area-aware wrapper). Without that parent, the button
-     would clip under the iOS home indicator on notched devices.
-     So: use `.pb-safe-button` ONLY inside a `.screen-safe` (or
-     equivalently safe-area-padded) ancestor.
-     `.screen-safe` + `.pb-safe-button` gives the correct
-     ~58px gap (24 + 34 env) above the swipe bar on iPhone.
+     Adds bottom padding that is always at least 24px but grows to
+     include env(safe-area-inset-bottom) when available. This is
+     self-contained — it does NOT rely on the parent having its own
+     safe-area padding. On Appetize simulators where env() may
+     return 0px, the 24px floor keeps the button visible. On real
+     devices the inset adds the necessary clearance for the home
+     indicator (~34px on notched iPhones, ~20px on iPads).
      ============================================================ */
   .pb-safe-button {
-    padding-bottom: 24px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   }
 
   /* ============================================================
