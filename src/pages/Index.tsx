@@ -377,19 +377,6 @@ const Index = () => {
     }
   };
 
-  // ── TEST MODE: dismissible yellow banner ──
-  const [testBannerDismissed, setTestBannerDismissed] = useState(false);
-  const isTestDashboard =
-    typeof window !== 'undefined' &&
-    localStorage.getItem('test_dashboard') === 'true';
-
-  const exitTestMode = () => {
-    localStorage.removeItem('test_dashboard');
-    localStorage.removeItem('onboarding_completed');
-    localStorage.removeItem('subscription_active');
-    window.location.href = '/auth';
-  };
-
   return (
     // `app-content` opts this wrapper into the @media (min-width: 1024px)
     // phone-frame letterbox rule (max-width 480px centered with a soft
@@ -406,33 +393,6 @@ const Index = () => {
     <div
       className="h-full app-content bg-white relative overflow-x-hidden flex flex-col"
     >
-      {/* TEST MODE BANNER — safe-area-aware so the Dynamic Island / notch
-           never clips the text or buttons. `paddingTop` here is a flat 8px
-           buffer; safe-area-inset-top is intentionally NOT re-applied
-           (body is single source — see comment above .app-content). */}
-      {isTestDashboard && !testBannerDismissed && (
-        <div
-          className="flex-shrink-0 bg-yellow-400 text-black px-4 py-1.5 flex items-center justify-between text-sm font-semibold"
-          style={{ paddingTop: 8 }}
-        >
-          <span>🧪 TEST MODE — Dashboard Preview</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTestBannerDismissed(true)}
-              className="underline text-xs"
-            >
-              Dismiss
-            </button>
-            <button
-              onClick={exitTestMode}
-              className="bg-black text-white px-3 py-0.5 rounded-full text-xs font-bold hover:bg-gray-800"
-            >
-              Exit Test
-            </button>
-          </div>
-        </div>
-      )}
-
       <DashboardHeader />
 
       <Tabs
