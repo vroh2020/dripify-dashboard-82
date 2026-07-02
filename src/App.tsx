@@ -72,7 +72,13 @@ const AppRoutes = () => {
   // Optimistic during auth loading: a real subscriber should never see
   // a flash of `/auth` on launch, but if the cache says onboarding is
   // not done we must NOT bypass the wizard.
-  const shouldShowDashboard = hasCompletedOnboarding;
+  // 🧪 TESTING: while in `npm run dev`, force-render the dashboard
+  // regardless of auth/onboarding state. Vite replaces
+  // `import.meta.env.DEV` with `false` at production build time, so
+  // this auto-disables in shipped iOS/Android binaries. Flip the
+  // `||` out (keep `hasCompletedOnboarding` only) to restore the
+  // real production gate.
+  const shouldShowDashboard = import.meta.env.DEV || hasCompletedOnboarding;
 
   return (
     <Routes>
