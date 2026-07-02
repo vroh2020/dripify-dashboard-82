@@ -223,5 +223,13 @@
     </script>
 
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- 🧪 DASHBOARD TEST MODE — auto-starts dashboard without onboarding.
+         Remove this <script> block to restore normal onboarding flow. -->
+    <script>
+      localStorage.setItem('test_dashboard', 'true');
+      localStorage.setItem('onboarding_completed', 'true');
+      localStorage.setItem('subscription_active', 'true');
+    </script>
   </body>
 </html>
