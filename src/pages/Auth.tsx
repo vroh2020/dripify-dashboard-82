@@ -423,7 +423,10 @@ export const AuthOnboardingWizard = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
+    <div
+      className="min-h-screen app-shell-scroll"
+      style={{ background: 'var(--bg-primary)' }}
+    >
         <AnimatePresence mode="wait" initial={false}>
           {step === 1 && (
           <WelcomeHeroStep 

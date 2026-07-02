@@ -7,7 +7,7 @@
  * Closet and Fits tabs stay in sync without manual refreshes.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
@@ -23,6 +23,8 @@ import {
 } from '@/utils/backgroundRemoval';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { selectTick, successTick, thrust } from '@/lib/haptics';
+import { encodeBlurHashFromImageSource } from '@/lib/image';
 
 import PiecesTab from './PiecesTab';
 import ItemDetailModal from './ItemDetailModal';
@@ -104,9 +106,19 @@ export default function ClosetView() {
     isInitialLoad,
     loadError,
     retry,
-    toggleFavorite,
+    toggleFavorite: toggleFavoriteRaw,
     insertItem,
   } = useClosetData();
+
+  // Wrap the favorite toggle so favorite/unfavorite feels tactile on tap.
+  // Doesn't change behaviour — same state update, just adds haptic feedback.
+  const toggleFavorite = useCallback(
+    (id: string) => {
+      thrust();
+      toggleFavoriteRaw(id);
+    },
+    [toggleFavoriteRaw]
+  );
 
   const [selectedItem, setSelectedItem] = useState<ClosetItem | null>(null);
   const [activeFilters, setActiveFilters] =
@@ -172,6 +184,21 @@ export default function ClosetView() {
       }
       setUploadProgress(45);
 
+      // Compute BlurHash client-side from the BG-removed blob. The hash
+      // is written into the `attributes` JSON column at insert time so
+      // CachedImage can paint an instant placeholder on subsequent app
+      // opens (drives Tier 4's "loads instantly on reopen" UX). Any
+      // encoding failure here degrades gracefully \u2014 no hash means the
+      // tile falls back to a soft gray skeleton while the disk cache
+      // warms up.
+      let blurHash: string | null = null;
+      try {
+        blurHash = await encodeBlurHashFromImageSource(processedBlob);
+      } catch {
+        blurHash = null;
+      }
+
+
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) throw new Error('Not signed in');
 
@@ -202,7 +229,7 @@ export default function ClosetView() {
           category: 'tops',
           color: 'unknown',
           tags: [],
-          attributes: {},
+          attributes: blurHash ? { blur_hash: blurHash } : {},
           source_image_url: pub.publicUrl,
         })
         .select(
@@ -254,6 +281,7 @@ export default function ClosetView() {
       setTimeout(() => {
         setIsUploading(false);
         setUploadProgress(0);
+        successTick();
       }, 600);
     } catch (e: any) {
       console.error('Upload failed:', e);
@@ -338,6 +366,7 @@ export default function ClosetView() {
   // Cancel-ref re-arm is handled by the useEffect below — single source
   // of truth instead of fighting inline-vs-effect ordering.
   const handleAddPiece = () => {
+    selectTick();
     setShowUploadSheet(true);
   };
 

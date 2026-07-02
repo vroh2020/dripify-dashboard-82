@@ -16,6 +16,21 @@
     <meta name="description" content="AI-Powered Style Analysis & Recommendations" />
     <meta name="author" content="Lovable" />
     <meta property="og:image" content="/og-image.png" />
+
+    <!-- Geist + Geist Mono. The cloned capacitor-app-optimization app
+         loads these via next/font/google which next-self-hosts the WOFF
+         payload. We're on Vite (no next/font) so a <link> to the Google
+         Fonts CDN is the closest equivalent. The cloned's Tailwind v4
+         theme resolves font-sans to `--font-geist-sans`; our .whering-theme
+         root sets `font-family: 'Geist', ...` so both Whering and the rest
+         of trendza inherit the same geometry when Geist loads. If Geist
+         404s (CDN blip), Inter / system sans take over without a flash. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+    />
     
     <!-- CRITICAL: Preload essential resources -->
     <link rel="modulepreload" href="/src/main.tsx" crossorigin="anonymous">

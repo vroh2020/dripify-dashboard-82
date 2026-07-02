@@ -7,10 +7,10 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { StyleAnalysis, ScoreBreakdown } from "@/types/styleTypes";
 import { CategoryBreakdown } from "../analysis/CategoryBreakdown";
 import ReactMarkdown from "react-markdown";
+import { CachedImage } from "@/components/ui/CachedImage";
 
 const getImageUrl = (path: string) => {
   if (!path) return '/placeholder.svg';
@@ -94,15 +94,13 @@ export const StyleAnalysesList = ({ analyses }: { analyses: StyleAnalysis[] }) =
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                       <div className="w-20 h-20 rounded-lg overflow-hidden bg-purple-500/10 flex-shrink-0">
-                        <img
+                        <CachedImage
                           src={getImageUrl(analysis.thumbnail_url || analysis.image_url)}
+                          blurHash={null}
+                          width={160}
                           alt="Style analysis"
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            const img = e.target as HTMLImageElement;
-                            img.src = '/placeholder.svg';
-                          }}
+                          fit="cover"
+                          className="w-full h-full"
                         />
                       </div>
                       <div className="flex-1">
@@ -174,23 +172,29 @@ export const StyleAnalysesList = ({ analyses }: { analyses: StyleAnalysis[] }) =
               <ScrollArea className="pr-4 max-h-[calc(90vh-120px)]">
                 <div className="space-y-5 p-1">
                   <div className="aspect-square max-h-[300px] rounded-md overflow-hidden mx-auto">
-                    <img 
-                      src={getImageUrl(selectedAnalysis.image_url)} 
-                      alt="Outfit" 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const img = e.target as HTMLImageElement;
-                        img.src = '/placeholder.svg';
-                      }}
+                    <CachedImage
+                      src={getImageUrl(selectedAnalysis.image_url)}
+                      blurHash={null}
+                      width={480}
+                      alt="Outfit"
+                      fit="cover"
+                      variant="hero"
+                      className="w-full h-full"
                     />
                   </div>
                   
                   <div className="text-center">
                     <div className="relative inline-block">
-                      <Avatar className="w-16 h-16 border-2 border-purple-500/30">
-                        <AvatarImage src={getImageUrl(selectedAnalysis.image_url)} alt="Style" className="object-cover" />
-                        <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-xl">T</AvatarFallback>
-                      </Avatar>
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-500/30 bg-gradient-to-br from-purple-700 to-pink-500 flex-none">
+                        <CachedImage
+                          src={getImageUrl(selectedAnalysis.image_url)}
+                          blurHash={null}
+                          width={128}
+                          alt="Style"
+                          fit="cover"
+                          className="w-full h-full"
+                        />
+                      </div>
                       <div className="absolute -bottom-2 -right-2 bg-purple-500 text-white text-sm font-bold rounded-full w-7 h-7 flex items-center justify-center border-2 border-[#1A1F2C]">
                         {selectedAnalysis.total_score}
                       </div>

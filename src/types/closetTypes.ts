@@ -11,6 +11,16 @@ export interface ClosetItem {
   attributes: any;
   created_at: string;
   updated_at: string;
+  /**
+   * BlurHash string painted into a 32×32 blurred canvas placeholder
+   * so the user never sees a white tile. Generated client-side at
+   * upload time via `@/lib/image::encodeBlurHashFromImageSource`,
+   * stored on the `attributes` JSON column under `.blur_hash` and
+   * lifted to a top-level field by the `useClosetData` normalizer.
+   * Optional because rows uploaded before this field landed won't
+   * have it — `<CachedImage>` happily renders without a hash.
+   */
+  blur_hash?: string | null;
 }
 
 export type ClothingCategory = 

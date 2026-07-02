@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -37,6 +35,29 @@
     
     --radius: 0.5rem;
 
+    /* ========================================
+       WHERING-STYLE DESIGN TOKENS
+       Layered next to the existing purple/pink
+       theme. Existing --primary stays purple;
+       these lime/soft/spring tokens are opt-in
+       via .wh-* classes so legacy UI is untouched.
+       ======================================== */
+
+    /* Toxic lime accent. Used by FAB + selection dash + save toggle. */
+    --wh-accent: #d6ff2b;
+    --wh-accent-ink: #0a0a0a;          /* ink color on lime */
+    --wh-bg: #f2f2f0;                   /* warm-paper app background */
+    --wh-bg-elev: #ffffff;              /* card / surface */
+    --wh-ink: #171717;                  /* primary text on light */
+    --wh-ink-soft: #6b7280;             /* secondary text */
+
+    /* Soft, diffuse shadows (never harsh). */
+    --wh-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.06);
+    --wh-shadow-lift: 0 14px 40px rgba(0, 0, 0, 0.12);
+
+    /* Spring overshoot for CSS transitions (no JS animation library). */
+    --wh-spring: cubic-bezier(0.22, 1.2, 0.36, 1);
+
     /* Shadcn compatibility */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -60,45 +81,87 @@
   }
 
   * {
-    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    /* Geist first — mirrors the cloned capacitor-app-optimization app
+       which loads it via next/font/google. Inter is intentionally NOT
+       in the fallback chain (unwired @font-face here would dead-letter
+       on Geist CDN failure); we drop straight to the OS native sans
+       stack which is what users in the cloned's fallback see too. */
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont,
+      system-ui, 'Segoe UI', sans-serif;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
   }
 
-  html {
-    overflow-x: hidden;
-    scroll-behavior: smooth;
-  }
-
+  /* ========================================
+     NATIVE SHELL LOCK — Tier 1 of the
+     "make this Capacitor app feel native" refactor.
+     html/body must NOT scroll. Only inner feeds
+     (closet grid, shuffler rows, modals) may scroll.
+     position:fixed on the body breaks iOS WebView's
+     rubber-band bounce; overscroll-behavior-y:none
+     is belt-and-braces. `touch-action: manipulation`
+     on the root kills the 300ms double-tap-to-zoom
+     delay AND any pull-to-refresh gesture. Without
+     it, the body would still rubber-band even with
+     `overflow:hidden` because iOS Safari treats the
+     whole document as a scroll container until told
+     otherwise. Use `touch-action: pan-y` on inner
+     scrollable elements (the .app-shell-scroll
+     utility below).
+     ======================================== */
+  html,
   body {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overscroll-behavior-y: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  /* Inner scrollable wrappers opt back into pan-y. */
+  .app-shell-scroll,
+  .app-shell-scroll * {
+    touch-action: pan-y;
+  }
+
+  /* Page scroll escape hatch. Wrap any route whose
+     contents can't fit a `flex:1` parent in a flex
+     column with this on the outer wrapper. Inner
+     scroll behavior is preserved; outer doesn't
+     bounce. Used by Auth.tsx + Profile.tsx. */
+  .app-shell-scroll {
+    position: static;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
-    @apply antialiased;
   }
 
-  /* Scrollbar Styling */
+  /* Hide webkit scrollbars globally — the purple 8px
+     scrollbar painted by the legacy ::-webkit-scrollbar
+     rule below is what users see as "scroll bars up and
+     down". Components that legitimately need a scrollbar
+     can opt back in via .show-scrollbar. */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    display: none !important;
+    width: 0;
+    height: 0;
   }
-
-  ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-
-  ::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.3);
-    border-radius: 4px;
+  .show-scrollbar::-webkit-scrollbar {
+    display: block !important;
+    width: 6px;
+    height: 6px;
   }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.5);
+  .show-scrollbar {
+    scrollbar-width: thin;
   }
 
   /* Focus styles for accessibility */
@@ -724,5 +787,109 @@
       padding-left: max(0px, env(safe-area-inset-left));
       padding-right: max(0px, env(safe-area-inset-right));
     }
+  }
+
+  /* ============================================================
+     WHERING PROTOTYPE — scoped theme + utilities.
+     The cloned repo (capacitor-app-optimization) ships a complete
+     shadcn-vars palette tuned for a light "warm paper" background
+     with a lime primary. trendza's :root is a dark palette, so we
+     re-scope those same shadcn tokens under `.whering-theme` so the
+     WheringPage phone-frame inherits the cloned look without
+     affecting the rest of the app.
+     ============================================================ */
+
+  /*
+   * SCOPE CONTRACT — `.whering-theme` only overrides shadcn tokens for
+   * elements INSIDE a `<div className="whering-theme">`. Tailwind
+   * utilities like `bg-card` / `text-foreground` used elsewhere in
+   * trendza (ClosetView, FitsView, ScanView, etc.) still resolve to
+   * the dark :root palette. Don't drop this class from the
+   * WheringPage phone-frame wrapper or the cloned look breaks.
+   */
+  .whering-theme {
+    --background: oklch(0.965 0 0);
+    --foreground: oklch(0.16 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.16 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.16 0 0);
+    --primary: oklch(0.93 0.24 124);
+    --primary-foreground: oklch(0.16 0 0);
+    --secondary: oklch(0.94 0 0);
+    --secondary-foreground: oklch(0.16 0 0);
+    --muted: oklch(0.94 0 0);
+    --muted-foreground: oklch(0.5 0 0);
+    --accent: oklch(0.93 0.24 124);
+    --accent-foreground: oklch(0.16 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.9 0 0);
+    --input: oklch(0.9 0 0);
+    --ring: oklch(0.93 0.24 124);
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+
+  /* Aliases: the cloned repo uses `.soft-shadow` / `.lift-shadow`
+     (no wh- prefix). trendza already has `.wh-soft-shadow` /
+     `.wh-lift-shadow` defined below — these map to the same values
+     so verbatim ported components render correctly. */
+  .soft-shadow { box-shadow: var(--wh-shadow-soft); }
+  .lift-shadow { box-shadow: var(--wh-shadow-lift); }
+
+  /* ============================================================
+     WHERING UTILITIES — opt-in by class, no global collateral.
+     The Shuffler / Canvas components scope themselves with
+     `.no-scrollbar`, `.snap-x-center`, `.wh-*` tokens.
+     ============================================================ */
+
+  /* Hide scrollbar but keep momentum scrolling. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Scroll-snap carousels — one item per swipe, mandatory stop. */
+  .snap-x-center {
+    scroll-snap-type: x mandatory;
+    -webkit-scroll-snap-type: x mandatory;
+  }
+  .snap-item {
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    -webkit-scroll-snap-align: center;
+  }
+
+  /* Soft / lift shadow tokens. */
+  .wh-soft-shadow { box-shadow: var(--wh-shadow-soft); }
+  .wh-lift-shadow { box-shadow: var(--wh-shadow-lift); }
+
+  /* Spring transition primitive — CSS-driven overshoot, no JS lib. */
+  .wh-spring        { transition: transform 380ms var(--wh-spring), opacity 380ms var(--wh-spring); }
+  .wh-spring-fast   { transition: transform 220ms var(--wh-spring), opacity 220ms var(--wh-spring); }
+  .wh-press:active  { transform: scale(0.97); }
+
+  /* Warm-paper shell used by Dress Me + Canvas. */
+  .wh-shell {
+    background: var(--wh-bg);
+    color: var(--wh-ink);
+  }
+
+  /* Lime FAB surface — used by existing view-level FABs after restyle. */
+  .wh-fab {
+    background: var(--wh-accent);
+    color: var(--wh-accent-ink);
+    box-shadow: var(--wh-shadow-lift);
+  }
+  .wh-fab:active { transform: scale(0.94); }
+
+  /* Selection outline for canvas items. */
+  .wh-selection-ring {
+    outline: 2px dashed var(--wh-accent);
+    outline-offset: 4px;
+    border-radius: 12px;
   }
 }

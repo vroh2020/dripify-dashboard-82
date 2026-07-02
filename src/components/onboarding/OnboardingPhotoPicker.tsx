@@ -5,6 +5,7 @@ import { Camera, Image as ImageIcon, X, AlertCircle, Sparkles } from "lucide-rea
 import { Capacitor } from '@capacitor/core';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { cn } from "@/lib/utils";
+import { CachedImage } from "@/components/ui/CachedImage";
 
 interface OnboardingPhotoPickerProps {
   onImageSelect: (file: File | null) => void;
@@ -289,10 +290,14 @@ export const OnboardingPhotoPicker = ({ onImageSelect, selectedImage }: Onboardi
             className="relative"
           >
             <div className="relative bg-white/5 rounded-2xl p-3 border border-white/10 backdrop-blur-sm">
-              <img
+              <CachedImage
                 src={preview}
+                blurHash={null}
+                width={480}
                 alt="Selected outfit"
-                className="w-full h-72 object-cover rounded-xl shadow-lg"
+                fit="cover"
+                variant="hero"
+                className="w-full h-72 rounded-xl shadow-lg"
               />
               
               <Button

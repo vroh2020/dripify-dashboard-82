@@ -2,35 +2,216 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScanView } from "@/components/ScanView";
 import ClosetView from "@/components/closet/ClosetView";
 import { FitsView } from "@/components/fits/FitsView";
-import { Scan, Shirt, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import {
+  Shirt,
+  LayoutGrid,
+  Layers,
+  Bookmark,
+  Plus,
+  Upload,
+  CalendarDays,
+  Scissors,
+  Camera,
+  X,
+} from "lucide-react";
+import { Shuffler } from "@/components/whering/shuffler";
+import { Wardrobe } from "@/components/whering/wardrobe";
+import { Canvas } from "@/components/whering/canvas";
+import { Clipper } from "@/components/whering/clipper";
+import { UploadItemFlow } from "@/components/whering/UploadItemFlow";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
 import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
+import { useClosetData, type ClosetItem } from "@/hooks/useClosetData";
+import { useUserGender } from "@/hooks/useUserGender";
+import { getGenderedDemoItems } from "@/lib/wardrobe-data";
+import { thrust } from "@/lib/haptics";
+import { cn } from "@/lib/utils";
 
+// ─── FAB bottom sheet actions ───
+
+type SheetAction = "camera" | "clip" | "create" | "plan";
+
+const sheetItems: {
+  key: SheetAction;
+  label: string;
+  desc: string;
+  icon: typeof Upload;
+}[] = [
+  {
+    key: "camera",
+    label: "Upload Item",
+    desc: "Take a photo and add to your wardrobe",
+    icon: Camera,
+  },
+  {
+    key: "clip",
+    label: "Clip",
+    desc: "Crop & detail from any store",
+    icon: Scissors,
+  },
+  {
+    key: "create",
+    label: "Create Outfit",
+    desc: "Style a look on the canvas",
+    icon: Layers,
+  },
+  {
+    key: "plan",
+    label: "Plan a Day",
+    desc: "Schedule what to wear",
+    icon: CalendarDays,
+  },
+];
+
+function FabBottomSheet({
+  open,
+  onClose,
+  onAction,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAction: (action: SheetAction) => void;
+}) {
+  const [mounted, setMounted] = useState(open);
+
+  useEffect(() => {
+    if (open) setMounted(true);
+    else {
+      const t = setTimeout(() => setMounted(false), 300);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  if (!mounted) return null;
+
+  return (
+    <div className="fixed inset-0 z-50" aria-modal="true" role="dialog">
+      <button
+        type="button"
+        aria-label="Close menu"
+        onClick={onClose}
+        className={cn(
+          "absolute inset-0 transition-opacity duration-300",
+          open ? "opacity-100" : "opacity-0"
+        )}
+        style={{
+          backgroundColor: "rgba(0,0,0,0.4)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+        }}
+      />
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: open ? 0 : "100%" }}
+        transition={{ type: "spring", stiffness: 360, damping: 32 }}
+        className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-white pb-10 pt-3 shadow-2xl"
+      >
+        <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-gray-200" />
+        <div className="flex items-center justify-between px-6 pb-2 pt-1">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Add to Wardrobe
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="px-4">
+          {sheetItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => {
+                  thrust();
+                  onAction(item.key);
+                }}
+                className="flex w-full items-center gap-4 rounded-2xl px-3 text-left transition-colors active:bg-gray-50"
+                style={{ minHeight: 64 }}
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black text-white">
+                  <Icon className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-[15px] font-semibold text-gray-900">
+                    {item.label}
+                  </span>
+                  <span className="block text-[13px] text-gray-500">
+                    {item.desc}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── FAB Button ───
+
+function FabButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Add to wardrobe"
+      onClick={() => {
+        thrust();
+        onClick();
+      }}
+      className="relative z-30 flex items-center justify-center rounded-full bg-black text-white shadow-[0_14px_40px_rgba(0,0,0,0.18)] transition-transform active:scale-95"
+      style={{ height: 58, width: 58, marginTop: -29 }}
+    >
+      <Plus className="h-7 w-7" strokeWidth={2.5} />
+    </button>
+  );
+}
+
+// ─── Main Index ───
 
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  // Top-level route segment: only the first path part is a tab. The
-  // remaining segments route inside the view (e.g. `/fits/builder`).
-  const pathSegments = location.pathname.split('/').filter(Boolean);
-  const currentPath = pathSegments[0] ?? 'scan';
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+  const currentPath = pathSegments[0] ?? "dress-me";
 
-  // `/` lands the user on Scan, which is also the dashboard / home.
+  // Sheet & upload state
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [clipperOpen, setClipperOpen] = useState(false);
+
+  // Lift closet data state so UploadItemFlow, Wardrobe, Shuffler, Canvas, and Saved tab share the same instance
+  const { items, outfits, isInitialLoad, loadError, retry, refresh, insertItem, saveOutfit, deleteOutfit } = useClosetData();
+
+  // Read user gender from onboarding data so we show gender-appropriate demo items
+  const { gender } = useUserGender();
+  const demoItems = getGenderedDemoItems(gender);
+
+  const handleItemInserted = useCallback(
+    (item: ClosetItem) => {
+      insertItem(item);
+    },
+    [insertItem]
+  );
+
+  // Default to dress-me
   useEffect(() => {
-    if (location.pathname === '/') {
-      navigate('/scan', { replace: true });
+    if (location.pathname === "/") {
+      navigate("/dress-me", { replace: true });
     }
   }, [location.pathname, navigate]);
 
-  // 🚀 PRE-LOAD MODEL but only after the browser is idle, so a 100MB+ ONNX
-  // download doesn't compete with the user's first taps / haptics / animations.
-  // requestIdleCallback is fire-and-forget on unmount (browsers can't cancel
-  // it) — the body-level `cancelled` flag is the only post-unmount guard.
-  // Safari/WebView older than iOS 16.4 falls back to a 4s setTimeout.
+  // PRE-LOAD bg removal model (deferred to idle)
   useEffect(() => {
     let cancelled = false;
     let timeoutId: number | undefined;
@@ -39,11 +220,14 @@ const Index = () => {
     const fire = () => {
       if (cancelled) return;
       preloadBackgroundRemovalModel().catch((error) => {
-        console.warn('⚠️ Model preload failed (will load on first upload):', error);
+        console.warn(
+          "⚠️ Model preload failed (will load on first upload):",
+          error
+        );
       });
     };
 
-    if (typeof window.requestIdleCallback === 'function') {
+    if (typeof window.requestIdleCallback === "function") {
       idleId = window.requestIdleCallback(fire, { timeout: 4000 });
     } else {
       timeoutId = window.setTimeout(fire, 4000);
@@ -52,44 +236,134 @@ const Index = () => {
     return () => {
       cancelled = true;
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-      if (idleId !== undefined && typeof window.cancelIdleCallback === 'function') {
+      if (
+        idleId !== undefined &&
+        typeof window.cancelIdleCallback === "function"
+      ) {
         window.cancelIdleCallback(idleId);
       }
     };
-  }, []); // Run once when dashboard mounts, but deferred to idle.
+  }, []);
 
   const handleTabChange = (value: string) => {
     navigate(`/${value}`);
   };
 
-  // Top-level tab dispatch. Sub-routes (e.g. `/fits/builder`, `/closet/collections`)
-  // are handled inside each view component via `useLocation()` parse.
+  const handleSheetAction = (action: SheetAction) => {
+    setSheetOpen(false);
+    if (action === "camera") setUploadOpen(true);
+    if (action === "clip") setClipperOpen(true);
+    if (action === "create") navigate("/canvas");
+    if (action === "plan") navigate("/dress-me");
+  };
+
+  // Tab icons + labels for the 4 main tabs
+  const tabs: {
+    key: string;
+    label: string;
+    icon: typeof Shirt;
+    side: "left" | "right";
+  }[] = [
+    { key: "dress-me", label: "Dress Me", icon: Shirt, side: "left" },
+    { key: "wardrobe", label: "Wardrobe", icon: LayoutGrid, side: "left" },
+    { key: "canvas", label: "Canvas", icon: Layers, side: "right" },
+    { key: "fits", label: "Saved", icon: Bookmark, side: "right" },
+  ];
+
   const renderContent = () => {
     try {
       switch (currentPath) {
-        case 'scan':
+        case "dress-me":
+          return (
+            <div className="whering-theme bg-muted h-full">
+              <Shuffler
+                closetItems={items}
+                demoItems={demoItems}
+                onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
+                  console.log('📦 [Index] Shuffler onSaveOutfit called — items:', selectedItems.length, 'name:', name)
+                  return saveOutfit({ name, items: selectedItems, metadata, thumbnail })
+                }}
+                onSaved={() => {
+                  console.log('📍 [Index] onSaved fired — navigating to /fits')
+                  navigate("/fits")
+                }}
+              />
+            </div>
+          );
+        case "wardrobe":
+          return (
+            <div className="whering-theme bg-muted h-full">
+              <Wardrobe items={items} demoItems={demoItems} onRefresh={refresh} />
+            </div>
+          );
+        case "canvas":
+          return (
+            <div className="whering-theme bg-muted h-full">
+              <Canvas
+                closetItems={items}
+                outfits={outfits}
+                demoItems={demoItems}
+                onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
+                  console.log('📦 [Index] Canvas onSaveOutfit called — items:', selectedItems.length, 'name:', name)
+                  return saveOutfit({ name, items: selectedItems, metadata, thumbnail })
+                }}
+                onDeleteOutfit={deleteOutfit}
+                onSaved={() => {
+                  console.log('📍 [Index] onSaved fired — navigating to /fits')
+                  navigate("/fits")
+                }}
+              />
+            </div>
+          );
+        case "fits":
+          return (
+            <FitsView
+              outfits={outfits}
+              isInitialLoad={isInitialLoad}
+              loadError={loadError}
+              onRetry={retry}
+              onRefresh={refresh}
+              onDeleteOutfit={deleteOutfit}
+              onBack={() => navigate("/fits")}
+              onEditOutfit={(id) => navigate(`/canvas?edit=${id}`)}
+            />
+          );
+        case "scan":
           return <ScanView />;
-        case 'closet':
+        case "closet":
           return <ClosetView />;
-        case 'fits':
-          return <FitsView />;
-        case 'profile':
+        case "profile":
           return <Profile />;
-
         default:
-          return <ScanView />;
+          return (
+            <div className="whering-theme bg-muted h-full">
+              <Shuffler
+                closetItems={items}
+                demoItems={demoItems}
+                onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
+                  console.log('📦 [Index] Shuffler onSaveOutfit called — items:', selectedItems.length, 'name:', name)
+                  return saveOutfit({ name, items: selectedItems, metadata, thumbnail })
+                }}
+                onSaved={() => {
+                  console.log('📍 [Index] onSaved fired — navigating to /fits')
+                  navigate("/fits")
+                }}
+              />
+            </div>
+          );
       }
-    } catch (error) {
+    } catch {
       return (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h3>
-            <p className="text-gray-600 mb-4">There was an error loading this content</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Something went wrong
+            </h3>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-black text-white rounded-xl"
             >
-              Reload Page
+              Reload
             </button>
           </div>
         </div>
@@ -98,80 +372,133 @@ const Index = () => {
   };
 
   return (
-    <div 
+    <div
       className="min-h-[100dvh] bg-white relative overflow-x-hidden"
       style={{ paddingTop: `env(safe-area-inset-top)` }}
     >
       <DashboardHeader />
-      
-      <Tabs value={currentPath} onValueChange={handleTabChange} className="flex flex-col" style={{ height: 'calc(100dvh - 56px - env(safe-area-inset-top, 0px))' }}>
-        {/* Main Content Area */}
+
+      <Tabs
+        value={currentPath}
+        onValueChange={handleTabChange}
+        className="flex flex-col"
+        style={{
+          height: "calc(100dvh - 56px - env(safe-area-inset-top, 0px))",
+        }}
+      >
+        {/* Content */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          {(() => {
-            try {
-              return renderContent();
-            } catch (error) {
-              return (
-                <div className="flex items-center justify-center min-h-[50vh] text-gray-900">
-                  <div className="text-center">
-                    <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-                    <p className="text-gray-600 mb-4">Error loading dashboard content</p>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white"
-                    >
-                      Reload
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-          })()}
+          {renderContent()}
         </div>
 
-        {/* Bottom Navigation — uses `.nav-height` from index.css so it
-            * always has 64px of content + safe-area-inset-bottom padding
-            * for the home indicator on every iPhone (SE through 15 Pro Max
-            * + Dynamic Island). A subtle top border + a translucent blur
-            * background gives the iOS-native "tab bar over content" feel. */}
+        {/* Bottom Navigation — FAB-centered, with TabsList for accessibility */}
         <div
-          className="bg-white/85 backdrop-blur-lg border-t border-gray-200/80 shadow-[0_-1px_3px_rgba(0,0,0,0.04)]"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          className="bg-white/90 backdrop-blur-xl border-t border-gray-200/70 shadow-[0_-1px_3px_rgba(0,0,0,0.03)]"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
           <motion.div
             initial={{ y: 24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            <TabsList className="w-full h-16 grid grid-cols-3 bg-transparent gap-0 p-0">
-              <TabsTrigger
-                value="closet"
-                aria-label="Closet tab"
-                className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-500 hover:text-gray-900 rounded-none h-full transition-colors focus-visible:outline-none focus-visible:bg-gray-100"
-              >
-                <Shirt className="h-5 w-5" strokeWidth={1.75} />
-                <span className="text-[11px] font-semibold tracking-wide">Closet</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="fits"
-                aria-label="Fits tab"
-                className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-500 hover:text-gray-900 rounded-none h-full transition-colors focus-visible:outline-none focus-visible:bg-gray-100"
-              >
-                <Sparkles className="h-5 w-5" strokeWidth={1.75} />
-                <span className="text-[11px] font-semibold tracking-wide">Fits</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="scan"
-                aria-label="Scan tab"
-                className="flex flex-col items-center justify-center gap-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-500 hover:text-gray-900 rounded-none h-full transition-colors focus-visible:outline-none focus-visible:bg-gray-100"
-              >
-                <Scan className="h-5 w-5" strokeWidth={1.75} />
-                <span className="text-[11px] font-semibold tracking-wide">Scan</span>
-              </TabsTrigger>
+            <TabsList className="w-full h-16 flex items-stretch bg-transparent gap-0 p-0 rounded-none">
+              {/* Left tabs (Dress Me, Wardrobe) */}
+              <div className="flex flex-1 justify-around">
+                {tabs
+                  .filter((t) => t.side === "left")
+                  .map((t) => {
+                    const active = currentPath === t.key;
+                    const Icon = t.icon;
+                    return (
+                      <TabsTrigger
+                        key={t.key}
+                        value={t.key}
+                        aria-label={`${t.label} tab`}
+                        className="flex flex-col items-center justify-center gap-0.5 flex-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-400 hover:text-gray-700 rounded-none h-full transition-colors focus-visible:outline-none"
+                      >
+                        <Icon
+                          className="h-6 w-6 transition-colors"
+                          strokeWidth={active ? 2.4 : 1.75}
+                        />
+                        <span className="text-[10px] font-semibold tracking-wide">
+                          {t.label}
+                        </span>
+                      </TabsTrigger>
+                    );
+                  })}
+              </div>
+
+              {/* FAB spacer */}
+              <div className="w-16 flex-shrink-0 flex items-start justify-center">
+                <FabButton onClick={() => setSheetOpen(true)} />
+              </div>
+
+              {/* Right tabs (Canvas, Saved) */}
+              <div className="flex flex-1 justify-around">
+                {tabs
+                  .filter((t) => t.side === "right")
+                  .map((t) => {
+                    const active = currentPath === t.key;
+                    const Icon = t.icon;
+                    return (
+                      <TabsTrigger
+                        key={t.key}
+                        value={t.key}
+                        aria-label={`${t.label} tab`}
+                        className="flex flex-col items-center justify-center gap-0.5 flex-1 data-[state=active]:bg-transparent data-[state=active]:text-black data-[state=active]:shadow-none text-gray-400 hover:text-gray-700 rounded-none h-full transition-colors focus-visible:outline-none"
+                      >
+                        <Icon
+                          className="h-6 w-6 transition-colors"
+                          strokeWidth={active ? 2.4 : 1.75}
+                        />
+                        <span className="text-[10px] font-semibold tracking-wide">
+                          {t.label}
+                        </span>
+                      </TabsTrigger>
+                    );
+                  })}
+              </div>
             </TabsList>
           </motion.div>
         </div>
       </Tabs>
+
+      {/* FAB Bottom Sheet */}
+      <FabBottomSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onAction={handleSheetAction}
+      />
+
+      {/* Upload Item Flow */}
+      <UploadItemFlow
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onItemInserted={handleItemInserted}
+      />
+
+      {/* Clipper overlay */}
+      <AnimatePresence>
+        {clipperOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-white"
+          >
+            <div className="whering-theme h-full">
+              <Clipper />
+            </div>
+            <button
+              onClick={() => setClipperOpen(false)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/10 flex items-center justify-center hover:bg-black/20 transition-colors"
+              style={{ marginTop: "env(safe-area-inset-top, 0px)" }}
+            >
+              <X className="w-5 h-5 text-gray-700" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

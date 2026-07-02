@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Heart, Calendar, Tag, Palette } from 'lucide-react';
+import { CachedImage } from '@/components/ui/CachedImage';
 
 interface ClosetItem {
   id: string;
@@ -63,13 +64,14 @@ export default function ItemDetailModal({
               {/* Image */}
               <div className="aspect-square rounded-xl overflow-hidden bg-white border border-gray-200">
                 {item.source_image_url ? (
-                  <img
+                  <CachedImage
                     src={item.source_image_url}
+                    blurHash={(item as any).blur_hash ?? null}
+                    width={480}
                     alt={item.title}
-                    className="w-full h-full object-contain p-2"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
+                    fit="contain"
+                    variant="hero"
+                    className="w-full h-full p-2"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

@@ -1,5 +1,6 @@
 import React from "react";
 import { Share2, Bookmark } from "lucide-react";
+import { CachedImage } from "@/components/ui/CachedImage";
 
 interface PlayerRatingsCardProps {
   profileImage: string;
@@ -44,10 +45,14 @@ export const PlayerRatingsCard: React.FC<PlayerRatingsCardProps> = ({
       {/* Profile Image */}
       <div className="flex justify-center mb-5">
         <div className="w-[80px] h-[80px] rounded-full overflow-hidden">
-          <img
+          <CachedImage
             src={profileImage}
+            blurHash={null}
+            width={160}
             alt="Profile"
-            className="w-full h-full object-cover"
+            fit="cover"
+            variant="hero"
+            className="w-full h-full"
           />
         </div>
       </div>

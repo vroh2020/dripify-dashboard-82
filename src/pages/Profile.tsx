@@ -127,14 +127,14 @@ const Profile = () => {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen bg-white px-4 pt-safe pb-nav flex items-center justify-center">
+      <div className="min-h-screen app-shell-scroll bg-white px-4 pt-safe pb-nav flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-black animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white px-4 pt-safe pb-nav">
+    <div className="min-h-screen app-shell-scroll bg-white px-4 pt-safe pb-nav">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

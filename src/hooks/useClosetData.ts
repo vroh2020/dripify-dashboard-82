@@ -55,6 +55,8 @@ export interface SavedOutfit {
   item_ids: string[];
   score?: number;
   rationale?: string;
+  /** Flattened outfit preview — base64 data URL generated client-side via Canvas compositing */
+  thumbnail_url?: string;
   created_at: string;
   items: ClosetItem[];
 }
@@ -63,10 +65,29 @@ export interface SavedOutfit {
  * What the builder hands to `saveOutfit`: which items go into the fit.
  * `null` slots are filtered before save so the caller doesn't need to
  * pre-clean.
+ *
+ * Optional `metadata` is serialized as JSON into the `rationale` column
+ * so callers can attach position data, source info, etc. without a DB
+ * migration.
+ */
+/**
+ * What the builder hands to `saveOutfit`: which items go into the fit.
+ * `null` slots are filtered before save so the caller doesn't need to
+ * pre-clean.
+ *
+ * Optional `metadata` is serialized as JSON into the `rationale` column
+ * so callers can attach position data, source info, etc. without a DB
+ * migration.
+ *
+ * Optional `thumbnail` is a base64 data URL generated client-side via
+ * Canvas compositing — saved into the rationale JSON so the Saved tab
+ * can render a single lightweight image instead of layering PNGs.
  */
 export interface SaveOutfitInput {
   name: string;
   items: Array<ClosetItem | null>;
+  metadata?: Record<string, any>;
+  thumbnail?: string;
 }
 
 interface UseClosetDataReturn {
@@ -106,6 +127,16 @@ function normalizeItem(r: any): ClosetItem | null {
   const hasValidTitle =
     r?.title && r.title !== 'Untitled' && r.title !== 'Analyzing...';
   if (!hasImage || !hasValidTitle) return null;
+  // BlurHash lives in the `attributes` JSON column; lift it so
+  // `<CachedImage>` callers don't need to know our storage shape.
+  const attrHash =
+    r?.attributes && typeof r.attributes === 'object'
+      ? (r.attributes as Record<string, unknown>).blur_hash
+      : null;
+  const blurHash =
+    typeof attrHash === 'string' && attrHash.length > 0
+      ? attrHash
+      : null;
   return {
     id: r.id,
     title: r.title,
@@ -118,21 +149,48 @@ function normalizeItem(r: any): ClosetItem | null {
     source_image_url: r.source_image_url,
     created_at: r.created_at,
     favorite: false,
+    blur_hash: blurHash,
   };
 }
 
 function normalizeOutfit(r: any, itemMap: Map<string, ClosetItem>): SavedOutfit {
   const itemIds = Array.isArray(r.item_ids) ? r.item_ids : [];
+  // Parse rationale JSON to extract thumbnail_url, item_snapshots, and metadata
+  let thumbnailUrl: string | undefined;
+  let rationaleDisplay: string | undefined;
+  let snapshots: ClosetItem[] | undefined;
+  if (r.rationale) {
+    try {
+      const parsed = JSON.parse(r.rationale);
+      if (parsed && typeof parsed === 'object') {
+        thumbnailUrl = parsed.thumbnail ?? parsed.thumbnail_url;
+        snapshots = Array.isArray(parsed.item_snapshots) ? parsed.item_snapshots : undefined;
+        // Re-stringify without thumbnail + snapshots for display purposes
+        const { thumbnail, thumbnail_url, item_snapshots, ...rest } = parsed;
+        rationaleDisplay = Object.keys(rest).length > 0 ? JSON.stringify(rest) : undefined;
+      } else {
+        rationaleDisplay = r.rationale;
+      }
+    } catch {
+      rationaleDisplay = r.rationale;
+    }
+  }
+  // Build a snapshot lookup keyed by item id — used when an item doesn't
+  // exist in the real closet (e.g. demo items saved from Canvas/Shuffler).
+  const snapshotMap = new Map<string, ClosetItem>();
+  if (snapshots) {
+    snapshots.forEach(s => snapshotMap.set(s.id, s as ClosetItem));
+  }
   return {
     id: r.id,
     name: r.name ?? 'Fit',
     item_ids: itemIds,
     ...(r.score !== null && r.score !== undefined && { score: r.score }),
-    ...(r.rationale !== null &&
-      r.rationale !== undefined && { rationale: r.rationale }),
+    ...(rationaleDisplay && { rationale: rationaleDisplay }),
+    ...(thumbnailUrl && { thumbnail_url: thumbnailUrl }),
     created_at: r.created_at,
     items: itemIds
-      .map((id: string) => itemMap.get(id))
+      .map((id: string) => itemMap.get(id) ?? snapshotMap.get(id))
       .filter((i): i is ClosetItem => Boolean(i)),
   };
 }
@@ -190,6 +248,8 @@ export function useClosetData(): UseClosetDataReturn {
         supabase
           .from('trendza_closet_items')
           .select(
+            // attributes.blur_hash is lifted to a top-level field by
+            // the normalizer below.
             'id, title, brand, category, color, season, tags, attributes, source_image_url, created_at'
           )
           .order('created_at', { ascending: false }),
@@ -276,21 +336,47 @@ export function useClosetData(): UseClosetDataReturn {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) return null;
 
+      // Build the rationale JSON payload
+      const rationalePayload: Record<string, any> = input.metadata
+        ? { ...input.metadata }
+        : { source: 'created' };
+
+      // Store item snapshots so demo/fake items survive page reloads.
+      // Without this, outfits containing demo ClosetItems (with fixed UUIDs
+      // that don't exist in Supabase) would appear empty after refresh.
+      rationalePayload.item_snapshots = validItems.map((i) => ({
+        id: i.id,
+        title: i.title,
+        brand: i.brand ?? '',
+        category: i.category,
+        color: i.color,
+        tags: i.tags,
+        attributes: i.attributes,
+        source_image_url: i.source_image_url,
+        created_at: i.created_at,
+      }));
+
+      // Embed thumbnail as base64 data URL if provided
+      if (input.thumbnail) {
+        rationalePayload.thumbnail = input.thumbnail;
+      }
+
       const { data, error } = await supabase
         .from('trendza_outfits')
         .insert({
           user_id: auth.user.id,
           name: input.name,
           item_ids: validItems.map((i) => i.id),
-          // Mock rationale — the builder UI is the source of truth for the
-          // display name; numeric score is a placeholder until we wire the
-          // scoring engine into the builder.
-          rationale: 'Created with Fit Stylist',
+          rationale: JSON.stringify(rationalePayload),
         })
         .select('id, name, item_ids, score, rationale, created_at')
         .single();
 
-      if (error || !data) return null;
+      if (error || !data) {
+        console.error('saveOutfit failed:', error?.message ?? 'No data returned');
+        if (error) console.error('Full Supabase error:', error);
+        return null;
+      }
 
       const newOutfit: SavedOutfit = {
         id: data.id,
@@ -300,6 +386,7 @@ export function useClosetData(): UseClosetDataReturn {
           data.score !== undefined && { score: data.score }),
         ...(data.rationale !== null &&
           data.rationale !== undefined && { rationale: data.rationale }),
+        ...(input.thumbnail && { thumbnail_url: input.thumbnail }),
         created_at: data.created_at,
         items: validItems,
       };

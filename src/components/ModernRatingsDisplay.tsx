@@ -1,9 +1,9 @@
 
 import { motion } from "framer-motion";
-import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Save, Share2 } from "lucide-react";
 import { ScoreBreakdown } from "@/types/styleTypes";
+import { CachedImage } from "./ui/CachedImage";
 
 interface ModernRatingsDisplayProps {
   overallScore: number;
@@ -106,10 +106,14 @@ export const ModernRatingsDisplay = ({
         
         {/* Profile Picture */}
         <div className="w-48 h-64 mx-auto rounded-lg overflow-hidden bg-white/10 flex items-center justify-center">
-            <img 
-              src={profileImage} 
-              alt="Analyzed outfit" 
-              className="w-full h-full object-contain"
+            <CachedImage
+              src={profileImage}
+              blurHash={null}
+              width={480}
+              alt="Analyzed outfit"
+              fit="contain"
+              variant="hero"
+              className="w-full h-full"
             />
         </div>
       </div>

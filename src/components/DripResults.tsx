@@ -2,10 +2,10 @@ import { Share2, Save, ChevronRight, ChevronDown, ChevronUp } from "lucide-react
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { motion } from "framer-motion";
-import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { ScrollArea } from "./ui/scroll-area";
 import { useState } from "react";
 import { ScoreBreakdown } from "@/types/styleTypes";
+import { CachedImage } from "./ui/CachedImage";
 
 interface StyleTip {
   category: string;
@@ -61,10 +61,17 @@ export const DripResults = ({
         animate={{ opacity: 1, y: 0 }}
         className="text-center space-y-4"
       >
-        <Avatar className="w-24 h-24 mx-auto border-2 border-purple-500/30">
-          <AvatarImage src={profileImage} alt="Profile" className="object-cover" />
-          <AvatarFallback className="bg-gradient-to-br from-purple-700 to-pink-500 text-white text-2xl">T</AvatarFallback>
-        </Avatar>
+        <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-2 border-purple-500/30 bg-gradient-to-br from-purple-700 to-pink-500">
+          <CachedImage
+            src={profileImage}
+            blurHash={null}
+            width={192}
+            alt="Profile"
+            fit="cover"
+            variant="hero"
+            className="w-full h-full"
+          />
+        </div>
         <div className="space-y-2">
           <h2 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">{displayScore}/100</h2>
           <p className="text-xl text-green-400 font-semibold">Style Score</p>

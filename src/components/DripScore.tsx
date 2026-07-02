@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
+import { CachedImage } from "@/components/ui/CachedImage";
 
 interface DripScoreProps {
   score: number;
@@ -56,7 +57,15 @@ export const DripScore = ({ score, profileImage }: DripScoreProps) => {
       >
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-white/20 bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center overflow-hidden">
           {profileImage ? (
-            <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+            <CachedImage
+              src={profileImage}
+              blurHash={null}
+              width={160}
+              alt="Profile"
+              fit="cover"
+              variant="hero"
+              className="w-full h-full"
+            />
           ) : (
             <User className="w-8 h-8 sm:w-10 sm:h-10 text-white/60" />
           )}

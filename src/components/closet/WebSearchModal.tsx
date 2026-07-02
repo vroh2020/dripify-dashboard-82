@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Globe, Loader2, Download, AlertCircle } from 'lucide-react';
+import { CachedImage } from '@/components/ui/CachedImage';
 
 interface WebSearchModalProps {
   isOpen: boolean;
@@ -181,11 +182,13 @@ export default function WebSearchModal({ isOpen, onClose, onSelectImage }: WebSe
                       className="group relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 cursor-pointer shadow-sm border border-gray-100 hover:shadow-md transition-all"
                       onClick={() => handleImageSelect(url)}
                     >
-                      <img
+                      <CachedImage
                         src={url}
+                        blurHash={null}
+                        width={320}
                         alt={`Result ${index + 1}`}
-                        className="w-full h-full object-contain p-2 bg-white transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
+                        fit="contain"
+                        className="w-full h-full p-2 bg-white transition-transform duration-500 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                         <div className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform shadow-lg">

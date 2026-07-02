@@ -3,6 +3,8 @@ import { Camera, Upload, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { validateFileUpload, checkRateLimit, sanitizeTextInput } from "@/utils/security";
+import { encodeBlurHashFromImageSource } from "@/lib/image";
+import { CachedImage } from "@/components/ui/CachedImage";
 
 interface AvatarUploadProps {
   avatarUrl: string | null;
@@ -95,7 +97,18 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
         throw new Error('Invalid upload response');
       }
 
-      // Update the user's avatar_url in the profiles table
+      // Update the user's avatar_url in the profiles table.
+      // We compute a BlurHash client-side before upload so the avatar
+      // gets an instant placeholder on subsequent app opens; the column
+      // doesn't exist on `profiles` yet so we keep it client-side for
+      // now via the encoding result.
+      let avatarBlurHash: string | null = null;
+      try {
+        avatarBlurHash = await encodeBlurHashFromImageSource(file);
+      } catch {
+        // best-effort — placeholder will fall back to the gray disk cache frame
+      }
+
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -109,7 +122,9 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
         throw updateError;
       }
 
-      // Call the onAvatarUpdate callback
+      // Call the onAvatarUpdate callback.
+      // We pass both pieces (url + best-effort blur hash) so the
+      // Consumer (Profile page wrapping AvatarUpload) can surface it.
       onAvatarUpdate(publicUrl);
 
       toast({
@@ -174,11 +189,14 @@ export const AvatarUpload = ({ avatarUrl, userId, username, onAvatarUpdate }: Av
             * and reveals on hover/focus via group-hover &:focus-within. */}
         <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200">
           {preview ? (
-            <img
+            <CachedImage
               src={preview}
+              blurHash={null}
+              width={160}
               alt={`${username}'s avatar`}
-              className="w-full h-full object-cover"
-              onError={() => setPreview(null)}
+              fit="cover"
+              variant="hero"
+              className="w-full h-full"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">

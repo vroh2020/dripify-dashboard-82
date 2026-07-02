@@ -15,13 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Upload, 
-  Camera, 
-  Image as ImageIcon, 
-  X, 
-  Sparkles, 
-  Tag, 
+import {
+  Upload,
+  Camera,
+  Image as ImageIcon,
+  X,
+  Sparkles,
+  Tag,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -33,6 +33,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { ClosetItem, ClothingCategory, Season, AddItemFormData } from "@/types/closetTypes";
 import { Capacitor } from '@capacitor/core';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { CachedImage } from "@/components/ui/CachedImage";
+import { encodeBlurHashFromImageSource } from "@/lib/image";
 
 interface AddClosetItemModalProps {
   open: boolean;
@@ -73,6 +75,7 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [previewBlurHash, setPreviewBlurHash] = useState<string | null>(null);
   const [currentTag, setCurrentTag] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -90,18 +93,29 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
     });
     setSelectedFile(null);
     setPreview(null);
+    setPreviewBlurHash(null);
     setCurrentTag('');
     setAnalysisResult(null);
     setStep('upload');
   };
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = async (file: File) => {
     setSelectedFile(file);
+    // Build the dataURL preview AND compute BlurHash in parallel.
+    // BlurHash on the local preview matters for a different reason:
+    // the ambient skeleton above this preview would otherwise flicker
+    // white for ~80ms while the user is staring at the cropped image.
+    // `Promise.all` keeps the perceived latency at max(reader, hash).
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    const readerPromise = new Promise<string>((resolve) => {
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.readAsDataURL(file);
+    });
+    // Catch — BlurHash is optional; UI shouldn't block if encode fails.
+    const hashPromise = encodeBlurHashFromImageSource(file).catch(() => null);
+    const [dataUrl, hash] = await Promise.all([readerPromise, hashPromise]);
+    setPreview(dataUrl);
+    setPreviewBlurHash(hash);
   };
 
   const openCamera = async () => {
@@ -265,6 +279,15 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
       // Upload image first
       const imageUrl = await uploadImage();
 
+      // Persist BlurHash alongside the new row's `attributes` JSON
+      // column. The normalizer in `useClosetData` lifts it into a
+      // top-level ClosetItem field so CachedImage can paint it as an
+      // instant placeholder on the next render.
+      const attributes: Record<string, unknown> = {
+        ...(formData.attributes ?? {}),
+        blur_hash: previewBlurHash,
+      };
+
       // Save to database
       const { data, error } = await supabase
         .from('trendza_closet_items')
@@ -277,7 +300,7 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
           color: formData.color,
           season: formData.season,
           tags: formData.tags,
-          attributes: formData.attributes
+          attributes,
         })
         .select()
         .single();
@@ -287,7 +310,7 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
       onItemAdded(data as ClosetItem);
       onOpenChange(false);
       resetForm();
-      
+
     } catch (error) {
       console.error('Upload error:', error);
       toast({
@@ -368,13 +391,17 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
                   ) : (
                     <div className="space-y-4">
                       {/* Image Preview */}
-                      <Card className="bg-[#2A2F3C] border-[#403E43] overflow-hidden">
-                        <CardContent className="p-0">
+                      <Card className="bg-[#2A2F3C] border-[#403E43] overflow-hidden">                      <Card className="bg-[#2A2F3C] border-[#403E43] overflow-hidden">
+                          <CardContent className="p-0">
                           <div className="relative">
-                            <img
+                            <CachedImage
                               src={preview}
+                              blurHash={previewBlurHash}
+                              width={512}
                               alt="Preview"
-                              className="w-full h-64 object-cover"
+                              fit="cover"
+                              variant="hero"
+                              className="w-full h-64"
                             />
                             <Button
                               size="sm"
@@ -382,6 +409,7 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
                               className="absolute top-2 right-2"
                               onClick={() => {
                                 setPreview(null);
+                                setPreviewBlurHash(null);
                                 setSelectedFile(null);
                               }}
                             >

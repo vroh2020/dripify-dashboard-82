@@ -9,6 +9,9 @@ import type { ScoreBreakdown, StyleTip } from "@/types/styleTypes";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "./ui/card";
+import { CachedImage } from "@/components/ui/CachedImage";
+import { encodeBlurHashFromImageSource } from "@/lib/image";
+import { useClosetData } from "@/hooks/useClosetData";
 
 interface RecentScan {
   id: string;
@@ -446,10 +449,13 @@ export const ScanView = () => {
                       <Card className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md hover:border-gray-300 transition-all">
                         <CardContent className="p-3">
                           <div className="flex items-center gap-3">
-                            <img
+                            <CachedImage
                               src={scan.imageUrl}
+                              blurHash={null}
+                              width={120}
                               alt="Outfit scan"
-                              className="w-14 h-14 rounded-xl object-cover bg-gray-100"
+                              fit="cover"
+                              className="w-14 h-14 rounded-xl bg-gray-100 flex-none"
                             />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate">
@@ -553,10 +559,14 @@ export const ScanView = () => {
 
             <div className="flex-1 flex items-center justify-center mb-8">
               <div className="relative">
-                <img
+                <CachedImage
                   src={URL.createObjectURL(selectedImage)}
+                  blurHash={null}
+                  width={384}
                   alt="Selected outfit"
-                  className="max-w-full max-h-96 rounded-2xl object-cover"
+                  fit="cover"
+                  variant="hero"
+                  className="max-w-full max-h-96 rounded-2xl"
                 />
                 <button
                   onClick={() => setSelectedImage(null)}
@@ -632,9 +642,13 @@ export const ScanView = () => {
             </div>
 
             <div className="text-center mb-8">
-              <img
+              <CachedImage
                 src={result.imageUrl}
+                blurHash={null}
+                width={480}
                 alt="Analyzed outfit"
+                fit="cover"
+                variant="hero"
                 className="w-48 h-64 object-cover rounded-2xl mx-auto"
               />
             </div>

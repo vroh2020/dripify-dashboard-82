@@ -8,6 +8,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Resolves `import Image from "next/image"` in the cloned
+      // capacitor-app-optimization source files to our shim so the
+      // cloned code compiles in Vite unchanged. See
+      // src/components/whering/NextImageShim.tsx for the contract.
+      "next/image": path.resolve(
+        __dirname,
+        "./src/components/whering/NextImageShim.tsx"
+      ),
     },
   },
   build: {

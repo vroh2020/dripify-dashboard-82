@@ -32,7 +32,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "next/image": ["./src/components/whering/NextImageShim.tsx"]
     }
   },
   "include": ["src"],

@@ -12,6 +12,7 @@ import { useAuth } from "./hooks/useAuth";
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
 const Profile = lazy(() => import("./pages/Profile"));
+const WheringPage = lazy(() => import("./components/whering/WheringPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,7 +81,7 @@ const AppRoutes = () => {
         path="/auth"
         element={
           shouldShowDashboard ?
-            <Navigate to="/scan" replace /> :
+            <Navigate to="/dress-me" replace /> :
             <Auth />
         }
       />
@@ -99,7 +100,7 @@ const AppRoutes = () => {
             }
           />
           <Route
-            path="/scan/:rest*"
+            path="/scan/:rest/*"
             element={
               <Suspense fallback={null}>
                 <Index />
@@ -119,7 +120,7 @@ const AppRoutes = () => {
             }
           />
           <Route
-            path="/fits/:rest*"
+            path="/fits/:rest/*"
             element={
               <Suspense fallback={null}>
                 <Index />
@@ -137,7 +138,74 @@ const AppRoutes = () => {
             }
           />
           <Route
-            path="/closet/:rest*"
+            path="/closet/:rest/*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+
+          {/* Whering tabs integrated into the dashboard:
+              Dress Me / Wardrobe / Canvas / Clip */}
+          <Route
+            path="/dress-me"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/dress-me/:rest/*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/wardrobe"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/wardrobe/:rest/*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/canvas"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/canvas/:rest/*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clip"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clip/:rest/*"
             element={
               <Suspense fallback={null}>
                 <Index />
@@ -153,8 +221,21 @@ const AppRoutes = () => {
               </Suspense>
             }
           />
-          <Route path="/" element={<Navigate to="/scan" replace />} />
-          <Route path="*" element={<Navigate to="/scan" replace />} />
+          {/* Whering-style phone shell — exposes the four views
+              (Dress Me / Wardrobe / Canvas / Clipper) plus the FAB +
+              bottom-sheet, faithfully ported from
+              https://github.com/ramvelpuri2020/capacitor-app-optimization. */}
+          <Route
+            path="/whering"
+            element={
+              <Suspense fallback={null}>
+                <WheringPage />
+              </Suspense>
+            }
+          />
+          <Route path="/whering/:rest/*" element={<Navigate to="/whering" replace />} />
+          <Route path="/" element={<Navigate to="/dress-me" replace />} />
+          <Route path="*" element={<Navigate to="/dress-me" replace />} />
         </>
       ) : (
         // Not authenticated or onboarding not yet completed.

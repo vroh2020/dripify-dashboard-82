@@ -18,8 +18,14 @@ const config: TrendzaCapacitorConfig = {
     limitsNavigationsToAppBoundDomains: false,
     // Disable link previews to improve performance
     allowsLinkPreview: false,
-    // Enable scrolling (important for WASM file loading)
-    scrollEnabled: true
+    // WebView-level scroll. Previously `true` because the BG-removal
+    // WASM module streamed in via a long-lived scroll-y container. We
+    // now stream the model inside a single full-screen overlay mounted
+    // at z-[120] (visuals launched separately), so the WebView no
+    // longer needs global scroll. Locking it here matches Tier 1's body
+    // `position: fixed` + `overscroll-behavior-y: none` so the native
+    // shell feels like one piece of glass instead of a webpage.
+    scrollEnabled: false
   },
   plugins: {
     Camera: {

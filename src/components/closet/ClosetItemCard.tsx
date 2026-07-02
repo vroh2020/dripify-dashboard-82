@@ -3,13 +3,13 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  MoreHorizontal, 
-  Edit, 
-  Trash2, 
-  Heart, 
-  Tag, 
+import { CachedImage } from "@/components/ui/CachedImage";
+import {
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Heart,
+  Tag,
   Palette,
   Building2,
   Shirt
@@ -85,17 +85,16 @@ export const ClosetItemCard = ({ item, viewMode, onDelete }: ClosetItemCardProps
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
             {/* Image */}
-            <div className="relative">
-              <Avatar className="w-16 h-16 rounded-xl">
-                <AvatarImage 
-                  src={item.source_image_url || '/placeholder.svg'} 
-                  alt={item.title || 'Closet item'}
-                  className="object-cover"
-                />
-                <AvatarFallback className="bg-gray-100 text-gray-900 rounded-xl">
-                  <Shirt className="w-6 h-6" />
-                </AvatarFallback>
-              </Avatar>
+            <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex-none">
+              <CachedImage
+                src={item.source_image_url || '/placeholder.svg'}
+                blurHash={item.blur_hash ?? null}
+                width={128}
+                alt={item.title || 'Closet item'}
+                fit="cover"
+                className="h-full w-full"
+              />
+            </div>
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={handleToggleFavorite}
@@ -189,16 +188,14 @@ export const ClosetItemCard = ({ item, viewMode, onDelete }: ClosetItemCardProps
         <div className="relative">
           {/* Image */}
           <div className="aspect-square relative overflow-hidden bg-gray-100">
-            <Avatar className="w-full h-full rounded-none">
-              <AvatarImage 
-                src={item.source_image_url || '/placeholder.svg'} 
-                alt={item.title || 'Closet item'}
-                className="object-cover w-full h-full"
-              />
-              <AvatarFallback className="bg-gray-100 text-gray-900 w-full h-full flex items-center justify-center">
-                <Shirt className="w-8 h-8" />
-              </AvatarFallback>
-            </Avatar>
+            <CachedImage
+              src={item.source_image_url || '/placeholder.svg'}
+              blurHash={item.blur_hash ?? null}
+              width={320}
+              alt={item.title || 'Closet item'}
+              fit="cover"
+              className="h-full w-full"
+            />
             
             {/* Favorite Button */}
             <motion.button

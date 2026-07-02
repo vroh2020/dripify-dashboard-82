@@ -1,54 +1,22 @@
-import { useState, useEffect, memo, useRef } from 'react';
+import { memo } from 'react';
 import { Plus, Heart } from 'lucide-react';
+import { CachedImage } from '@/components/ui/CachedImage';
+import type { ClosetItem } from '@/hooks/useClosetData';
 
-// Global image cache for instant loading across the app
-const globalImageCache = new Map<string, HTMLImageElement>();
-
-// Preload images instantly
-const preloadImage = (url: string) => {
-  if (!url || globalImageCache.has(url)) return;
-  
-  const img = new Image();
-  img.src = url;
-  globalImageCache.set(url, img);
-};
-
-// Ultra-fast item card with instant image loading
-const SimpleItemCard = memo(({ 
-  item, 
-  onClick, 
-  onToggleFavorite 
-}: { 
-  item: ClosetItem; 
-  onClick: () => void; 
-  onToggleFavorite: () => void; 
+// Ultra-fast item card with instant image loading via BlurHash + disk cache.
+const SimpleItemCard = memo(({
+  item: rawItem,
+  onClick,
+  onToggleFavorite,
+}: {
+  item: ClosetItem;
+  onClick: () => void;
+  onToggleFavorite: () => void;
 }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const imgRef = useRef<HTMLImageElement>(null);
-
-  // Instant image loading with cache
-  useEffect(() => {
-    if (!item.source_image_url) return;
-    
-    // Check if already cached
-    const cachedImg = globalImageCache.get(item.source_image_url);
-    if (cachedImg && cachedImg.complete) {
-      setImageLoaded(true);
-      return;
-    }
-
-    // Preload instantly
-    preloadImage(item.source_image_url);
-    
-    const img = new Image();
-    img.onload = () => {
-      setImageLoaded(true);
-      globalImageCache.set(item.source_image_url!, img);
-    };
-    img.onerror = () => setImageError(true);
-    img.src = item.source_image_url;
-  }, [item.source_image_url]);
+  // Normalize to the shape CachedImage expects. PiecesTab declares its
+  // own local interface (see below) for backwards compat with the old
+  // <img>-driven layout; it doesn't include blur_hash.
+  const item = rawItem as ClosetItem & { blur_hash?: string | null };
 
   return (
     <div
@@ -56,29 +24,16 @@ const SimpleItemCard = memo(({
       className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer"
     >
       {/* Image only, small tile */}
-      <div className="aspect-square relative">
-        {item.source_image_url && !imageError ? (
-          <img
-            ref={imgRef}
-            src={item.source_image_url}
-            alt={item.title}
-            className={`w-full h-full object-contain p-2 bg-white transition-opacity duration-100 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-            onError={() => setImageError(true)}
-            loading="eager"
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-50 flex items-center justify-center">
-            <span className="text-gray-400 text-xs">•••</span>
-          </div>
-        )}
-        
-        {/* Loading state */}
-        {!imageLoaded && !imageError && item.source_image_url && (
-          <div className="absolute inset-0 bg-gray-100 animate-pulse rounded-2xl" />
-        )}
-        
+      <div className="aspect-square relative bg-white">
+        <CachedImage
+          src={item.source_image_url ?? null}
+          blurHash={item.blur_hash ?? null}
+          width={240}
+          alt={item.title ?? 'Closet item'}
+          fit="contain"
+          className="absolute inset-0 h-full w-full p-2"
+        />
+
         {/* Favorite Button */}
         <button
           onClick={(e) => {
@@ -89,7 +44,6 @@ const SimpleItemCard = memo(({
         >
           <Heart className={`w-4 h-4 ${item.favorite ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
         </button>
-        
       </div>
       {/* No text under tiles for ultra-clean grid */}
     </div>
@@ -108,6 +62,7 @@ interface ClosetItem {
   source_image_url?: string;
   created_at: string;
   favorite?: boolean;
+  blur_hash?: string | null;
 }
 
 interface FilterChip {
@@ -144,15 +99,6 @@ export default function PiecesTab({
   onToggleFavorite
 }: PiecesTabProps) {
   const hasActiveFilters = Object.keys(activeFilters).length > 0;
-
-  // Preload all images instantly when items change
-  useEffect(() => {
-    items.forEach(item => {
-      if (item.source_image_url) {
-        preloadImage(item.source_image_url);
-      }
-    });
-  }, [items]);
 
   return (
     <div className="space-y-6">
