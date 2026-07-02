@@ -422,14 +422,15 @@ const Index = () => {
         onValueChange={handleTabChange}
         className="flex flex-col flex-1"
       >
-        {/* Content — min-h-0 lets flex child shrink below content size so the bottom nav stays pinned */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+        {/* Content — scrolls above the pinned bottom nav; calc includes safe-area for notched iPhones */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
           {renderContent()}
         </div>
 
-        {/* Bottom Navigation — FAB-centered, with TabsList for accessibility */}
+        {/* Bottom Navigation — hard-pinned with fixed so Capacitor WebView never pushes it out of view.
+             max-w matches the iPad letterbox so it doesn't bleed full-width on desktop. */}
         <div
-          className="bg-white/90 backdrop-blur-xl border-t border-gray-200/70 shadow-[0_-1px_3px_rgba(0,0,0,0.03)]"
+          className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-[480px] bg-white/90 backdrop-blur-xl border-t border-gray-200/70 shadow-[0_-1px_3px_rgba(0,0,0,0.03)]"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
           <motion.div
