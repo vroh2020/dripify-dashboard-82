@@ -391,21 +391,29 @@ const Index = () => {
   };
 
   return (
-    // `app-content` opts this wrapper into the iPad letterbox rule
-    // (max-width 480px centered with a soft drop shadow) defined in
-    // index.css. The inline paddingTop for the iOS Dynamic Island /
-    // safe-area is preserved; the parent flex column inside still
-    // renders its FAB + tab bar in their existing positions.
+    // `app-content` opts this wrapper into the @media (min-width: 1024px)
+    // phone-frame letterbox rule (max-width 480px centered with a soft
+    // drop shadow) defined in index.css.
+    //
+    // Safe-area-inset-top is intentionally NOT reapplied here — the single
+    // source is `<body>` (see index.html inline `<style>` plus the
+    // `@supports (padding: max(0px))` rule in index.css). Re-applying
+    // `paddingTop: env(safe-area-inset-top)` here used to stack 2× the
+    // inset (~118px of dead space on iPhone 14 Pro) above the dashboard
+    // header. Any element that needs more top breathing room on top of
+    // the body-level inset should use `calc(N + env(...))` on its own
+    // padding instead.
     <div
       className="h-full app-content bg-white relative overflow-x-hidden flex flex-col"
-      style={{ paddingTop: `env(safe-area-inset-top)` }}
     >
       {/* TEST MODE BANNER — safe-area-aware so the Dynamic Island / notch
-           never clips the text or buttons */}
+           never clips the text or buttons. `paddingTop` here is a flat 8px
+           buffer; safe-area-inset-top is intentionally NOT re-applied
+           (body is single source — see comment above .app-content). */}
       {isTestDashboard && !testBannerDismissed && (
         <div
-          className="flex-shrink-0 bg-yellow-400 text-black px-4 py-2 flex items-center justify-between text-sm font-semibold"
-          style={{ paddingTop: `calc(8px + env(safe-area-inset-top, 0px))` }}
+          className="flex-shrink-0 bg-yellow-400 text-black px-4 py-1.5 flex items-center justify-between text-sm font-semibold"
+          style={{ paddingTop: 8 }}
         >
           <span>🧪 TEST MODE — Dashboard Preview</span>
           <div className="flex gap-2">
@@ -432,19 +440,27 @@ const Index = () => {
         onValueChange={handleTabChange}
         className="flex flex-col flex-1"
       >
-        {/* Content — scrolls above the pinned bottom nav; calc includes safe-area for notched iPhones */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
+        {/* Content — scrolls above the pinned bottom nav. 6rem (96px) is for
+             nav clearance (additive). safe-area-inset-bottom is intentionally
+             NOT re-applied — body is single source, so the scroller's outer
+             bottom already sits at body content-box bottom = viewport - env(bottom).
+             Adding another env would push content 34px too high on iPhone 14 Pro
+             and other notched devices. */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pb-24">
           {renderContent()}
         </div>
 
         {/* Bottom Navigation — hard-pinned with fixed so Capacitor WebView never pushes it out of view.
-             max-w matches the iPad letterbox so it doesn't bleed full-width on desktop. */}
-        <div
-          className="fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-[480px] bg-white/90 backdrop-blur-xl border-t border-gray-200/70 shadow-[0_-1px_3px_rgba(0,0,0,0.03)]"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-        >
+             `lg:max-w-[480px]` matches the iPad letterbox breakpoint applied to `.app-content` in
+             index.css (min-width:1024px). On phones / Appetize mobile previews the nav stretches
+             edge-to-edge so it doesn't sit centered in a 480px column inside a wider viewport.
+             `paddingBottom: env(bottom)` was previously applied here — that was a (b) double-count
+             on top of the body's padding-bottom (single source). Removing it puts tab icons at body
+             content-box bottom = viewport - env(bottom), i.e. flush above the home indicator zone
+             (the home indicator lives INSIDE body's padding, not above it). */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 mx-auto lg:max-w-[480px] bg-white/90 backdrop-blur-xl border-t border-gray-200/70 shadow-[0_-1px_3px_rgba(0,0,0,0.03)]">
           <motion.div
-            initial={{ y: 24, opacity: 0 }}
+            initial={false}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
@@ -536,12 +552,18 @@ const Index = () => {
             <div className="whering-theme h-full">
               <Clipper />
             </div>
-            <button
-              onClick={() => setClipperOpen(false)}
-              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/10 flex items-center justify-center hover:bg-black/20 transition-colors"
-              style={{ marginTop: "env(safe-area-inset-top, 0px)" }}
-            >
-              <X className="w-5 h-5 text-gray-700" />
+              // Close button: top-4 (16px from overlay top) already sits
+              // 16px below the overlay's top edge. The overlay's top edge
+              // is itself inside body's env-pad-top (clipper is `position:
+              // fixed` with `#root`'s transform acting as containing block,
+              // and #root starts at body env). An earlier `marginTop: env(top)`
+              // stacked another env on top, pushing the button from y=75
+              // (iPhone 14 Pro: 59 + 16) to y=134 (59 + 16 + 59). Removed.
+              <button
+                onClick={() => setClipperOpen(false)}
+                className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/10 flex items-center justify-center hover:bg-black/20 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-700" />
             </button>
           </motion.div>
         )}

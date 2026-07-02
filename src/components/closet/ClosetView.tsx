@@ -382,9 +382,12 @@ export default function ClosetView() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="pt-2"
         style={{
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)',
+          // Flat 12px (0.75rem) — safe-area-inset-top is single-sourced at
+          // <body> (see index.html + index.css @supports). An earlier version
+          // applied env() here on top of the body's stacking, which pushed
+          // "Wardrobe" header to y=154 on iPhone 14 Pro instead of y=95.
+          paddingTop: '0.75rem',
         }}
       >
         <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">
@@ -504,7 +507,15 @@ export default function ClosetView() {
               exit={{ y: 60 }}
               transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white w-full p-6 pb-safe shadow-2xl rounded-t-3xl"
+              // `pb-safe` removed — that Tailwind utility applies
+              // `padding-bottom: env(safe-area-inset-bottom)` directly,
+              // which was stacking on top of the body-level env(bottom)
+              // single source. The sheet's outer `p-6` (1.5rem = 24px on
+              // all sides) already gives the aesthetic bottom padding
+              // we want; the home-indicator clearance rides on body's
+              // env(bottom) alone. (b) double-count fix per Phase 3 of
+              // the iOS layout cleanup sweep.
+              className="bg-white w-full p-6 shadow-2xl rounded-t-3xl"
             >
               <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5" />
               <h3 className="text-xl font-bold text-gray-900 tracking-tight mb-4">

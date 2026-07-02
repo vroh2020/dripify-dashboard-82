@@ -256,7 +256,7 @@ export function Shuffler({
         />
       )}
 
-      <header className="flex items-center justify-between px-5 pb-3 pt-2">
+      <header className="flex items-center justify-between px-5 pb-2 pt-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Dress Me
@@ -268,13 +268,13 @@ export function Shuffler({
       </header>
 
       {/* ─── OUTFIT CANVAS BOARD ─── */}
-      <div className="relative flex-1 w-full mt-4 mb-4" style={{ minHeight: 0 }}>
+      <div className="relative flex-1 w-full mt-2 mb-2" style={{ minHeight: 0 }}>
         {/* TOP: Shirt / Outerwear — pinned to top, z-10 */}
         <SwipeableItem
           items={topsDisplay}
           index={indices.top}
           onIndexChange={setTop}
-          className="absolute top-0 left-1/2 w-[85%] group"
+          className="absolute top-0 left-1/2 w-[min(85%,480px)] group"
           heightPercent={45}
           zIndex={10}
         />
@@ -283,7 +283,7 @@ export function Shuffler({
           items={bottomsDisplay}
           index={indices.bottom}
           onIndexChange={setBottom}
-          className="absolute top-[35%] left-1/2 w-[85%] group"
+          className="absolute top-[35%] left-1/2 w-[min(85%,480px)] group"
           heightPercent={50}
           zIndex={5}
         />
@@ -292,14 +292,14 @@ export function Shuffler({
           items={shoesDisplay}
           index={indices.shoe}
           onIndexChange={setShoe}
-          className="absolute bottom-0 left-1/2 w-[85%] group"
+          className="absolute bottom-0 left-1/2 w-[min(85%,480px)] group"
           heightPercent={25}
           zIndex={15}
         />
       </div>
 
       {/* ─── Controls ─── */}
-      <div className="flex items-center justify-center gap-3 px-5 pb-2 pt-3">
+      <div className="flex items-center justify-center gap-3 px-5 pb-2 pt-2">
         <button
           type="button"
           onClick={handleSaveClick}

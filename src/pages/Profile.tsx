@@ -130,19 +130,25 @@ const Profile = () => {
       // `screen-safe` = 100dvh + bottom safe-area inset built-in, so we
       // intentionally do NOT add `pb-nav` here — that would double the
       // home-indicator inset (64px extra) on already-padded iPhones.
-      <div className="screen-safe app-content app-shell-scroll bg-white px-4 flex items-center justify-center">
+      <div className="h-full app-content app-shell-scroll bg-white px-4 flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-black animate-spin" />
       </div>
     );
   }
 
   return (
-    // `screen-safe` enforces 100dvh + safe-area-inset-(top|bottom|
-    // left|right) so the Danger Zone Delete Account button can never
-    // be obscured by the iOS home indicator. `app-shell-scroll` keeps
-    // the long profile settings list scrollable inside the locked
-    // webview (see global html/body `overflow:hidden` rule for why).
-    <div className="screen-safe app-content app-shell-scroll bg-white px-4">
+    // Profile follows the dashboard pattern (matching Index.tsx). <body>
+    // is the single source of safe-area-inset-{top,bottom} (see
+    // index.html + index.css @supports rule). An earlier version had
+    // `screen-safe` ALSO adding env(top/bot) here on top of the body's
+    // stacking — that was a (b) double-count, putting the profile header
+    // at y=142 on iPhone 14 Pro (env=59 added twice + py-6) instead of
+    // y=83. The Danger Zone button still clears the iOS home indicator
+    // because <body> provides the env(bot) inset directly.
+    // `app-shell-scroll` keeps the long profile settings list scrollable
+    // inside the locked webview (see global html/body `overflow:hidden`
+    // rule for why).
+    <div className="h-full app-content app-shell-scroll bg-white px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

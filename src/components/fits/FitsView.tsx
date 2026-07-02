@@ -386,7 +386,12 @@ export function FitsView({
     }
     return (
       <div className="px-4 min-h-full">
-        <div className="pt-2" style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 0.75rem)` }}>
+        {/* Flat 12px (0.75rem) — safe-area-inset-top is single-sourced at
+            <body> (see index.html + index.css @supports). Earlier this
+            stacked env() on top of body, doubling the inset and pushing
+            the "Saved outfits" / FitDetail header too deep on notched
+            iPhones. */}
+        <div style={{ paddingTop: '0.75rem' }}>
           <FitDetail outfit={outfit} onDelete={onDeleteOutfit} onBack={onBack} onEdit={onEditOutfit} />
         </div>
       </div>
@@ -399,8 +404,8 @@ export function FitsView({
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="pt-2 flex-shrink-0"
-        style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 0.75rem)` }}
+        className="flex-shrink-0"
+        style={{ paddingTop: '0.75rem' }}
       >
         <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">
           Your Fits

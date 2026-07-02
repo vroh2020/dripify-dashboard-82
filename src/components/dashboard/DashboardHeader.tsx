@@ -11,7 +11,7 @@ export const DashboardHeader = () => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="flex items-center justify-between px-4 pt-6 pb-4 bg-white border-b border-gray-200"
+      className="flex items-center justify-between px-4 pt-3 pb-2 bg-white border-b border-gray-200"
     >
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-black tracking-tight">

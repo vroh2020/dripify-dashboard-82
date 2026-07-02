@@ -912,17 +912,30 @@
 
   /* ============================================================
      TABLET / iPad LETTERBOX
-     On wider screens (iPad / iPad Mini / iPad Pro at any
-     orientation, plus landscape iPhone Plus/Max) the mobile-first
-     flex drawers, button containers, and grids stretch awkwardly.
-     Wrapping the root in a centered 480px column with a soft
-     border + shadow mimics how native iOS apps look when running
-     on iPad in "compatibility mode" — same UX, letterboxed, no
-     horizontal scaling artifacts. On phones (≤767px) we keep the
+     On wider screens (iPad Pro 12.9" portrait, landscape iPads,
+     and desktop browser previews) the mobile-first flex drawers,
+     button containers, and grids stretch awkwardly. Wrapping the
+     root in a centered 480px column with a soft border + shadow
+     mimics how native iOS apps look when running in "compatibility
+     mode" — same UX, letterboxed, no horizontal scaling artifacts.
+
+     Breakpoint is `min-width: 1024px` (not the more common 768px)
+     for two reasons:
+       1. Appetize + many emulator preview iframes report a viewport
+          ≥768px even when simulating an iPhone. Lifting the cutoff
+          past the iPad portrait range (768–834px) keeps phone
+          previews full-bleed so the app doesn't look "narrowed in"
+          inside the simulator frame.
+       2. iPad portrait at 768–834px has enough horizontal real
+          estate to render the native mobile UI without the flex
+          containers visibly stretching — the letterbox is only
+          visually needed on desktop / large-tablet orientations.
+
+     On phones (≤1023px) and on Appetize mobile previews we keep the
      native full-bleed layout. Layer behind a light gray so the
-     "card" reads as a phone-shaped app on the iPad's empty area.
+     "card" reads as a phone-shaped app on the tablet's empty area.
      ============================================================ */
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     html,
     body {
       background-color: #ececef;
