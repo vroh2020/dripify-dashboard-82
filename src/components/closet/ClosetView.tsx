@@ -12,15 +12,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Camera as CameraIcon,
   Image as ImageIcon,
+  Loader2,
   Plus,
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import {
-  removeBackgroundFromBlob,
-  isBackgroundRemovalAvailable,
-} from '@/utils/backgroundRemoval';
+import { useUnifiedBackgroundRemoval } from '@/hooks/useUnifiedBackgroundRemoval';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { selectTick, successTick, thrust } from '@/lib/haptics';
@@ -99,6 +97,61 @@ function UploadOverlay({
   );
 }
 
+/**
+ * PendingSection — surfaces items whose `category === 'pending'`
+ * (currently being analyzed by the AI classifier). Renders as a small
+ * thin row above the main PiecesTab grid with skeleton tiles + a
+ * loader badge. Why this lives here and not inside PiecesTab: the
+ * "still processing" UX is a Closet-specific concern (Shuffler / Canvas
+ * route pending items out of their data flow without a UI affordance).
+ * This also keeps PiecesTab prop surface stable.
+ */
+function PendingSection({ pendingItems }: { pendingItems: ClosetItem[] }) {
+  if (pendingItems.length === 0) return null;
+  return (
+    <section
+      aria-label="Still analyzing"
+      className="mb-6 rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4"
+      data-testid="closet-pending-section"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-gray-500" strokeWidth={2} />
+          <p className="text-sm font-semibold text-gray-900">
+            Still analyzing
+          </p>
+          <span className="text-xs text-gray-500">
+            ({pendingItems.length})
+          </span>
+        </div>
+        <p className="text-xs text-gray-500">
+          Hold tight — AI is figuring it out.
+        </p>
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+        {pendingItems.slice(0, 8).map((item) => (
+          <div
+            key={item.id}
+            className="relative aspect-square rounded-xl bg-gray-100 overflow-hidden animate-pulse"
+            aria-label={item.title || 'Pending item'}
+          >
+            {item.source_image_url && (
+              <img
+                src={item.source_image_url}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover opacity-60"
+              />
+            )}
+            <div className="absolute bottom-1 left-1 right-1 text-[10px] text-white font-medium truncate bg-black/40 rounded px-1">
+              {item.title || 'Pending'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function ClosetView() {
   const { toast } = useToast();
   const {
@@ -108,7 +161,14 @@ export default function ClosetView() {
     retry,
     toggleFavorite: toggleFavoriteRaw,
     insertItem,
+    updateItem,
   } = useClosetData();
+
+  // Background removal — server-side BiRefNet via the `process-bg`
+  // Edge Function. The hook returns the storage path inside
+  // `clipped-closet-items` where the transparent PNG lives; we
+  // resolve it to a public URL inline.
+  const removeBgMutation = useUnifiedBackgroundRemoval();
 
   // Wrap the favorite toggle so favorite/unfavorite feels tactile on tap.
   // Doesn't change behaviour — same state update, just adds haptic feedback.
@@ -174,13 +234,22 @@ export default function ClosetView() {
     try {
       setUploadProgress(20);
       const blob = await fetch(dataUrl).then((r) => r.blob());
-      let processedBlob: Blob = blob;
-      if (isBackgroundRemovalAvailable()) {
-        try {
-          processedBlob = (await removeBackgroundFromBlob(blob)) ?? blob;
-        } catch {
-          // Fallback to original on AI failure.
-        }
+      // Server-side BiRefNet matting (replaces the in-browser MODNet
+      // path). The clean PNG is written to `clipped-closet-items` and
+      // surfaced to the UI as a public URL.
+      let cleanPublicUrl: string;
+      try {
+        const cleanPath = await removeBgMutation.mutateAsync({
+          imageBlob: blob,
+          originalName: 'closet_upload.png',
+        });
+        const { data: pubData } = supabase.storage
+          .from('clipped-closet-items')
+          .getPublicUrl(cleanPath);
+        cleanPublicUrl = pubData.publicUrl;
+      } catch (e: any) {
+        console.error('[closet-view] bg-removal failed:', e);
+        throw new Error(e?.message ?? 'Background removal failed');
       }
       setUploadProgress(45);
 
@@ -192,8 +261,11 @@ export default function ClosetView() {
       // tile falls back to a soft gray skeleton while the disk cache
       // warms up.
       let blurHash: string | null = null;
+      // Hash the raw image — close enough at 32×32 placeholder size
+      // that the closet grid still shows a tinted version of the
+      // user's photo. Encoding failure degrades gracefully.
       try {
-        blurHash = await encodeBlurHashFromImageSource(processedBlob);
+        blurHash = await encodeBlurHashFromImageSource(blob);
       } catch {
         blurHash = null;
       }
@@ -201,24 +273,6 @@ export default function ClosetView() {
 
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) throw new Error('Not signed in');
-
-      // Path includes `auth.user.id` — required by the existing
-      // `style_images` bucket's RLS policy that scopes reads by owner via
-      // `(storage.foldername(name))[1] = auth.uid()`.
-      const storagePath = `closet/${auth.user.id}/${Date.now()}_no_bg.png`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('style_images')
-        .upload(storagePath, processedBlob, {
-          cacheControl: '3600',
-          contentType: 'image/png',
-          upsert: false,
-        });
-      if (uploadError) throw uploadError;
-
-      const { data: pub } = supabase.storage
-        .from('style_images')
-        .getPublicUrl(storagePath);
       setUploadProgress(70);
 
       const { data: row, error: insertErr } = await supabase
@@ -226,11 +280,14 @@ export default function ClosetView() {
         .insert({
           user_id: auth.user.id,
           title: 'Analyzing...',
-          category: 'tops',
+          // 'pending' (was 'tops') — see clipper.tsx for the same
+          // rationale. The closet grid surfaces this row under the
+          // "Still analyzing" PendingSection banner until AI returns.
+          category: 'pending',
           color: 'unknown',
           tags: [],
           attributes: blurHash ? { blur_hash: blurHash } : {},
-          source_image_url: pub.publicUrl,
+          source_image_url: cleanPublicUrl,
         })
         .select(
           'id, title, brand, category, color, season, tags, attributes, source_image_url, created_at'
@@ -238,6 +295,7 @@ export default function ClosetView() {
         .single();
       if (insertErr || !row) throw insertErr ?? new Error('Insert failed');
 
+      const insertedRowId = row.id;
       // Surface placeholder immediately; AI classify fills it in below.
       insertItem(row as ClosetItem);
       setUploadProgress(82);
@@ -251,7 +309,7 @@ export default function ClosetView() {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
-          reader.readAsDataURL(processedBlob);
+          reader.readAsDataURL(blob);
         });
         const { data: aiData } = await supabase.functions.invoke(
           'analyze-closet-item',
@@ -259,11 +317,14 @@ export default function ClosetView() {
         );
         const payload = (aiData as any)?.result ?? aiData;
         if (payload && (payload.title || payload.category)) {
+          // `?? 'pending'` (was `'tops'`) — see clipper.tsx for
+          // rationale. Don't fabricate a category if AI doesn't
+          // return one; user can fix it from the detail modal.
           await supabase
             .from('trendza_closet_items')
             .update({
               title: payload.title ?? 'Untitled',
-              category: payload.category ?? 'tops',
+              category: payload.category ?? 'pending',
               color: payload.color ?? 'unknown',
               season: payload.season ?? null,
               tags: payload.tags ?? [],
@@ -271,10 +332,23 @@ export default function ClosetView() {
               brand: payload.brand ?? '',
             })
            
-            .eq('id', row.id);
+            .eq('id', insertedRowId);
+          // Re-SELECT the row and call useClosetData.updateItem so the
+          // local state patches with the post-AI category. Without
+          // this the closet grid keeps the pending row forever and
+          // Shuffler/Canvas never see the freshly classified item.
+          const { data: refreshed } = await supabase
+            .from('trendza_closet_items')
+            .select(
+              'id, title, brand, category, color, season, tags, attributes, source_image_url, created_at'
+            )
+            .eq('id', insertedRowId)
+            .single();
+          if (refreshed) updateItem(refreshed as ClosetItem);
         }
       } catch {
-        // Best-effort; placeholder is fine.
+        // Best-effort; the row stays pending and the user can still see
+        // it under the PendingSection until they manually fix it.
       }
 
       setUploadProgress(100);
@@ -376,6 +450,50 @@ export default function ClosetView() {
     if (showUploadSheet) cancelUploadRef.current = false;
   }, [showUploadSheet]);
 
+  // Split: pending items render in a small "Still analyzing"
+  // banner above the main grid; the rest go to PiecesTab grouped by
+  // the active filter chips.
+  const pendingItems = useMemo(
+    () => items.filter((i) => i.pending === true || i.category === 'pending'),
+    [items]
+  );
+  // PiecesTab receives items without the pending set so main-grid
+  // filters (top/bottom/accessory/season) don't accidentally include
+  // rows the AI hasn't classified yet.
+  const mainItems = useMemo(
+    () => items.filter((i) => !(i.pending === true || i.category === 'pending')),
+    [items]
+  );
+
+  // Manual category override — used by ItemDetailModal. UPDATE the
+  // row in Supabase, refresh the local view via updateItem so the
+  // closet grid + Shuffler/Canvas pick up the change without a full
+  // refetch. Errors are surfaced as a destructive toast.
+  const updateCategory = useCallback(
+    async (itemId: string, newCategory: string) => {
+      try {
+        const { data: updated, error } = await supabase
+          .from('trendza_closet_items')
+          .update({ category: newCategory })
+          .eq('id', itemId)
+          .select(
+            'id, title, brand, category, color, season, tags, attributes, source_image_url, created_at'
+          )
+          .single();
+        if (error) throw error;
+        if (updated) updateItem(updated as ClosetItem);
+      } catch (e: any) {
+        console.error('updateCategory failed:', e);
+        toast({
+          title: "Couldn't update category",
+          description: e?.message ?? 'Please try again',
+          variant: 'destructive',
+        });
+      }
+    },
+    [updateItem, toast]
+  );
+
   return (
     <div className="px-4 pb-nav-fab min-h-full relative">
       <motion.div
@@ -397,7 +515,16 @@ export default function ClosetView() {
           Wardrobe
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          {items.length} {items.length === 1 ? 'piece' : 'pieces'}
+          {/* Counts only items outside the "Still analyzing" section, so
+             the header number agrees with what the user can interact
+             with in the main grid below. Pending count is on its own
+             section banner. */}
+          {mainItems.length} {mainItems.length === 1 ? 'piece' : 'pieces'}
+          {pendingItems.length > 0 && (
+            <span className="text-gray-400">
+              {' '}· {pendingItems.length} analyzing
+            </span>
+          )}
         </p>
       </motion.div>
 
@@ -429,11 +556,19 @@ export default function ClosetView() {
         )}
       </div>
 
-      {/* Pieces grid (PiecesTab handles its own empty + add tile) */}
+      {/* Pending "Still analyzing" banner above the main grid — drops
+         in only when there are pending rows. */}
+      {!isInitialLoad && <PendingSection pendingItems={pendingItems} />}
+
+      {/* Pieces grid (PiecesTab handles its own empty + add tile).
+         mainItems excludes pending rows; user filter chips still
+         apply on top via filteredItems. */}
       {!isInitialLoad && (
         <PiecesTab
-          items={items}
-          filteredItems={filteredItems}
+          items={mainItems}
+          filteredItems={filteredItems.filter(
+            (i) => !(i.pending === true || i.category === 'pending')
+          )}
           isUploading={isUploading}
           freeLimit={Number.POSITIVE_INFINITY}
           filterChips={[]}
@@ -487,6 +622,7 @@ export default function ClosetView() {
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onToggleFavorite={(id) => toggleFavorite(id)}
+        onUpdateCategory={updateCategory}
       />
 
       <AnimatePresence>

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from "@capacitor/camera";
 import { Capacitor } from "@capacitor/core";
-import { removeBackgroundFromBlob, isBackgroundRemovalAvailable } from "@/utils/backgroundRemoval";
+import { useUnifiedBackgroundRemoval } from "@/hooks/useUnifiedBackgroundRemoval";
 import { supabase } from "@/integrations/supabase/client";
 import type { ClosetItem } from "@/hooks/useClosetData";
 import { thrust, successTick } from "@/lib/haptics";
@@ -23,9 +23,17 @@ interface UploadItemFlowProps {
   onClose: () => void;
   /** Callback from parent so the item appears in the wardrobe view immediately. */
   onItemInserted: (item: ClosetItem) => void;
+  /**
+   * Called when the AI classify IIFE finishes a successful UPDATE on
+   * the just-inserted row. Parent should call its own
+   * useClosetData.updateItem so the local state patches in (the row
+   * shifts from `category: 'pending'` to its real category and the
+   * item re-slots in Shuffler / Canvas / the closet grid).
+   */
+  onItemUpdated?: (item: ClosetItem) => void;
 }
 
-export function UploadItemFlow({ open, onClose, onItemInserted }: UploadItemFlowProps) {
+export function UploadItemFlow({ open, onClose, onItemInserted, onItemUpdated }: UploadItemFlowProps) {
   const [stage, setStage] = useState<Stage>("capture");
   const [preview, setPreview] = useState<string | null>(null);
   const [processedPreview, setProcessedPreview] = useState<string | null>(null);
@@ -35,26 +43,39 @@ export function UploadItemFlow({ open, onClose, onItemInserted }: UploadItemFlow
   const [error, setError] = useState("");
   const [uploadedItem, setUploadedItem] = useState<ClosetItem | null>(null);
 
+  // Background removal — server-side BiRefNet via the `process-bg`
+  // Edge Function. The hook returns the storage path inside
+  // `clipped-closet-items` where the transparent PNG lives; we
+  // resolve it to a public URL inline.
+  const removeBgMutation = useUnifiedBackgroundRemoval();
+
   // React state instead of window globals
   const pendingUrlRef = useRef<string | null>(null);
   const pendingBlobRef = useRef<Blob | null>(null);
   const processedUrlRef = useRef<string | null>(null);
   const cancelRef = useRef(false);
 
-  // Clean up object URLs on unmount
+  // Clean up object URLs on unmount. After the server-side bg-removal
+  // switch, `processedUrlRef.current` may be either a `blob:` Object
+  // URL or a public Supabase URL string — only revoke if it's an
+  // Object URL (the public URL is managed by Supabase/CDN cache and
+  // doesn't need explicit cleanup here).
   useEffect(() => {
     return () => {
-      if (processedUrlRef.current) URL.revokeObjectURL(processedUrlRef.current);
+      const v = processedUrlRef.current;
+      if (v && v.startsWith('blob:')) URL.revokeObjectURL(v);
     };
   }, []);
 
   const reset = useCallback(() => {
     setStage("capture");
     setPreview(null);
-    if (processedUrlRef.current) {
+    // Same Object-URL-vs-public-URL guard as the unmount cleanup —
+    // only revoke if the previous value was an Object URL.
+    if (processedUrlRef.current?.startsWith?.('blob:')) {
       URL.revokeObjectURL(processedUrlRef.current);
-      processedUrlRef.current = null;
     }
+    processedUrlRef.current = null;
     setProcessedPreview(null);
     setItemName("");
     setProgress(0);
@@ -187,54 +208,54 @@ export function UploadItemFlow({ open, onClose, onItemInserted }: UploadItemFlow
       setProgressLabel("Converting image...");
       const blob = await dataUrlToBlob(dataUrl);
 
-      // Background removal
-      let processedBlob = blob;
-      if (isBackgroundRemovalAvailable()) {
-        if (cancelRef.current) return;
-        setProgress(25);
-        setProgressLabel("Removing background...");
-        try {
-          processedBlob = (await removeBackgroundFromBlob(blob)) ?? blob;
-        } catch {
-          // Fallback to original
-        }
+      // Background removal — server-side BiRefNet (process-bg Edge
+      // Function). On any failure, return to the capture stage and
+      // surface the error rather than silently degrading.
+      if (cancelRef.current) return;
+      setProgress(25);
+      setProgressLabel("Removing background on server...");
+
+      let cleanPublicUrl: string;
+      try {
+        const cleanPath = await removeBgMutation.mutateAsync({
+          imageBlob: blob,
+          originalName: 'upload.png',
+        });
+        const { data: pubData } = supabase.storage
+          .from('clipped-closet-items')
+          .getPublicUrl(cleanPath);
+        cleanPublicUrl = pubData.publicUrl;
+      } catch (e: any) {
+        console.error('[upload] bg-removal failed:', e);
+        setError(e?.message || 'Background removal failed');
+        setStage('capture');
+        return;
       }
 
       if (cancelRef.current) return;
 
-      // Show processed preview (clean up old one)
-      if (processedUrlRef.current) URL.revokeObjectURL(processedUrlRef.current);
-      const processedUrl = URL.createObjectURL(processedBlob);
-      processedUrlRef.current = processedUrl;
-      setProcessedPreview(processedUrl);
+      // Show processed preview — read straight from the public URL,
+      // no Object-URL round-trip needed when the source of truth is
+      // remote. Stash the URL in `processedUrlRef` for cleanup
+      // (the `startsWith('blob:')` guards will no-op on a public URL).
+      if (processedUrlRef.current?.startsWith?.('blob:')) {
+        URL.revokeObjectURL(processedUrlRef.current);
+      }
+      processedUrlRef.current = cleanPublicUrl;
+      setProcessedPreview(cleanPublicUrl);
 
-      // Upload to Supabase
       if (cancelRef.current) return;
       setProgress(65);
-      setProgressLabel("Uploading to wardrobe...");
+      setProgressLabel("Saving to wardrobe...");
 
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) throw new Error("Not signed in");
 
-      const storagePath = `closet/${auth.user.id}/${Date.now()}_no_bg.png`;
-      const { error: uploadErr } = await supabase.storage
-        .from("style_images")
-        .upload(storagePath, processedBlob, {
-          cacheControl: "3600",
-          contentType: "image/png",
-          upsert: false,
-        });
-      if (uploadErr) throw uploadErr;
-
-      if (cancelRef.current) return;
-
-      const { data: pub } = supabase.storage
-        .from("style_images")
-        .getPublicUrl(storagePath);
-
-      // Store pending data in refs
-      pendingUrlRef.current = pub.publicUrl;
-      pendingBlobRef.current = processedBlob;
+      // Store the public clean URL + raw blob for the AI classify
+      // step. We keep the raw blob because the AI only needs the
+      // image content (the bg-stripping happened upstream).
+      pendingUrlRef.current = cleanPublicUrl;
+      pendingBlobRef.current = blob;
 
       setProgress(100);
       setProgressLabel("Ready!");
@@ -258,7 +279,11 @@ export function UploadItemFlow({ open, onClose, onItemInserted }: UploadItemFlow
 
     try {
       const publicUrl = pendingUrlRef.current;
-      const processedBlob = pendingBlobRef.current;
+      // After the server-side bg-removal switch, `pendingBlobRef` is
+      // the raw image (the clean PNG lives in clipped-closet-items at
+      // `publicUrl`). AI classify only reads the image content, so
+      // raw is fine — same pixels, just with the original background.
+      const rawBlob = pendingBlobRef.current;
 
       if (!publicUrl) throw new Error("No upload URL found");
 
@@ -270,7 +295,7 @@ export function UploadItemFlow({ open, onClose, onItemInserted }: UploadItemFlow
         .insert({
           user_id: auth.user.id,
           title: name,
-          category: "tops",
+          category: "pending",
           color: "unknown",
           tags: [],
           attributes: {},
@@ -283,30 +308,33 @@ export function UploadItemFlow({ open, onClose, onItemInserted }: UploadItemFlow
 
       if (insertErr || !row) throw insertErr ?? new Error("Insert failed");
 
+      const insertedRowId = row.id;
+
       const newItem: ClosetItem = {
         id: row.id,
         title: row.title,
         brand: row.brand ?? "",
-        category: row.category ?? "tops",
+        category: row.category ?? "pending",
         color: row.color ?? "unknown",
         season: row.season ?? "all",
         tags: Array.isArray(row.tags) ? row.tags : [],
         attributes: row.attributes ?? {},
         source_image_url: row.source_image_url,
         created_at: row.created_at,
+        pending: (row.category ?? "pending") === "pending",
       };
 
       onItemInserted(newItem);
       setUploadedItem(newItem);
 
       // AI classification in background
-      if (processedBlob) {
+      if (rawBlob) {
         try {
           const reader = new FileReader();
           const base64Image = await new Promise<string>((resolve, reject) => {
             reader.onloadend = () => resolve(reader.result as string);
             reader.onerror = reject;
-            reader.readAsDataURL(processedBlob);
+            reader.readAsDataURL(rawBlob);
           });
           const { data: aiData } = await supabase.functions.invoke(
             "analyze-closet-item",
@@ -314,17 +342,31 @@ export function UploadItemFlow({ open, onClose, onItemInserted }: UploadItemFlow
           );
           const payload = (aiData as any)?.result ?? aiData;
           if (payload && (payload.title || payload.category)) {
+            // `?? "pending"` (was `"tops"`) — see clipper.tsx for the
+            // same change. Don't fabricate a category if AI doesn't
+            // return one; let the user fix it from the detail modal.
             await supabase
               .from("trendza_closet_items")
               .update({
-                category: payload.category ?? "tops",
+                category: payload.category ?? "pending",
                 color: payload.color ?? "unknown",
                 season: payload.season ?? null,
                 tags: payload.tags ?? [],
                 attributes: payload.attributes ?? {},
                 brand: payload.brand ?? "",
               })
-              .eq("id", row.id);
+              .eq("id", insertedRowId);
+            // Refresh local state with the mutated row so the user sees
+            // the category flip on this tab without waiting on a full
+            // refetch. Same SELECT-then-callback pattern as clipper.
+            const { data: refreshed } = await supabase
+              .from("trendza_closet_items")
+              .select(
+                "id, title, brand, category, color, season, tags, attributes, source_image_url, created_at"
+              )
+              .eq("id", insertedRowId)
+              .single();
+            if (refreshed && onItemUpdated) onItemUpdated(refreshed as ClosetItem);
           }
         } catch {
           // Best-effort

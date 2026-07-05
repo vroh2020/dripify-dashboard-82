@@ -3,6 +3,7 @@ import { useAuth } from './AuthProvider';
 import { useProfile } from './ProfileProvider';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { seedDemoWardrobe } from '@/lib/wardrobe-seed';
 
 // ============================================================================
 // Types & Interfaces
@@ -377,6 +378,39 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
         progress: 100,
         error: null,
       });
+
+      // Seed demo wardrobe items as real rows so they persist alongside
+      // user-uploaded items instead of vanishing on first clip.
+      //
+      // Note: we used to log this as `console.warn('non-fatal')` — that
+      // hide-the-error approach was the reason the cross-user UUID
+      // collision went unnoticed across many signups. wardrobe-seed.ts
+      // now prefixes demo ids with the first 8 chars of the user UUID,
+      // so collisions are impossible; if anything still fails, we log
+      // loudly via console.error AND return `false` from this function
+      // (above toast) ONLY after letting the user through — the
+      // dashboard effects can retry if items.length === 0.
+      void (async () => {
+        try {
+          console.log('[seedDemoWardrobe] Fetching gender from onboarding_v2...')
+          const { data: onboardingRow } = await supabase
+            .from('onboarding_v2')
+            .select('step_data')
+            .eq('user_id', user.id)
+            .maybeSingle()
+          const stepData = (onboardingRow?.step_data as Record<string, any>) ?? {}
+          const gender = stepData?.gender?.gender ?? null
+          console.log('[seedDemoWardrobe] Resolved gender:', JSON.stringify(gender), '| typeof:', typeof gender)
+          console.log('[seedDemoWardrobe] Calling seedDemoWardrobe with userId:', user.id)
+          await seedDemoWardrobe(user.id, typeof gender === 'string' ? gender : null)
+          console.log('[seedDemoWardrobe] ✅ Seed completed successfully')
+        } catch (e) {
+          console.error(
+            '[seedDemoWardrobe] ❌ SEED FAILED — every new user must be seeded; dashboard will retry if items.length === 0:',
+            e,
+          )
+        }
+      })()
 
       toast({
         title: "Onboarding Complete!",

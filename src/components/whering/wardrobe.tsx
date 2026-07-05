@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Image from "next/image"
 import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
 import type { ClosetItem } from "@/hooks/useClosetData"
-import { FEMALE_DEMO_ITEMS } from "@/lib/demo-wardrobe"
 import { PullToRefresh } from "@/components/common/PullToRefresh"
 
 const filters = [
@@ -23,6 +22,8 @@ type FilterKey = (typeof filters)[number]["key"]
 
 interface WardrobeProps {
   items: ClosetItem[]
+  /** Gender-aware demo wardrobe — used to seed the grid when the user has
+   *  no real closet items yet so the inventory tab isn't blank. */
   demoItems?: ClosetItem[]
   onRefresh: () => void
 }
@@ -30,8 +31,10 @@ interface WardrobeProps {
 export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
   const [filter, setFilter] = useState<FilterKey>("all")
 
-  // Use gender-aware demo items when closet is empty
-  const displayItems = items.length > 0 ? items : (demoItems ?? FEMALE_DEMO_ITEMS)
+  // Prefer real closet items; fall back to the gender-aware demo set when
+  // the user hasn't built one yet (or the network is still loading).
+  const displayItems =
+    items.length > 0 ? items : demoItems ?? []
 
   const filteredItems =
     filter === "all"
@@ -80,7 +83,7 @@ export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
       </div>
 
       {/* Items grid — wrapped in pull-to-refresh when items exist */}
-      {displayItems.length > 0 ? (
+      {items.length > 0 ? (
         <PullToRefresh onRefresh={onRefresh} className="flex-1 px-5 pb-4">
           <div className="grid grid-cols-2 gap-3 pt-1">
             {filteredItems.map((item) => (

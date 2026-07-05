@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { Logger } from "@/utils/logger";
 import { handleError } from "@/utils/errorHandler";
 import { supabase } from "@/integrations/supabase/client";
-import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
+
+import { seedDemoWardrobe } from "@/lib/wardrobe-seed";
 
 // Import onboarding step components
 import { WelcomeHeroStep } from "../components/onboarding/steps/WelcomeHeroStep";
@@ -48,8 +49,6 @@ export const AuthOnboardingWizard = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [onboardingData, setOnboardingData] = useState<any>({});
 
-  // Track if model preload has started (prevent duplicate calls)
-  const modelPreloadStartedRef = useRef<boolean>(false);
 
   // Get current user ID (no creation - let NewWelcomeStep handle that)
   const getCurrentUserId = async () => {
@@ -161,36 +160,6 @@ export const AuthOnboardingWizard = () => {
       trackUserAction('paywall_reached', { step: 14 }).catch(console.error);
     }
   }, [step, userId]);
-
-  // 🚀 PRELOAD MODEL DURING ONBOARDING - Early trigger on photo capture (Step 11)
-  // Gives maximum time for model to download while user is still in onboarding
-  useEffect(() => {
-    if (step === 11 && !modelPreloadStartedRef.current) {
-      modelPreloadStartedRef.current = true;
-      console.log('🚀 [Onboarding] Starting early model preload during photo capture step...');
-      
-      // Start preload in background - doesn't block UI
-      preloadBackgroundRemovalModel().catch((error) => {
-        console.warn('⚠️ [Onboarding] Early model preload failed (will retry later):', error);
-        // Reset flag so we can try again after payment
-        modelPreloadStartedRef.current = false;
-      });
-    }
-  }, [step]);
-
-  // 🚀 PRELOAD MODEL DURING ONBOARDING - Backup trigger after payment (Step 14)
-  // Ensures model starts loading even if user rushed through early steps
-  useEffect(() => {
-    if (step === 14 && !modelPreloadStartedRef.current) {
-      modelPreloadStartedRef.current = true;
-      console.log('🚀 [Onboarding] Starting model preload after payment (backup trigger)...');
-      
-      // Start preload in background - doesn't block UI
-      preloadBackgroundRemovalModel().catch((error) => {
-        console.warn('⚠️ [Onboarding] Backup model preload failed (will load on first upload):', error);
-      });
-    }
-  }, [step]);
 
   // Onboarding handlers
   const handleGender = async (gender: string) => {
@@ -381,6 +350,37 @@ export const AuthOnboardingWizard = () => {
             // Don't throw - continue anyway
           } else {
             console.log('✅ Database updated successfully with tier:', tier);
+
+            // Seed demo wardrobe — gender was saved earlier via
+            // saveOnboardingStep('gender', {gender}) and lives at
+            // onboarding_v2.step_data.gender.gender.
+            //
+            // Old behavior swallowed failures in a try/catch + 'non-fatal'
+            // log, which hid the cross-user UUID collision. New behavior:
+            // wardrobe-seed.ts prefixes each demo id with the first 12 chars
+            // of the user UUID so collisions cannot happen; we still log
+            // loudly on failure AND toast the user — but we DO NOT throw,
+            // because we still need to navigate to /dress-me. The dashboard's
+            // useClosetData also runs a deferred re-seed on items=0 mount,
+            // so a transient Supabase hiccup during onboarding won't leave
+            // the user stuck with an empty closet.
+            try {
+              const gender = stepData?.gender?.gender ?? null;
+              console.log('[seedDemoWardrobe] resolved gender:', gender);
+              await seedDemoWardrobe(userId, typeof gender === 'string' ? gender : null);
+              console.log('[seedDemoWardrobe] ✅ Seed completed');
+            } catch (seedErr) {
+              console.error(
+                '[seedDemoWardrobe] ❌ FATAL — every new user must be seeded; dashboard hook will retry if items.length === 0:',
+                seedErr,
+              );
+              toast({
+                title: 'Starter wardrobe hiccup',
+                description:
+                  "We couldn't add your starter items just now — we'll retry automatically when you arrive at the app.",
+                variant: 'destructive',
+              });
+            }
           }
         } catch (dbError) {
           console.error('❌ Failed to save to database:', dbError);
@@ -407,8 +407,10 @@ export const AuthOnboardingWizard = () => {
       // route gate re-evaluate against the freshly-set
       // localStorage `onboarding_completed=true` flag without a
       // state regression.
+      console.log('🧭 [handlePaywallComplete] Scheduling navigate to /dress-me in 1s...')
       setTimeout(() => {
-        navigate('/scan');
+        console.log('🧭 forcing hard redirect to /dress-me')
+        window.location.href = '/dress-me'
       }, 1000);
 
     } catch (error) {

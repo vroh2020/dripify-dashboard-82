@@ -43,7 +43,6 @@ import { encode, decode } from 'blurhash';
  * in sync here so adding the new path doesn't break callers.
  */
 const SUPABASE_OBJECT = '/storage/v1/object/public/';
-const SUPABASE_RENDER = '/storage/v1/render/image/public/';
 
 export type ResizeOptions = {
   width: number;
@@ -60,42 +59,41 @@ export function isSupabaseStorageUrl(src: string | null | undefined): boolean {
   return /(?:^|\.)supabase\.co\/storage\/v1\/object\/public\//.test(src);
 }
 
-export function getResizedImage(src: string | null | undefined, opts: ResizeOptions): string {
+/**
+ * Returns the URL the `<img>` tag should load from.
+ *
+ * History: this used to repath Supabase Storage URLs from
+ * `/storage/v1/object/public/...` to `/storage/v1/render/image/public/...`
+ * and append `?width=N&format=webp`. That transform endpoint is gated
+ * server-side and probes confirmed this Supabase project returns 403
+ * on it, while the original `/object/public/` URL returns 200 OK. With
+ * the transform on, every closet tile was silently failing and the UI
+ * showed a blank/dot placeholder — the user saw no images at all.
+ *
+ * So the resolver is now a pass-through: hand back the public URL the
+ * upload pipeline emitted. The browser's HTTP cache still wins for
+ * repeated tile loads, so perf is acceptable until we either enable
+ * Supabase image transforms on this project or ship a CDN-side resize
+ * worker. Keep the helper signature stable so callers and tests don't
+ * need to change.
+ */
+export function getResizedImage(src: string | null | undefined, _opts: ResizeOptions): string {
   if (!src) return src ?? '';
-  if (!isSupabaseStorageUrl(src)) return src;
-  const { width, format = 'webp', quality = 60 } = opts;
-  try {
-    const url = new URL(src);
-    if (url.pathname.includes(SUPABASE_OBJECT)) {
-      url.pathname = url.pathname.replace(SUPABASE_OBJECT, SUPABASE_RENDER);
-    }
-    url.searchParams.set('width', String(width));
-    if (format === 'webp') {
-      url.searchParams.set('format', 'webp');
-      url.searchParams.set('quality', String(quality));
-    }
-    return url.toString();
-  } catch {
-    return src;
-  }
+  return src;
 }
 
 /**
- * Build a srcSet string covering the widths the caller wants.
- * Convention: caller picks widths based on the tile size. For a 96px
- * closet tile a single 240px entry is plenty (2× DPR); for a 420px hero
- * we go 480/720/960/1280.
+ * srcSet is intentionally empty: every candidate width would route
+ * through the same transform endpoint that 403s. Drop the attribute
+ * entirely; the browser will pick the single (cached) public URL.
+ * Reintroduce when Supabase image transforms are available.
  */
 export function getSrcSet(
-  src: string | null | undefined,
-  widths: number[],
-  opts: Omit<ResizeOptions, 'width'> = {},
+  _src: string | null | undefined,
+  _widths: number[],
+  _opts: Omit<ResizeOptions, 'width'> = {},
 ): string {
-  if (!src) return '';
-  if (!isSupabaseStorageUrl(src) || widths.length === 0) return '';
-  return widths
-    .map((w) => `${getResizedImage(src, { ...opts, width: w })} ${w}w`)
-    .join(', ');
+  return '';
 }
 
 /**

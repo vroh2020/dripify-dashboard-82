@@ -14,6 +14,12 @@
  * - loadRequestIdRef makes stale resolutions no-op (a retry wins)
  * - mountedRef guards against React 18 strict-mode double-mount
  *
+ * Also performs a **deferred wardrobe re-seed** when the hook runs for a
+ * user who has completed onboarding but has zero closet rows. This catches
+ * the race window between paywall_completed and seedDemoWardrobe: the
+ * dashboard effect gives the user a second (and third, and fourth) chance
+ * to receive their starter wardrobe after a transient Supabase hiccup.
+ *
  * Returns the raw normalized arrays plus a small set of mutations so callers
  * don't need to know the Supabase table names — they just deal with domain
  * types (`ClosetItem`, `Outfit`).
@@ -22,6 +28,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { seedDemoWardrobe } from '@/lib/wardrobe-seed';
 
 /**
  * The local view of a closet item. Source of truth: `trendza_closet_items`,
@@ -42,6 +49,14 @@ export interface ClosetItem {
   source_image_url?: string;
   created_at: string;
   favorite?: boolean;
+  /**
+   * Derived by the normalizer: true iff `category === 'pending'`.
+   * Drives the "still analyzing" UI badge in the Closet grid and the
+   * filter exclusion from Shuffler / Canvas outfit slots (pending items
+   * don't match "tops"/"bottoms"/"shoes"/"accessories" and so naturally
+   * fall out, but the flag is also handy for explicit styling checks).
+   */
+  pending?: boolean;
 }
 
 /**
@@ -61,15 +76,6 @@ export interface SavedOutfit {
   items: ClosetItem[];
 }
 
-/**
- * What the builder hands to `saveOutfit`: which items go into the fit.
- * `null` slots are filtered before save so the caller doesn't need to
- * pre-clean.
- *
- * Optional `metadata` is serialized as JSON into the `rationale` column
- * so callers can attach position data, source info, etc. without a DB
- * migration.
- */
 /**
  * What the builder hands to `saveOutfit`: which items go into the fit.
  * `null` slots are filtered before save so the caller doesn't need to
@@ -110,23 +116,98 @@ interface UseClosetDataReturn {
    * Insert a freshly uploaded item (post-background-removal + AI analysis +
    * Supabase storage upload). Caller passes the already-processed blob /
    * analysis result so the hook stays storage- and AI-agnostic.
+   *
+   * Idempotent by id — if a row with the same id is already in `items`,
+   * the existing entry is replaced (not duplicated). Required because
+   * the upload pipelines also patch local state after an UPDATE when
+   * AI classify completes; without dedup the item would appear twice.
    */
   insertItem: (item: ClosetItem) => void;
+  /**
+   * Replace an existing item by id (used after a mutate-then-refetch
+   * patch, e.g. closet item category UPDATE from the manual-override
+   * picker or from the AI classify IIFE in clipper/UploadItemFlow).
+   * Silently no-ops if the id is not present so callers don't need to
+   * check membership first.
+   */
+  updateItem: (item: ClosetItem) => void;
 }
 
 const CACHE_DURATION_MS = 30_000;
 
 /**
- * Filter rows that are still being uploaded/analyzed. A row whose title is
- * `Untitled` or `Analyzing...` is a placeholder the upload pipeline writes
- * before AI returns; without this filter the closet would briefly show
- * blank entries during upload.
+ * Deferred wardrobe re-seed coordinator.
+ *
+ * `reSeedAttemptedRef` was a per-instance useRef in an earlier version:
+ * fine for one tab, wrong for the real app where Shuffler / Wardrobe /
+ * Canvas / Clipper / Index each mount this hook on every render. With a
+ * per-instance latch every tab upserted its own copy of the seed —
+ * idempotent, but a wasted network round per tab. Hoisting to a
+ * module-level Map dedupes across all hook instances in the same session
+ * AND enforces a 60s backoff window so a transient Supabase hiccup can't
+ * thrash the upsert while the DB is wedged.
+ *
+ * Sign-out clears the map so the next sign-in starts with a clean slate.
+ */
+const SEED_BACKOFF_MS = 60_000;
+const seedAttempts = new Map<string, number>(); // userId -> last attempt timestamp
+
+function shouldAttemptDeferredSeed(userId: string): boolean {
+  const last = seedAttempts.get(userId) ?? 0;
+  const now = Date.now();
+  if (now - last < SEED_BACKOFF_MS) return false;
+  // Atomically arm the latch. Because JS guarantees the date.now() read
+  // + map.set completes in a single synchronous turn, any other queued
+  // mount will see the new timestamp and bail before calling .upsert().
+  seedAttempts.set(userId, now);
+  return true;
+}
+
+function clearDeferredSeedLatch(userId: string): void {
+  seedAttempts.delete(userId);
+}
+
+// One-time wiring of sign-out cleanup. safe to call repeatedly — the
+// flag prevents duplicate listener registration across hot reloads.
+let _deferredSeedSignOutWired = false;
+function ensureDeferredSeedSignOutCleanup(): void {
+  if (_deferredSeedSignOutWired) return;
+  _deferredSeedSignOutWired = true;
+  try {
+    supabase.auth.onAuthStateChange((evt) => {
+      if (evt === 'SIGNED_OUT') seedAttempts.clear();
+    });
+  } catch {
+    // no-op — losing the cleanup listener doesn't break the seed path,
+    // it just means stale entries linger until the next module reload.
+  }
+}
+
+/**
+ * Normalize a queued `trendza_closet_items` row into the local view.
+ *
+ * The previous version dropped rows whose title was `'Untitled'` or
+ * `'Analyzing...'` under the rationale that the closet would otherwise
+ * briefly show blank entries. With the new `category === 'pending'`
+ * design these placeholders are the *visible signal* that a clip is
+ * in flight — hiding them would leave the user wondering whether their
+ * tap registered. So we no longer filter on title; the only row we drop
+ * is one that has no image at all (truly blank).
+ *
+ * The `pending` flag is derived from the row's category: callers can
+ * use it for explicit UI styling without re-doing the comparison.
  */
 function normalizeItem(r: any): ClosetItem | null {
-  const hasImage = r?.source_image_url;
-  const hasValidTitle =
-    r?.title && r.title !== 'Untitled' && r.title !== 'Analyzing...';
-  if (!hasImage || !hasValidTitle) return null;
+  if (!r?.source_image_url) return null;
+  const category = typeof r?.category === 'string' && r.category ? r.category : 'pending';
+  const pending = category === 'pending';
+  if (pending) {
+    // The Closet grid renders pending rows with a "still analyzing"
+    // badge; showing them with placeholder titles is fine and is in
+    // fact the whole point. Don't fabricate a fake displayTitle here —
+    // keep `r.title` as-is (could be 'Clipped Item', user-typed name,
+    // 'Analyzing...', etc.) so the real value is visible to the user.
+  }
   // BlurHash lives in the `attributes` JSON column; lift it so
   // `<CachedImage>` callers don't need to know our storage shape.
   const attrHash =
@@ -139,9 +220,9 @@ function normalizeItem(r: any): ClosetItem | null {
       : null;
   return {
     id: r.id,
-    title: r.title,
+    title: r.title ?? '',
     brand: r.brand ?? '',
-    category: r.category ?? 'tops',
+    category,
     color: r.color ?? 'unknown',
     season: r.season ?? 'all',
     tags: Array.isArray(r.tags) ? r.tags : [],
@@ -150,6 +231,7 @@ function normalizeItem(r: any): ClosetItem | null {
     created_at: r.created_at,
     favorite: false,
     blur_hash: blurHash,
+    pending,
   };
 }
 
@@ -212,6 +294,10 @@ export function useClosetData(): UseClosetDataReturn {
   // state mutations from any in-flight fetch when the user navigates
   // away from the route before Supabase resolves.
   const mountedRef = useRef(true);
+  // (Deferred wardrobe re-seed latch lives at module scope via
+  // `seedAttempts` Map + 60s backoff — see top of file. Per-instance
+  // useRef was insufficient: every closet-rendering tab would upsert
+  // its own copy.)
 
   const load = useCallback(async () => {
     // Block concurrent duplicate loads.
@@ -311,15 +397,104 @@ export function useClosetData(): UseClosetDataReturn {
   const retry = refresh;
 
   // Initial load on mount; reset mountedRef for React 18 StrictMode
-  // double-mount so the gate stays correct.
+  // double-mount so the gate stays correct. Also wires the once-only
+  // sign-out cleanup listener for the module-level seed latch.
   useEffect(() => {
     mountedRef.current = true;
+    ensureDeferredSeedSignOutCleanup();
     load();
     return () => {
       mountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Deferred wardrobe re-seed.
+   *
+   * Runs after the initial load resolves AND items is empty AND no
+   * seed attempt has fired in the last 60s for this userId. The goal
+   * is to catch the rare race where handlePaywallComplete's seed call
+   * fired before the user had finished persisting gender/step_data to
+   * onboarding_v2, which would otherwise swallow the upsert error in a
+   * try/catch. The retry path here reads gender from onboarding_v2
+   * itself, runs seedDemoWardrobe again, and refreshes local items on
+   * success.
+   *
+   * The latch lives at module scope (`seedAttempts` Map + 60s
+   * backoff) so every closet-rendering tab (Shuffler / Wardrobe /
+   * Canvas / Clipper / Index) shares a single seed roundtrip per
+   * session per user, instead of N parallel upserts. The 60s
+   * timestamp armed in `shouldAttemptDeferredSeed` is the only
+   * gate we rely on — we deliberately DO NOT clear the latch on
+   * seed failure, so a transient Supabase 5xx can't drive the
+   * effect into a retry-storm. The one exception is the
+   * `!onboardingRow.completed` branch, where clearing is correct
+   * because the user just hasn't finished signup yet and will
+   * need a fresh attempt when they do.
+   */
+  useEffect(() => {
+    if (isInitialLoad || isLoading) return
+    if (items.length > 0) return
+    if (loadError) return  // don't hammer DB while it's wedged
+
+    void (async () => {
+      const { data: auth, error: authError } = await supabase.auth.getUser()
+      if (authError || !auth?.user) return  // no userId yet — no latch arm
+
+      const userId = auth.user.id
+      if (!shouldAttemptDeferredSeed(userId)) return  // dedupes cross-tab
+
+      try {
+        // Only proceed if the user actually completed onboarding —
+        // we don't want to seed users who haven't picked a gender.
+        const { data: onboardingRow } = await supabase
+          .from('onboarding_v2')
+          .select('completed, step_data')
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        if (!onboardingRow?.completed) {
+          // Logical state, not transient: clear so when the user
+          // finishes onboarding a fresh attempt can fire.
+          clearDeferredSeedLatch(userId)
+          return
+        }
+
+        const stepData =
+          (onboardingRow.step_data as Record<string, any> | null) ?? {}
+        const rawGender = stepData?.gender?.gender ?? null
+        const gender = typeof rawGender === 'string' ? rawGender : null
+
+        await seedDemoWardrobe(userId, gender)
+        // eslint-disable-next-line no-console
+        console.log(
+          '[useClosetData] ✅ Deferred wardrobe re-seed completed for',
+          userId,
+        )
+        // Pull the fresh rows into local state. Bypass the 30s cache.
+        lastLoadTimeRef.current = 0
+        await load()
+      } catch (e) {
+        // Transient failure (5xx, network) — DO NOT clear the latch.
+        // The 60s backoff timestamp set in shouldAttemptDeferredSeed
+        // is the gate; clearing here would defeat it and let the
+        // next mount immediately retry and thrash a wedged DB.
+        // eslint-disable-next-line no-console
+        console.error(
+          '[useClosetData] ❌ Deferred wardrobe re-seed failed:',
+          e,
+        )
+      }
+    })().catch((e) => {
+      // Top-level safety net: anything thrown outside the inner
+      // try/catch (e.g. `await load()` outside try) becomes an
+      // unhandled rejection otherwise.
+      // eslint-disable-next-line no-console
+      console.error('[useClosetData] deferred seed outer catch:', e)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialLoad, isLoading, items.length, loadError, load])
 
   const saveOutfit = useCallback(
     async (input: SaveOutfitInput): Promise<SavedOutfit | null> => {
@@ -419,11 +594,39 @@ export function useClosetData(): UseClosetDataReturn {
 
   /**
    * Used by the ClosetView upload pipeline after a successful insert —
-   * prepends the new row so it appears at the top of the grid without
-   * forcing a full refetch.
+   * surfaces the new row immediately without forcing a full refetch.
+   *
+   * Idempotent by id: if a row with the same id is already in `items`,
+   * the existing entry is replaced (not duplicated). Required because
+   * the upload pipelines also call this on the post-AI-UPDATE SELECT
+   * refresh, and a naive prepend would create two visible copies of
+   * the same row.
    */
   const insertItem = useCallback((item: ClosetItem) => {
-    setItems((prev) => [item, ...prev]);
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === item.id);
+      if (idx === -1) return [item, ...prev];
+      const next = prev.slice();
+      next[idx] = item;
+      return next;
+    });
+  }, []);
+
+  /**
+   * Replace an existing item by id. No-op if the id is not present.
+   * Used by upload pipelines after they UPDATE a row in Supabase (the
+   * AI-classify IIFE in clipper.tsx / UploadItemFlow.tsx and the
+   * manual category override in ItemDetailModal) to patch local state
+   * without a full refetch.
+   */
+  const updateItem = useCallback((item: ClosetItem) => {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.id === item.id);
+      if (idx === -1) return prev;
+      const next = prev.slice();
+      next[idx] = item;
+      return next;
+    });
   }, []);
 
   return {
@@ -438,5 +641,6 @@ export function useClosetData(): UseClosetDataReturn {
     deleteOutfit,
     toggleFavorite,
     insertItem,
+    updateItem,
   };
 }

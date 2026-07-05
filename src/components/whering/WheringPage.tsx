@@ -10,7 +10,7 @@ import { Canvas } from "@/components/whering/canvas"
 import { Clipper } from "@/components/whering/clipper"
 import { useClosetData, type ClosetItem } from "@/hooks/useClosetData"
 import { useUserGender } from "@/hooks/useUserGender"
-import { getGenderedDemoItems } from "@/lib/wardrobe-data"
+import { getDemoItemsForGender } from "@/lib/demo-wardrobe"
 
 export default function Page() {
   const [tab, setTab] = useState<Tab>("shuffle")
@@ -18,9 +18,12 @@ export default function Page() {
   const navigate = useNavigate()
 
   // Closet data hooks (same as Index.tsx dashboard)
-  const { items, outfits, saveOutfit, deleteOutfit, refresh } = useClosetData()
+  const { items, outfits, saveOutfit, deleteOutfit, refresh, insertItem, updateItem } = useClosetData()
+
+  // Gender-aware demo fallback — used by the child views when `items` is
+  // empty (new user, still loading, etc.) so the UI never renders empty.
   const { gender } = useUserGender()
-  const demoItems = getGenderedDemoItems(gender)
+  const demoItems = getDemoItemsForGender(gender)
 
   const handleSaveOutfit = useCallback(
     async (name: string, selectedItems: ClosetItem[], metadata?: Record<string, any>, thumbnail?: string) => {
@@ -28,6 +31,24 @@ export default function Page() {
     },
     [saveOutfit],
   )
+
+  const handleItemInserted = useCallback(
+    (item: ClosetItem) => {
+      insertItem(item);
+    },
+    [insertItem]
+  );
+
+  // Same recipe as Index.tsx — patch local state after Clipper's
+  // fire-and-forget AI classify completes a successful UPDATE so
+  // the pending row re-slots into Shuffler/Canvas/closet on this
+  // tab.
+  const handleItemUpdated = useCallback(
+    (item: ClosetItem) => {
+      updateItem(item);
+    },
+    [updateItem]
+  );
 
   const handleAction = (action: "upload" | "plan" | "create" | "clip") => {
     setSheetOpen(false)
@@ -64,7 +85,7 @@ export default function Page() {
               onSaved={() => navigate("/fits")}
             />
           )}
-          {tab === "clipper" && <Clipper />}
+          {tab === "clipper" && <Clipper demoItems={demoItems} onItemInserted={handleItemInserted} onItemUpdated={handleItemUpdated} />}
 
           <BottomSheet
             open={sheetOpen}

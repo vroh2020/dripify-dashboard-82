@@ -42,6 +42,11 @@ interface AddClosetItemModalProps {
   onItemAdded: (item: ClosetItem) => void;
 }
 
+// CATEGORY_OPTIONS drives the manual picker. The explicit category the
+// user picks from this list is what the row goes in with — there's no
+// auto-classify here, so no "pending" placeholder is needed in the UI.
+// Pending state only applies to the auto-classify flows (clipper /
+// UploadItemFlow / ClosetView's auto upload).
 const categories: { value: ClothingCategory; label: string }[] = [
   { value: 'tops', label: 'Tops' },
   { value: 'bottoms', label: 'Bottoms' },

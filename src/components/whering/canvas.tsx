@@ -19,7 +19,6 @@ import {
 } from "lucide-react"
 import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
-import { FEMALE_DEMO_ITEMS } from "@/lib/demo-wardrobe"
 import { NamePrompt } from "@/components/whering/NamePrompt"
 import type { ClosetItem, SavedOutfit } from "@/hooks/useClosetData"
 
@@ -232,18 +231,25 @@ type TrayFilter = (typeof TRAY_CATEGORIES)[number]
 export function Canvas({
   closetItems,
   outfits,
-  demoItems = FEMALE_DEMO_ITEMS,
+  demoItems,
   onSaveOutfit,
   onDeleteOutfit,
   onSaved,
 }: {
   closetItems: ClosetItem[]
   outfits: SavedOutfit[]
+  /** Gender-aware demo wardrobe — used as the tray + initial layout when
+   *  the user has no real closet items yet. */
   demoItems?: ClosetItem[]
   onSaveOutfit: (name: string, items: ClosetItem[], metadata?: Record<string, any>) => Promise<SavedOutfit | null>
   onDeleteOutfit?: (id: string) => Promise<void>
   onSaved?: () => void
 }) {
+  // Prefer real closet items; fall back to the gender-aware demo set whenever
+  // the user hasn't built one yet. Both source arrays contain real ClosetItem
+  // shapes so downstream filter / find calls stay typed and unambiguous.
+  const displayCloset =
+    closetItems.length > 0 ? closetItems : demoItems ?? [];
   const editOutfitId = useEditOutfitId()
   const editOutfit = useMemo(
     () => (editOutfitId ? outfits.find((o) => o.id === editOutfitId) ?? null : null),
@@ -252,7 +258,7 @@ export function Canvas({
 
   const [items, setItems] = useState<CanvasItem[]>(() => {
     if (editOutfit) return loadOutfitItems(editOutfit)
-    return buildDemoCanvasItems(demoItems)
+    return buildDemoCanvasItems(displayCloset)
   })
   const [selected, setSelected] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -388,10 +394,8 @@ export function Canvas({
   // ─── Selected item for toolbar ───
   const selectedItem = useMemo(() => items.find((it) => it.uid === selected) ?? null, [items, selected])
 
-  // ─── Tray: real items + demo fallback ───
-  const trayItems = closetItems.filter((ci) => ci.source_image_url)
-  const showRealTray = trayItems.length > 0
-  const traySource = showRealTray ? trayItems : demoItems
+  // ─── Tray: real items (or gender-aware demo fallback) ───
+  const traySource = displayCloset.filter((ci) => ci.source_image_url)
 
   // ─── Tray category filter ───
   const [trayFilter, setTrayFilter] = useState<TrayFilter>("all")

@@ -24,10 +24,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
-import { preloadBackgroundRemovalModel } from "@/utils/backgroundRemoval";
+
 import { useClosetData, type ClosetItem } from "@/hooks/useClosetData";
-import { useUserGender } from "@/hooks/useUserGender";
-import { getGenderedDemoItems } from "@/lib/wardrobe-data";
 import { thrust } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
@@ -197,17 +195,24 @@ const Index = () => {
   const [clipperOpen, setClipperOpen] = useState(false);
 
   // Lift closet data state so UploadItemFlow, Wardrobe, Shuffler, Canvas, and Saved tab share the same instance
-  const { items, outfits, isInitialLoad, loadError, retry, refresh, insertItem, saveOutfit, deleteOutfit } = useClosetData();
-
-  // Read user gender from onboarding data so we show gender-appropriate demo items
-  const { gender } = useUserGender();
-  const demoItems = getGenderedDemoItems(gender);
+  const { items, outfits, isInitialLoad, loadError, retry, refresh, insertItem, updateItem, saveOutfit, deleteOutfit } = useClosetData();
 
   const handleItemInserted = useCallback(
     (item: ClosetItem) => {
       insertItem(item);
     },
     [insertItem]
+  );
+
+  // Patch local state after Clipper/UploadItemFlow's fire-and-forget
+  // AI classify completes a successful UPDATE. Without this the row
+  // would stay `category: 'pending'` in our hook's items[], not
+  // slotting into Shuffler/Canvas/the main closet grid.
+  const handleItemUpdated = useCallback(
+    (item: ClosetItem) => {
+      updateItem(item);
+    },
+    [updateItem]
   );
 
   // Default to dress-me
@@ -217,39 +222,7 @@ const Index = () => {
     }
   }, [location.pathname, navigate]);
 
-  // PRE-LOAD bg removal model (deferred to idle)
-  useEffect(() => {
-    let cancelled = false;
-    let timeoutId: number | undefined;
-    let idleId: number | undefined;
 
-    const fire = () => {
-      if (cancelled) return;
-      preloadBackgroundRemovalModel().catch((error) => {
-        console.warn(
-          "⚠️ Model preload failed (will load on first upload):",
-          error
-        );
-      });
-    };
-
-    if (typeof window.requestIdleCallback === "function") {
-      idleId = window.requestIdleCallback(fire, { timeout: 4000 });
-    } else {
-      timeoutId = window.setTimeout(fire, 4000);
-    }
-
-    return () => {
-      cancelled = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-      if (
-        idleId !== undefined &&
-        typeof window.cancelIdleCallback === "function"
-      ) {
-        window.cancelIdleCallback(idleId);
-      }
-    };
-  }, []);
 
   const handleTabChange = (value: string) => {
     navigate(`/${value}`);
@@ -284,7 +257,6 @@ const Index = () => {
             <div className="whering-theme bg-muted h-full overflow-hidden">
               <Shuffler
                 closetItems={items}
-                demoItems={demoItems}
                 onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
                   console.log('📦 [Index] Shuffler onSaveOutfit called — items:', selectedItems.length, 'name:', name)
                   return saveOutfit({ name, items: selectedItems, ...(metadata !== undefined && { metadata }), ...(thumbnail !== undefined && { thumbnail }) })
@@ -299,7 +271,7 @@ const Index = () => {
         case "wardrobe":
           return (
             <div className="whering-theme bg-muted h-full overflow-hidden">
-              <Wardrobe items={items} demoItems={demoItems} onRefresh={refresh} />
+              <Wardrobe items={items} onRefresh={refresh} />
             </div>
           );
         case "canvas":
@@ -308,7 +280,6 @@ const Index = () => {
               <Canvas
                 closetItems={items}
                 outfits={outfits}
-                demoItems={demoItems}
                 onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
                   console.log('📦 [Index] Canvas onSaveOutfit called — items:', selectedItems.length, 'name:', name)
                   return saveOutfit({ name, items: selectedItems, ...(metadata !== undefined && { metadata }), ...(thumbnail !== undefined && { thumbnail }) })
@@ -345,7 +316,6 @@ const Index = () => {
             <div className="whering-theme bg-muted h-full overflow-hidden">
               <Shuffler
                 closetItems={items}
-                demoItems={demoItems}
                 onSaveOutfit={(name, selectedItems, metadata, thumbnail) => {
                   console.log('📦 [Index] Shuffler onSaveOutfit called — items:', selectedItems.length, 'name:', name)
                   return saveOutfit({ name, items: selectedItems, ...(metadata !== undefined && { metadata }), ...(thumbnail !== undefined && { thumbnail }) })
@@ -498,6 +468,7 @@ const Index = () => {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onItemInserted={handleItemInserted}
+        onItemUpdated={handleItemUpdated}
       />
 
       {/* Clipper overlay */}
@@ -510,7 +481,19 @@ const Index = () => {
             className="fixed inset-0 z-[60] bg-white"
           >
             <div className="whering-theme h-full">
-              <Clipper />
+              <Clipper
+                demoItems={items}
+                onItemInserted={handleItemInserted}
+                onItemUpdated={handleItemUpdated}
+                onSaved={() => {
+                  // Close the clipper overlay and bump the user to the
+                  // wardrobe tab so the freshly added item is visible
+                  // immediately — matches the "Added to Wardrobe" copy
+                  // so the user isn't stranded on the success card.
+                  setClipperOpen(false)
+                  navigate("/wardrobe")
+                }}
+              />
             </div>
               // Close button: top-4 (16px from overlay top) already sits
               // 16px below the overlay's top edge. The overlay's top edge

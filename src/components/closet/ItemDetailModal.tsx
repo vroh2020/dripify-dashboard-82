@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Heart, Calendar, Tag, Palette } from 'lucide-react';
+import { Calendar, Check, ChevronDown, Heart, Loader2, Palette, Tag, X } from 'lucide-react';
 import { CachedImage } from '@/components/ui/CachedImage';
 
 interface ClosetItem {
@@ -16,19 +17,81 @@ interface ClosetItem {
   favorite?: boolean;
 }
 
+/**
+ * Categories the user can set on an item. Mirrors the broader set
+ * exposed by `AddClosetItemModal` (8 entries) — keeping both in
+ * lockstep means outfits saved as 'outerwear' / 'dresses' / 'bags' /
+ * 'jewelry' through the manual flow stay reachable from the inline
+ * picker. Reads are non-canonical: the row may also carry 'pending'
+ * from the auto-classify flows; in that case the picker reflects the
+ * stored value but shows only the 8 options the schema understands.
+ */
+const CATEGORY_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'tops', label: 'Tops' },
+  { value: 'bottoms', label: 'Bottoms' },
+  { value: 'dresses', label: 'Dresses' },
+  { value: 'outerwear', label: 'Outerwear' },
+  { value: 'shoes', label: 'Shoes' },
+  { value: 'accessories', label: 'Accessories' },
+  { value: 'bags', label: 'Bags' },
+  { value: 'jewelry', label: 'Jewelry' },
+];
+
 interface ItemDetailModalProps {
   item: ClosetItem | null;
   isOpen: boolean;
   onClose: () => void;
   onToggleFavorite: (itemId: string) => void;
+  /**
+   * Manual category override. Called when the user picks a different
+   * category from the inline picker. Parent (ClosetView) issues the
+   * UPDATE then patches local state via useClosetData.updateItem. The
+   * picker mirrors the same instant-save pattern as the favorite
+   * toggle — no separate "Save" button. Cheaper mode of feedback than
+   * waiting for a full refetch.
+   */
+  onUpdateCategory?: (itemId: string, newCategory: string) => Promise<void> | void;
 }
 
 export default function ItemDetailModal({
   item,
   isOpen,
   onClose,
-  onToggleFavorite
+  onToggleFavorite,
+  onUpdateCategory,
 }: ItemDetailModalProps) {
+  // Tracks the in-flight save per item id so the picker shows a tiny
+  // spinner even when the global aiOffline state isn't relevant. Cleared
+  // optimistically; the parent simply re-renders with the patched item.
+  const [savingCategoryFor, setSavingCategoryFor] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Reviewer caught: without this reset, dismiss-then-reopen-with-
+  // different-item would leave the dropdown showing for the wrong
+  // item. AnimatePresence keeps the modal mounted during exit, so
+  // React state survives the close/open cycle.
+  useEffect(() => {
+    if (!isOpen) setPickerOpen(false);
+  }, [isOpen]);
+  useEffect(() => {
+    setPickerOpen(false);
+  }, [item?.id]);
+
+  const handlePickCategory = async (newCategory: string) => {
+    if (!item || !onUpdateCategory) return;
+    if (newCategory === item.category) {
+      setPickerOpen(false);
+      return;
+    }
+    setSavingCategoryFor(item.id);
+    setPickerOpen(false);
+    try {
+      await Promise.resolve(onUpdateCategory(item.id, newCategory));
+    } finally {
+      setSavingCategoryFor(null);
+    }
+  };
+
   if (!item) return null;
 
   return (
@@ -106,15 +169,76 @@ export default function ItemDetailModal({
 
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-4">
-                {/* Category */}
+                {/* Category — inline picker. Tap to open a small menu,
+                   pick a value, fires onUpdateCategory. The parent
+                   issues the DB UPDATE + local patch so the modal
+                   can close the picker immediately. Saves automatically
+                   (no "Save" button) to keep the interaction denser. */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Tag className="w-4 h-4" />
                     <span>Category</span>
                   </div>
-                  <p className="font-medium text-gray-900 capitalize">
-                    {item.category}
-                  </p>
+                  {onUpdateCategory ? (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setPickerOpen((v) => !v)}
+                        disabled={savingCategoryFor === item.id}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-left text-sm font-medium text-gray-900 capitalize hover:border-gray-400 transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                        aria-haspopup="listbox"
+                        aria-expanded={pickerOpen}
+                      >
+                        <span className="flex items-center gap-2">
+                          {savingCategoryFor === item.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
+                          ) : null}
+                          {item.category || 'pending'}
+                        </span>
+                        <ChevronDown
+                          className={`w-4 h-4 text-gray-500 transition-transform ${pickerOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      <AnimatePresence>
+                        {pickerOpen && (
+                          <motion.ul
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.15 }}
+                            role="listbox"
+                            className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+                          >
+                            {CATEGORY_OPTIONS.map((opt) => {
+                              const selected = opt.value === item.category;
+                              return (
+                                <li
+                                  key={opt.value}
+                                  role="option"
+                                  aria-selected={selected}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePickCategory(opt.value)}
+                                    className={`w-full text-left px-3 py-2 text-sm capitalize hover:bg-gray-50 flex items-center justify-between ${selected ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+                                  >
+                                    {opt.label}
+                                    {selected ? (
+                                      <Check className="w-4 h-4 text-gray-900" />
+                                    ) : null}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </motion.ul>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <p className="font-medium text-gray-900 capitalize">
+                      {item.category}
+                    </p>
+                  )}
                 </div>
 
                 {/* Color */}

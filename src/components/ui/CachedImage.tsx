@@ -33,6 +33,7 @@ import { BlurhashCanvas } from './BlurhashCanvas';
 import {
   getResizedImage,
   getSrcSet,
+  isSupabaseStorageUrl,
   type ResizeOptions,
 } from '@/lib/image';
 import { cn } from '@/lib/utils';
@@ -91,7 +92,14 @@ export const CachedImage = React.forwardRef<HTMLImageElement, CachedImageProps>(
     // selectedSource is what the <img> actually loads: either the
     // capacitor://… file URL pulled from the cache, or the (WebP)
     // network URL derived from `src`.
-    const [selectedSource, setSelectedSource] = React.useState<string | null>(null);
+    //
+    // Seed with src immediately so the <img> renders on first paint
+    // instead of waiting for the async useEffect. On web the async
+    // path just resolves to the same `src` anyway; on native the
+    // useEffect may swap in a capacitor:// cached URI moments later.
+    const [selectedSource, setSelectedSource] = React.useState<string | null>(
+      () => (src && !isSupabaseStorageUrl(src) ? src : null),
+    );
     const [didError, setDidError] = React.useState(false);
     const lastSrcRef = React.useRef<string | null | undefined>(src);
 

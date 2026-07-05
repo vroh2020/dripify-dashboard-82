@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Bundled output artifacts (prefixed with _bundle_)
+/_bundle_*.js
+
+# Supabase CLI local cache + linked-project metadata
+/supabase/.temp/
+
+# Ad-hoc test directories
+/.curl-tests/
+/.serper-tests/
+/.serper-tests*

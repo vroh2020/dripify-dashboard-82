@@ -115,16 +115,25 @@ serve(async (req) => {
       imageLength: image.length
     });
 
-    // Get API key from environment
-    const nebiusApiKey = Deno.env.get('NEBIUS_API_KEY');
-    if (!nebiusApiKey) {
-      console.error('NEBIUS_API_KEY not found in environment');
+    // Get API key from environment — Hack Club AI's OpenAI-compatible
+    // proxy (https://ai.hackclub.com/proxy/v1) routes to Gemini /
+    // GPT-5 / Kimi / GLM at zero cost. The HACKCLUB_AI_KEY secret is
+    // already wired in Supabase; the previous Nebius path (which
+    // shut down) lived on NEBIUS_API_KEY.
+    const hackClubAiKey = Deno.env.get('HACKCLUB_AI_KEY');
+    if (!hackClubAiKey) {
+      console.error('HACKCLUB_AI_KEY not found in environment');
       throw new Error('Service configuration error - API key missing');
     }
 
     // Prepare API payload for Nebius
     const apiPayload = {
-      model: "Qwen/Qwen2.5-VL-72B-Instruct",
+      // google/gemini-2.5-flash — vision-capable, JSON structured output
+      // is reliable, and fast enough for the per-clip-classify loop.
+      // Note: the user-facing ask mentioned gemini-2.0-flash, but the
+      // Hack Club AI roster lists 2.5-flash directly (no 2.0 slug),
+      // so we use the available version. 2.5 is strictly newer.
+      model: "google/gemini-2.5-flash",
       temperature: 0.3, // Lower temperature for more consistent categorization
       messages: [
         {
@@ -150,16 +159,16 @@ serve(async (req) => {
       ]
     };
 
-    console.log('🚀 Calling Nebius API for closet item analysis...');
+    console.log('🚀 Calling Hack Club AI (Gemini 2.5 Flash) for closet item analysis...');
     console.log('📝 Request details:', {
       model: apiPayload.model,
       imageType: image.startsWith('data:') ? 'base64' : 'url',
-      hasApiKey: !!nebiusApiKey
+      hasApiKey: !!hackClubAiKey
     });
-    const response = await fetch('https://api.studio.nebius.com/v1/chat/completions', {
+    const response = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${nebiusApiKey}`,
+        'Authorization': `Bearer ${hackClubAiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(apiPayload),
@@ -168,7 +177,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Nebius API error:', response.status, errorText);
+      console.error('❌ Hack Club AI error:', response.status, errorText);
       console.error('Request payload:', JSON.stringify(apiPayload).substring(0, 500));
       throw new Error(`AI service error (${response.status}): ${errorText.substring(0, 200)}`);
     }

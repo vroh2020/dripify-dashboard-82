@@ -71,6 +71,13 @@ const AppRoutes = () => {
 
   const shouldShowDashboard = hasCompletedOnboarding;
 
+  console.log('🔍 [AppRoutes]', {
+    isAuthenticated,
+    authLoading,
+    onboardingCompletedFromCache,
+    shouldShowDashboard: hasCompletedOnboarding,
+  });
+
   return (
     <Routes>
       {/* Onboarding route - always accessible */}
