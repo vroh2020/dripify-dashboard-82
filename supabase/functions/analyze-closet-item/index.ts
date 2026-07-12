@@ -10,8 +10,33 @@ const corsHeaders = {
 function validateImageData(image: any): boolean {
   if (!image || typeof image !== 'string') return false;
   const base64Pattern = /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i;
-  const urlPattern = /^https?:\/\/.+\.(jpeg|jpg|png|webp|gif)(\?.*)?$/i;
+  const urlPattern = /^https?:\/\/.+\..+$/i;
   return base64Pattern.test(image) || urlPattern.test(image);
+}
+
+// Prepare image for Gemini: accepts either a base64 data URI or a plain URL.
+// Returns { data: rawBase64, mimeType } ready for inline_data.
+async function prepareImageForGemini(image: string): Promise<{ data: string; mimeType: string }> {
+  const base64DataUri = /^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/i;
+  const dataUriMatch = image.match(base64DataUri);
+  if (dataUriMatch) {
+    const ext = dataUriMatch[1].toLowerCase() === 'jpg' ? 'jpeg' : dataUriMatch[1].toLowerCase();
+    return { data: dataUriMatch[2], mimeType: `image/${ext}` };
+  }
+  // Plain URL — fetch, read as ArrayBuffer, convert to base64.
+  const imgResponse = await fetch(image);
+  if (!imgResponse.ok) {
+    throw new Error(`Failed to fetch image from URL: ${imgResponse.status}`);
+  }
+  const buffer = await imgResponse.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const rawBase64 = btoa(binary);
+  const mimeType = imgResponse.headers.get('content-type') || 'image/jpeg';
+  return { data: rawBase64, mimeType };
 }
 
 // Rate limiting
@@ -115,80 +140,81 @@ serve(async (req) => {
       imageLength: image.length
     });
 
-    // Get API key from environment — Hack Club AI's OpenAI-compatible
-    // proxy (https://ai.hackclub.com/proxy/v1) routes to Gemini /
-    // GPT-5 / Kimi / GLM at zero cost. The HACKCLUB_AI_KEY secret is
-    // already wired in Supabase; the previous Nebius path (which
-    // shut down) lived on NEBIUS_API_KEY.
-    const hackClubAiKey = Deno.env.get('HACKCLUB_AI_KEY');
-    if (!hackClubAiKey) {
-      console.error('HACKCLUB_AI_KEY not found in environment');
+    // Get Gemini API key from environment
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      console.error('GEMINI_API_KEY not found in environment');
       throw new Error('Service configuration error - API key missing');
     }
 
-    // Prepare API payload for Nebius
+    // Prepare image for Gemini (fetch URL → base64 if needed, strip data URI prefix)
+    console.log('🖼️ Preparing image for Gemini...');
+    const { data: imageBase64, mimeType } = await prepareImageForGemini(image);
+
+    // Build Gemini native payload — no separate system role, prepend prompt into text part
     const apiPayload = {
-      // google/gemini-2.5-flash — vision-capable, JSON structured output
-      // is reliable, and fast enough for the per-clip-classify loop.
-      // Note: the user-facing ask mentioned gemini-2.0-flash, but the
-      // Hack Club AI roster lists 2.5-flash directly (no 2.0 slug),
-      // so we use the available version. 2.5 is strictly newer.
-      model: "google/gemini-2.5-flash",
-      temperature: 0.3, // Lower temperature for more consistent categorization
-      messages: [
+      contents: [
         {
-          role: "system",
-          content: CLOSET_ANALYSIS_PROMPT
-        },
-        {
-          role: "user",
-          content: [
+          parts: [
             {
-              type: "text",
-              text: "Please analyze this clothing item and provide the structured information."
+              text: `${CLOSET_ANALYSIS_PROMPT}\n\nPlease analyze this clothing item and provide the structured information.`
             },
             {
-              type: "image_url",
-              image_url: {
-                url: image,
-                detail: "high"
+              inline_data: {
+                mime_type: mimeType,
+                data: imageBase64
               }
             }
           ]
         }
-      ]
+      ],
+      generationConfig: {
+        temperature: 0.3
+      }
     };
 
-    console.log('🚀 Calling Hack Club AI (Gemini 2.5 Flash) for closet item analysis...');
+    console.log('🚀 Calling Gemini API for closet item analysis...');
     console.log('📝 Request details:', {
-      model: apiPayload.model,
-      imageType: image.startsWith('data:') ? 'base64' : 'url',
-      hasApiKey: !!hackClubAiKey
+      model: 'gemini-flash-latest',
+      mimeType,
+      imageBase64Length: imageBase64.length
     });
-    const response = await fetch('https://ai.hackclub.com/proxy/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${hackClubAiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(apiPayload),
-      signal: AbortSignal.timeout(30000)
-    });
+
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
+      {
+        method: 'POST',
+        headers: {
+          'X-goog-api-key': geminiApiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apiPayload),
+        signal: AbortSignal.timeout(30000)
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Hack Club AI error:', response.status, errorText);
-      console.error('Request payload:', JSON.stringify(apiPayload).substring(0, 500));
-      throw new Error(`AI service error (${response.status}): ${errorText.substring(0, 200)}`);
+      console.error('❌ Gemini API error:', response.status, errorText);
+      let errorMessage = `AI service error (${response.status}): ${errorText.substring(0, 200)}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson?.error?.message) {
+          errorMessage = `AI service error (${response.status}): ${errorJson.error.message}`;
+        }
+      } catch {
+        // ignore parse errors on error body
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
       console.error('Invalid API response format:', data);
       throw new Error('Invalid response from AI service');
     }
 
-    const analysisContent = data.choices[0].message.content;
+    const analysisContent = data.candidates[0].content.parts[0].text;
     console.log('Raw analysis response:', analysisContent);
 
     // Parse JSON response
@@ -270,7 +296,7 @@ serve(async (req) => {
       error: errorMessage,
       details: 'Please try again in a moment. If the problem persists, contact support.',
       type: error?.name || 'UnknownError',
-      stack: process.env.DENO_ENV === 'development' ? error?.stack : undefined
+      stack: Deno.env.get('DENO_ENV') === 'development' ? error?.stack : undefined
     };
     
     return new Response(JSON.stringify(errorDetails), {

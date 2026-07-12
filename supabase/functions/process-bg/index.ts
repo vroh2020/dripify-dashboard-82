@@ -4,7 +4,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 // Free BiRefNet container on Hugging Face — matting pass is alpha-matted
 // for high-precision transparent PNG output.
 const FREE_HF_API = "https://ramvbdbdf-wardrobe-rembg-api.hf.space/api/remove"
-const HF_TIMEOUT_MS = 30_000
+// HF free serverless inference unloads idle models; cold-starts can take
+// longer than 30 s.  Bumped to 60 s with retry logic below.
+const HF_TIMEOUT_MS = 60_000
+const HF_MAX_RETRIES = 2
 const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"])
 
 const CORS_HEADERS = {
@@ -31,6 +34,11 @@ function deriveExtension(path: string): string {
   const m = path.toLowerCase().match(/\.([a-z0-9]+)$/)
   if (m && ALLOWED_EXTS.has(m[1])) return m[1] === "jpeg" ? "jpg" : m[1]
   return "jpg"
+}
+
+// Helper: sleep(delayMs) — wraps Promise + setTimeout for cleaner retry loops.
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 serve(async (req) => {
@@ -156,35 +164,109 @@ serve(async (req) => {
     })
 
     // -----------------------------------------------------------------
-    // 7. Fetch with a hard timeout. A hung HF container MUST NOT lock
-    //    the function — Supabase functions have a global concurrency
-    //    cap and a stuck fetch could leak slots until deploy restart.
+    // 7. Fetch with retry loop for HF cold starts. HF free serverless
+    //    inference unloads idle models; the first request after a period
+    //    of inactivity can take 30-60 s or return a 503 with
+    //    `{"error":"Model is currently loading","estimated_time":X}`.
+    //    We retry up to 2 times with delays informed by that body.
+    //    Both 503 responses AND AbortError (timeout) trigger a retry.
     // -----------------------------------------------------------------
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), HF_TIMEOUT_MS)
-    let rembgResponse: Response
-    try {
-      rembgResponse = await fetch(`${FREE_HF_API}?${queryParams}`, {
-        method: "POST",
-        body: formData,
-        signal: controller.signal,
-      })
-    } finally {
-      clearTimeout(timeoutId)
-    }
+    let response: Response | null = null
 
-    if (!rembgResponse.ok) {
-      const errorText = await rembgResponse.text()
-      // Log full upstream error server-side, return sanitized 502.
+    for (let attempt = 0; attempt <= HF_MAX_RETRIES; attempt++) {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), HF_TIMEOUT_MS)
+
+      try {
+        response = await fetch(`${FREE_HF_API}?${queryParams}`, {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        })
+      } catch (fetchErr) {
+        clearTimeout(timeoutId)
+        // Timeout (AbortError) — retry with a delay, unless retries exhausted
+        if (fetchErr instanceof DOMException && fetchErr.name === "AbortError") {
+          if (attempt < HF_MAX_RETRIES) {
+            console.log(
+              `[process-bg] cold start detected (timeout, attempt ${attempt + 1}/${HF_MAX_RETRIES}), retrying...`,
+            )
+            await sleep(3_000)
+            continue
+          }
+          // All retries exhausted on timeout — let outer catch handle it
+          throw fetchErr
+        }
+        // Non-timeout fetch error — rethrow to outer catch
+        throw fetchErr
+      }
+      clearTimeout(timeoutId)
+
+      // Success — break out of retry loop.
+      if (response.ok) break
+
+      // Non-ok response — check if it's a recoverable 503 (model loading).
+      if (response.status === 503) {
+        if (attempt < HF_MAX_RETRIES) {
+          const errorBody = await response.text().catch(() => "{}")
+          let delayMs = 3_000 // default 3 s
+          try {
+            const errorJson = JSON.parse(errorBody)
+            if (typeof errorJson?.estimated_time === "number") {
+              delayMs = Math.min(errorJson.estimated_time * 1000, 10_000)
+            }
+          } catch {
+            // ignore parse errors
+          }
+          console.log(
+            `[process-bg] cold start detected (attempt ${attempt + 1}/${HF_MAX_RETRIES}), retrying after ${delayMs}ms...`,
+          )
+          await sleep(delayMs)
+          continue
+        }
+        // All 503 retries exhausted — surface the distinct cold-start error.
+        console.error(
+          "[process-bg] all retries exhausted (503), HF still loading",
+        )
+        return jsonResponse(
+          {
+            error: "cold_start_timeout",
+            retrying: true,
+            message:
+              "Matting engine is warming up, please try again in a moment.",
+          },
+          504,
+        )
+      }
+
+      // Non-503 failure — do not retry, return error immediately.
+      const errorText = await response.text().catch(() => "unknown")
       console.error(
         "[process-bg] HF rejected",
-        rembgResponse.status,
+        response.status,
         errorText.slice(0, 500),
       )
       return jsonResponse({ error: "Matting engine rejected image" }, 502)
     }
 
-    const transparentBuffer = await rembgResponse.arrayBuffer()
+    // If all retries were exhausted without a successful response, surface
+    // a distinct error so the frontend can show a "waking up" message.
+    if (!response || !response.ok) {
+      console.error(
+        "[process-bg] all retries exhausted, HF still unavailable",
+      )
+      return jsonResponse(
+        {
+          error: "cold_start_timeout",
+          retrying: true,
+          message:
+            "Matting engine is warming up, please try again in a moment.",
+        },
+        504,
+      )
+    }
+
+    const transparentBuffer = await response.arrayBuffer()
 
     // -----------------------------------------------------------------
     // 8. Upload the cleaned PNG back to `clipped-closet-items`. The
@@ -216,7 +298,15 @@ serve(async (req) => {
     // slow" from "we crashed".
     if (err instanceof DOMException && err.name === "AbortError") {
       console.error("[process-bg] HF fetch timed out after", HF_TIMEOUT_MS, "ms")
-      return jsonResponse({ error: "Matting engine timed out" }, 504)
+      return jsonResponse(
+        {
+          error: "cold_start_timeout",
+          retrying: true,
+          message:
+            "Matting engine timed out, please try again in a moment.",
+        },
+        504,
+      )
     }
     // Everything else: log full error server-side, return sanitized 500.
     console.error("[process-bg] unhandled", err)

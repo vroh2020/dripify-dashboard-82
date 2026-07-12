@@ -20,6 +20,7 @@ import {
 import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
 import { NamePrompt } from "@/components/whering/NamePrompt"
+import { getOutfitDimensions } from "@/lib/outfit-standards"
 import type { ClosetItem, SavedOutfit } from "@/hooks/useClosetData"
 
 // ─── Types ───
@@ -99,16 +100,22 @@ function DraggableItem({
     { from: () => [pos.current.x, pos.current.y], filterTaps: true, enabled: !item.locked },
   )
 
+  const dim = getOutfitDimensions(item.closetItem.category)
+  const halfW = dim.width / 2
+  const halfH = dim.height / 2
+
   return (
     <div
       ref={ref}
       {...bind()}
       onClick={(e) => { e.stopPropagation(); onSelect(item.uid) }}
-      className="absolute left-1/2 top-1/2 -ml-[110px] -mt-[110px] touch-none select-none"
+      className="absolute left-1/2 top-1/2 touch-none select-none"
       style={{
         zIndex: item.z,
-        width: 220,
-        height: 220,
+        width: dim.width,
+        height: dim.height,
+        marginLeft: -halfW,
+        marginTop: -halfH,
         transform: `translate3d(${item.x}px, ${item.y}px, 0) scale(${item.scale}) rotate(${item.rotation}deg)`,
         willChange: "transform",
       }}
@@ -123,7 +130,7 @@ function DraggableItem({
           src={item.src || "/placeholder.svg"}
           alt={item.name}
           fill
-          sizes="220px"
+          sizes={`${dim.width}px`}
           draggable={false}
           className="pointer-events-none object-contain drop-shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
         />
