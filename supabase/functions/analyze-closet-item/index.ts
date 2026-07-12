@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,20 +40,168 @@ async function prepareImageForGemini(image: string): Promise<{ data: string; mim
   return { data: rawBase64, mimeType };
 }
 
+// ── Raw image data (for server-side cropping) ───────────────────────────
+
+async function getRawImageData(image: string): Promise<{
+  rawBytes: Uint8Array;
+  mimeType: string;
+  width: number;
+  height: number;
+}> {
+  const base64DataUri = /^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/i;
+  const dataUriMatch = image.match(base64DataUri);
+  if (dataUriMatch) {
+    const base64Data = dataUriMatch[2];
+    const binaryStr = atob(base64Data);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const ext = dataUriMatch[1].toLowerCase() === 'jpg' ? 'jpeg' : dataUriMatch[1].toLowerCase();
+    const mimeType = `image/${ext}`;
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: mimeType }));
+    const { width, height } = bitmap;
+    bitmap.close();
+    return { rawBytes: bytes, mimeType, width, height };
+  }
+  // Plain URL — fetch.
+  const response = await fetch(image);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image: ${response.status}`);
+  }
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const mimeType = response.headers.get('content-type') || 'image/jpeg';
+  const bitmap = await createImageBitmap(new Blob([bytes], { type: mimeType }));
+  const { width, height } = bitmap;
+  bitmap.close();
+  return { rawBytes: bytes, mimeType, width, height };
+}
+
+// ── Server-side crop ────────────────────────────────────────────────────
+// Uses Deno's built-in createImageBitmap + OffscreenCanvas.
+// Falls back to null on any failure (caller uses original image).
+
+async function cropImage(
+  rawBytes: Uint8Array,
+  mimeType: string,
+  bbox: { x: number; y: number; width: number; height: number },
+  imageWidth: number,
+  imageHeight: number,
+): Promise<Uint8Array | null> {
+  try {
+    // Clamp normalized values to [0, 1] and ensure positive dimensions
+    const x = Math.max(0, Math.min(1, bbox.x));
+    const y = Math.max(0, Math.min(1, bbox.y));
+    const w = Math.max(0.01, Math.min(1, bbox.width));
+    const h = Math.max(0.01, Math.min(1, bbox.height));
+
+    // Skip crop if bounding box is essentially the full image (no-op crop)
+    if (w > 0.98 && h > 0.98 && x < 0.02 && y < 0.02) return null;
+
+    // Convert normalized coords to pixel coords
+    const sx = Math.round(x * imageWidth);
+    const sy = Math.round(y * imageHeight);
+    const sw = Math.round(w * imageWidth);
+    const sh = Math.round(h * imageHeight);
+
+    // Decode full image
+    const bitmap = await createImageBitmap(new Blob([rawBytes], { type: mimeType }));
+    // Crop the region
+    const cropped = await createImageBitmap(bitmap, sx, sy, sw, sh);
+    bitmap.close();
+
+    // Re-encode as PNG on an OffscreenCanvas
+    const canvas = new OffscreenCanvas(sw, sh);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { cropped.close(); return null; }
+    ctx.drawImage(cropped, 0, 0);
+    cropped.close();
+
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    const buffer = await blob.arrayBuffer();
+    return new Uint8Array(buffer);
+  } catch (e) {
+    console.error('❌ Server-side crop failed:', e);
+    return null;
+  }
+}
+
+// ── Upload cropped image to Supabase Storage ────────────────────────────
+
+async function uploadCroppedImage(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  croppedBytes: Uint8Array,
+): Promise<string | null> {
+  try {
+    const fileName = `${crypto.randomUUID()}_cropped.png`
+    const storagePath = `uploads/${userId}/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('clipped-closet-items')
+      .upload(storagePath, croppedBytes, {
+        contentType: 'image/png',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      console.error('❌ Crop upload failed:', uploadError.message)
+      return null
+    }
+
+    const { data: pubData } = supabase.storage
+      .from('clipped-closet-items')
+      .getPublicUrl(storagePath)
+
+    return pubData.publicUrl
+  } catch (e) {
+    console.error('❌ Crop upload error:', e)
+    return null
+  }
+}
+
+// ── Validate + clamp bbox from Gemini ──────────────────────────────────
+
+interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function parseBoundingBox(raw: unknown): BoundingBox | null {
+  if (!raw || typeof raw !== 'object') return null
+  const b = raw as Record<string, unknown>
+  if (
+    typeof b.x !== 'number' ||
+    typeof b.y !== 'number' ||
+    typeof b.width !== 'number' ||
+    typeof b.height !== 'number'
+  ) return null
+
+  return {
+    x: Math.max(0, Math.min(1, b.x)),
+    y: Math.max(0, Math.min(1, b.y)),
+    width: Math.max(0.01, Math.min(1, b.width)),
+    height: Math.max(0.01, Math.min(1, b.height)),
+  }
+}
+
 // Rate limiting
 const clientRequests = new Map();
 
 function checkRateLimit(clientId: string, maxRequests = 10, windowMs = 60000) {
   const now = Date.now();
   const client = clientRequests.get(clientId) || { count: 0, resetTime: now + windowMs };
-  
+
   if (now > client.resetTime) {
     client.count = 1;
     client.resetTime = now + windowMs;
     clientRequests.set(clientId, client);
     return true;
   }
-  
+
   if (client.count >= maxRequests) {
     return false;
   }
@@ -68,6 +217,7 @@ Analyze this clothing item image and extract the following information:
 2. **Item Details**: Extract brand, color, style, and other attributes
 3. **Tags**: Generate relevant tags for organization and styling
 4. **Attributes**: Additional metadata like material, fit, occasion, etc.
+5. **Bounding Box**: If the image contains a person, multiple garments, or extra context beyond a single garment, return normalized coordinates (0-1) for a tight crop around ONLY the target garment. If the image is already a clean flat-lay with just the garment, return {x: 0, y: 0, width: 1, height: 1}.
 
 Respond in this EXACT JSON format:
 {
@@ -87,10 +237,16 @@ Respond in this EXACT JSON format:
     "heel_height": "for shoes",
     "closure": "buttons/zipper etc"
   },
+  "bounding_box": {
+    "x": 0.0,
+    "y": 0.0,
+    "width": 1.0,
+    "height": 1.0
+  },
   "confidence": 0.95
 }
 
-Be accurate and specific. If uncertain about any field, use null or provide your best estimate with lower confidence.`;
+Be accurate and specific. If uncertain about any field, use null or provide your best estimate with lower confidence. The bounding_box coordinates are normalized fractions of the image's total width/height.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -103,21 +259,21 @@ serve(async (req) => {
     if (!checkRateLimit(clientId)) {
       return new Response(
         JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-        { 
-          status: 429, 
+        {
+          status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
     const { image } = await req.json();
-    
+
     if (!image) {
       console.error('❌ No image provided in request');
       return new Response(
         JSON.stringify({ error: 'No image provided' }),
-        { 
-          status: 400, 
+        {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -127,8 +283,8 @@ serve(async (req) => {
       console.error('❌ Invalid image data format:', typeof image, image.substring(0, 50));
       return new Response(
         JSON.stringify({ error: 'Invalid image data. Please provide a valid image URL or base64 data.' }),
-        { 
-          status: 400, 
+        {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -193,6 +349,20 @@ serve(async (req) => {
       }
     );
 
+    // ── Handle Gemini 429 (daily quota / rate limit) gracefully ───────────
+    if (response.status === 429) {
+      const errorText = await response.text();
+      console.error('❌ Gemini 429 (quota exceeded):', errorText);
+      return new Response(
+        JSON.stringify({
+          error: 'rate_limited',
+          message: 'Classification is temporarily at capacity, please try again in a few minutes.',
+          retryable: true,
+        }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Gemini API error:', response.status, errorText);
@@ -218,7 +388,7 @@ serve(async (req) => {
     console.log('Raw analysis response:', analysisContent);
 
     // Parse JSON response
-    let analysisResult;
+    let analysisResult: Record<string, unknown>;
     try {
       // Extract JSON from response (in case there's extra text)
       const jsonMatch = analysisContent.match(/\{[\s\S]*\}/);
@@ -226,7 +396,7 @@ serve(async (req) => {
       analysisResult = JSON.parse(jsonString);
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
-      
+
       // Fallback: try to extract key information with regex
       analysisResult = {
         category: extractWithRegex(analysisContent, /category['":\s]*([^,}\n]+)/) || 'tops',
@@ -235,16 +405,17 @@ serve(async (req) => {
         color: extractWithRegex(analysisContent, /color['":\s]*([^,}\n]+)/) || null,
         suggestedTags: ['clothing', 'fashion'],
         attributes: {},
+        bounding_box: null,
         confidence: 0.5
       };
     }
 
     // Validate and clean the result - enforce 4 main categories only
     const validCategories = ['tops', 'bottoms', 'shoes', 'accessories'];
-    if (!validCategories.includes(analysisResult.category)) {
+    if (!validCategories.includes(analysisResult.category as string)) {
       // Smart fallback based on common clothing types
-      const categoryLower = (analysisResult.category || '').toLowerCase();
-      if (categoryLower.includes('dress') || 
+      const categoryLower = ((analysisResult.category as string) || '').toLowerCase();
+      if (categoryLower.includes('dress') ||
           categoryLower.includes('shirt') ||
           categoryLower.includes('blouse') ||
           categoryLower.includes('jacket') ||
@@ -274,11 +445,66 @@ serve(async (req) => {
     }
 
     // Limit tags to reasonable number
-    analysisResult.suggestedTags = analysisResult.suggestedTags.slice(0, 8);
+    analysisResult.suggestedTags = (analysisResult.suggestedTags as string[]).slice(0, 8);
+
+    // ── Server-side crop using Gemini's bounding_box ─────────────────────
+    // Runs AFTER category validation so the classification result is solid
+    // before we spend compute on pixel manipulation.
+    let croppedImageUrl: string | null = null;
+    const rawBbox = analysisResult.bounding_box;
+    const bbox = parseBoundingBox(rawBbox);
+
+    if (bbox) {
+      try {
+        console.log('📐 Gemini bounding box:', bbox);
+        const rawData = await getRawImageData(image);
+        const croppedBytes = await cropImage(
+          rawData.rawBytes,
+          rawData.mimeType,
+          bbox,
+          rawData.width,
+          rawData.height,
+        );
+
+        if (croppedBytes) {
+          const supabaseUrl = Deno.env.get('SUPABASE_URL');
+          const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+          if (supabaseUrl && supabaseKey) {
+            const authHeader = req.headers.get('authorization');
+            let userId = 'anonymous';
+            if (authHeader) {
+              const jwt = authHeader.replace(/^bearer\s+/i, '').trim();
+              if (jwt) {
+                const sb = createClient(supabaseUrl, supabaseKey);
+                const { data: userData } = await sb.auth.getUser(jwt);
+                if (userData?.user) userId = userData.user.id;
+              }
+            }
+            const sb = createClient(supabaseUrl, supabaseKey);
+            croppedImageUrl = await uploadCroppedImage(sb, userId, croppedBytes);
+            if (croppedImageUrl) {
+              console.log('✅ Cropped image uploaded:', croppedImageUrl);
+            }
+          } else {
+            console.warn('⚠️ SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set — skipping crop upload');
+          }
+        }
+      } catch (e) {
+        console.error('❌ Crop pipeline failed:', e);
+        // Fall through — uncropped image is still used
+      }
+    }
+
+    // Build response payload
+    const responsePayload: Record<string, unknown> = { ...analysisResult };
+    if (croppedImageUrl) {
+      responsePayload.croppedImageUrl = croppedImageUrl;
+    }
 
     console.log('Closet item analysis completed successfully');
-    
-    return new Response(JSON.stringify(analysisResult), {
+    if (croppedImageUrl) console.log('📦 Cropped image URL included in response');
+
+    return new Response(JSON.stringify(responsePayload), {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json'
@@ -289,7 +515,7 @@ serve(async (req) => {
     console.error('❌ Error in analyze-closet-item function:', error);
     console.error('Error stack:', error?.stack);
     console.error('Error name:', error?.name);
-    
+
     // More detailed error response for debugging
     const errorMessage = error?.message || 'Analysis service temporarily unavailable';
     const errorDetails = {
@@ -298,7 +524,7 @@ serve(async (req) => {
       type: error?.name || 'UnknownError',
       stack: Deno.env.get('DENO_ENV') === 'development' ? error?.stack : undefined
     };
-    
+
     return new Response(JSON.stringify(errorDetails), {
       status: 500,
       headers: {

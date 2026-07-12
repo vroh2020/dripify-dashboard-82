@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/lib/supabase-config"
 import { useUnifiedBackgroundRemoval } from "@/hooks/useUnifiedBackgroundRemoval"
 import { encodeBlurHashFromImageSource } from "@/lib/image"
+import { toast } from "@/hooks/use-toast"
 import type { ClosetItem } from "@/hooks/useClosetData"
 
 type ClipperItem = {
@@ -705,6 +706,23 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
           ),
         ])
         const aiPayload = (aiData as any)?.result ?? aiData
+
+        // Handle Gemini quota exhaustion gracefully — don't overwrite
+        // the pending category, the item stays usable but uncategorized.
+        if (aiPayload?.error === 'rate_limited') {
+          console.warn("AI classify rate-limited (Gemini daily quota), item left as pending")
+          toast({
+            title: "Still organizing",
+            description: "We'll finish classifying this item shortly. It's already in your closet.",
+            duration: 4000,
+          })
+          return
+        }
+
+        // If the function returned a cropped version of the image, update
+        // source_image_url to point at the cropped (garment-only) version.
+        const croppedUrl = aiPayload?.croppedImageUrl as string | undefined
+
         if (aiPayload && (aiPayload.title || aiPayload.category)) {
           const incomingTags: string[] = Array.isArray(aiPayload.tags)
             ? aiPayload.tags
@@ -722,6 +740,7 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
           await supabase
             .from("trendza_closet_items")
             .update({
+              ...(croppedUrl ? { source_image_url: croppedUrl } : {}),
               title: aiPayload.title ?? "Untitled",
               category: aiPayload.category ?? "pending",
               color: aiPayload.color ?? "unknown",
