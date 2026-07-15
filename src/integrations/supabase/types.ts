@@ -346,6 +346,108 @@ export type Database = {
         ]
       }
       // Add trendza_closet_items table
+      planner_outfits: {
+        Row: {
+          id: string
+          user_id: string
+          outfit_id: string | null
+          planned_date: string
+          notes: string | null
+          outfit_data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          outfit_id?: string | null
+          planned_date: string
+          notes?: string | null
+          outfit_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          outfit_id?: string | null
+          planned_date?: string
+          notes?: string | null
+          outfit_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planner_outfits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planner_outfits_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "trendza_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planner_generated_images: {
+        Row: {
+          id: string
+          user_id: string
+          outfit_id: string
+          planned_date: string
+          image_url: string | null
+          status: string
+          error_message: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          outfit_id: string
+          planned_date: string
+          image_url?: string | null
+          status?: string
+          error_message?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          outfit_id?: string
+          planned_date?: string
+          image_url?: string | null
+          status?: string
+          error_message?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planner_generated_images_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "planner_generated_images_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "trendza_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trendza_closet_items: {
         Row: {
           id: string

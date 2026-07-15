@@ -2,14 +2,15 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScanView } from "@/components/ScanView";
 import ClosetView from "@/components/closet/ClosetView";
 import { FitsView } from "@/components/fits/FitsView";
+import { PlannerView } from "@/components/planner/PlannerView";
 import {
   Shirt,
   LayoutGrid,
   Layers,
   Bookmark,
+  CalendarDays,
   Plus,
   Upload,
-  CalendarDays,
   Scissors,
   Camera,
   X,
@@ -233,10 +234,10 @@ const Index = () => {
     if (action === "camera") setUploadOpen(true);
     if (action === "clip") setClipperOpen(true);
     if (action === "create") navigate("/canvas");
-    if (action === "plan") navigate("/dress-me");
+    if (action === "plan") navigate("/planner");
   };
 
-  // Tab icons + labels for the 4 main tabs
+  // Tab icons + labels for the 5 main tabs
   const tabs: {
     key: string;
     label: string;
@@ -245,8 +246,9 @@ const Index = () => {
   }[] = [
     { key: "dress-me", label: "Dress Me", icon: Shirt, side: "left" },
     { key: "wardrobe", label: "Wardrobe", icon: LayoutGrid, side: "left" },
-    { key: "canvas", label: "Canvas", icon: Layers, side: "right" },
+    { key: "planner", label: "Planner", icon: CalendarDays, side: "right" },
     { key: "fits", label: "Saved", icon: Bookmark, side: "right" },
+    { key: "canvas", label: "Canvas", icon: Layers, side: "right" },
   ];
 
   const renderContent = () => {
@@ -292,6 +294,13 @@ const Index = () => {
               />
             </div>
           );
+        case "planner":
+          return (
+            <div className="h-full overflow-hidden">
+              <PlannerView outfits={outfits} />
+            </div>
+          );
+
         case "fits":
           return (
             <FitsView
@@ -426,7 +435,7 @@ const Index = () => {
                 <FabButton onClick={() => setSheetOpen(true)} />
               </div>
 
-              {/* Right tabs (Canvas, Saved) */}
+              {/* Right tabs (Planner, Saved, Canvas) */}
               <div className="flex flex-1 justify-around">
                 {tabs
                   .filter((t) => t.side === "right")

@@ -217,6 +217,24 @@ const AppRoutes = () => {
             }
           />
 
+          {/* Planner tab — outfit calendar with AI try-on photos */}
+          <Route
+            path="/planner"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/planner/:rest/*"
+            element={
+              <Suspense fallback={null}>
+                <Index />
+              </Suspense>
+            }
+          />
+
           <Route
             path="/profile"
             element={
