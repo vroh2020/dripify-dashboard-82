@@ -128,7 +128,18 @@ export function WeekStrip({
             {hasPlanned && (
               <motion.div
                 initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
+                animate={{
+                  scale: 1,
+                  y: genStatus === 'generating' ? [0, -2, 0] : 0,
+                }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 400,
+                  damping: 20,
+                  y: genStatus === 'generating'
+                    ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' }
+                    : undefined,
+                }}
                 className={cn(
                   'absolute -bottom-1 h-1.5 w-1.5 rounded-full',
                   genStatus === 'pending' || genStatus === 'generating'

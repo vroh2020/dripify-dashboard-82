@@ -34,3 +34,7 @@ dist-ssr
 /.curl-tests/
 /.serper-tests/
 /.serper-tests*
+
+# Windows reserved device names (cannot be git-added)
+nul
+NUL

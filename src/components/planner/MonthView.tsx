@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 const DAY_ABBREVIATIONS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -70,7 +71,12 @@ export function MonthView({
   return (
     <div className="px-4 pb-4">
       {/* Day of week headers */}
-      <div className="grid grid-cols-7 gap-0 mb-2">
+      <motion.div
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        key={`${displayMonth.getFullYear()}-${displayMonth.getMonth()}-headers`}
+        className="grid grid-cols-7 gap-0 mb-2"
+      >
         {DAY_ABBREVIATIONS.map((abbr) => (
           <div
             key={abbr}
@@ -79,10 +85,16 @@ export function MonthView({
             {abbr}
           </div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-0">
+      <motion.div
+        key={`${displayMonth.getFullYear()}-${displayMonth.getMonth()}-grid`}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="grid grid-cols-7 gap-0"
+      >
         {calendarCells.map(({ date, key }) => {
           if (!date) {
             return (
@@ -117,7 +129,20 @@ export function MonthView({
               <span>{day}</span>
               {/* Planned indicator dot */}
               {hasPlanned && (
-                <span
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{
+                    scale: 1,
+                    y: genStatus === 'generating' ? [0, -1.5, 0] : 0,
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 400,
+                    damping: 20,
+                    y: genStatus === 'generating'
+                      ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' }
+                      : undefined,
+                  }}
                   className={cn(
                     'absolute -bottom-0.5 h-1.5 w-1.5 rounded-full',
                     genStatus === 'pending' || genStatus === 'generating'
@@ -133,7 +158,7 @@ export function MonthView({
             </button>
           );
         })}
-      </div>
+      </motion.div>
     </div>
   );
 }

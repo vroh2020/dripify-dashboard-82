@@ -1,20 +1,22 @@
 """
-Test the deployed CatVTON Modal endpoint (spawn + poll pattern).
+Test the deployed Qwen-Image-Edit GGUF Modal endpoint (synchronous).
 
 Pattern:
-  1. POST /submit_tryon    → {"call_id": "..."}
-  2. GET  /get_tryon_result?call_id=<id>  → 202 {"status": "processing"} or 200 {"status": "complete", "image_base64": "..."}
+  POST /tryon → raw PNG bytes (image/png)
+  GET  /health → {"status": "ok"}
 """
 
-import time
+import io
 import sys
-
+import time
 import requests
+from PIL import Image
 
-SUBMIT_URL = "https://ramvelpuri90--trendza-tryon-submit-tryon.modal.run"
-POLL_URL = "https://ramvelpuri90--trendza-tryon-get-tryon-result.modal.run"
+# Replace with your deployed Modal endpoint URL
+TRYON_URL = "https://ramvelpuri90--trendza-tryon-web.modal.run/tryon"
+HEALTH_URL = "https://ramvelpuri90--trendza-tryon-web.modal.run/health"
 
-# Sample images from the CatVTON repo
+# Sample images
 PERSON_URL = (
     "https://raw.githubusercontent.com/Zheng-Chong/CatVTON/main/"
     "resource/demo/example/person/men/Simon_1.png"
@@ -25,116 +27,97 @@ GARMENT_URL = (
 )
 
 print("=" * 60)
-print("CatVTON Modal Endpoint Test (Spawn + Poll)")
+print("Qwen GGUF Modal Endpoint Test (Synchronous)")
 print("=" * 60)
-print(f"Submit URL: {SUBMIT_URL}")
-print(f"Poll URL:   {POLL_URL}")
-print(f"Person:     {PERSON_URL}")
-print(f"Garment:    {GARMENT_URL}")
+print(f"Endpoint: {TRYON_URL}")
+print(f"Person:   {PERSON_URL}")
+print(f"Garment:  {GARMENT_URL}")
 print()
 
 session = requests.Session()
 
-# ----- Step 1: Submit the job -----
-print("Step 1: Submitting try-on job...")
+# ----- Step 1: Health check -----
+print("Step 1: Health check...")
+try:
+    health_resp = session.get(HEALTH_URL, timeout=30)
+    print(f"  Status: {health_resp.status_code}")
+    print(f"  Body:   {health_resp.text[:200]}")
+except requests.exceptions.RequestException as e:
+    print(f"  FATAL: Health check failed: {e}")
+    sys.exit(1)
+print()
+
+if health_resp.status_code != 200:
+    print("  FAIL: Health check failed - aborting.")
+    sys.exit(1)
+
+# ----- Step 2: Submit try-on -----
+print("Step 2: Submitting try-on (synchronous)...")
 start = time.time()
 
 try:
-    submit_resp = session.post(
-        SUBMIT_URL,
+    resp = session.post(
+        TRYON_URL,
         json={
             "person_image_url": PERSON_URL,
-            "garment_image_url": GARMENT_URL,
-            "garment_type": "upper",
+            "garment_image_urls": [GARMENT_URL],
+            "is_woman": False,
         },
-        timeout=30,
+        timeout=300,  # 5 min timeout for cold start
     )
 except requests.exceptions.RequestException as e:
-    print(f"  FATAL: Submit request failed: {e}")
+    print(f"  FATAL: Request failed: {e}")
     sys.exit(1)
 
 elapsed = time.time() - start
-print(f"  Status: {submit_resp.status_code}")
+print(f"  Status: {resp.status_code}")
 print(f"  Time:   {elapsed:.1f}s")
-print(f"  Body:   {submit_resp.text[:300]}")
-print()
 
-if submit_resp.status_code != 200:
-    print("  FAIL: Submit failed - aborting.")
+if resp.status_code != 200:
+    print(f"  FAIL: Endpoint returned {resp.status_code}")
+    print(f"  Body: {resp.text[:500]}")
     sys.exit(1)
 
-try:
-    submit_data = submit_resp.json()
-except Exception as e:
-    print(f"  FAIL: Could not parse submit response JSON: {e}")
+# ----- Step 3: Verify response is a valid PNG -----
+print()
+print("Step 3: Verifying response...")
+
+content_type = resp.headers.get("content-type", "")
+print(f"  Content-Type: {content_type}")
+
+img_bytes = resp.content
+print(f"  Bytes received: {len(img_bytes)} ({len(img_bytes)/1024:.1f} KB)")
+
+if len(img_bytes) < 1000:
+    print("  FAIL: Response too small - likely an error")
     sys.exit(1)
 
-call_id = submit_data.get("call_id")
-if not call_id:
-    print(f"  FAIL: No call_id in response: {submit_data}")
-    sys.exit(1)
-
-print(f"  OK! Got call_id: {call_id}")
-print()
-
-# ----- Step 2: Poll for results -----
-print("Step 2: Polling for results...")
-print()
-
-max_attempts = 180  # 180 × 3s = 9 minutes max
-poll_start = time.time()
-
-for attempt in range(1, max_attempts + 1):
-    try:
-        poll_resp = session.get(
-            POLL_URL,
-            params={"call_id": call_id},
-            timeout=30,
-        )
-    except requests.exceptions.RequestException as e:
-        print(f"  Poll #{attempt}: connection error - {e}")
-        time.sleep(3)
-        continue
-
-    poll_elapsed = time.time() - poll_start
-    print(f"  Poll #{attempt}: status={poll_resp.status_code}, elapsed={poll_elapsed:.0f}s", end="")
-
-    if poll_resp.status_code == 200:
-        print("  <<< DONE")
-        print()
-        try:
-            data = poll_resp.json()
-        except Exception as e:
-            print(f"  ❌ Could not parse poll response JSON: {e}")
-            sys.exit(1)
-
-        if data.get("status") == "complete" and "image_base64" in data:
-            b64_len = len(data["image_base64"])
-            print(f"  SUCCESS! image_base64 received ({b64_len} chars)")
-            print(f"  First 80 chars: {data['image_base64'][:80]}...")
-        elif "error" in data:
-            print(f"  ERROR: {data['error']}")
-            tb = data.get("traceback", "")
-            if tb:
-                lines = tb.strip().split("\n")
-                print(f"  Traceback (last 5 lines):")
-                for line in lines[-5:]:
-                    print(f"    {line}")
-        else:
-            print(f"  Unknown response: {data}")
-        break
-
-    elif poll_resp.status_code == 202:
-        print("  ...processing")
-        time.sleep(3)
-        continue
-
-    else:
-        print(f"  ...unexpected")
-        print(f"  Body: {poll_resp.text[:300]}")
-        break
+# Check PNG header
+if img_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+    print("  ✅ Valid PNG header")
 else:
-    print(f"\n  Polling timed out after {max_attempts} attempts")
+    print(f"  ⚠️  Unknown format (first bytes: {img_bytes[:8].hex()})")
 
-total_time = time.time() - start
-print(f"\nTotal test time: {total_time:.0f}s")
+# Try to open with PIL
+try:
+    img = Image.open(io.BytesIO(img_bytes))
+    print(f"  Dimensions: {img.size[0]}x{img.size[1]} pixels")
+    print(f"  Mode: {img.mode}")
+
+    # Check for color variation (not all one color)
+    extrema = img.getextrema()
+    has_variation = any(mn != mx for mn, mx in extrema)
+    if has_variation:
+        print("  ✅ Has color variation (not a solid color)")
+    else:
+        print("  ⚠️  Appears to be a solid color!")
+except Exception as e:
+    print(f"  ⚠️  Could not analyze image: {e}")
+
+# Save to file
+output_path = "modal_app/tryon_result.png"
+with open(output_path, "wb") as f:
+    f.write(img_bytes)
+print(f"\n  ✅ Saved to: {output_path}")
+print(f"\nTotal time: {elapsed:.1f}s")
+print("Done! Check the image visually.")

@@ -1,0 +1,186 @@
+=== STDOUT ===
+
+[1A
+Loading checkpoint shards:  20%|██        | 1/5 [00:18<01:14, 18.66s/it]
+[1A
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]
+[1A
+Fetching 25 files:  52%|█████▏    | 13/25 [01:02<01:13,  6.11s/it]
+[1A
+Fetching 25 files: 100%|██████████| 25/25 [01:02<00:00,  2.52s/it]
+
+[1A
+Loading pipeline components...:   0%|          | 0/6 [00:00<?, ?it/s]
+
+[1A
+[1A
+Loading weights:   0%|          | 0/729 [00:00<?, ?it/s][A
+
+[1A
+[1A
+Loading weights:  18%|█▊        | 133/729 [00:00<00:00, 1308.51it/s][A
+
+[1A
+[1A
+Loading weights:  45%|████▍     | 325/729 [00:00<00:00, 1664.76it/s][A
+
+[1A
+Loading weights:  70%|███████   | 513/729 [00:00<00:00, 1762.61it/s][A
+Loading weights: 100%|██████████| 729/729 [00:00<00:00, 2341.73it/s]
+
+[1A
+Loading pipeline components...:  17%|█▋        | 1/6 [00:00<00:03,  1.67it/s]
+Loading pipeline components...:  50%|█████     | 3/6 [00:01<00:01,  2.38it/s]
+Traceback (most recent call last):
+  File "/pkg/modal/_runtime/task_lifecycle_manager.py", line 84, in handle_task_lifecycle_exception
+    yield
+  File "/pkg/modal/_runtime/user_code_imports.py", line 63, in call_lifecycle_functions
+    res = func(*args)
+  File "/root/tryon_pipeline.py", line 74, in load
+    self.pipe = QwenImageEditPlusPipeline.from_pretrained(
+  File "/usr/local/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py", line 88, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/diffusers/pipelines/pipeline_utils.py", line 1074, in from_pretrained
+    loaded_sub_model = load_sub_model(
+  File "/usr/local/lib/python3.10/site-packages/diffusers/pipelines/pipeline_loading_utils.py", line 925, in load_sub_model
+    loaded_sub_model = load_method(os.path.join(cached_folder, name), **loading_kwargs)
+  File "/usr/local/lib/python3.10/site-packages/transformers/processing_utils.py", line 1722, in from_pretrained
+    args = cls._get_arguments_from_pretrained(pretrained_model_name_or_path, processor_dict, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/transformers/processing_utils.py", line 1862, in _get_arguments_from_pretrained
+    sub_processor = auto_processor_class.from_pretrained(
+  File "/usr/local/lib/python3.10/site-packages/transformers/models/auto/video_processing_auto.py", line 379, in from_pretrained
+    return video_processor_class.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/transformers/utils/import_utils.py", line 2170, in __getattribute__
+    requires_backends(cls, cls._backends)
+  File "/usr/local/lib/python3.10/site-packages/transformers/utils/import_utils.py", line 2156, in requires_backends
+    raise ImportError("".join(failed))
+ImportError: 
+Qwen2VLVideoProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the
+installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
+Please note that you may need to restart your runtime after installation.
+
+
+Runner failed with exception: ImportError('\nQwen2VLVideoProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the\ninstallation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.\nPlease note that you may need to restart your runtime after installation.\n')
+Loading Qwen-Image-Edit-2509 transformer in 4-bit (nf4)...
+/usr/local/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py:205: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1A
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]
+[1A
+Loading checkpoint shards:  60%|██████    | 3/5 [00:57<00:38, 19.11s/it]
+Loading Qwen-Image-Edit-2509 transformer in 4-bit (nf4)...
+[1A
+Loading checkpoint shards:  40%|████      | 2/5 [00:37<00:56, 18.87s/it]/usr/local/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py:205: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1A
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]
+[1A
+Fetching 25 files:  52%|█████▏    | 13/25 [01:04<01:16,  6.41s/it]
+[1A
+Fetching 25 files:  56%|█████▌    | 14/25 [01:04<01:01,  5.63s/it]
+[1A
+Fetching 25 files:  64%|██████▍   | 16/25 [01:04<00:37,  4.17s/it]
+[1A
+Fetching 25 files: 100%|██████████| 25/25 [01:04<00:00,  2.59s/it]
+
+[1A
+Loading pipeline components...:   0%|          | 0/6 [00:00<?, ?it/s]
+
+[1A
+[1A
+Loading weights:   0%|          | 0/729 [00:00<?, ?it/s][A
+
+[1A
+[1A
+Loading weights:  27%|██▋       | 195/729 [00:00<00:00, 1945.10it/s][A
+
+[1A
+[1A
+Loading weights:  53%|█████▎    | 390/729 [00:00<00:00, 1825.67it/s][A
+[1A
+Loading weights: 100%|██████████| 729/729 [00:00<00:00, 2530.17it/s]
+
+[1A
+Loading pipeline components...:  17%|█▋        | 1/6 [00:00<00:02,  1.77it/s]
+Loading pipeline components...:  50%|█████     | 3/6 [00:01<00:01,  2.41it/s]
+Traceback (most recent call last):
+  File "/pkg/modal/_runtime/task_lifecycle_manager.py", line 84, in handle_task_lifecycle_exception
+    yield
+  File "/pkg/modal/_runtime/user_code_imports.py", line 63, in call_lifecycle_functions
+    res = func(*args)
+  File "/root/tryon_pipeline.py", line 74, in load
+    self.pipe = QwenImageEditPlusPipeline.from_pretrained(
+  File "/usr/local/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py", line 88, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/diffusers/pipelines/pipeline_utils.py", line 1074, in from_pretrained
+    loaded_sub_model = load_sub_model(
+  File "/usr/local/lib/python3.10/site-packages/diffusers/pipelines/pipeline_loading_utils.py", line 925, in load_sub_model
+    loaded_sub_model = load_method(os.path.join(cached_folder, name), **loading_kwargs)
+  File "/usr/local/lib/python3.10/site-packages/transformers/processing_utils.py", line 1722, in from_pretrained
+    args = cls._get_arguments_from_pretrained(pretrained_model_name_or_path, processor_dict, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/transformers/processing_utils.py", line 1862, in _get_arguments_from_pretrained
+    sub_processor = auto_processor_class.from_pretrained(
+  File "/usr/local/lib/python3.10/site-packages/transformers/models/auto/video_processing_auto.py", line 379, in from_pretrained
+    return video_processor_class.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
+  File "/usr/local/lib/python3.10/site-packages/transformers/utils/import_utils.py", line 2170, in __getattribute__
+    requires_backends(cls, cls._backends)
+  File "/usr/local/lib/python3.10/site-packages/transformers/utils/import_utils.py", line 2156, in requires_backends
+    raise ImportError("".join(failed))
+ImportError: 
+Qwen2VLVideoProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the
+installation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.
+Please note that you may need to restart your runtime after installation.
+
+
+Runner failed with exception: ImportError('\nQwen2VLVideoProcessor requires the Torchvision library but it was not found in your environment. Check out the instructions on the\ninstallation page: https://pytorch.org/get-started/locally/ and follow the ones that match your environment.\nPlease note that you may need to restart your runtime after installation.\n')
+
+[1A
+Loading checkpoint shards:  80%|████████  | 4/5 [01:16<00:19, 19.07s/it]
+[1A
+Loading checkpoint shards: 100%|██████████| 5/5 [01:17<00:00, 12.86s/it]
+[1A
+Loading checkpoint shards: 100%|██████████| 5/5 [01:17<00:00, 15.60s/it]
+✅ 4-bit transformer loaded
+Assembling pipeline (text encoder + VAE at bf16)...
+
+[1A
+Fetching 25 files:   0%|          | 0/25 [00:00<?, ?it/s]
+[1A
+Fetching 25 files:   8%|▊         | 2/25 [00:00<00:02, 10.21it/s]
+[1A
+Fetching 25 files:  28%|██▊       | 7/25 [00:00<00:01, 14.09it/s]
+Loading Qwen-Image-Edit-2509 transformer in 4-bit (nf4)...
+[1A
+Loading checkpoint shards:  60%|██████    | 3/5 [00:55<00:37, 18.61s/it]/usr/local/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py:205: UserWarning: The `local_dir_use_symlinks` argument is deprecated and ignored in `hf_hub_download`. Downloading to a local directory does not use symlinks anymore.
+  warnings.warn(
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1A
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]
+[1A
+Fetching 25 files:  28%|██▊       | 7/25 [00:11<00:01, 14.09it/s]
+[1A
+Loading checkpoint shards:  80%|████████  | 4/5 [01:14<00:18, 18.43s/it]
+[1A
+Loading checkpoint shards: 100%|██████████| 5/5 [01:16<00:00, 12.56s/it]
+[1A
+Loading checkpoint shards: 100%|██████████| 5/5 [01:16<00:00, 15.25s/it]
+✅ 4-bit transformer loaded
+Assembling pipeline (text encoder + VAE at bf16)...
+
+[1A
+Fetching 25 files:   0%|          | 0/25 [00:00<?, ?it/s]
+[1A
+Fetching 25 files:  12%|█▏        | 3/25 [00:00<00:01, 20.93it/s]
+[1A
+Fetching 25 files:  28%|██▊       | 7/25 [00:00<00:01, 13.58it/s]
+[1A
+Fetching 25 files:  28%|██▊       | 7/25 [00:12<00:01, 13.58it/s]
+
+=== STDERR ===
+
+=== EXIT CODE: 0 ===

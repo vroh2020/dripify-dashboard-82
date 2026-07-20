@@ -1,0 +1,8 @@
+﻿{
+  "person_image_url": "https://jjqwhxamjxsiotnhhqco.supabase.co/storage/v1/object/public/clipped-closet-items/uploads/b6ccbf15-bdb0-4aa1-a2f5-c5412e508b79/base_photo_1784026794592.jpg",
+  "garment_image_urls": [
+    "https://jjqwhxamjxsiotnhhqco.supabase.co/storage/v1/object/public/clipped-closet-items/seed-wardrobe/m-top-7.png",
+    "https://jjqwhxamjxsiotnhhqco.supabase.co/storage/v1/object/public/clipped-closet-items/seed-wardrobe/m-bottom-1.png"
+  ],
+  "is_woman": false
+}

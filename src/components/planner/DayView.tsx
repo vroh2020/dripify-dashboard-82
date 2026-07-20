@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, CalendarPlus, Loader2, AlertCircle, CheckCircle2, Camera, Pencil } from 'lucide-react';
+import { Sparkles, CalendarPlus, Loader2, AlertCircle, CheckCircle2, Camera, Pencil, Clock, ImageIcon, ChevronRight, Zap } from 'lucide-react';
 
 interface DayViewProps {
   date: Date;
@@ -27,14 +28,85 @@ interface DayViewProps {
   onUploadPhoto?: () => void;
 }
 
-/**
- * Determine which keyed view state to render.
- * Returns a single canonical state so AnimatePresence never sees
- * competing children from independent conditional branches.
- */
+// ── Generation progress stages ──────────────────────────────────────
+
+type GenerationStage = 'preparing' | 'ai-working' | 'finalizing';
+
+interface StageInfo {
+  label: string;
+  description: string;
+  icon: typeof Zap;
+  minPercent: number;
+  maxPercent: number;
+}
+
+const STAGES: Record<GenerationStage, StageInfo> = {
+  preparing: {
+    label: 'Preparing your images',
+    description: 'Processing photos for the AI',
+    icon: ImageIcon,
+    minPercent: 5,
+    maxPercent: 20,
+  },
+  'ai-working': {
+    label: 'AI is creating your look',
+    description: 'This takes about 30 seconds',
+    icon: Zap,
+    minPercent: 20,
+    maxPercent: 85,
+  },
+  finalizing: {
+    label: 'Finalizing your try-on',
+    description: 'Applying the finishing touches',
+    icon: Sparkles,
+    minPercent: 85,
+    maxPercent: 95,
+  },
+};
+
+// ── Friendly error messages ─────────────────────────────────────────
+
+function friendlyError(message: string | null | undefined): string {
+  if (!message) return 'Something unexpected happened. Please try again.';
+
+  const lower = message.toLowerCase();
+
+  if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('504') || lower.includes('gateway')) {
+    return 'The AI took a bit too long to respond. Try again — it\'ll be faster the second time!';
+  }
+  if (lower.includes('422') || lower.includes('unprocessable')) {
+    return 'There was a hiccup sending your images to the AI. Please try planning this outfit again.';
+  }
+  if (lower.includes('500') || lower.includes('internal server')) {
+    return 'The AI service had a temporary issue. We\'ve been notified and it should be back shortly.';
+  }
+  if (lower.includes('no_base_photo') || lower.includes('base photo')) {
+    return 'Upload a photo of yourself first so the AI can generate your try-on look.';
+  }
+  if (lower.includes('no garment') || lower.includes('valid item') || lower.includes('source_image_url')) {
+    return 'Some items in this outfit don\'t have valid images. Try recreating the outfit.';
+  }
+  if (lower.includes('auth') || lower.includes('unauthorized')) {
+    return 'Your session expired. Please log in again.';
+  }
+  if (lower.includes('network') || lower.includes('fetch') || lower.includes('abort')) {
+    return 'Connection interrupted. Check your internet and try again.';
+  }
+  if (lower.includes('edge function') || lower.includes('returned')) {
+    // Generic edge function error — strip the technical details
+    return 'The generation service encountered an issue. Please try again.';
+  }
+
+  // Cap at 120 chars to avoid wall-of-text
+  if (message.length > 120) return message.slice(0, 120) + '...';
+  return message;
+}
+
+// ── View State ──────────────────────────────────────────────────────
+
 type ViewState =
   | { kind: 'empty' }
-  | { kind: 'generating' }
+  | { kind: 'generating'; elapsed: number }
   | { kind: 'completed'; imageUrl: string; outfitName?: string }
   | { kind: 'failed'; errorMessage?: string | null };
 
@@ -43,6 +115,7 @@ function computeViewState(
   tryOnImageUrl: string | null,
   outfitName: string | undefined,
   errorMessage: string | null | undefined,
+  elapsed: number,
 ): ViewState {
   const isGenerating = generationStatus === 'pending' || generationStatus === 'generating';
   if (generationStatus === null || generationStatus === 'idle') return { kind: 'empty' };
@@ -52,20 +125,32 @@ function computeViewState(
   if (generationStatus === 'failed' && !isGenerating) {
     return { kind: 'failed', errorMessage };
   }
-  if (isGenerating) return { kind: 'generating' };
-  // Fallback: empty
+  if (isGenerating) return { kind: 'generating', elapsed };
   return { kind: 'empty' };
 }
 
 /**
- * The main photo card area for Day view.
- *
- * States (mutually exclusive, keyed for AnimatePresence):
- * - empty:  No outfit planned → CTA
- * - generating:  Loading skeleton with spinner
- * - completed:  Full try-on photo card
- * - failed:  Error state with retry
+ * Compute the current generation stage + progress percent based on elapsed time.
+ * This is a frontend simulation since we don't get real progress from the backend.
  */
+function computeProgress(elapsed: number): { stage: GenerationStage; percent: number } {
+  if (elapsed < 5) {
+    // 0-5s: preparing
+    const pct = 5 + (elapsed / 5) * 15;
+    return { stage: 'preparing', percent: Math.round(pct) };
+  } else if (elapsed < 40) {
+    // 5-40s: AI working (CatVTON avg ~45s)
+    const pct = 20 + ((elapsed - 5) / 35) * 65;
+    return { stage: 'ai-working', percent: Math.round(pct) };
+  } else {
+    // 40s+: finalizing
+    const pct = Math.min(95, 85 + ((elapsed - 40) / 10) * 10);
+    return { stage: 'finalizing', percent: Math.round(pct) };
+  }
+}
+
+// ── Component ───────────────────────────────────────────────────────
+
 export function DayView({
   date,
   tryOnImageUrl,
@@ -79,20 +164,51 @@ export function DayView({
   hasBasePhoto,
   onUploadPhoto,
 }: DayViewProps) {
-  // Format: "Wednesday, Aug 6"
   const formattedDate = date.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
   });
 
+  // ── Elapsed time counter ──────────────────────────────────────────
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const isGenerating = generationStatus === 'pending' || generationStatus === 'generating';
+
+  useEffect(() => {
+    if (isGenerating) {
+      setElapsed(0);
+      timerRef.current = setInterval(() => {
+        setElapsed((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isGenerating]);
+
   const viewState = computeViewState(
     generationStatus,
     tryOnImageUrl,
     outfitName,
     errorMessage,
+    elapsed,
   );
 
+  const progress = isGenerating ? computeProgress(elapsed) : null;
+
+  const formatElapsed = (s: number) => {
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}m ${sec}s`;
+  };
+
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="flex flex-1 flex-col px-4 pb-4">
       {/* Date label */}
@@ -106,99 +222,220 @@ export function DayView({
       </motion.p>
 
       <AnimatePresence mode="wait">
+        {/* ═══════════════════════════════════════════════════════
+           EMPTY STATE — no outfit planned yet
+           ═══════════════════════════════════════════════════════ */}
         {viewState.kind === 'empty' && (
           <motion.div
             key="empty"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-muted-foreground/25 bg-muted/20"
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="flex flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-muted-foreground/25 bg-gradient-to-b from-muted/10 to-muted/30"
           >
             <div className="flex flex-col items-center gap-4 px-8 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                <CalendarPlus className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} />
-              </div>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.05 }}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 ring-1 ring-primary/10"
+              >
+                <CalendarPlus className="h-7 w-7 text-primary/70" strokeWidth={1.5} />
+              </motion.div>
+
               <h3 className="text-lg font-semibold text-foreground">
                 Plan an outfit for this day
               </h3>
-              <p className="text-sm text-muted-foreground max-w-xs">
+
+              <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
                 {hasBasePhoto === false
-                  ? 'Upload a photo of yourself first so the AI can generate realistic try-on images.'
+                  ? 'Upload a photo of yourself first so the AI can show you how you\'ll look in any outfit.'
                   : hasOutfits
-                    ? 'Choose one of your saved outfits to wear on this day.'
+                    ? 'Choose one of your saved outfits and see an AI-generated try-on preview.'
                     : 'Create an outfit first, then plan it for a specific day.'}
               </p>
 
               {hasBasePhoto === false && onUploadPhoto ? (
-                <div className="flex flex-col gap-2 mt-2 w-full">
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex flex-col gap-2 mt-2 w-full max-w-[240px]"
+                >
                   <button
                     type="button"
                     onClick={onUploadPhoto}
-                    className="w-full rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 active:scale-[0.97] flex items-center justify-center gap-2"
+                    className="group relative w-full overflow-hidden rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 active:scale-[0.97] flex items-center justify-center gap-2"
                   >
                     <Camera className="h-4 w-4" />
                     Upload Your Photo
+                    <motion.span
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                      initial={{ x: '-100%' }}
+                      whileHover={{ x: '100%' }}
+                      transition={{ duration: 0.6 }}
+                    />
                   </button>
                   <button
                     type="button"
                     onClick={onPlanOutfit}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    Skip — use style collage instead
+                    Skip — I'll just plan outfits
                   </button>
-                </div>
+                </motion.div>
               ) : (
-                <button
-                  type="button"
-                  onClick={onPlanOutfit}
-                  className="mt-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 active:scale-[0.97]"
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
                 >
-                  {hasOutfits ? '+ Plan Outfit' : 'Create Outfit'}
-                </button>
+                  <button
+                    type="button"
+                    onClick={onPlanOutfit}
+                    className="group relative overflow-hidden rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 active:scale-[0.97] flex items-center justify-center gap-2"
+                  >
+                    {hasOutfits ? '+ Plan Outfit' : 'Create Outfit'}
+                    <ChevronRight className="h-4 w-4" />
+                    <motion.span
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                      initial={{ x: '-100%' }}
+                      whileHover={{ x: '100%' }}
+                      transition={{ duration: 0.6 }}
+                    />
+                  </button>
+                </motion.div>
               )}
 
-              {/* Allow changing the base photo even after initial upload */}
               {hasBasePhoto && onUploadPhoto && (
-                <button
+                <motion.button
                   type="button"
                   onClick={onUploadPhoto}
-                  className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="mt-1 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                 >
                   <Pencil className="h-3 w-3" />
                   Change base photo
-                </button>
+                </motion.button>
               )}
             </div>
           </motion.div>
         )}
 
-        {viewState.kind === 'generating' && (
+        {/* ═══════════════════════════════════════════════════════
+           GENERATING STATE — animated progress with stages
+           ═══════════════════════════════════════════════════════ */}
+        {viewState.kind === 'generating' && progress && (
           <motion.div
             key="generating"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-1 flex-col rounded-3xl bg-muted/30 overflow-hidden"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-1 flex-col rounded-3xl bg-gradient-to-b from-muted/30 via-muted/20 to-background overflow-hidden border border-border/40 shadow-sm"
           >
-            {/* Skeleton card */}
-            <div className="relative flex-1 bg-muted/40 animate-pulse flex items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground/60" />
-                <p className="text-sm font-medium text-muted-foreground">Generating try-on...</p>
-                <p className="text-xs text-muted-foreground/60">AI is preparing your look</p>
+            <div className="relative flex-1 flex flex-col items-center justify-center px-6 py-8">
+              {/* Stage icon with pulse */}
+              <motion.div
+                key={progress.stage}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="relative mb-6"
+              >
+                <motion.div
+                  className="absolute inset-0 rounded-full bg-primary/10"
+                  animate={{
+                    scale: [1, 1.3, 1],
+                    opacity: [0.3, 0.1, 0.3],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                />
+                <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/20">
+                  <motion.div
+                    animate={{ rotate: progress.stage === 'ai-working' ? 360 : 0 }}
+                    transition={{ duration: 3, repeat: progress.stage === 'ai-working' ? Infinity : 0, ease: 'linear' }}
+                  >
+                    {(() => {
+                      const Icon = STAGES[progress.stage].icon;
+                      return <Icon className="h-7 w-7 text-primary" strokeWidth={1.5} />;
+                    })()}
+                  </motion.div>
+                </div>
+              </motion.div>
+
+              {/* Stage label */}
+              <motion.p
+                key={progress.stage}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-base font-semibold text-foreground mb-1"
+              >
+                {STAGES[progress.stage].label}
+              </motion.p>
+
+              <p className="text-sm text-muted-foreground mb-6">
+                {STAGES[progress.stage].description}
+              </p>
+
+              {/* Animated progress bar */}
+              <div className="w-full max-w-[240px] mb-4">
+                <div className="h-2 w-full rounded-full bg-muted/60 overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-primary/60 via-primary to-primary/80"
+                    animate={{ width: `${progress.percent}%` }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  />
+                </div>
+                {/* Glow under the bar */}
+                <motion.div
+                  className="h-6 w-full -mt-4 rounded-full blur-xl bg-primary/5"
+                  animate={{ opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+              </div>
+
+              {/* Progress percentage + elapsed time */}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>{progress.percent}%</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatElapsed(viewState.elapsed)}
+                </span>
               </div>
             </div>
+
             {/* Bottom info bar */}
-            <div className="flex items-center gap-2 border-t border-border/40 px-5 py-3">
-              <Sparkles className="h-4 w-4 text-amber-500" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="flex items-center gap-2 border-t border-border/40 px-5 py-3 bg-muted/20"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+              >
+                <Loader2 className="h-3.5 w-3.5 text-primary/60" />
+              </motion.div>
               <span className="text-sm font-medium text-foreground">
                 {outfitName ?? 'Planned Outfit'}
               </span>
-            </div>
+            </motion.div>
           </motion.div>
         )}
 
+        {/* ═══════════════════════════════════════════════════════
+           COMPLETED STATE — show the generated try-on image
+           ═══════════════════════════════════════════════════════ */}
         {viewState.kind === 'completed' && (
           <motion.div
             key="completed"
@@ -209,33 +446,53 @@ export function DayView({
             className="flex flex-1 flex-col rounded-3xl bg-card overflow-hidden shadow-sm border border-border/50"
           >
             {/* Try-on image */}
-            <div className="relative flex-1 bg-gradient-to-b from-muted/50 to-background">
-              <img
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="relative flex-1 bg-gradient-to-b from-muted/40 via-muted/20 to-background"
+            >
+              <motion.img
                 src={viewState.imageUrl}
                 alt={`Try-on for ${viewState.outfitName ?? 'outfit'}`}
                 className="h-full w-full object-contain"
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
               />
+
               {/* Status badge */}
-              <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5">
+              <motion.div
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-sm px-3 py-1.5"
+              >
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
                 <span className="text-[11px] font-medium text-white">AI Try-On</span>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
+
             {/* Bottom info bar with actions */}
-            <div className="flex items-center justify-between border-t border-border/40 px-5 py-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="flex items-center justify-between border-t border-border/40 px-5 py-3 bg-muted/10"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="text-sm font-medium text-foreground truncate">
                   {viewState.outfitName ?? 'Planned Outfit'}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
                 {hasBasePhoto && (
                   <button
                     type="button"
                     onClick={onUploadPhoto}
                     title="Change base photo"
-                    className="rounded-full bg-muted p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                    className="rounded-full bg-muted p-1.5 text-muted-foreground hover:text-foreground transition-colors hover:bg-muted/80 active:scale-90"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -243,43 +500,73 @@ export function DayView({
                 <button
                   type="button"
                   onClick={onChangeOutfit}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors hover:bg-muted/80 active:scale-95"
                 >
                   Change
                 </button>
                 <button
                   type="button"
                   onClick={onRemoveOutfit}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
+                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition-colors hover:bg-red-50 active:scale-95"
                 >
                   Remove
                 </button>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
 
+        {/* ═══════════════════════════════════════════════════════
+           FAILED STATE — friendly error with retry
+           ═══════════════════════════════════════════════════════ */}
         {viewState.kind === 'failed' && (
           <motion.div
             key="failed"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-1 flex-col rounded-3xl bg-red-50/40 border border-red-200/50 overflow-hidden"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.25 }}
+            className="flex flex-1 flex-col rounded-3xl bg-gradient-to-b from-red-50/50 to-red-50/20 border border-red-200/40 overflow-hidden"
           >
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8">
-              <AlertCircle className="h-10 w-10 text-red-400" strokeWidth={1.5} />
-              <h3 className="text-base font-semibold text-foreground">Generation failed</h3>
-              <p className="text-sm text-muted-foreground text-center max-w-xs">
-                {viewState.errorMessage ?? 'Something went wrong while generating the try-on image.'}
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 py-8">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100/80 ring-1 ring-red-200/60"
+              >
+                <AlertCircle className="h-8 w-8 text-red-400" strokeWidth={1.5} />
+              </motion.div>
+
+              <h3 className="text-base font-semibold text-foreground">
+                We couldn't generate your try-on
+              </h3>
+
+              <p className="text-sm text-muted-foreground text-center max-w-xs leading-relaxed">
+                {friendlyError(viewState.errorMessage)}
               </p>
-              <button
+
+              <motion.button
                 type="button"
                 onClick={onChangeOutfit}
-                className="mt-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition-all hover:opacity-90"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className="mt-2 rounded-full bg-foreground px-6 py-2.5 text-sm font-semibold text-background transition-all hover:opacity-90 flex items-center gap-2"
               >
+                <Zap className="h-4 w-4" />
                 Try Again
-              </button>
+              </motion.button>
+
+              {viewState.errorMessage && viewState.errorMessage.length > 120 && (
+                <details className="w-full mt-2">
+                  <summary className="text-xs text-muted-foreground/60 cursor-pointer hover:text-muted-foreground text-center">
+                    Technical details
+                  </summary>
+                  <p className="text-[10px] text-muted-foreground/40 mt-2 text-center leading-relaxed max-w-xs mx-auto">
+                    {viewState.errorMessage}
+                  </p>
+                </details>
+              )}
             </div>
           </motion.div>
         )}

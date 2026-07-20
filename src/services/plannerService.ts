@@ -5,8 +5,7 @@
  * 1. User assigns an outfit to a date → `planOutfitForDate(outfitId, date)`
  * 2. That upserts a row in `planner_outfits` + creates a `planner_generated_images`
  *    row with status='pending'
- * 3. The frontend kicks off `generateTryOnImage(genId)` which calls a Supabase Edge
- *    Function that uses Gemini vision + canvas compositing to generate the try-on photo
+ * 3. The frontend kicks off `generateTryOnImage(genId)` which calls a Supabase Edge * Function that runs CatVTON to generate the try-on image
  * 4. Frontend polls `planner_generated_images.status` until it's 'completed' or 'failed'
  * 5. The generated image URL is cached per user+outfit combo so it never regenerates
  */
@@ -290,9 +289,9 @@ export async function getPlannedOutfitsForRange(
 /**
  * Generate a try-on image for a planned outfit.
  *
- * Calls the `generate-tryon` Supabase Edge Function which uses Gemini
- * to composite the outfit onto the user's base photo. Has a 30s client-
- * side timeout so the status doesn't get stuck at 'generating' forever.
+ * Calls the `generate-tryon` Supabase Edge Function which runs CatVTON
+ * to generate the try-on image. Includes a client-side timeout so the
+ * status doesn't get stuck at 'generating' forever.
  */
 export async function generateTryOnImage(genId: string): Promise<void> {
   try {

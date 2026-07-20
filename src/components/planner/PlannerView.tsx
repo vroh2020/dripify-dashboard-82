@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Camera, Upload, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Camera, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { WeekStrip } from './WeekStrip';
@@ -260,7 +260,6 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   }, []);
 
   const handlePlanOutfit = useCallback(() => {
-    // If user hasn't uploaded a base photo, prompt them first
     if (hasBasePhoto === false) {
       setShowPhotoUpload(true);
       return;
@@ -355,27 +354,43 @@ export function PlannerView({ outfits }: PlannerViewProps) {
 
       {/* ── Day/Month Tab Switcher ─────────────────────────────── */}
       <div className="px-5 pb-2">
-        <div className="inline-flex rounded-full bg-muted p-1">
-          <button
+        <div className="inline-flex rounded-full bg-muted p-1 shadow-sm">
+          <motion.button
             type="button"
             onClick={() => setViewMode('day')}
+            layout
             className={cn(
-              'rounded-full px-5 py-1.5 text-sm font-medium transition-all',
-              viewMode === 'day' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground',
+              'relative rounded-full px-5 py-1.5 text-sm font-medium transition-colors',
+              viewMode === 'day' ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
-            Day
-          </button>
-          <button
+            {viewMode === 'day' && (
+              <motion.span
+                layoutId="view-tab-bg"
+                className="absolute inset-0 rounded-full bg-background shadow-sm"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <span className="relative z-10">Day</span>
+          </motion.button>
+          <motion.button
             type="button"
             onClick={() => setViewMode('month')}
+            layout
             className={cn(
-              'rounded-full px-5 py-1.5 text-sm font-medium transition-all',
-              viewMode === 'month' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground',
+              'relative rounded-full px-5 py-1.5 text-sm font-medium transition-colors',
+              viewMode === 'month' ? 'text-foreground' : 'text-muted-foreground',
             )}
           >
-            Month
-          </button>
+            {viewMode === 'month' && (
+              <motion.span
+                layoutId="view-tab-bg"
+                className="absolute inset-0 rounded-full bg-background shadow-sm"
+                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              />
+            )}
+            <span className="relative z-10">Month</span>
+          </motion.button>
         </div>
       </div>
 
@@ -453,6 +468,50 @@ export function PlannerView({ outfits }: PlannerViewProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Month Navigation ──────────────────────────────────── */}
+      {viewMode === 'month' && (
+        <div className="flex items-center justify-between px-6 py-1">
+          <motion.button
+            type="button"
+            onClick={() => {
+              const prev = new Date(selectedDate);
+              prev.setMonth(prev.getMonth() - 1);
+              setSelectedDate(prev);
+            }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.9 }}
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Previous</span>
+          </motion.button>
+
+          <motion.h2
+            key={selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-sm font-semibold text-foreground"
+          >
+            {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </motion.h2>
+
+          <motion.button
+            type="button"
+            onClick={() => {
+              const next = new Date(selectedDate);
+              next.setMonth(next.getMonth() + 1);
+              setSelectedDate(next);
+            }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.9 }}
+            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </motion.button>
+        </div>
+      )}
 
       {/* ── Photo Upload Modal ─────────────────────────────────── */}
       <AnimatePresence>
