@@ -340,7 +340,7 @@ export function DayView({
             <div className="relative flex-1 flex flex-col items-center justify-center px-6 py-8">
               {/* Stage icon with pulse */}
               <motion.div
-                key={progress.stage}
+                key={`stage-icon-${progress.stage}`}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
@@ -374,7 +374,7 @@ export function DayView({
 
               {/* Stage label */}
               <motion.p
-                key={progress.stage}
+                key={`stage-label-${progress.stage}`}
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="text-base font-semibold text-foreground mb-1"
