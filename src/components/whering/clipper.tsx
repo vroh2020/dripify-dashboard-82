@@ -13,6 +13,9 @@ import {
   Globe,
   AlertCircle,
   Loader2,
+  Layers,
+  CheckSquare,
+  Square,
 } from "lucide-react"
 import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
@@ -22,6 +25,7 @@ import { useUnifiedBackgroundRemoval } from "@/hooks/useUnifiedBackgroundRemoval
 import { encodeBlurHashFromImageSource } from "@/lib/image"
 import { toast } from "@/hooks/use-toast"
 import type { ClosetItem } from "@/hooks/useClosetData"
+import { BatchQueue, type QueueItem } from "./BatchQueue"
 
 type ClipperItem = {
   id: string
@@ -240,6 +244,11 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
   const [webError, setWebError] = useState<string | null>(null)
   const [webSearched, setWebSearched] = useState(false)
 
+  // Multi-select batch state
+  const [selectedResultIds, setSelectedResultIds] = useState<Set<string>>(new Set())
+  const [batchItems, setBatchItems] = useState<QueueItem[]>([])
+  const [batchStage, setBatchStage] = useState<"idle" | "processing" | "done">("idle")
+
   const autoSavedTimerRef = useRef<number | null>(null)
   const [extractError, setExtractError] = useState<string | null>(null)
 
@@ -271,6 +280,48 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
         g.name.toLowerCase().includes(query.trim().toLowerCase()),
       )
     : allItems
+
+  // ── Batch import handler ───────────────────────────────────────────
+  const handleBatchImport = useCallback(async () => {
+    if (selectedResultIds.size === 0) return
+
+    const selected = webResults.filter((r) => selectedResultIds.has(r.id))
+    const items: QueueItem[] = selected.map((r, i) => ({
+      id: r.id,
+      thumbnail: r.thumb_url || r.high_res_url,
+      name: `${query.trim() || "Item"} ${i + 1}`,
+      status: "waiting" as const,
+    }))
+
+    setBatchItems(items)
+    setBatchStage("processing")
+    setStage("processing")
+
+    for (let i = 0; i < selected.length; i++) {
+      const r = selected[i]
+
+      setBatchItems((prev) =>
+        prev.map((q) => (q.id === r.id ? { ...q, status: "bg-removal" as const } : q)),
+      )
+
+      try {
+        await extractFromUrl(r.high_res_url, query.trim() || "Web item", { crop: null })
+        setBatchItems((prev) =>
+          prev.map((q) => (q.id === r.id ? { ...q, status: "done" as const } : q)),
+        )
+      } catch (e: any) {
+        console.error(`[batch] Failed ${r.id}:`, e)
+        setBatchItems((prev) =>
+          prev.map((q) =>
+            q.id === r.id ? { ...q, status: "error" as const, error: e?.message ?? "Failed" } : q,
+          ),
+        )
+      }
+    }
+
+    setBatchStage("done")
+    setSelectedResultIds(new Set())
+  }, [selectedResultIds, webResults, query, extractFromUrl])
 
   // ── Serper web search (calls search-clothes Supabase Edge Function) ─
   const webSearchLock = useRef(false)
@@ -311,12 +362,17 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
     }
   }, [brand, handleWebSearch, mode, webSearched, query])
 
-  // ── Web result tap → land on crop first, then run extractFromUrl ────
-  // We split the old inline pipeline across two stages so the user can
-  // trim the image (e.g. crop a person wearing the item out of frame)
-  // before bg-removal runs. Splitting also lets the Skip button bypass
-  // the crop entirely, so a clean catalogue shot still gets through
-  // fast.
+  // ── Toggle multi-selection on web results ──────────────────────────
+  const toggleResultSelection = useCallback((resultId: string) => {
+    setSelectedResultIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(resultId)) next.delete(resultId)
+      else next.add(resultId)
+      return next
+    })
+  }, [])
+
+  // ── Web result tap → single item crop ────────────────────────────────
   const handleWebResultTap = useCallback(
     (result: SerperResult) => {
       haptic("medium")
@@ -329,7 +385,6 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
         origin: "web",
       })
       setExtractError(null)
-      // Reset crop state to a comfortable default on every fresh entry.
       setCrop({ xPct: 0.15, yPct: 0.15, sizePct: 0.7 })
       setImgInfo(null)
       setStage("crop")
@@ -351,6 +406,9 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
     setCrop({ xPct: 0.15, yPct: 0.15, sizePct: 0.7 })
     setImgInfo(null)
     setDragState(null)
+    setSelectedResultIds(new Set())
+    setBatchItems([])
+    setBatchStage("idle")
     setStage("search")
   }
 
@@ -688,20 +746,15 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
     // Fire-and-forget AI classify
     void (async () => {
       try {
-        const base64Image = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.onerror = reject
-          reader.readAsDataURL(rawBlob)
-        })
+        // AI classify using public URL (much faster than sending full base64)
         const { data: aiData } = await Promise.race([
           supabase.functions.invoke("analyze-closet-item", {
-            body: { image: base64Image },
+            body: { image: processedImageUrl! },
           }),
           new Promise<never>((_, reject) =>
             setTimeout(
-              () => reject(new Error("AI classify timeout (8s)")),
-              8_000,
+              () => reject(new Error("AI classify timeout (20s)")),
+              20_000,
             ),
           ),
         ])
@@ -880,6 +933,23 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
         </div>
       </div>
 
+      {/* Batch import button — shows when items are selected */}
+      {!isDemoMode && selectedResultIds.size > 0 && (
+        <div className="px-5 pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              haptic("medium")
+              handleBatchImport()
+            }}
+            className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground flex items-center justify-center gap-2 hover:bg-primary/90 transition-all active:scale-[0.98]"
+          >
+            <Layers className="h-4 w-4" />
+            Import Selected ({selectedResultIds.size})
+          </button>
+        </div>
+      )}
+
       {/* Brand filter chips — web mode only */}
       {!isDemoMode && (
         <div className="no-scrollbar flex gap-2 overflow-x-scroll px-5 pb-4">
@@ -1016,26 +1086,51 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
             </p>
           </div>
         ) : (
-          /* Web search results grid */
+          /* Web search results grid with checkbox multi-select */
           <div className="grid grid-cols-2 gap-3">
-            {webResults.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => handleWebResultTap(r)}
-                className="flex flex-col overflow-hidden rounded-2xl bg-card soft-shadow hover:ring-2 hover:ring-primary/40 transition-all"
-              >
-                <div className="relative aspect-square w-full bg-muted/30">
-                  <Image
-                    src={r.thumb_url || r.high_res_url || "/placeholder.svg"}
-                    alt="Search result"
-                    fill
-                    sizes="180px"
-                    className="object-cover"
-                  />
+            {webResults.map((r) => {
+              const isSelected = selectedResultIds.has(r.id)
+              return (
+                <div
+                  key={r.id}
+                  className={cn(
+                    "relative flex flex-col overflow-hidden rounded-2xl bg-card soft-shadow transition-all",
+                    isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                  )}
+                >
+                  {/* Clickable image — opens crop screen */}
+                  <button
+                    type="button"
+                    onClick={() => handleWebResultTap(r)}
+                    className="relative aspect-square w-full bg-muted/30"
+                  >
+                    <Image
+                      src={r.thumb_url || r.high_res_url || "/placeholder.svg"}
+                      alt="Search result"
+                      fill
+                      sizes="180px"
+                      className="object-cover"
+                    />
+                  </button>
+                  {/* Selection checkbox button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleResultSelection(r.id)
+                    }}
+                    className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm hover:bg-black/50 transition-colors"
+                    aria-label={isSelected ? "Deselect" : "Select for batch import"}
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4 text-white" />
+                    )}
+                  </button>
                 </div>
-              </button>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
@@ -1243,8 +1338,8 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
           </motion.div>
         )}
 
-        {/* ── PROCESSING ──── motion-staged spinner + scanner ring ── */}
-        {stage === "processing" && active && (
+        {/* ── PROCESSING ──── batch queue OR single-item spinner ── */}
+        {stage === "processing" && (
           <motion.div
             key="processing"
             initial={{ opacity: 0 }}
@@ -1253,60 +1348,88 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
             transition={{ duration: 0.22 }}
             className="absolute inset-0 z-50 flex flex-col bg-white"
           >
-            <div className="flex flex-1 flex-col items-center justify-center gap-5 px-10 text-center">
-              <div className="relative h-40 w-40">
-                <motion.div
-                  aria-hidden="true"
-                  className="absolute -inset-3 rounded-full border-2 border-primary"
-                  animate={{ rotate: 360 }}
-                  transition={{
-                    duration: 2.4,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                  style={{
-                    borderTopColor: "transparent",
-                    borderRightColor: "transparent",
-                  }}
-                />
-                <Image
-                  src={active.src || "/placeholder.svg"}
-                  alt={active.name}
-                  fill
-                  sizes="160px"
-                  className="object-contain"
-                />
+            {batchItems.length > 0 ? (
+              /* Batch processing queue */
+              <div className="flex flex-1 flex-col p-6">
+                <h2 className="text-lg font-semibold text-foreground mb-4">Importing Items</h2>
+                <div className="flex-1 overflow-y-auto">
+                  <BatchQueue
+                    items={batchItems}
+                    onRemoveItem={(id) => {
+                      setBatchItems((prev) => prev.filter((q) => q.id !== id))
+                    }}
+                  />
+                </div>
+                {batchStage === "done" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reset()
+                      setStage("search")
+                    }}
+                    className="mt-4 w-full rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground"
+                  >
+                    Done
+                  </button>
+                )}
               </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{
-                    duration: 1.6,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                >
-                  <Sparkles className="h-5 w-5 text-primary" />
-                </motion.div>
-                <span className="text-[15px] font-medium">
-                  {active.origin === "demo"
-                    ? "Removing background…"
-                    : "Extracting item…"}
-                </span>
+            ) : active ? (
+              /* Single-item processing spinner */
+              <div className="flex flex-1 flex-col items-center justify-center gap-5 px-10 text-center">
+                <div className="relative h-40 w-40">
+                  <motion.div
+                    aria-hidden="true"
+                    className="absolute -inset-3 rounded-full border-2 border-primary"
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 2.4,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                    style={{
+                      borderTopColor: "transparent",
+                      borderRightColor: "transparent",
+                    }}
+                  />
+                  <Image
+                    src={active.src || "/placeholder.svg"}
+                    alt={active.name}
+                    fill
+                    sizes="160px"
+                    className="object-contain"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-foreground">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1.6,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  >
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  </motion.div>
+                  <span className="text-[15px] font-medium">
+                    {active.origin === "demo"
+                      ? "Removing background…"
+                      : "Extracting item…"}
+                  </span>
+                </div>
+                <div className="h-1 w-40 overflow-hidden rounded-full bg-black/10">
+                  <motion.div
+                    className="h-full rounded-full bg-primary"
+                    animate={{ x: ["-100%", "200%"] }}
+                    transition={{
+                      duration: 1.4,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    style={{ width: "50%" }}
+                  />
+                </div>
               </div>
-              <div className="h-1 w-40 overflow-hidden rounded-full bg-black/10">
-                <motion.div
-                  className="h-full rounded-full bg-primary"
-                  animate={{ x: ["-100%", "200%"] }}
-                  transition={{
-                    duration: 1.4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  style={{ width: "50%" }}
-                />
-              </div>
-            </div>
+            ) : null}
           </motion.div>
         )}
 

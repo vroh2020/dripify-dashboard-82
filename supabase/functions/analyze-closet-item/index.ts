@@ -7,6 +7,51 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+// ── Resize image to max 512px for faster AI inference ────────────────
+// Clothing classification doesn't need high resolution — resizing to
+// 512px max dimension dramatically reduces API latency (and cost).
+const AI_IMAGE_MAX_DIM = 512
+
+async function resizeForAI(
+  base64Data: string,
+  mimeType: string,
+): Promise<{ data: string; mimeType: string }> {
+  try {
+    const binaryStr = atob(base64Data)
+    const bytes = new Uint8Array(binaryStr.length)
+    for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i)
+
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: mimeType }))
+    const { width, height } = bitmap
+
+    if (width <= AI_IMAGE_MAX_DIM && height <= AI_IMAGE_MAX_DIM) {
+      bitmap.close()
+      return { data: base64Data, mimeType }
+    }
+
+    const ratio = Math.min(AI_IMAGE_MAX_DIM / width, AI_IMAGE_MAX_DIM / height)
+    const newW = Math.round(width * ratio)
+    const newH = Math.round(height * ratio)
+
+    const canvas = new OffscreenCanvas(newW, newH)
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(bitmap, 0, 0, newW, newH)
+    bitmap.close()
+
+    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })
+    const buffer = await blob.arrayBuffer()
+    const resizedBytes = new Uint8Array(buffer)
+    let binary = ''
+    for (let i = 0; i < resizedBytes.length; i++) binary += String.fromCharCode(resizedBytes[i])
+
+    console.log(`📏 Resized image ${width}x${height} → ${newW}x${newH} (saved ${Math.round((1 - resizedBytes.length / bytes.length) * 100)}%)`)
+    return { data: btoa(binary), mimeType: 'image/jpeg' }
+  } catch (e) {
+    console.warn('⚠️ Image resize failed, sending original:', e)
+    return { data: base64Data, mimeType }
+  }
+}
+
 // Enhanced validation function
 function validateImageData(image: any): boolean {
   if (!image || typeof image !== 'string') return false;
@@ -15,9 +60,9 @@ function validateImageData(image: any): boolean {
   return base64Pattern.test(image) || urlPattern.test(image);
 }
 
-// Prepare image for Gemini: accepts either a base64 data URI or a plain URL.
-// Returns { data: rawBase64, mimeType } ready for inline_data.
-async function prepareImageForGemini(image: string): Promise<{ data: string; mimeType: string }> {
+// Prepare image: accepts either a base64 data URI or a plain URL.
+// Returns { data: rawBase64, mimeType } ready for use.
+async function prepareImage(image: string): Promise<{ data: string; mimeType: string }> {
   const base64DataUri = /^data:image\/(jpeg|jpg|png|webp|gif);base64,(.+)$/i;
   const dataUriMatch = image.match(base64DataUri);
   if (dataUriMatch) {
@@ -38,6 +83,11 @@ async function prepareImageForGemini(image: string): Promise<{ data: string; mim
   const rawBase64 = btoa(binary);
   const mimeType = imgResponse.headers.get('content-type') || 'image/jpeg';
   return { data: rawBase64, mimeType };
+}
+
+// Build a full data URI from base64 + mime type (Cloudflare expects this format)
+function buildDataUri(base64: string, mimeType: string): string {
+  return `data:${mimeType};base64,${base64}`;
 }
 
 // ── Raw image data (for server-side cropping) ───────────────────────────
@@ -161,7 +211,7 @@ async function uploadCroppedImage(
   }
 }
 
-// ── Validate + clamp bbox from Gemini ──────────────────────────────────
+// ── Validate + clamp bbox ──────────────────────────────────
 
 interface BoundingBox {
   x: number;
@@ -219,6 +269,8 @@ Analyze this clothing item image and extract the following information:
 4. **Attributes**: Additional metadata like material, fit, occasion, etc.
 5. **Bounding Box**: If the image contains a person, multiple garments, or extra context beyond a single garment, return normalized coordinates (0-1) for a tight crop around ONLY the target garment. If the image is already a clean flat-lay with just the garment, return {x: 0, y: 0, width: 1, height: 1}.
 
+IMPORTANT: You must respond with ONLY valid JSON. Do NOT include any markdown formatting, headings, bullet points, asterisks, or explanatory text before or after the JSON. Do NOT wrap the JSON in markdown code blocks. Start your response with '{' and end with '}'.
+
 Respond in this EXACT JSON format:
 {
   "category": "tops|bottoms|shoes|accessories",
@@ -246,7 +298,9 @@ Respond in this EXACT JSON format:
   "confidence": 0.95
 }
 
-Be accurate and specific. If uncertain about any field, use null or provide your best estimate with lower confidence. The bounding_box coordinates are normalized fractions of the image's total width/height.`;
+Be accurate and specific. If uncertain about any field, use null or provide your best estimate with lower confidence. The bounding_box coordinates are normalized fractions of the image's total width/height.
+
+Remember: ONLY valid JSON output, nothing else.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -296,63 +350,69 @@ serve(async (req) => {
       imageLength: image.length
     });
 
-    // Get Gemini API key from environment
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiApiKey) {
-      console.error('GEMINI_API_KEY not found in environment');
-      throw new Error('Service configuration error - API key missing');
+    // Get Cloudflare credentials from environment
+    const cfApiToken = Deno.env.get('CLOUDFLARE_WORKERS_AI');
+    const cfAccountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
+
+    if (!cfApiToken) {
+      console.error('CLOUDFLARE_WORKERS_AI not found in environment');
+      throw new Error('Service configuration error - API token missing');
+    }
+    if (!cfAccountId) {
+      console.error('CLOUDFLARE_ACCOUNT_ID not found in environment');
+      throw new Error('Service configuration error - Account ID missing');
     }
 
-    // Prepare image for Gemini (fetch URL → base64 if needed, strip data URI prefix)
-    console.log('🖼️ Preparing image for Gemini...');
-    const { data: imageBase64, mimeType } = await prepareImageForGemini(image);
+    // Prepare image (fetch URL → base64 if needed, strip data URI prefix)
+    console.log('🖼️ Preparing image for Cloudflare AI...');
+    let { data: imageBase64, mimeType } = await prepareImage(image);
 
-    // Build Gemini native payload — no separate system role, prepend prompt into text part
+    // Resize image to max 512px for faster inference
+    console.log('🖼️ Resizing image for faster AI inference...');
+    const resized = await resizeForAI(imageBase64, mimeType);
+    imageBase64 = resized.data;
+    mimeType = resized.mimeType;
+
+    // Build Cloudflare Workers AI payload
+    // The REST API expects `prompt` (string) + `image` (data URI), not `messages` array
+    const imageDataUri = buildDataUri(imageBase64, mimeType);
+
     const apiPayload = {
-      contents: [
-        {
-          parts: [
-            {
-              text: `${CLOSET_ANALYSIS_PROMPT}\n\nPlease analyze this clothing item and provide the structured information.`
-            },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: imageBase64
-              }
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.3
-      }
+      prompt: `${CLOSET_ANALYSIS_PROMPT}\n\nAnalyze this clothing item image and provide the structured information in JSON format.`,
+      image: imageDataUri,
+      max_tokens: 2048,
+      temperature: 0.3
     };
 
-    console.log('🚀 Calling Gemini API for closet item analysis...');
+    const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/meta/llama-3.2-11b-vision-instruct`;
+
+    console.log('🚀 Calling Cloudflare Workers AI for closet item analysis...');
     console.log('📝 Request details:', {
-      model: 'gemini-flash-latest',
+      model: '@cf/meta/llama-3.2-11b-vision-instruct',
       mimeType,
       imageBase64Length: imageBase64.length
     });
 
+    const startTime = Date.now();
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent',
+      cfEndpoint,
       {
         method: 'POST',
         headers: {
-          'X-goog-api-key': geminiApiKey,
+          'Authorization': `Bearer ${cfApiToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(apiPayload),
         signal: AbortSignal.timeout(30000)
       }
     );
+    const elapsed = Date.now() - startTime;
+    console.log(`⏱️ Cloudflare AI responded in ${elapsed}ms`);
 
-    // ── Handle Gemini 429 (daily quota / rate limit) gracefully ───────────
+    // ── Handle Cloudflare errors gracefully ───────────
     if (response.status === 429) {
       const errorText = await response.text();
-      console.error('❌ Gemini 429 (quota exceeded):', errorText);
+      console.error('❌ Cloudflare AI 429 (rate limited):', errorText);
       return new Response(
         JSON.stringify({
           error: 'rate_limited',
@@ -365,12 +425,12 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Gemini API error:', response.status, errorText);
+      console.error('❌ Cloudflare AI API error:', response.status, errorText);
       let errorMessage = `AI service error (${response.status}): ${errorText.substring(0, 200)}`;
       try {
         const errorJson = JSON.parse(errorText);
-        if (errorJson?.error?.message) {
-          errorMessage = `AI service error (${response.status}): ${errorJson.error.message}`;
+        if (errorJson?.errors?.[0]?.message) {
+          errorMessage = `AI service error (${response.status}): ${errorJson.errors[0].message}`;
         }
       } catch {
         // ignore parse errors on error body
@@ -378,36 +438,69 @@ serve(async (req) => {
       throw new Error(errorMessage);
     }
 
-    const data = await response.json();
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      console.error('Invalid API response format:', data);
+    const result = await response.json();
+    if (!result.success || !result.result) {
+      console.error('Invalid API response format:', result);
       throw new Error('Invalid response from AI service');
     }
 
-    const analysisContent = data.candidates[0].content.parts[0].text;
-    console.log('Raw analysis response:', analysisContent);
-
-    // Parse JSON response
+    const rawResponse = result.result.response;
     let analysisResult: Record<string, unknown>;
-    try {
-      // Extract JSON from response (in case there's extra text)
-      const jsonMatch = analysisContent.match(/\{[\s\S]*\}/);
-      const jsonString = jsonMatch ? jsonMatch[0] : analysisContent;
-      analysisResult = JSON.parse(jsonString);
-    } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
 
-      // Fallback: try to extract key information with regex
-      analysisResult = {
-        category: extractWithRegex(analysisContent, /category['":\s]*([^,}\n]+)/) || 'tops',
-        title: extractWithRegex(analysisContent, /title['":\s]*([^,}\n]+)/) || null,
-        brand: extractWithRegex(analysisContent, /brand['":\s]*([^,}\n]+)/) || null,
-        color: extractWithRegex(analysisContent, /color['":\s]*([^,}\n]+)/) || null,
-        suggestedTags: ['clothing', 'fashion'],
-        attributes: {},
-        bounding_box: null,
-        confidence: 0.5
-      };
+    if (rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse)) {
+      // Already parsed — use directly.
+      console.log('✅ AI returned pre-parsed object response');
+      analysisResult = rawResponse as Record<string, unknown>;
+    } else if (typeof rawResponse === 'string' && rawResponse.trim()) {
+      // Raw text — extract JSON substring and parse.
+      console.log('Raw analysis response (string):', rawResponse);
+      try {
+        const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+        const jsonString = jsonMatch ? jsonMatch[0] : rawResponse;
+        analysisResult = JSON.parse(jsonString);
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', parseError);
+
+        // Fallback: try to extract key information with regex
+        // Handle both JSON format ("title": "value") and markdown format (**Title**: value)
+        const cleanValue = (val: string | null) =>
+          val && !/^(not visible|not identifiable|not applicable|not found|none|unknown|null)$/i.test(val.trim())
+            ? val.trim()
+            : null;
+
+        const mdCategory = cleanValue(
+          extractWithRegex(rawResponse, /\*\*Category\*\*\s*:\s*([^\n]+)/i) ||
+          extractWithRegex(rawResponse, /category['":\s]*([^,}\n]+)/i)
+        );
+        const mdTitle = cleanValue(
+          extractWithRegex(rawResponse, /\*\*Title\*\*\s*:\s*([^\n]+)/i) ||
+          extractWithRegex(rawResponse, /title['":\s]*([^,}\n]+)/i)
+        );
+        const mdBrand = cleanValue(
+          extractWithRegex(rawResponse, /\*\*Brand\*\*\s*:\s*([^\n]+)/i) ||
+          extractWithRegex(rawResponse, /brand['":\s]*([^,}\n]+)/i)
+        );
+        const mdColor = cleanValue(
+          extractWithRegex(rawResponse, /\*\*Color\*\*\s*:\s*([^\n]+)/i) ||
+          extractWithRegex(rawResponse, /color['":\s]*([^,}\n]+)/i)
+        );
+
+        analysisResult = {
+          category: mdCategory || 'tops',
+          title: mdTitle || null,
+          brand: mdBrand || null,
+          color: mdColor || null,
+          suggestedTags: ['clothing', 'fashion'],
+          attributes: {},
+          bounding_box: null,
+          confidence: 0.5
+        };
+
+        console.log('📋 Extracted from markdown fallback:', { title: mdTitle, category: mdCategory, brand: mdBrand, color: mdColor });
+      }
+    } else {
+      console.error('❌ AI response missing or unusable:', JSON.stringify(result.result));
+      throw new Error('Invalid response from AI service - empty or non-text response');
     }
 
     // Validate and clean the result - enforce 4 main categories only
@@ -447,7 +540,7 @@ serve(async (req) => {
     // Limit tags to reasonable number
     analysisResult.suggestedTags = (analysisResult.suggestedTags as string[]).slice(0, 8);
 
-    // ── Server-side crop using Gemini's bounding_box ─────────────────────
+    // ── Server-side crop using bounding_box ─────────────────────
     // Runs AFTER category validation so the classification result is solid
     // before we spend compute on pixel manipulation.
     let croppedImageUrl: string | null = null;
@@ -456,7 +549,7 @@ serve(async (req) => {
 
     if (bbox) {
       try {
-        console.log('📐 Gemini bounding box:', bbox);
+        console.log('📐 Bounding box:', bbox);
         const rawData = await getRawImageData(image);
         const croppedBytes = await cropImage(
           rawData.rawBytes,
@@ -501,7 +594,7 @@ serve(async (req) => {
       responsePayload.croppedImageUrl = croppedImageUrl;
     }
 
-    console.log('Closet item analysis completed successfully');
+    console.log(`✅ Closet item analysis completed in ${Date.now() - startTime}ms total`);
     if (croppedImageUrl) console.log('📦 Cropped image URL included in response');
 
     return new Response(JSON.stringify(responsePayload), {
@@ -537,6 +630,7 @@ serve(async (req) => {
 
 // Helper function to extract values with regex
 function extractWithRegex(text: string, regex: RegExp): string | null {
+  if (typeof text !== 'string') return null;
   const match = text.match(regex);
   return match ? match[1].replace(/['"]/g, '').trim() : null;
 }

@@ -1,15 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-// Dedicated rembg + isnet-general-use deployment on Modal (MIT-licensed,
-// CPU-only inference, sub-second warm response).
-const MODAL_BG_URL =
-  Deno.env.get("MODAL_BG_URL") ??
-  "https://ramcharanvelpuri--trendza-bg-removal-bgremover-web.modal.run"
-// Modal container: 120s idle timeout, 120s function timeout.
-// One retry for transient network blips (Modal doesn't have HF's idle-unload).
-const MODAL_TIMEOUT_MS = 60_000
-const MODAL_MAX_RETRIES = 1
+// ── Cloudflare Transformations (zone-level) ──────────────────────────
+// Background removal is done via Cloudflare's built-in
+// `segment=foreground` Image Transformation on the `trendza.xyz` zone.
+// Cloudflare fetches the source image from Supabase directly (allowed
+// origin), so no upload or API token is needed.
+const CF_ZONE = "trendza.xyz"
+const CF_MAX_RETRIES = 1
+const CF_TIMEOUT_MS = 30_000
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +29,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 serve(async (req) => {
+  // ── Unique request ID for tracing ──────────────────────────────────
+  const requestId = crypto.randomUUID()
+  console.log(`[process-bg] START ${requestId} imagePath=?`)
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS })
   }
@@ -72,6 +75,7 @@ serve(async (req) => {
       | { imagePath?: unknown }
       | null
     const imagePath = body?.imagePath
+    console.log(`[process-bg] START ${requestId} imagePath=${imagePath ?? '(missing)'}`)
     if (
       typeof imagePath !== "string" ||
       imagePath.length === 0 ||
@@ -92,7 +96,8 @@ serve(async (req) => {
     }
 
     // -----------------------------------------------------------------
-    // 5. Generate a signed URL so Modal can fetch the raw image directly.
+    // 5. Generate a signed URL so Cloudflare can fetch the source image.
+    //    (Supabase is configured as an allowed origin in Cloudflare.)
     // -----------------------------------------------------------------
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from("raw-closet-items")
@@ -108,60 +113,52 @@ serve(async (req) => {
     const imageUrl = signedUrlData.signedUrl
 
     // -----------------------------------------------------------------
-    // 6. Forward to Modal rembg endpoint (JSON, not FormData).
-    //    Alpha matting params match the previous BiRefNet tuning.
+    // 6. Fetch the bg-removed result via Cloudflare's zone-level
+    //    Transformation. Cloudflare pulls the source image itself since
+    //    the Supabase origin is allowed — no local download needed.
     // -----------------------------------------------------------------
-    let response: Response | null = null
+    const cfTransformUrl = `https://${CF_ZONE}/cdn-cgi/image/segment=foreground,format=png/${imageUrl}`
 
-    for (let attempt = 0; attempt <= MODAL_MAX_RETRIES; attempt++) {
+    let transparentBuffer: ArrayBuffer | null = null
+
+    for (let attempt = 0; attempt <= CF_MAX_RETRIES; attempt++) {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), MODAL_TIMEOUT_MS)
+      const timeoutId = setTimeout(() => controller.abort(), CF_TIMEOUT_MS)
 
       try {
-        response = await fetch(`${MODAL_BG_URL}/remove-bg`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            image_url: imageUrl,
-            fg_threshold: 240,
-            bg_threshold: 10,
-            erode_size: 4,
-          }),
-          signal: controller.signal,
-        })
+        const response = await fetch(cfTransformUrl, { signal: controller.signal })
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "unknown")
+          console.error(`[process-bg] ${requestId} CF rejected`, response.status, errorText.slice(0, 300))
+          if (attempt < CF_MAX_RETRIES) {
+            await sleep(1_000)
+            continue
+          }
+          return jsonResponse({ error: "Matting engine rejected image" }, 502)
+        }
+
+        transparentBuffer = await response.arrayBuffer()
+        console.log(`[process-bg] ${requestId} CF transform OK, ${transparentBuffer.byteLength} bytes`)
+        break
       } catch (fetchErr) {
         clearTimeout(timeoutId)
         if (fetchErr instanceof DOMException && fetchErr.name === "AbortError") {
-          if (attempt < MODAL_MAX_RETRIES) {
-            console.log(
-              `[process-bg] Modal timeout (attempt ${attempt + 1}/${MODAL_MAX_RETRIES}), retrying...`,
-            )
-            await sleep(2_000)
+          if (attempt < CF_MAX_RETRIES) {
+            console.log(`[process-bg] ${requestId} CF timeout (attempt ${attempt + 1}/${CF_MAX_RETRIES}), retrying...`)
+            await sleep(1_000)
             continue
           }
-          throw fetchErr
+          return jsonResponse({ error: "Image processing timed out", code: "timeout" }, 504)
         }
         throw fetchErr
       }
-      clearTimeout(timeoutId)
-
-      if (response.ok) break
-
-      // Non-ok — surface error immediately (Modal doesn't have HF's cold-start 503s)
-      const errorText = await response.text().catch(() => "unknown")
-      console.error(
-        "[process-bg] Modal rejected",
-        response.status,
-        errorText.slice(0, 500),
-      )
-      return jsonResponse({ error: "Matting engine rejected image" }, 502)
     }
 
-    if (!response || !response.ok) {
-      return jsonResponse({ error: "Matting engine unavailable" }, 504)
+    if (!transparentBuffer || transparentBuffer.byteLength === 0) {
+      return jsonResponse({ error: "Image processing returned empty result" }, 502)
     }
-
-    const transparentBuffer = await response.arrayBuffer()
 
     // -----------------------------------------------------------------
     // 7. Upload the cleaned PNG back to `clipped-closet-items`.
@@ -182,19 +179,10 @@ serve(async (req) => {
       return jsonResponse({ error: "Failed to save cleaned image" }, 500)
     }
 
+    console.log(`[process-bg] SUCCESS ${requestId} cleanPath=${cleanPath}`)
     return jsonResponse({ cleanPath })
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      console.error("[process-bg] Modal fetch timed out")
-      return jsonResponse(
-        {
-          error: "matting_timeout",
-          message: "Matting engine timed out, please try again.",
-        },
-        504,
-      )
-    }
-    console.error("[process-bg] unhandled", err)
+    console.error(`[process-bg] FAILED ${requestId}`, err)
     return jsonResponse({ error: "Internal error" }, 500)
   }
 })
