@@ -44,16 +44,16 @@ function guessMimeType(bytes: Uint8Array): string {
   return 'image/jpeg'
 }
 
-// ── Try Cloudflare Flux 2 Klein 9B (multipart/form-data) ───────────
-// Flux 2 Klein 9B has 9B params with enhanced quality vs Klein 4B.
+// ── Try Cloudflare Flux 2 Klein 4B (multipart/form-data) ───────────
 // Flux accepts multipart with input_image_0 (person) + input_image_1..3 (garments).
+// 1536x1536 output = 2.25x more pixels than 1024 without the big slowdown.
 async function tryCloudflareFlux(
   cfApiToken: string,
   cfAccountId: string,
   basePhotoUrl: string,
   garmentItems: Array<{ title: string; category: string; source_image_url: string }>,
 ): Promise<Uint8Array> {
-  console.log('[generate-tryon] 🚀 Starting Cloudflare Flux 2 Klein 9B...')
+  console.log('[generate-tryon] 🚀 Starting Cloudflare Flux 2 Klein 4B...')
 
   // 1. Download person image
   const personBytes = await downloadImageBytes(basePhotoUrl)
@@ -100,11 +100,11 @@ async function tryCloudflareFlux(
     formData.append(`input_image_${i + 1}`, garmentBlobs[i].blob, garmentBlobs[i].filename)
   }
 
-  formData.append('width', '2048')
-  formData.append('height', '2048')
-  formData.append('guidance', '4.0')  // higher guidance = better quality + follows prompt more closely
+  formData.append('width', '1536')
+  formData.append('height', '1536')
+  formData.append('guidance', '3.5')  // balanced: better quality without over-generating
 
-  const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/black-forest-labs/flux-2-klein-9b`
+  const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/black-forest-labs/flux-2-klein-4b`
 
   console.log('[generate-tryon] 📦 Sending Flux payload:', {
     personSizeKB: (personBytes.length / 1024).toFixed(0),
