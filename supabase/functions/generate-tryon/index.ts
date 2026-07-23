@@ -46,7 +46,7 @@ function guessMimeType(bytes: Uint8Array): string {
 
 // ── Try Cloudflare Flux 2 Klein 4B (multipart/form-data) ───────────
 // Flux accepts multipart with input_image_0 (person) + input_image_1..3 (garments).
-// 1536x1536 output = 2.25x more pixels than 1024 without the big slowdown.
+// Native res (1024) — upscale after if UI needs bigger; asking Klein to render 1536 causes blur.
 async function tryCloudflareFlux(
   cfApiToken: string,
   cfAccountId: string,
@@ -77,18 +77,18 @@ async function tryCloudflareFlux(
     }
   }
 
-  // 3. Build prompt with identity-preservation language
-  let promptText =
-    "Virtual try-on. Replace ONLY the clothing on the person in image 0 "
+  // 3. Build prompt with BFL-recommended identity-preservation structure:
+  //   establish reference → state the change → explicitly restate what to preserve
+  let promptText = "This is the same person shown in image 0. "
+  promptText += "Keep the exact same face, facial features, skin tone, expression, and hairstyle as image 0, unchanged. "
+  promptText += "Keep the same body shape, pose, and background as image 0, unchanged. "
+
   if (garmentBlobs.length === 1) {
-    promptText +=
-      "with the garment from image 1. Do NOT change the person's face, hair, skin, body shape, pose, or background. Keep everything exactly the same except the clothing."
+    promptText += "The only change: replace their clothing with the garment shown in image 1."
   } else if (garmentBlobs.length >= 2) {
-    promptText +=
-      "with the top from image 1 and the bottom from image 2. Do NOT change the person's face, hair, skin, body shape, pose, or background. Keep everything exactly the same except the clothing."
+    promptText += "The only change: replace their top with the garment in image 1, and their bottom with the garment in image 2."
   } else {
-    promptText +=
-      "with the garments from the reference images. Do NOT change the person's face, hair, skin, body shape, pose, or background."
+    promptText += "The only change: replace their clothing with the garments in the reference images."
   }
 
   // 4. Build multipart/form-data — Flux REQUIRES this format
@@ -100,9 +100,9 @@ async function tryCloudflareFlux(
     formData.append(`input_image_${i + 1}`, garmentBlobs[i].blob, garmentBlobs[i].filename)
   }
 
-  formData.append('width', '1536')
-  formData.append('height', '1536')
-  formData.append('guidance', '3.5')  // balanced: better quality without over-generating
+  formData.append('width', '1024')    // native res — don't force 1536 out of a 4-step model
+  formData.append('height', '1024')
+  formData.append('guidance', '2.2')  // down from 3.5 — lower guidance = less "reinterpretation" pressure on the face
 
   const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/black-forest-labs/flux-2-klein-4b`
 
@@ -313,15 +313,8 @@ serve(async (req) => {
       .from('clipped-closet-items')
       .getPublicUrl(storagePath)
 
-    await supabase
-      .from('planner_generated_images')
-      .update({
-        status: 'completed',
-        image_url: pubData.publicUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', generation_id)
-
+    // Note: status update to 'completed' is handled by the client after
+    // optional face compositing, so there's no race condition with polling.
     console.log(`[generate-tryon] ✅ ${usedEngine} completed:`, pubData.publicUrl)
 
     return new Response(

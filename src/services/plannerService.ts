@@ -170,7 +170,10 @@ export async function planOutfitForDate(
       outfit_id: outfit.id,
       planned_date: dateStr,
       status: 'pending',
-      metadata: { ...outfitData, base_photo_url: currentBasePhoto },
+      metadata: {
+        ...outfitData,
+        base_photo_url: currentBasePhoto,
+      },
     })
     .select()
     .single();
@@ -349,7 +352,7 @@ export async function generateTryOnImage(genId: string): Promise<void> {
     }
 
     if (data?.image_url) {
-      // Single invocation completed (single-garment, dress, or step 2 final)
+      // ── Single invocation completed (single-garment, dress, or step 2 final) ──
       console.log('[plannerService] ✅ Generation completed for', genId);
       await supabase
         .from('planner_generated_images')
