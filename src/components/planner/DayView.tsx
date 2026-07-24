@@ -232,7 +232,7 @@ export function DayView({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="flex flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-muted-foreground/25 bg-gradient-to-b from-muted/10 to-muted/30"
+            className="flex flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-muted-foreground/20 bg-gradient-to-b from-muted/5 to-muted/20 shadow-sm"
           >
             <div className="flex flex-col items-center gap-4 px-8 text-center">
               <motion.div
@@ -443,22 +443,33 @@ export function DayView({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-            className="flex flex-1 flex-col rounded-3xl bg-card overflow-hidden shadow-sm border border-border/50"
+            className="flex flex-1 flex-col rounded-3xl bg-card overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.3),0_1px_3px_rgba(0,0,0,0.15)] border border-border/40"
           >
             {/* Try-on image */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4 }}
-              className="relative flex-1 bg-gradient-to-b from-muted/40 via-muted/20 to-background"
+              className="relative flex-1 bg-gradient-to-b from-muted/40 via-muted/20 to-background flex items-center justify-center overflow-hidden"
             >
+              {/* Plain <img> with eager loading — renders immediately on first
+                  paint (unlike CachedImage which defers Supabase URLs). The
+                  preloading in PlannerView fires new Image() fetches in the
+                  background, so the browser HTTP cache serves them instantly. */}
               <motion.img
                 src={viewState.imageUrl}
                 alt={`Try-on for ${viewState.outfitName ?? 'outfit'}`}
+                loading="eager"
+                fetchpriority="high"
+                decoding="async"
                 className="h-full w-full object-contain"
-                initial={{ scale: 0.95 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.4, ease: 'easeOut' }}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                onLoad={(e) => {
+                  const el = e.currentTarget;
+                  el.style.opacity = '1';
+                }}
               />
 
               {/* Status badge */}
@@ -471,6 +482,9 @@ export function DayView({
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
                 <span className="text-[11px] font-medium text-white">AI Try-On</span>
               </motion.div>
+
+              {/* Dark theme: inner shadow for depth separation */}
+              <div className="pointer-events-none absolute inset-0 shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]" />
             </motion.div>
 
             {/* Bottom info bar with actions */}
@@ -492,7 +506,7 @@ export function DayView({
                     type="button"
                     onClick={onUploadPhoto}
                     title="Change base photo"
-                    className="rounded-full bg-muted p-1.5 text-muted-foreground hover:text-foreground transition-colors hover:bg-muted/80 active:scale-90"
+                    className="rounded-full bg-muted p-1.5 text-muted-foreground hover:text-foreground transition-colors hover:bg-muted/80 active:scale-90 border border-border/30"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -500,14 +514,14 @@ export function DayView({
                 <button
                   type="button"
                   onClick={onChangeOutfit}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors hover:bg-muted/80 active:scale-95"
+                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:text-foreground transition-colors hover:bg-muted/80 active:scale-95 border border-border/30"
                 >
                   Change
                 </button>
                 <button
                   type="button"
                   onClick={onRemoveOutfit}
-                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition-colors hover:bg-red-50 active:scale-95"
+                  className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition-colors hover:bg-red-50 active:scale-95 border border-red-200/40"
                 >
                   Remove
                 </button>

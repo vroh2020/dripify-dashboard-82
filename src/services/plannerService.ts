@@ -245,7 +245,7 @@ export async function getPlannedOutfitForDate(
 export async function getPlannedOutfitsForRange(
   startDate: Date,
   endDate: Date,
-): Promise<Array<{ date: string; outfitId: string | null; status: GenerationStatus | null }>> {
+): Promise<Array<{ date: string; outfitId: string | null; status: GenerationStatus | null; imageUrl: string | null }>> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth?.user) return [];
 
@@ -267,15 +267,19 @@ export async function getPlannedOutfitsForRange(
     .filter(Boolean);
 
   let genStatuses: Map<string, string> = new Map();
+  let genImageUrls: Map<string, string | null> = new Map();
   if (outfitIds.length > 0) {
     const { data: genRows } = await supabase
       .from('planner_generated_images')
-      .select('outfit_id, status')
+      .select('outfit_id, status, image_url')
       .eq('user_id', auth.user.id)
       .in('outfit_id', outfitIds);
     if (genRows) {
       genStatuses = new Map(
         (genRows as any[]).map((r) => [r.outfit_id, r.status]),
+      );
+      genImageUrls = new Map(
+        (genRows as any[]).map((r) => [r.outfit_id, r.image_url]),
       );
     }
   }
@@ -284,6 +288,7 @@ export async function getPlannedOutfitsForRange(
     date: r.planned_date,
     outfitId: r.outfit_id,
     status: (genStatuses.get(r.outfit_id) as GenerationStatus) ?? null,
+    imageUrl: genImageUrls.get(r.outfit_id) ?? null,
   }));
 }
 

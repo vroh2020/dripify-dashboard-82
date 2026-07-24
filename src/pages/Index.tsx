@@ -14,6 +14,7 @@ import {
   Scissors,
   Camera,
   X,
+  CheckCircle2,
 } from "lucide-react";
 import { Shuffler } from "@/components/whering/shuffler";
 import { Wardrobe } from "@/components/whering/wardrobe";
@@ -22,7 +23,7 @@ import { Clipper } from "@/components/whering/clipper";
 import { UploadItemFlow } from "@/components/whering/UploadItemFlow";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import Profile from "@/pages/Profile";
 
@@ -182,6 +183,85 @@ function FabButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+// ── Processing Pill ──────────────────────────────────────────────────
+// Shown when the upload sheet is dismissed while items are still being processed.
+// Displays progress (e.g. "Processing 3/10") with a small spinner.
+// Tapping the pill reopens the full sheet.
+// When all items finish, briefly flashes a completion state then auto-dismisses.
+
+type ProcessingPillState = "running" | "completing" | null;
+
+function ProcessingPill({
+  done,
+  total,
+  failed,
+  onTap,
+}: {
+  done: number;
+  total: number;
+  failed: number;
+  onTap: () => void;
+}) {
+  const [phase, setPhase] = useState<"processing" | "complete">(total > 0 && done + failed >= total ? "complete" : "processing");
+
+  useEffect(() => {
+    if (total > 0 && done + failed >= total) {
+      // All done — briefly flash completion
+      const t = setTimeout(() => setPhase("complete"), 100);
+      return () => clearTimeout(t);
+    } else {
+      setPhase("processing");
+    }
+  }, [done, failed, total]);
+
+  return (
+    <motion.button
+      initial={{ y: 80, opacity: 0, scale: 0.9 }}
+      animate={{ y: 0, opacity: 1, scale: 1 }}
+      exit={{ y: 80, opacity: 0, scale: 0.9 }}
+      transition={{ type: "spring", stiffness: 300, damping: 28 }}
+      onClick={onTap}
+      className="fixed left-1/2 -translate-x-1/2 z-[65] flex items-center gap-2.5 rounded-full bg-black/90 backdrop-blur-md px-4 py-2.5 shadow-lg border border-white/10"
+      style={{ bottom: `calc(80px + env(safe-area-inset-bottom, 0px))` }}
+    >
+      {phase === "processing" ? (
+        <>
+          <div className="relative h-5 w-5 flex-shrink-0">
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-white/20"
+            />
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-t-transparent border-l-transparent border-r-white/80 border-b-white/80"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+            />
+          </div>
+          <span className="text-sm font-semibold text-white whitespace-nowrap">
+            Processing {done}/{total}
+          </span>
+          {failed > 0 && (
+            <span className="text-xs text-red-300 font-medium">
+              · {failed} failed
+            </span>
+          )}
+        </>
+      ) : (
+        <>
+          <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
+          <span className="text-sm font-semibold text-white whitespace-nowrap">
+            {done}/{total} done ✓
+          </span>
+          {failed > 0 && (
+            <span className="text-xs text-red-300 font-medium">
+              · {failed} failed
+            </span>
+          )}
+        </>
+      )}
+    </motion.button>
+  );
+}
+
 // ─── Main Index ───
 
 const Index = () => {
@@ -194,6 +274,18 @@ const Index = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [clipperOpen, setClipperOpen] = useState(false);
+
+  // Processing queue state from UploadItemFlow — used to show the pill
+  const [processingState, setProcessingState] = useState<{
+    isProcessing: boolean;
+    total: number;
+    done: number;
+    failed: number;
+  } | null>(null);
+
+  // Keep UploadItemFlow mounted while processing is active (so the queue
+  // continues running even after the sheet is dismissed).
+  const showUploadFlows = uploadOpen || processingState?.isProcessing === true;
 
   // Lift closet data state so UploadItemFlow, Wardrobe, Shuffler, Canvas, and Saved tab share the same instance
   const { items, outfits, isInitialLoad, loadError, retry, refresh, insertItem, updateItem, saveOutfit, deleteOutfit } = useClosetData();
@@ -214,6 +306,13 @@ const Index = () => {
       updateItem(item);
     },
     [updateItem]
+  );
+
+  const handleProcessingChange = useCallback(
+    (state: { isProcessing: boolean; total: number; done: number; failed: number } | null) => {
+      setProcessingState(state);
+    },
+    []
   );
 
   // Default to dress-me
@@ -247,8 +346,8 @@ const Index = () => {
     { key: "dress-me", label: "Dress Me", icon: Shirt, side: "left" },
     { key: "wardrobe", label: "Wardrobe", icon: LayoutGrid, side: "left" },
     { key: "planner", label: "Planner", icon: CalendarDays, side: "right" },
-    { key: "fits", label: "Saved", icon: Bookmark, side: "right" },
     { key: "canvas", label: "Canvas", icon: Layers, side: "right" },
+    { key: "fits", label: "Saved", icon: Bookmark, side: "right" },
   ];
 
   const renderContent = () => {
@@ -296,7 +395,7 @@ const Index = () => {
           );
         case "planner":
           return (
-            <div className="h-full overflow-hidden">
+            <div className="whering-theme bg-muted h-full overflow-hidden">
               <PlannerView outfits={outfits} />
             </div>
           );
@@ -357,18 +456,6 @@ const Index = () => {
   };
 
   return (
-    // `app-content` opts this wrapper into the @media (min-width: 1024px)
-    // phone-frame letterbox rule (max-width 480px centered with a soft
-    // drop shadow) defined in index.css.
-    //
-    // Safe-area-inset-top is intentionally NOT reapplied here — the single
-    // source is `<body>` (see index.html inline `<style>` plus the
-    // `@supports (padding: max(0px))` rule in index.css). Re-applying
-    // `paddingTop: env(safe-area-inset-top)` here used to stack 2× the
-    // inset (~118px of dead space on iPhone 14 Pro) above the dashboard
-    // header. Any element that needs more top breathing room on top of
-    // the body-level inset should use `calc(N + env(...))` on its own
-    // padding instead.
     <div
       className="h-full app-content bg-white relative overflow-x-hidden flex flex-col"
     >
@@ -379,24 +466,11 @@ const Index = () => {
         onValueChange={handleTabChange}
         className="flex flex-col flex-1"
       >
-        {/* Content — scrolls above the pinned bottom nav. 6rem (96px) is for
-             nav clearance (additive). safe-area-inset-bottom is intentionally
-             NOT re-applied — body is single source, so the scroller's outer
-             bottom already sits at body content-box bottom = viewport - env(bottom).
-             Adding another env would push content 34px too high on iPhone 14 Pro
-             and other notched devices. */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pb-24">
           {renderContent()}
         </div>
 
-        {/* Bottom Navigation — hard-pinned with fixed so Capacitor WebView never pushes it out of view.
-             `lg:max-w-[480px]` matches the iPad letterbox breakpoint applied to `.app-content` in
-             index.css (min-width:1024px). On phones / Appetize mobile previews the nav stretches
-             edge-to-edge so it doesn't sit centered in a 480px column inside a wider viewport.
-             `paddingBottom: env(bottom)` was previously applied here — that was a (b) double-count
-             on top of the body's padding-bottom (single source). Removing it puts tab icons at body
-             content-box bottom = viewport - env(bottom), i.e. flush above the home indicator zone
-             (the home indicator lives INSIDE body's padding, not above it). */}
+        {/* Bottom Navigation */}
         <div className="fixed bottom-0 left-0 right-0 z-50 mx-auto lg:max-w-[480px] bg-white/90 backdrop-blur-xl border-t border-gray-200/70 shadow-[0_-1px_3px_rgba(0,0,0,0.03)]">
           <motion.div
             initial={false}
@@ -472,13 +546,28 @@ const Index = () => {
         onAction={handleSheetAction}
       />
 
-      {/* Upload Item Flow */}
-      <UploadItemFlow
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        onItemInserted={handleItemInserted}
-        onItemUpdated={handleItemUpdated}
-      />
+      {/* Upload Item Flow — keep mounted while processing is active */}
+      {showUploadFlows && (
+        <UploadItemFlow
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          onItemInserted={handleItemInserted}
+          onItemUpdated={handleItemUpdated}
+          onProcessingChange={handleProcessingChange}
+        />
+      )}
+
+      {/* Processing pill — shown when items are processing but sheet is closed */}
+      <AnimatePresence>
+        {processingState && !uploadOpen && (
+          <ProcessingPill
+            done={processingState.done}
+            total={processingState.total}
+            failed={processingState.failed}
+            onTap={() => setUploadOpen(true)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Clipper overlay */}
       <AnimatePresence>
@@ -495,22 +584,11 @@ const Index = () => {
                 onItemInserted={handleItemInserted}
                 onItemUpdated={handleItemUpdated}
                 onSaved={() => {
-                  // Close the clipper overlay and bump the user to the
-                  // wardrobe tab so the freshly added item is visible
-                  // immediately — matches the "Added to Wardrobe" copy
-                  // so the user isn't stranded on the success card.
                   setClipperOpen(false)
                   navigate("/wardrobe")
                 }}
               />
             </div>
-              // Close button: top-4 (16px from overlay top) already sits
-              // 16px below the overlay's top edge. The overlay's top edge
-              // is itself inside body's env-pad-top (clipper is `position:
-              // fixed` with `#root`'s transform acting as containing block,
-              // and #root starts at body env). An earlier `marginTop: env(top)`
-              // stacked another env on top, pushing the button from y=75
-              // (iPhone 14 Pro: 59 + 16) to y=134 (59 + 16 + 59). Removed.
               <button
                 onClick={() => setClipperOpen(false)}
                 className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/10 flex items-center justify-center hover:bg-black/20 transition-colors"

@@ -117,6 +117,13 @@
     inset: 0;
     width: 100%;
     height: 100%;
+    /* Root background must be white (not dark) — this fills the area
+       OUTSIDE the app content (the safe-area bezel on notched devices,
+       letterbox margins on desktop, etc.). The app content area uses
+       its own bg-background. The inline <style> in index.html also
+       sets this; it's repeated here in the loaded CSS for redundancy
+       since the @layer base can otherwise override it. */
+    background-color: #ffffff;
     /* dvh fallback: on iOS 15.4+ the dynamic viewport height unit prevents
        the "keyboard squish" where WebKit shrinks 100vh when the native
        keyboard is visible. 100dvh stays locked to the full-screen height
@@ -773,6 +780,9 @@
       padding-right: max(0px, env(safe-area-inset-right));
       padding-top: max(0px, env(safe-area-inset-top));
       padding-bottom: max(0px, env(safe-area-inset-bottom));
+      /* Body fill color stays white inside safe area padding so the
+         bezel around notched devices is white, not black. */
+      background-color: #ffffff;
     }
   }
   
@@ -944,7 +954,7 @@
   @media (min-width: 1367px) {
     html,
     body {
-      background-color: #ececef;
+      background-color: #ffffff;
     }
     /* The phone-frame wrapper. Opt-in surface classes (`.app-content`,
        `.screen-safe`, `.container-mobile`) get letterboxed on iPad so

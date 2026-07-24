@@ -385,7 +385,7 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
         origin: "web",
       })
       setExtractError(null)
-      setCrop({ xPct: 0.15, yPct: 0.15, sizePct: 0.7 })
+      setCrop({ xPct: 0, yPct: 0, sizePct: 1 })
       setImgInfo(null)
       setStage("crop")
     },
@@ -403,7 +403,7 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
     setActive(null)
     setRotation(0)
     setExtractError(null)
-    setCrop({ xPct: 0.15, yPct: 0.15, sizePct: 0.7 })
+    setCrop({ xPct: 0, yPct: 0, sizePct: 1 })
     setImgInfo(null)
     setDragState(null)
     setSelectedResultIds(new Set())
@@ -416,7 +416,7 @@ export function Clipper({ onSaved, demoItems = [], onItemInserted, onItemUpdated
     haptic("medium")
     setActive({ ...g, origin: "demo" })
     setRotation(0)
-    setCrop({ xPct: 0.15, yPct: 0.15, sizePct: 0.7 })
+    setCrop({ xPct: 0, yPct: 0, sizePct: 1 })
     setImgInfo(null)
     setStage("crop")
   }

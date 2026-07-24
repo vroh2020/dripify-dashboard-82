@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Camera, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { WeekStrip } from './WeekStrip';
@@ -45,8 +45,14 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showOutfitPicker, setShowOutfitPicker] = useState(false);
 
+  // ── Data cache ─────────────────────────────────────────────────
+  // Cache full query results (planner + image) keyed by date string.
+  // Populated by loadDateData each time a date is first visited.
+  // Re-visiting a date reads from cache — zero Supabase queries.
+  const dataCacheRef = useRef<Map<string, { planner: PlannerOutfit | null; image: GeneratedImage | null }>>(new Map());
+
   // ── Base photo state ──────────────────────────────────────────
-  const [hasBasePhoto, setHasBasePhoto] = useState<boolean | null>(null); // null = checking
+  const [hasBasePhoto, setHasBasePhoto] = useState<boolean | null>(null);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,10 +92,12 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       });
     } finally {
       setUploadingPhoto(false);
-      // Reset the input so the same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }, []);
+
+  // ── Month load deduplication ───────────────────────────────────
+  const lastLoadedMonthRef = useRef<string>('');
 
   // ── Polling management ─────────────────────────────────────────
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -110,11 +118,10 @@ export function PlannerView({ outfits }: PlannerViewProps) {
 
       const poll = async () => {
         let attempts = 0;
-        const maxAttempts = 100; // 100 * 2s = 200s timeout (matching edge function + Space processing)
+        const maxAttempts = 100;
 
         while (!cancelled && attempts < maxAttempts) {
           try {
-            // Wait 2s between polls
             await new Promise<void>((resolve, reject) => {
               const timer = setTimeout(resolve, 2000);
               if (signal.aborted) {
@@ -152,8 +159,12 @@ export function PlannerView({ outfits }: PlannerViewProps) {
                   next.set(dateStr, genImage.status as any);
                   return next;
                 });
+                const cached = dataCacheRef.current.get(dateStr);
+                if (cached) {
+                  dataCacheRef.current.set(dateStr, { ...cached, image: genImage });
+                }
               }
-              return; // Stop polling — we got a terminal state
+              return;
             }
             attempts++;
           } catch (e: any) {
@@ -162,10 +173,8 @@ export function PlannerView({ outfits }: PlannerViewProps) {
           }
         }
 
-        // Timeout — force-set to 'failed' in the DB itself so future
-        // page loads don't re-enter the infinite loop.
         if (!cancelled) {
-          console.warn('[Planner] Polling timed out for genId:', genId, '— force-setting failed');
+          console.warn('[Planner] Polling timed out for genId:', genId);
           try {
             await supabase
               .from('planner_generated_images')
@@ -201,10 +210,47 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   // ── Data loading ───────────────────────────────────────────────
   const loadDateData = useCallback(
     async (date: Date) => {
-      setIsLoading(true);
       const dateStr = formatDateStr(date);
+
+      // Check data cache first
+      const cachedData = dataCacheRef.current.get(dateStr);
+      if (cachedData) {
+        setPlannedOutfit(cachedData);
+        // Quick status refresh for pending/generating
+        if (cachedData.image && (cachedData.image.status === 'pending' || cachedData.image.status === 'generating')) {
+          try {
+            const { data: quickCheck } = await supabase
+              .from('planner_generated_images')
+              .select('status, image_url, error_message')
+              .eq('id', cachedData.image.id)
+              .maybeSingle();
+            if (quickCheck && (quickCheck.status === 'completed' || quickCheck.status === 'failed')) {
+              const updated: typeof cachedData = {
+                ...cachedData,
+                image: { ...cachedData.image, ...quickCheck } as GeneratedImage,
+              };
+              dataCacheRef.current.set(dateStr, updated);
+              setPlannedOutfit(updated);
+              setGenerationStatuses((prev) => {
+                const next = new Map(prev);
+                next.set(dateStr, quickCheck.status as any);
+                return next;
+              });
+              return;
+            }
+          } catch {
+            // Fall through to polling
+          }
+          startPolling(cachedData.image.id, dateStr);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+
       try {
         const result = await getPlannedOutfitForDate(dateStr);
+        dataCacheRef.current.set(dateStr, result);
         setPlannedOutfit(result);
 
         if (result.image && (result.image.status === 'pending' || result.image.status === 'generating')) {
@@ -222,6 +268,11 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   const loadMonthData = useCallback(async (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
+    const monthKey = `${year}-${month}`;
+
+    if (lastLoadedMonthRef.current === monthKey) return;
+    lastLoadedMonthRef.current = monthKey;
+
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 0);
 
@@ -232,6 +283,11 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       planned.forEach((p) => {
         if (p.date) dateSet.add(p.date);
         if (p.status) statusMap.set(p.date, p.status);
+        // Preload image into browser cache so switching dates is instant
+        if (p.imageUrl) {
+          const img = new Image();
+          img.src = p.imageUrl;
+        }
       });
       setPlannedDates(dateSet);
       setGenerationStatuses(statusMap);
@@ -241,12 +297,13 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   }, []);
 
   useEffect(() => {
+    const dateStr = formatDateStr(selectedDate);
     loadDateData(selectedDate);
     loadMonthData(selectedDate);
     return () => {
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, [selectedDate, loadDateData, loadMonthData]);
+  }, [selectedDate, loadDateData, loadMonthData, formatDateStr]);
 
   useEffect(() => {
     return () => {
@@ -256,8 +313,19 @@ export function PlannerView({ outfits }: PlannerViewProps) {
 
   // ── Handlers ──────────────────────────────────────────────────
   const handleSelectDate = useCallback((date: Date) => {
+    const dateStr = formatDateStr(date);
+
+    // Check data cache — instant render if previously loaded
+    const cachedData = dataCacheRef.current.get(dateStr);
+    if (cachedData) {
+      setPlannedOutfit(cachedData);
+      setSelectedDate(date);
+      return;
+    }
+
+    // No cache — just set the date; the useEffect will trigger loadDateData
     setSelectedDate(date);
-  }, []);
+  }, [formatDateStr]);
 
   const handlePlanOutfit = useCallback(() => {
     if (hasBasePhoto === false) {
@@ -277,6 +345,8 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       setIsLoading(true);
       try {
         await planOutfitForDate(outfit, selectedDate);
+        dataCacheRef.current.delete(formatDateStr(selectedDate));
+        lastLoadedMonthRef.current = '';
         await loadDateData(selectedDate);
         await loadMonthData(selectedDate);
       } catch (e) {
@@ -285,7 +355,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
         setIsLoading(false);
       }
     },
-    [selectedDate, loadDateData, loadMonthData],
+    [selectedDate, formatDateStr, loadDateData, loadMonthData],
   );
 
   const handleRemoveOutfit = useCallback(async () => {
@@ -293,6 +363,8 @@ export function PlannerView({ outfits }: PlannerViewProps) {
     setIsLoading(true);
     try {
       await unplanDate(dateStr);
+      dataCacheRef.current.delete(dateStr);
+      lastLoadedMonthRef.current = '';
       setPlannedOutfit({ planner: null, image: null });
       await loadMonthData(selectedDate);
     } catch (e) {
@@ -342,10 +414,10 @@ export function PlannerView({ outfits }: PlannerViewProps) {
           type="button"
           onClick={handleToday}
           className={cn(
-            'rounded-full px-4 py-2 text-sm font-semibold transition-all',
+            'rounded-full px-5 py-2 text-sm font-semibold transition-all active:scale-[0.97]',
             formatDateStr(selectedDate) === formatDateStr(new Date())
-              ? 'bg-foreground text-background'
-              : 'bg-muted text-foreground hover:bg-muted/80',
+              ? 'bg-foreground text-background shadow-sm'
+              : 'bg-muted text-foreground hover:bg-muted/80 border border-border/40',
           )}
         >
           Today
@@ -360,8 +432,10 @@ export function PlannerView({ outfits }: PlannerViewProps) {
             onClick={() => setViewMode('day')}
             layout
             className={cn(
-              'relative rounded-full px-5 py-1.5 text-sm font-medium transition-colors',
-              viewMode === 'day' ? 'text-foreground' : 'text-muted-foreground',
+              'relative rounded-full px-6 py-2 text-sm font-medium transition-all active:scale-[0.97]',
+              viewMode === 'day'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground/80 border border-border/30',
             )}
           >
             {viewMode === 'day' && (
@@ -378,8 +452,10 @@ export function PlannerView({ outfits }: PlannerViewProps) {
             onClick={() => setViewMode('month')}
             layout
             className={cn(
-              'relative rounded-full px-5 py-1.5 text-sm font-medium transition-colors',
-              viewMode === 'month' ? 'text-foreground' : 'text-muted-foreground',
+              'relative rounded-full px-6 py-2 text-sm font-medium transition-all active:scale-[0.97]',
+              viewMode === 'month'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground/80 border border-border/30',
             )}
           >
             {viewMode === 'month' && (
@@ -441,14 +517,19 @@ export function PlannerView({ outfits }: PlannerViewProps) {
             exit={{ opacity: 0 }}
             className="flex flex-1 flex-col pt-3"
           >
-            <MonthView
-              displayMonth={selectedDate}
-              selectedDate={selectedDate}
-              plannedDates={plannedDates}
-              generationStatuses={generationStatuses}
-              onSelectDate={handleSelectDate}
-            />
-            <div className="mx-5 h-px bg-border/60 mb-3" />
+            {/* Compact MonthView with integrated navigation + expand */}
+            <div className="mx-4 mb-2 rounded-2xl bg-card/60 border border-border/40 shadow-sm">
+              <MonthView
+                displayMonth={selectedDate}
+                selectedDate={selectedDate}
+                plannedDates={plannedDates}
+                generationStatuses={generationStatuses}
+                onSelectDate={handleSelectDate}
+                onMonthChange={(month) => setSelectedDate(month)}
+              />
+            </div>
+            <div className="mx-5 h-px bg-border/40 mb-3" />
+            {/* DayView always visible above the fold */}
             <DayView
               date={selectedDate}
               tryOnImageUrl={plannedOutfit.image?.image_url ?? null}
@@ -468,50 +549,6 @@ export function PlannerView({ outfits }: PlannerViewProps) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── Month Navigation ──────────────────────────────────── */}
-      {viewMode === 'month' && (
-        <div className="flex items-center justify-between px-6 py-1">
-          <motion.button
-            type="button"
-            onClick={() => {
-              const prev = new Date(selectedDate);
-              prev.setMonth(prev.getMonth() - 1);
-              setSelectedDate(prev);
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.9 }}
-            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Previous</span>
-          </motion.button>
-
-          <motion.h2
-            key={selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-sm font-semibold text-foreground"
-          >
-            {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </motion.h2>
-
-          <motion.button
-            type="button"
-            onClick={() => {
-              const next = new Date(selectedDate);
-              next.setMonth(next.getMonth() + 1);
-              setSelectedDate(next);
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.9 }}
-            className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-          >
-            <span className="hidden sm:inline">Next</span>
-            <ChevronRight className="h-4 w-4" />
-          </motion.button>
-        </div>
-      )}
 
       {/* ── Photo Upload Modal ─────────────────────────────────── */}
       <AnimatePresence>
@@ -541,7 +578,6 @@ export function PlannerView({ outfits }: PlannerViewProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    // Re-trigger file input with camera
                     if (fileInputRef.current) {
                       fileInputRef.current.capture = 'environment';
                       fileInputRef.current.click();
@@ -604,62 +640,118 @@ export function PlannerView({ outfits }: PlannerViewProps) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 360, damping: 32 }}
-              className="w-full max-w-lg bg-white rounded-t-[28px] max-h-[70vh] flex flex-col"
+              className="w-full max-w-lg bg-white rounded-t-[28px] max-h-[75vh] flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
               onClick={(e) => e.stopPropagation()}
               style={{ paddingBottom: `calc(16px + env(safe-area-inset-bottom, 0px))` }}
             >
-              <div className="mx-auto mt-2 mb-2 h-1.5 w-10 rounded-full bg-gray-200" />
-              <div className="flex items-center justify-between px-6 pb-3 pt-1">
-                <h2 className="text-lg font-semibold">Pick an Outfit</h2>
+              {/* Drag handle */}
+              <div className="mx-auto mt-2 mb-2 h-1 w-10 rounded-full bg-gray-200" />
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pb-2 pt-1">
+                <h2 className="text-base font-semibold text-gray-900">Pick an Outfit</h2>
                 <button
                   type="button"
                   onClick={() => setShowOutfitPicker(false)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors px-3 py-1"
                 >
                   Cancel
                 </button>
               </div>
 
+              {/* List */}
               <div className="flex-1 overflow-y-auto px-4 pb-4">
                 <div className="space-y-2">
                   {outfits.length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-8">
-                      No saved outfits yet. Create one in Canvas first.
-                    </p>
+                    <div className="flex flex-col items-center justify-center py-12 px-8">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+                        <span className="text-2xl">🧥</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-500 text-center leading-relaxed">
+                        No saved outfits yet.
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1 text-center">
+                        Create one in Canvas first, then plan it here.
+                      </p>
+                    </div>
                   ) : (
-                    outfits.map((outfit) => (
-                      <button
-                        key={outfit.id}
-                        type="button"
-                        onClick={() => handleSelectOutfit(outfit)}
-                        className="flex w-full items-center gap-3 rounded-2xl bg-muted/30 p-4 text-left hover:bg-muted/60 transition-colors active:scale-[0.98]"
-                      >
-                        <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-muted">
-                          {outfit.thumbnail_url ? (
-                            <img
-                              src={outfit.thumbnail_url}
-                              alt={outfit.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center">
-                              <span className="text-xs text-muted-foreground">
-                                {outfit.items.length} items
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">
-                            {outfit.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {outfit.items.length} pieces
-                            {outfit.score ? ` · ${outfit.score} pts` : ''}
-                          </p>
-                        </div>
-                      </button>
-                    ))
+                    outfits.map((outfit) => {
+                      const previewItems = outfit.items
+                        .filter((i) => i.source_image_url)
+                        .slice(0, 3);
+                      const hasThumbnail = !!outfit.thumbnail_url;
+
+                      return (
+                        <button
+                          key={outfit.id}
+                          type="button"
+                          onClick={() => handleSelectOutfit(outfit)}
+                          className="flex w-full items-center gap-3 rounded-2xl bg-gray-50 p-3 text-left hover:bg-gray-100 transition-colors active:scale-[0.98] border border-gray-100 hover:border-gray-200"
+                        >
+                          {/* Visual preview — thumbnail collage or fallback */}
+                          <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                            {hasThumbnail ? (
+                              <img
+                                src={outfit.thumbnail_url!}
+                                alt={outfit.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : previewItems.length > 0 ? (
+                              <div className="relative h-full w-full">
+                                {previewItems.map((item, idx) => (
+                                  <img
+                                    key={item.id}
+                                    src={item.source_image_url}
+                                    alt={item.title || ''}
+                                    className="absolute rounded-lg object-cover border border-white"
+                                    loading="lazy"
+                                    style={{
+                                      width: '100%',
+                                      height: '100%',
+                                      left: `${idx * 8}px`,
+                                      top: `${idx * 4}px`,
+                                      zIndex: 3 - idx,
+                                      transform: `rotate(${(idx - 1) * 6}deg)`,
+                                      opacity: Math.max(0.3, 1 - idx * 0.3),
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <span className="text-sm text-gray-300">🧥</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Text: single line with name + piece count */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate leading-tight">
+                              {outfit.name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {outfit.items.length} {outfit.items.length === 1 ? 'piece' : 'pieces'}
+                              {outfit.score ? (
+                                <span className="text-gray-400"> · {outfit.score} pts</span>
+                              ) : null}
+                            </p>
+                          </div>
+
+                          {/* Selection chevron */}
+                          <div className="flex-shrink-0 text-gray-300">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path
+                                d="M6 4L10 8L6 12"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </div>

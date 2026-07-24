@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="background: #ffffff;">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
@@ -7,8 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <!-- Status bar style for iOS 7+ -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Status bar style for iOS 7+ — use 'default' (white) instead of 'black-translucent'
+         so the safe-area / status-bar background is white, matching the app's standard
+         background color instead of being black. 'default' gives a light status bar on
+         white background. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <!-- Prevent iOS from changing text size -->
     <meta name="format-detection" content="telephone=no, address=no, email=no" />
     <meta name="format-detection" content="telephone=no" />
@@ -50,8 +53,13 @@
       html, body {
         margin: 0;
         padding: 0;
-        background: white;
-        color: black;
+        /* Root background — white, not black. !important is required because the
+           @layer base in index.css also targets html/body and can override inline
+           <style> in some browsers' @layer implementations. This is the nuclear
+           option to ensure NO dark background ever shows through. */
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #000000;
         overflow-x: hidden;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', sans-serif;
         -webkit-font-smoothing: antialiased;
