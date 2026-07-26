@@ -14,9 +14,9 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 const TIPS = [
-  { icon: "😊", label: "Face forward", desc: "Looking straight at the camera" },
+  { icon: "🧍", label: "Full body", desc: "Standing full-length, facing forward" },
   { icon: "☀️", label: "Good lighting", desc: "Natural light works best" },
-  { icon: "🕶️", label: "No sunglasses", desc: "We need to see your face clearly" },
+  { icon: "👕", label: "Fitted clothes", desc: "Wear something you'd normally wear" },
 ];
 
 export const SelfieCaptureStep = ({ onNext, onBack }: SelfieCaptureStepProps) => {
@@ -290,7 +290,7 @@ export const SelfieCaptureStep = ({ onNext, onBack }: SelfieCaptureStepProps) =>
                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 className="text-[32px] font-bold text-black leading-tight mt-6"
               >
-                Add your selfie
+                Add your full portrait
                 <br />
                 for AI Try-On
               </motion.h1>
@@ -302,9 +302,9 @@ export const SelfieCaptureStep = ({ onNext, onBack }: SelfieCaptureStepProps) =>
                 transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
                 className="text-[15px] text-gray-500 mt-2 leading-relaxed"
               >
-                Get personalized outfit previews
+                Get personalized outfit previews that
                 <br />
-                that match your face and body shape.
+                match your full body and style.
               </motion.p>
 
               {/* ── ILLUSTRATION ── */}
@@ -317,7 +317,7 @@ export const SelfieCaptureStep = ({ onNext, onBack }: SelfieCaptureStepProps) =>
                 <div className="relative w-full max-w-[320px]">
                   <img
                     src="/onboarding-images/selfie/selfie-illustration.png"
-                    alt="Selfie to AI outfit try-on illustration"
+                    alt="Full body portrait for AI outfit try-on illustration"
                     className="w-full h-auto object-contain"
                     draggable={false}
                     loading="eager"
@@ -375,7 +375,7 @@ export const SelfieCaptureStep = ({ onNext, onBack }: SelfieCaptureStepProps) =>
                 ) : (
                   <>
                     <Camera className="w-5 h-5" />
-                    Take a Selfie
+                    Take a Photo
                   </>
                 )}
               </motion.button>

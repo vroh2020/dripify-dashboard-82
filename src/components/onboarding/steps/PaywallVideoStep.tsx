@@ -36,14 +36,28 @@ export const PaywallVideoStep = ({ onNext }: PaywallVideoStepProps) => {
           <div className="relative overflow-hidden rounded-[40px] bg-black p-2.5 shadow-2xl">
             <div className="bg-black rounded-[32px] overflow-hidden relative" style={{ aspectRatio: "852 / 1844" }}>
               <video
+                id="paywall-video"
                 src="/onboarding-images/paywall/paywall-video.mp4"
                 autoPlay
                 loop
                 muted
                 playsInline
+                preload="auto"
+                disablePictureInPicture
                 className="w-full h-full object-cover"
                 draggable={false}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               />
+              {/* Hide any native play button overlay that iOS may show */}
+              <style>{`
+                video#paywall-video::-webkit-media-controls-start-playback-button {
+                  display: none !important;
+                  -webkit-appearance: none;
+                }
+                video#paywall-video::-webkit-media-controls {
+                  display: none !important;
+                }
+              `}</style>
             </div>
           </div>
         </motion.div>
