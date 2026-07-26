@@ -28,9 +28,11 @@ interface UploadItemFlowProps {
   onItemUpdated?: (item: ClosetItem) => void;
   /** Reports queue processing state to parent so it can show a pill. */
   onProcessingChange?: (state: { isProcessing: boolean; total: number; done: number; failed: number } | null) => void;
+  /** Called when processing completes and user taps "Done" — parent can navigate to wardrobe. */
+  onComplete?: () => void;
 }
 
-export function UploadItemFlow({ open, onClose, onItemInserted, onItemUpdated, onProcessingChange }: UploadItemFlowProps) {
+export function UploadItemFlow({ open, onClose, onItemInserted, onItemUpdated, onProcessingChange, onComplete }: UploadItemFlowProps) {
   const [stage, setStage] = useState<Stage>("capture");
   const [selectedImages, setSelectedImages] = useState<{ id: string; dataUrl: string; file: Blob }[]>([]);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -127,7 +129,10 @@ export function UploadItemFlow({ open, onClose, onItemInserted, onItemUpdated, o
     cancelRef.current = true;
     reset();
     onClose();
-  }, [onClose, reset]);
+    // After the sheet is dismissed and processing is done, let the parent
+    // navigate to the wardrobe tab so the user sees their new items.
+    onComplete?.();
+  }, [onClose, reset, onComplete]);
 
   const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
     const res = await fetch(dataUrl);

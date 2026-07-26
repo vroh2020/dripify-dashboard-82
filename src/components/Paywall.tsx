@@ -145,7 +145,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
                   <svg className="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                   </svg>
-                  {pkg.product.identifier === 'og_499_1w' ? '3-day free trial' : 'No trial period'}
+                  {pkg.product.identifier === 'og_yearly_2999_1y' ? '3-day free trial' : 'No trial period'}
                 </li>
               </ul>
             </CardContent>
@@ -161,7 +161,7 @@ export const Paywall = ({ onPurchaseComplete }: PaywallProps) => {
                     Processing...
                   </>
                 ) : (
-                  selectedPackage?.product.identifier === 'og_499_1w' ? 'Start Free Trial' : 'Subscribe Now'
+                  selectedPackage?.product.identifier === 'og_yearly_2999_1y' ? 'Start Free Trial' : 'Subscribe Now'
                 )}
               </Button>
             </CardFooter>

@@ -144,9 +144,14 @@ export const MALE_DEMO_ITEMS: ClosetItem[] = [
 /**
  * Returns the gender-appropriate demo items.
  * Defaults to Female for "Other" or unknown gender.
+ *
+ * Comparison is case-insensitive so callers that lowercase the
+ * gender value (e.g. Auth.tsx's handleGender which normalises via
+ * `.toLowerCase()`) still resolve to the correct item set.
  */
 export function getDemoItemsForGender(gender: string | null): ClosetItem[] {
-  if (gender === "Female") return FEMALE_DEMO_ITEMS
-  if (gender === "Male") return MALE_DEMO_ITEMS
+  const g = gender?.toLowerCase() ?? ""
+  if (g === "female") return FEMALE_DEMO_ITEMS
+  if (g === "male") return MALE_DEMO_ITEMS
   return FEMALE_DEMO_ITEMS // default to female for "Other" / unknown
 }

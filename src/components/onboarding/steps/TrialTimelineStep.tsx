@@ -7,7 +7,7 @@ interface TrialTimelineStepProps {
 }
 
 export const TrialTimelineStep = ({ onComplete }: TrialTimelineStepProps) => {
-  const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'monthly'>('weekly');
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
   // Calculate billing date (3 days from now)
   const getBillingDate = () => {
@@ -97,11 +97,11 @@ export const TrialTimelineStep = ({ onComplete }: TrialTimelineStepProps) => {
           className="mb-6"
         >
           <div className="flex gap-3">
-            {/* Weekly Option (with 3-day free trial) */}
+            {/* Yearly Option (with 3-day free trial) */}
             <button
-              onClick={() => setSelectedPlan('weekly')}
+              onClick={() => setSelectedPlan('yearly')}
               className={`flex-1 rounded-xl border-2 p-4 transition-all relative ${
-                selectedPlan === 'weekly'
+                selectedPlan === 'yearly'
                   ? 'border-black bg-black text-white'
                   : 'border-gray-200 bg-white text-black hover:border-gray-300'
               }`}
@@ -111,18 +111,18 @@ export const TrialTimelineStep = ({ onComplete }: TrialTimelineStepProps) => {
                 3 DAYS FREE
               </div>
               <div className="text-left">
-                <p className="font-semibold text-base mb-1">Weekly</p>
-                <p className="text-sm">$4.99 /week</p>
+                <p className="font-semibold text-base mb-1">Yearly</p>
+                <p className="text-sm">$2.49 /mo</p>
               </div>
               <div className="flex justify-end mt-2">
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    selectedPlan === 'weekly'
+                    selectedPlan === 'yearly'
                       ? 'border-white bg-white'
                       : 'border-gray-300 bg-white'
                   }`}
                 >
-                  {selectedPlan === 'weekly' && (
+                  {selectedPlan === 'yearly' && (
                     <Check className="w-3 h-3 text-black" strokeWidth={3} />
                   )}
                 </div>
@@ -191,8 +191,8 @@ export const TrialTimelineStep = ({ onComplete }: TrialTimelineStepProps) => {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="text-center text-sm text-gray-500"
         >
-          {selectedPlan === 'weekly' 
-            ? '3 days free, then $4.99 per week'
+          {selectedPlan === 'yearly' 
+            ? '3 days free, then $29.99 per year'
             : 'Just $9.99 per month'
           }
         </motion.p>

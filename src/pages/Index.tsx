@@ -554,6 +554,10 @@ const Index = () => {
           onItemInserted={handleItemInserted}
           onItemUpdated={handleItemUpdated}
           onProcessingChange={handleProcessingChange}
+          onComplete={() => {
+            console.log('📍 [Index] UploadItemFlow onComplete — navigating to /wardrobe')
+            navigate("/wardrobe")
+          }}
         />
       )}
 
