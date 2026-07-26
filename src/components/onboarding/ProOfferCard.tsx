@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ExternalLink, Check, Lock, Bell, Crown } from "lucide-react";
+import { RefreshCw, ExternalLink, Check, Lock, Bell, Crown, X } from "lucide-react";
 import { useSubscription } from "@/components/subscription/SubscriptionProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -414,14 +414,10 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
   };
 
   const handleSkipToFreeTier = () => {
-    // Track the user opting into the limited free tier.
-    // The previous X-button path is gone (per product decision):
-    // free tier is now an explicit, single-click opt-in from
-    // the bottom of the paywall.
     if (user?.id) {
       trackPaywallEvent(user.id, 'paywall_1_free_tier_skipped', {
         selected_plan_at_skip: selectedPlan,
-        action: 'clicked_continue_with_free'
+        action: 'clicked_x_button'
       });
     }
 
@@ -429,11 +425,16 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
   };
 
   return (
-    // `screen-safe` (100dvh + env safe-area vars) replaces the legacy
-    // `min-h-screen` which undercounted the safe area on dynamic-island
-    // iPhones. `app-content` opts the whole paywall into the iPad
-    // letterbox rule so the pricing tier toggle + CTA don't sprawl.
     <div className="screen-safe app-content bg-white flex flex-col relative h-full">
+      {/* X close button top-right — handles the "skip to free tier" path */}
+      <button
+        onClick={handleSkipToFreeTier}
+        className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+        style={{ marginTop: `env(safe-area-inset-top, 0px)` }}
+      >
+        <X size={18} strokeWidth={2.4} />
+      </button>
+
       <div
         className="flex-1 flex flex-col px-6 pb-safe-button"
         style={{
@@ -580,21 +581,6 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
           isRestoring={isRestoring}
           restoreMsg={restoreMsg}
         />
-
-        {/* Free-Tier Opt-Out — explicit, low-prominence affordance. */}
-        {/* Apple App Store Guideline 3.1.2 requires a working way to */}
-        {/* access the app without subscribing. Keeping this visible but */}
-        {/* visually subordinate (gray, no border) signals it is the */}
-        {/* "less recommended" path — same pattern Stripe, Notion, and */}
-        {/* most revenuecat demos use to stay compliant without losing */}
-        {/* primary CTA emphasis. */}
-        <button
-          type="button"
-          onClick={handleSkipToFreeTier}
-          className="w-full text-center text-sm text-gray-500 hover:text-gray-900 transition-colors py-3 mt-2 underline-offset-4 hover:underline"
-        >
-          Continue with limited free tier
-        </button>
 
         {/* Legal Links */}
         <LegalLinks />

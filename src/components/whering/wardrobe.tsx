@@ -1,11 +1,23 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import Image from "next/image"
+import { Trash2 } from "lucide-react"
 import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
 import type { ClosetItem } from "@/hooks/useClosetData"
+import { supabase } from "@/integrations/supabase/client"
 import { PullToRefresh } from "@/components/common/PullToRefresh"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const filters = [
   { key: "all", label: "All" },
@@ -30,6 +42,8 @@ interface WardrobeProps {
 
 export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
   const [filter, setFilter] = useState<FilterKey>("all")
+  const [itemToDelete, setItemToDelete] = useState<ClosetItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Prefer real closet items; fall back to the gender-aware demo set when
   // the user hasn't built one yet (or the network is still loading).
@@ -40,6 +54,25 @@ export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
     filter === "all"
       ? displayItems
       : displayItems.filter((g) => g.category === filter)
+
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete) return
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase
+        .from('trendza_closet_items' as any)
+        .delete()
+        .eq('id', itemToDelete.id)
+      if (error) throw error
+      haptic("success")
+      onRefresh()
+    } catch (e) {
+      console.error('[wardrobe] delete failed:', e)
+    } finally {
+      setIsDeleting(false)
+      setItemToDelete(null)
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -89,7 +122,7 @@ export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
             {filteredItems.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col overflow-hidden rounded-2xl bg-card soft-shadow"
+                className="group relative flex flex-col overflow-hidden rounded-2xl bg-card soft-shadow"
               >
                 <div className="relative aspect-square w-full">
                   <Image
@@ -99,6 +132,15 @@ export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
                     sizes="180px"
                     className="object-contain p-3"
                   />
+                  {/* Delete button — visible on hover/tap via group */}
+                  <button
+                    type="button"
+                    onClick={() => setItemToDelete(item)}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 opacity-0 shadow transition-opacity hover:bg-red-50 group-hover:opacity-100 focus:opacity-100 active:scale-90"
+                    aria-label={`Delete ${item.title}`}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </button>
                 </div>
                 <span className="px-3 pb-3 pt-1 text-[13px] font-medium text-foreground">
                   {item.title}
@@ -115,6 +157,30 @@ export function Wardrobe({ items, demoItems, onRefresh }: WardrobeProps) {
           )}
         </PullToRefresh>
       ) : null}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => { if (!open) setItemToDelete(null) }}>
+        <AlertDialogContent className="bg-white border border-gray-200">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-gray-900">Delete Item</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600">
+              Are you sure you want to delete "{itemToDelete?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-gray-100 hover:bg-gray-200 text-gray-700">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

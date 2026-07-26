@@ -10,7 +10,7 @@ interface GenderSelectionStepProps {
 export const GenderSelectionStep = ({ onNext, onBack }: GenderSelectionStepProps) => {
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
 
-  const GENDERS = ["Male", "Female", "Other"];
+  const GENDERS = ["Male", "Female", "Non-binary", "Prefer not to say"];
 
   return (
     <motion.div
@@ -65,11 +65,8 @@ export const GenderSelectionStep = ({ onNext, onBack }: GenderSelectionStepProps
         </motion.p>
       </div>
 
-      {/* Gender buttons - brought UP closer to subtitle (was mt-12 / 160px)
-          which left a barren dead-zone in the middle of the screen on short
-          iPhones. mt-12 is enough breathing room while keeping the title +
-          options visually grouped. */}
-      <div className="px-6 mt-12 space-y-5">
+      {/* Gender buttons - tap-to-advance, no separate Next button */}
+      <div className="px-6 mt-12 space-y-5 flex-1">
         {GENDERS.map((g, index) => (
           <motion.button
             key={g}
@@ -80,8 +77,12 @@ export const GenderSelectionStep = ({ onNext, onBack }: GenderSelectionStepProps
               delay: 0.2 + index * 0.1,
               ease: [0.16, 1, 0.3, 1]
             }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setSelectedGender(g)}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => {
+              setSelectedGender(g);
+              // Auto-advance on selection — single unambiguous choice
+              setTimeout(() => onNext(g), 150);
+            }}
             className={`w-full h-[58px] rounded-2xl text-[17px] font-semibold transition-all duration-200 
               ${selectedGender === g ? "bg-black text-white" : "bg-[#F7F7FB] text-black hover:bg-gray-100"}`}
           >
@@ -89,31 +90,6 @@ export const GenderSelectionStep = ({ onNext, onBack }: GenderSelectionStepProps
           </motion.button>
         ))}
       </div>
-
-      {/* Continue button — pinned above the iOS home indicator via
-          `pb-safe-button` (24px + env(safe-area-inset-bottom). Was
-          pb-safe-button (a flat 80px) which would clip on dynamic-island
-          iPhones where the bottom safe area is closer to 34px+47px. */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-auto px-6 pb-safe-button"
-      >
-        <motion.button
-          disabled={!selectedGender}
-          whileTap={selectedGender ? { scale: 0.98 } : {}}
-          onClick={() => {
-            if (selectedGender) {
-              onNext(selectedGender);
-            }
-          }}
-          className={`w-full h-[56px] rounded-2xl text-[17px] font-semibold transition-all duration-200 
-            ${selectedGender ? "bg-black text-white hover:bg-gray-900" : "bg-gray-300 text-white cursor-not-allowed"}`}
-        >
-          Continue
-        </motion.button>
-      </motion.div>
     </motion.div>
   );
 };

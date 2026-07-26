@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Camera, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Camera, Image as ImageIcon, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { WeekStrip } from './WeekStrip';
 import { DayView } from './DayView';
 import { MonthView } from './MonthView';
+import { useSubscription } from '@/components/subscription/SubscriptionProvider';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { PaywallModal } from '@/components/subscription/PaywallModal';
 import {
   getPlannedOutfitForDate,
   getPlannedOutfitsForRange,
@@ -30,6 +33,12 @@ interface PlannerViewProps {
 
 export function PlannerView({ outfits }: PlannerViewProps) {
   const navigate = useNavigate();
+
+  // ── Subscription gating ─────────────────────────────────────────
+  const { isPro } = useSubscription();
+  const { canUseFeature, useFeature } = useUsageLimits();
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallFeature, setPaywallFeature] = useState('');
 
   // ── State ──────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<ViewMode>('day');
@@ -328,6 +337,16 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   }, [formatDateStr]);
 
   const handlePlanOutfit = useCallback(() => {
+    // Check usage limits for free users
+    if (!isPro) {
+      const check = canUseFeature('outfit_tryon');
+      if (!check.allowed) {
+        setPaywallFeature('AI Outfit Try-Ons');
+        setShowPaywall(true);
+        return;
+      }
+    }
+
     if (hasBasePhoto === false) {
       setShowPhotoUpload(true);
       return;
@@ -337,10 +356,21 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       return;
     }
     setShowOutfitPicker(true);
-  }, [hasBasePhoto, outfits.length, navigate]);
+  }, [isPro, canUseFeature, hasBasePhoto, outfits.length, navigate]);
 
   const handleSelectOutfit = useCallback(
     async (outfit: SavedOutfit) => {
+      // Deduct usage for free users before planning
+      if (!isPro) {
+        const used = await useFeature('outfit_tryon');
+        if (!used) {
+          setPaywallFeature('AI Outfit Try-Ons');
+          setShowPaywall(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       setShowOutfitPicker(false);
       setIsLoading(true);
       try {
@@ -355,7 +385,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
         setIsLoading(false);
       }
     },
-    [selectedDate, formatDateStr, loadDateData, loadMonthData],
+    [selectedDate, formatDateStr, loadDateData, loadMonthData, isPro, useFeature],
   );
 
   const handleRemoveOutfit = useCallback(async () => {
@@ -387,6 +417,12 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   // ── Render ─────────────────────────────────────────────────────
   return (
     <div className="flex h-full flex-col bg-background">
+      {/* Paywall gate modal */}
+      <PaywallModal
+        open={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        feature={paywallFeature}
+      />
       {/* Hidden file input for photo upload */}
       <input
         ref={fileInputRef}

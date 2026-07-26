@@ -6,23 +6,18 @@ import { Logger } from "@/utils/logger";
 import { handleError } from "@/utils/errorHandler";
 import { supabase } from "@/integrations/supabase/client";
 
-import { seedDemoWardrobe } from "@/lib/wardrobe-seed";
-
 // Import onboarding step components
 import { WelcomeHeroStep } from "../components/onboarding/steps/WelcomeHeroStep";
 import { GenderSelectionStep } from "../components/onboarding/steps/GenderSelectionStep";
-import { AgeRangeStep } from "../components/onboarding/steps/AgeRangeStep";
-import { HeightStep } from "../components/onboarding/steps/HeightStep";
-import { SizeStep } from "../components/onboarding/steps/SizeStep";
-import { ShoppingExperienceStep } from "../components/onboarding/steps/ShoppingExperienceStep";
-import { BrandPreferenceStep } from "../components/onboarding/steps/BrandPreferenceStep";
-import { OccasionDifficultyStep } from "../components/onboarding/steps/OccasionDifficultyStep";
-import { StyleKnowledgeStep } from "../components/onboarding/steps/StyleKnowledgeStep";
-import { WardrobeStylingStep } from "../components/onboarding/steps/WardrobeStylingStep";
-import { ColorAnalysisIntroStep } from "../components/onboarding/steps/ColorAnalysisIntroStep";
+import { StyleArchetypeStep } from "../components/onboarding/steps/StyleArchetypeStep";
+import { BodyBasicsStep } from "../components/onboarding/steps/BodyBasicsStep";
+import { FashionRelationshipStep } from "../components/onboarding/steps/FashionRelationshipStep";
+import { SelfieCaptureStep } from "../components/onboarding/steps/SelfieCaptureStep";
+import { WardrobeSeedStep } from "../components/onboarding/steps/WardrobeSeedStep";
 import { PersonalizingStep } from "../components/onboarding/steps/PersonalizingStep";
-import { FreeTrialPaywallStep } from "../components/onboarding/steps/FreeTrialPaywallStep";
+import { PaywallVideoStep } from "../components/onboarding/steps/PaywallVideoStep";
 import { ProOfferCard } from "../components/onboarding/ProOfferCard";
+import { seedDemoWardrobe } from "@/lib/wardrobe-seed";
 
 
 export const AuthOnboardingWizard = () => {
@@ -156,120 +151,92 @@ export const AuthOnboardingWizard = () => {
 
   // Track when user reaches paywall step
   useEffect(() => {
-    if (step === 14 && userId) {
-      trackUserAction('paywall_reached', { step: 14 }).catch(console.error);
+    if (step === 9 && userId) {
+      trackUserAction('paywall_reached', { step: 9 }).catch(console.error);
     }
   }, [step, userId]);
 
   // Onboarding handlers
   const handleGender = async (gender: string) => {
-    setOnboardingData(prev => ({ ...prev, gender }));
+    const normalized = gender.toLowerCase();
+    setOnboardingData(prev => ({ ...prev, gender: normalized }));
     if (userId) {
-      saveOnboardingStep('gender', { gender }).catch(console.error);
-      trackUserAction('gender_selected', { gender, step: 2 }).catch(console.error);
+      saveOnboardingStep('gender', { gender: normalized }).catch(console.error);
+      trackUserAction('gender_selected', { gender: normalized, step: 2 }).catch(console.error);
     }
     setStep(3);
   };
 
-  const handleAgeRange = async (ageRange: string) => {
-    setOnboardingData(prev => ({ ...prev, age_range: ageRange }));
+  const handleStyleArchetypes = async (archetypes: string[]) => {
+    setOnboardingData(prev => ({ ...prev, style_archetypes: archetypes }));
     if (userId) {
-      saveOnboardingStep('age_range', { ageRange }).catch(console.error);
-      trackUserAction('age_range_selected', { ageRange, step: 3 }).catch(console.error);
+      saveOnboardingStep('style_archetypes', { archetypes }).catch(console.error);
+      trackUserAction('style_archetypes_selected', { archetypes, step: 3 }).catch(console.error);
     }
     setStep(4);
   };
 
-  const handleHeight = async (height: string) => {
-    setOnboardingData(prev => ({ ...prev, height }));
+  const handleBodyBasics = async (data: { age_range: string; height: string; size: string }) => {
+    setOnboardingData(prev => ({ ...prev, ...data }));
     if (userId) {
-      saveOnboardingStep('height', { height }).catch(console.error);
-      trackUserAction('height_entered', { height, step: 4 }).catch(console.error);
+      saveOnboardingStep('body_basics', data).catch(console.error);
+      trackUserAction('body_basics_completed', { ...data, step: 4 }).catch(console.error);
     }
     setStep(5);
   };
 
-  const handleSize = async (size: string) => {
-    setOnboardingData(prev => ({ ...prev, size }));
+  const handleFashionRelationship = async (slug: string) => {
+    setOnboardingData(prev => ({ ...prev, fashion_relationship: slug }));
     if (userId) {
-      saveOnboardingStep('size', { size }).catch(console.error);
-      trackUserAction('size_selected', { size, step: 5 }).catch(console.error);
+      saveOnboardingStep('fashion_relationship', { slug }).catch(console.error);
+      trackUserAction('fashion_relationship_selected', { slug, step: 5 }).catch(console.error);
     }
     setStep(6);
   };
 
-  const handleShoppingExperience = async (experience: string) => {
-    setOnboardingData(prev => ({ ...prev, shopping_experience: experience }));
-    if (userId) {
-      saveOnboardingStep('shopping_experience', { experience }).catch(console.error);
-      trackUserAction('shopping_experience_selected', { experience, step: 6 }).catch(console.error);
+  const handlePhotoCapture = async (photoUrl?: string) => {
+    if (photoUrl) {
+      setOnboardingData(prev => ({ ...prev, selfie_url: photoUrl }));
+      if (userId) {
+        saveOnboardingStep('selfie_captured', { hasPhoto: true, photo_url: photoUrl }).catch(console.error);
+        trackUserAction('selfie_captured', { hasPhoto: true, step: 6 }).catch(console.error);
+      }
+    } else {
+      // Skipped
+      if (userId) {
+        saveOnboardingStep('selfie_captured', { hasPhoto: false }).catch(console.error);
+        trackUserAction('selfie_skipped', { step: 6 }).catch(console.error);
+      }
     }
-    setStep(7);
+    
+    setStep(7); // Go to wardrobe seeding step
   };
 
-  const handleBrandPreference = async (preference: string) => {
-    setOnboardingData(prev => ({ ...prev, brand_preference: preference }));
+  const handleWardrobeSeeding = async (seededItems: string[]) => {
+    setOnboardingData(prev => ({ ...prev, wardrobe_seeded_items: seededItems }));
     if (userId) {
-      saveOnboardingStep('brand_preference', { preference }).catch(console.error);
-      trackUserAction('brand_preference_selected', { preference, step: 7 }).catch(console.error);
+      saveOnboardingStep('wardrobe_seeding_completed', { items: seededItems, count: seededItems.length }).catch(console.error);
+      trackUserAction('wardrobe_seeding_completed', { count: seededItems.length, step: 7 }).catch(console.error);
     }
     setStep(8);
-  };
-
-  const handleOccasionDifficulty = async (occasion: string) => {
-    setOnboardingData(prev => ({ ...prev, occasion_difficulty: occasion }));
-    if (userId) {
-      saveOnboardingStep('occasion_difficulty', { occasion }).catch(console.error);
-      trackUserAction('occasion_difficulty_selected', { occasion, step: 8 }).catch(console.error);
-    }
-    setStep(9);
-  };
-
-  const handleStyleKnowledge = async (knowledge: string) => {
-    setOnboardingData(prev => ({ ...prev, style_knowledge: knowledge }));
-    if (userId) {
-      saveOnboardingStep('style_knowledge', { knowledge }).catch(console.error);
-      trackUserAction('style_knowledge_selected', { knowledge, step: 9 }).catch(console.error);
-    }
-    setStep(10);
-  };
-
-  const handleWardrobeStyling = async (answer: string) => {
-    setOnboardingData(prev => ({ ...prev, wardrobe_styling: answer }));
-    if (userId) {
-      saveOnboardingStep('wardrobe_styling', { answer }).catch(console.error);
-      trackUserAction('wardrobe_styling_selected', { answer, step: 10 }).catch(console.error);
-    }
-    setStep(11); // Go to color analysis intro
-  };
-
-  const handlePhotoCapture = async (imageFile: File) => {
-    setSelectedImage(imageFile);
-    
-    if (userId) {
-      saveOnboardingStep('selfie_captured', { hasPhoto: true }).catch(console.error);
-      trackUserAction('selfie_captured', { fileSize: imageFile.size, step: 11 }).catch(console.error);
-    }
-    
-    setStep(12); // Go to personalizing step
   };
 
   const handlePersonalizingComplete = async () => {
     if (userId) {
       saveOnboardingStep('personalization_completed', { completedAt: new Date().toISOString() }).catch(console.error);
-      trackUserAction('personalization_completed', { step: 12 }).catch(console.error);
+      trackUserAction('personalization_completed', { step: 8 }).catch(console.error);
     }
     
-    setStep(13); // Go to free trial paywall step
+    setStep(9); // Go to free trial paywall step
   };
 
-  const handleFreeTrialPaywallComplete = async (tier: string) => {
+  const handlePaywallVideoNext = async () => {
     if (userId) {
-      saveOnboardingStep('free_trial_paywall_completed', { tier }).catch(console.error);
-      trackUserAction('free_trial_paywall_completed', { tier, step: 13 }).catch(console.error);
+      saveOnboardingStep('paywall_video_viewed', { viewedAt: new Date().toISOString() }).catch(console.error);
+      trackUserAction('paywall_video_viewed', { step: 9 }).catch(console.error);
     }
     
-    setStep(14); // Go directly to ProOfferCard (skip TrialTimelineStep)
+    setStep(10); // Go to ProOfferCard
   };
 
   const handlePaywallComplete = async (tier: string, paywallSource: 'paywall_1' | 'paywall_2' | 'free' = 'paywall_1') => {
@@ -288,7 +255,7 @@ export const AuthOnboardingWizard = () => {
         
         trackUserAction('paywall_completed', { 
           tier, 
-          step: 14,
+          step: 9,
           paywallSource,
           decision: tier
         }).catch(console.error);
@@ -351,36 +318,12 @@ export const AuthOnboardingWizard = () => {
           } else {
             console.log('✅ Database updated successfully with tier:', tier);
 
-            // Seed demo wardrobe — gender was saved earlier via
-            // saveOnboardingStep('gender', {gender}) and lives at
-            // onboarding_v2.step_data.gender.gender.
-            //
-            // Old behavior swallowed failures in a try/catch + 'non-fatal'
-            // log, which hid the cross-user UUID collision. New behavior:
-            // wardrobe-seed.ts prefixes each demo id with the first 12 chars
-            // of the user UUID so collisions cannot happen; we still log
-            // loudly on failure AND toast the user — but we DO NOT throw,
-            // because we still need to navigate to /dress-me. The dashboard's
-            // useClosetData also runs a deferred re-seed on items=0 mount,
-            // so a transient Supabase hiccup during onboarding won't leave
-            // the user stuck with an empty closet.
-            try {
-              const gender = stepData?.gender?.gender ?? null;
-              console.log('[seedDemoWardrobe] resolved gender:', gender);
-              await seedDemoWardrobe(userId, typeof gender === 'string' ? gender : null);
-              console.log('[seedDemoWardrobe] ✅ Seed completed');
-            } catch (seedErr) {
-              console.error(
-                '[seedDemoWardrobe] ❌ FATAL — every new user must be seeded; dashboard hook will retry if items.length === 0:',
-                seedErr,
-              );
-              toast({
-                title: 'Starter wardrobe hiccup',
-                description:
-                  "We couldn't add your starter items just now — we'll retry automatically when you arrive at the app.",
-                variant: 'destructive',
-              });
-            }
+            // Seed 45-50 base wardrobe items per gender (these are the
+            // cornerstone items every user gets). The WardrobeSeedStep
+            // (Step 7) added extra curated items on top of these.
+            await seedDemoWardrobe(userId, onboardingData?.gender ?? null).catch(
+              (e) => console.error('[seedDemoWardrobe] Background seed failed:', e)
+            );
           }
         } catch (dbError) {
           console.error('❌ Failed to save to database:', dbError);
@@ -429,7 +372,7 @@ export const AuthOnboardingWizard = () => {
       className="h-full app-shell-scroll"
       style={{ background: 'var(--bg-primary)' }}
     >
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence mode="wait">
           {step === 1 && (
           <WelcomeHeroStep 
             key="welcome-hero"
@@ -456,93 +399,63 @@ export const AuthOnboardingWizard = () => {
           )}
           
           {step === 3 && (
-          <AgeRangeStep 
-            key="age-range"
-            onNext={handleAgeRange}
+          <StyleArchetypeStep 
+            key="style-archetype"
+            gender={onboardingData?.gender ?? null}
+            onNext={handleStyleArchetypes}
             onBack={() => handleBackToStep(2)}
             />
           )}
           
           {step === 4 && (
-          <HeightStep 
-            key="height"
-            onNext={handleHeight}
+          <BodyBasicsStep 
+            key="body-basics"
+            onNext={handleBodyBasics}
             onBack={() => handleBackToStep(3)}
             />
           )}
           
           {step === 5 && (
-          <SizeStep 
-            key="size"
-            onNext={handleSize}
+          <FashionRelationshipStep 
+            key="fashion-relationship"
+            onNext={handleFashionRelationship}
             onBack={() => handleBackToStep(4)}
             />
           )}
           
           {step === 6 && (
-          <ShoppingExperienceStep 
-            key="shopping-experience"
-            onNext={handleShoppingExperience}
+          <SelfieCaptureStep 
+            key="selfie-capture"
+            onNext={handlePhotoCapture}
             onBack={() => handleBackToStep(5)}
-            />
-          )}
-          
-          {step === 7 && (
-          <BrandPreferenceStep 
-            key="brand-preference"
-            onNext={handleBrandPreference}
-            onBack={() => handleBackToStep(6)}
-            />
-          )}
-          
-          {step === 8 && (
-          <OccasionDifficultyStep 
-            key="occasion-difficulty"
-            onNext={handleOccasionDifficulty}
-            onBack={() => handleBackToStep(7)}
-            />
-          )}
-          
-          {step === 9 && (
-          <StyleKnowledgeStep 
-            key="style-knowledge"
-            onNext={handleStyleKnowledge}
-            onBack={() => handleBackToStep(8)}
-            />
-          )}
-          
-          {step === 10 && (
-          <WardrobeStylingStep 
-            key="wardrobe-styling"
-            onNext={handleWardrobeStyling}
-            onBack={() => handleBackToStep(9)}
-            />
-          )}
-          
-          {step === 11 && (
-          <ColorAnalysisIntroStep 
-            key="color-analysis-intro"
-            onCapture={handlePhotoCapture}
-            onBack={() => handleBackToStep(10)}
           />
         )}
         
-        {step === 12 && (
+        {step === 7 && (
+          <WardrobeSeedStep 
+            key="wardrobe-seed"
+            gender={onboardingData?.gender ?? null}
+            archetypes={onboardingData?.style_archetypes ?? []}
+            userId={userId ?? ''}
+            onNext={handleWardrobeSeeding}
+            onBack={() => handleBackToStep(6)}
+          />
+        )}
+        
+        {step === 8 && (
           <PersonalizingStep 
             key="personalizing"
             userImage={selectedImage ? URL.createObjectURL(selectedImage) : undefined}
             onComplete={handlePersonalizingComplete}
           />
-        )}
-        
-        {step === 13 && (
-          <FreeTrialPaywallStep 
-            key="free-trial-paywall"
-            onComplete={handleFreeTrialPaywallComplete}
+        )}          {step === 9 && (
+          <PaywallVideoStep 
+            key="paywall-video"
+            onNext={handlePaywallVideoNext}
           />
         )}
         
-        {step === 14 && (
+        {step === 10 && (
           <ProOfferCard
             key="pro-offer-card"
             onContinue={() => {

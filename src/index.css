@@ -686,13 +686,8 @@
   /* Image quality optimization for all devices */
   img, video {
     image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-    -webkit-transform: translate3d(0, 0, 0);
-    transform: translate3d(0, 0, 0);
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
-    -webkit-perspective: 1000;
-    perspective: 1000;
   }
   
   /* Force subpixel rendering for better quality on older iOS */
@@ -734,8 +729,6 @@
     appearance: none;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
   }
   
   /* Ensure consistent rendering across all iOS Safari versions */
@@ -748,8 +741,6 @@
     
     /* Better canvas/image rendering */
     canvas, img, video {
-      -webkit-transform: translate3d(0, 0, 0);
-      transform: translate3d(0, 0, 0);
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
     }

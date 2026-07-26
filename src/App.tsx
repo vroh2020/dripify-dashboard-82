@@ -12,6 +12,7 @@ import { useAuth } from "./hooks/useAuth";
 // Lazy load non-critical components
 const Index = lazy(() => import("./pages/Index"));
 const Profile = lazy(() => import("./pages/Profile"));
+const UpgradePage = lazy(() => import("./pages/UpgradePage"));
 const WheringPage = lazy(() => import("./components/whering/WheringPage"));
 
 const queryClient = new QueryClient({
@@ -240,6 +241,14 @@ const AppRoutes = () => {
             element={
               <Suspense fallback={null}>
                 <Profile />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/upgrade"
+            element={
+              <Suspense fallback={null}>
+                <UpgradePage />
               </Suspense>
             }
           />
