@@ -164,6 +164,28 @@ export function Shuffler({
   const [saving, setSaving] = useState(false)
   const [showNamePrompt, setShowNamePrompt] = useState(false)
 
+  // ── Auto-scroll to newest item when row grows ─────────────────
+  // When a new item is added to the closet (e.g. via Clipper), the
+  // category rows re-derive with the new item at index 0 (newest
+  // first). This effect resets the active index so the user sees
+  // their freshly added piece without manually swiping back.
+  const prevTopsLen = useRef(topsDisplay.length)
+  const prevBottomsLen = useRef(bottomsDisplay.length)
+  const prevShoesLen = useRef(shoesDisplay.length)
+
+  if (topsDisplay.length > prevTopsLen.current) {
+    prevTopsLen.current = topsDisplay.length
+    setIndices((p) => (p.top === 0 ? p : { ...p, top: 0 }))
+  }
+  if (bottomsDisplay.length > prevBottomsLen.current) {
+    prevBottomsLen.current = bottomsDisplay.length
+    setIndices((p) => (p.bottom === 0 ? p : { ...p, bottom: 0 }))
+  }
+  if (shoesDisplay.length > prevShoesLen.current) {
+    prevShoesLen.current = shoesDisplay.length
+    setIndices((p) => (p.shoe === 0 ? p : { ...p, shoe: 0 }))
+  }
+
   // Prefer real closet items; fall back to the gender-aware demo set so an
   // empty wardrobe still produces a usable Shuffle experience.
   const displayCloset =
