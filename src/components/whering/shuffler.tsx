@@ -175,14 +175,17 @@ export function Shuffler({
 
   if (topsDisplay.length > prevTopsLen.current) {
     prevTopsLen.current = topsDisplay.length
+    setSaved(false)
     setIndices((p) => (p.top === 0 ? p : { ...p, top: 0 }))
   }
   if (bottomsDisplay.length > prevBottomsLen.current) {
     prevBottomsLen.current = bottomsDisplay.length
+    setSaved(false)
     setIndices((p) => (p.bottom === 0 ? p : { ...p, bottom: 0 }))
   }
   if (shoesDisplay.length > prevShoesLen.current) {
     prevShoesLen.current = shoesDisplay.length
+    setSaved(false)
     setIndices((p) => (p.shoe === 0 ? p : { ...p, shoe: 0 }))
   }
 
