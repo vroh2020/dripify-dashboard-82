@@ -164,6 +164,30 @@ export function Shuffler({
   const [saving, setSaving] = useState(false)
   const [showNamePrompt, setShowNamePrompt] = useState(false)
 
+  // Prefer real closet items; fall back to the gender-aware demo set so an
+  // empty wardrobe still produces a usable Shuffle experience.
+  const displayCloset =
+    closetItems.length > 0 ? closetItems : demoItems ?? []
+
+  // Build per-category items
+  const topsDisplay = useMemo(() => {
+    return displayCloset
+      .filter((i) => (i.category === "tops" || i.category === "outerwear") && i.source_image_url)
+      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
+  }, [displayCloset])
+
+  const bottomsDisplay = useMemo(() => {
+    return displayCloset
+      .filter((i) => i.category === "bottoms" && i.source_image_url)
+      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
+  }, [displayCloset])
+
+  const shoesDisplay = useMemo(() => {
+    return displayCloset
+      .filter((i) => i.category === "shoes" && i.source_image_url)
+      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
+  }, [displayCloset])
+
   // ── Auto-scroll to newest item when row grows ─────────────────
   // When a new item is added to the closet (e.g. via Clipper), the
   // category rows re-derive with the new item at index 0 (newest
@@ -188,30 +212,6 @@ export function Shuffler({
     setSaved(false)
     setIndices((p) => (p.shoe === 0 ? p : { ...p, shoe: 0 }))
   }
-
-  // Prefer real closet items; fall back to the gender-aware demo set so an
-  // empty wardrobe still produces a usable Shuffle experience.
-  const displayCloset =
-    closetItems.length > 0 ? closetItems : demoItems ?? []
-
-  // Build per-category items
-  const topsDisplay = useMemo(() => {
-    return displayCloset
-      .filter((i) => (i.category === "tops" || i.category === "outerwear") && i.source_image_url)
-      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
-  }, [displayCloset])
-
-  const bottomsDisplay = useMemo(() => {
-    return displayCloset
-      .filter((i) => i.category === "bottoms" && i.source_image_url)
-      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
-  }, [displayCloset])
-
-  const shoesDisplay = useMemo(() => {
-    return displayCloset
-      .filter((i) => i.category === "shoes" && i.source_image_url)
-      .map((i) => ({ id: i.id, name: i.title, src: i.source_image_url!, closetItem: i }))
-  }, [displayCloset])
 
   const setTop    = useCallback((i: number) => { setIndices((p) => ({ ...p, top: i })); setSaved(false) }, [])
   const setBottom = useCallback((i: number) => { setIndices((p) => ({ ...p, bottom: i })); setSaved(false) }, [])
