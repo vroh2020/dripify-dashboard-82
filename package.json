@@ -98,7 +98,10 @@
     "vite": "6.4.3"
   },
   "overrides": {
-    "@eslint/plugin-kit": "^0.3.3"
+    "@eslint/plugin-kit": "^0.3.3",
+    "brace-expansion": "^2.0.2",
+    "minimatch": "^9.0.5",
+    "glob": "^10.4.5"
   },
   "ios": {
     "debug": {
