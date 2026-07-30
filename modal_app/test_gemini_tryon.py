@@ -1,7 +1,7 @@
 """
 Gemini Virtual Try-On Test (REST API version)
 ==============================================
-Uses the generateContent REST endpoint directly with gemini-2.5-flash-image
+Uses the generateContent REST endpoint directly with gemini-3.1-flash-lite-image
 and response_modalities=["TEXT", "IMAGE"].
 
 No SDK install needed — uses requests + PIL which are already installed.
@@ -67,7 +67,7 @@ def main():
     garment_data = img_to_b64_data(GARMENT_URL)
 
     # Step 2: Build and send request
-    print("\n[2/3] Sending to Gemini 2.5 Flash Image...")
+    print("\n[2/3] Sending to Gemini 3.1 Flash Lite Image...")
 
     payload = {
         "contents": [
@@ -86,7 +86,7 @@ def main():
 
     url = (
         "https://generativelanguage.googleapis.com/v1beta/"
-        "models/gemini-2.5-flash-image:generateContent"
+        "models/gemini-3.1-flash-lite-image:generateContent"
     )
     headers = {
         "x-goog-api-key": api_key,
