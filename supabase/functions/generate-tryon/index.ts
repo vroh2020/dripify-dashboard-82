@@ -102,6 +102,7 @@ async function tryGemini(
     ],
     generation_config: {
       temperature: 0.4,
+      responseModalities: ["TEXT", "IMAGE"],
     },
   }
 
