@@ -22,16 +22,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     sourcemap: false,
     minify: 'esbuild',
-    // CRITICAL: Don't inline WASM files - iOS needs them separate
     assetsInlineLimit: 0,
-    rollupOptions: {
-      output: {
-        // Keep transformers.js in separate chunk for iOS
-        manualChunks: {
-          'transformers': ['@huggingface/transformers']
-        }
-      }
-    }
   },
   optimizeDeps: {
     include: [
@@ -41,8 +32,6 @@ export default defineConfig({
       'lucide-react',
       '@supabase/supabase-js',
     ],
-    // CRITICAL: Exclude transformers - causes WASM issues on iOS if optimized
-    exclude: ['@huggingface/transformers']
   },
   server: {
     port: 3000,
