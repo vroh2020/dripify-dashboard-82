@@ -1,5 +1,6 @@
 """
-Submit a try-on job to the Qwen GGUF endpoint, save the image, and verify it's a real photo.
+Submit a try-on job to the Qwen-Image-Edit-2509 Modal endpoint (multipart file upload),
+save the image, and verify it's a real photo.
 """
 
 import io
@@ -9,7 +10,8 @@ import time
 import requests
 from PIL import Image
 
-TRYON_URL = "https://ramvelpuri90--trendza-tryon-web.modal.run/tryon"
+# Replace with your deployed Modal endpoint URL
+TRYON_URL = "https://ramvelpuri90--trendza-tryon-fastapi-app.modal.run/tryon"
 
 PERSON_URL = (
     "https://raw.githubusercontent.com/Zheng-Chong/CatVTON/main/"
@@ -24,13 +26,26 @@ OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "tryon_result.png")
 
 session = requests.Session()
 
-print("=== Submitting try-on to Qwen GGUF endpoint ===")
+print("=== Submitting try-on to Qwen-Image-Edit-2509 Modal endpoint (multipart) ===")
+
+# Download images and build multipart form
+print("Downloading test images...")
+person_resp = session.get(PERSON_URL, timeout=60)
+person_resp.raise_for_status()
+garment_resp = session.get(GARMENT_URL, timeout=60)
+garment_resp.raise_for_status()
+
+files = {
+    "person_image": ("person.png", person_resp.content, "image/png"),
+    "garment_image": ("garment.jpg", garment_resp.content, "image/jpeg"),
+}
+data = {
+    "steps": "40",
+    "true_cfg_scale": "5.0",
+}
+
 start = time.time()
-resp = session.post(TRYON_URL, json={
-    "person_image_url": PERSON_URL,
-    "garment_image_urls": [GARMENT_URL],
-    "is_woman": False,
-}, timeout=300)
+resp = session.post(TRYON_URL, files=files, data=data, timeout=300)
 elapsed = time.time() - start
 print(f"Status: {resp.status_code}, Time: {elapsed:.1f}s")
 
@@ -68,7 +83,6 @@ try:
     print(f"Dimensions: {img.size[0]}x{img.size[1]} pixels")
     print(f"Mode: {img.mode}")
 
-    # Check if image has meaningful content
     extrema = img.getextrema()
     has_variation = any(mn != mx for mn, mx in extrema)
     if has_variation:
@@ -76,7 +90,6 @@ try:
     else:
         print("WARNING: Image appears to be a solid color!")
 
-    # Check average brightness
     import numpy as np
     arr = np.array(img)
     avg_r, avg_g, avg_b = arr.mean(axis=(0, 1))

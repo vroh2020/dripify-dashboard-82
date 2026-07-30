@@ -7,12 +7,18 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// ── CatVTON endpoint (fallback) ────────────────────────────────────
-const MODAL_TRYON_URL =
+// ── Qwen-Image-Edit Modal endpoint (PRIMARY) ───────────────────────
+// NOTE: Set the QWEN_TRYON_URL env var in Supabase Edge Function secrets.
+// Falls back to MODAL_TRYON_URL (old name) for backward compatibility,
+// then to a default placeholder (replace with your actual Modal URL after deploy).
+const QWEN_TRYON_URL =
+  Deno.env.get('QWEN_TRYON_URL') ??
   Deno.env.get('MODAL_TRYON_URL') ??
-  "https://ramcharanvelpuri--trendza-tryon-tryonengine-web.modal.run/tryon"
+  "https://ramcharanvelpuri--trendza-tryon-fastapi-app.modal.run/tryon"
 
-
+// ── Cloudflare Flux fallback ───────────────────────────────────────
+const CF_API_TOKEN = Deno.env.get('CLOUDFLARE_WORKERS_AI')
+const CF_ACCOUNT_ID = Deno.env.get('CLOUDFLARE_ACCOUNT_ID')
 
 interface GenerationRequest {
   generation_id: string;
@@ -44,16 +50,71 @@ function guessMimeType(bytes: Uint8Array): string {
   return 'image/jpeg'
 }
 
-// ── Try Cloudflare Flux 2 Klein 4B (multipart/form-data) ───────────
-// Flux accepts multipart with input_image_0 (person) + input_image_1..3 (garments).
-// Native res (1024) — upscale after if UI needs bigger; asking Klein to render 1536 causes blur.
+// ── PRIMARY: Qwen-Image-Edit-2509 on Modal (multipart file upload) ──
+//
+// Sends person + garment images as multipart/form-data to the Modal
+// Qwen endpoint. Returns raw PNG bytes on success.
+async function tryQwenModal(
+  basePhotoUrl: string,
+  garmentUrl: string,
+): Promise<Uint8Array> {
+  console.log('[generate-tryon] 🚀 Starting Qwen-Image-Edit-2509 on Modal...')
+
+  // 1. Download both images from Supabase Storage
+  const personBytes = await downloadImageBytes(basePhotoUrl)
+  const garmentBytes = await downloadImageBytes(garmentUrl)
+
+  const personMime = guessMimeType(personBytes)
+  const garmentMime = guessMimeType(garmentBytes)
+  const personExt = personMime === 'image/png' ? 'png' : 'jpg'
+  const garmentExt = garmentMime === 'image/png' ? 'png' : 'jpg'
+
+  // 2. Build multipart form data
+  const formData = new FormData()
+  formData.append('person_image', new Blob([personBytes], { type: personMime }), `person.${personExt}`)
+  formData.append('garment_image', new Blob([garmentBytes], { type: garmentMime }), `garment.${garmentExt}`)
+  formData.append('steps', '40')
+  formData.append('true_cfg_scale', '5.0')  // stronger identity preservation
+
+  // 3. Send to Modal Qwen endpoint
+  console.log('[generate-tryon] 📦 Sending to Qwen Modal:', {
+    personSizeKB: (personBytes.length / 1024).toFixed(0),
+    garmentSizeKB: (garmentBytes.length / 1024).toFixed(0),
+  })
+
+  const startTime = Date.now()
+  const response = await fetch(QWEN_TRYON_URL, {
+    method: 'POST',
+    // Do NOT set Content-Type — fetch sets it automatically with boundary
+    body: formData,
+    signal: AbortSignal.timeout(180_000),  // 3 min — covers cold start + inference
+  })
+  const elapsed = Date.now() - startTime
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '')
+    throw new Error(`Qwen Modal returned ${response.status}: ${errText.slice(0, 400)}`)
+  }
+
+  // 4. Response is raw PNG bytes
+  const resultBytes = new Uint8Array(await response.arrayBuffer())
+  console.log(
+    `[generate-tryon] ✅ Qwen Modal responded in ${elapsed}ms (${(resultBytes.length / 1024).toFixed(0)} KB PNG)`,
+  )
+
+  return resultBytes
+}
+
+// ── FALLBACK: Cloudflare Flux 2 Klein 4B (multipart/form-data) ─────
+//
+// Only used if the primary Qwen Modal endpoint fails or is unreachable.
 async function tryCloudflareFlux(
   cfApiToken: string,
   cfAccountId: string,
   basePhotoUrl: string,
   garmentItems: Array<{ title: string; category: string; source_image_url: string }>,
 ): Promise<Uint8Array> {
-  console.log('[generate-tryon] 🚀 Starting Cloudflare Flux 2 Klein 4B...')
+  console.log('[generate-tryon] 🔄 Falling back to Cloudflare Flux 2 Klein 4B...')
 
   // 1. Download person image
   const personBytes = await downloadImageBytes(basePhotoUrl)
@@ -77,8 +138,7 @@ async function tryCloudflareFlux(
     }
   }
 
-  // 3. Build prompt with BFL-recommended identity-preservation structure:
-  //   establish reference → state the change → explicitly restate what to preserve
+  // 3. Build prompt with identity-preservation structure
   let promptText = "This is the same person shown in image 0. "
   promptText += "Keep the exact same face, facial features, skin tone, expression, and hairstyle as image 0, unchanged. "
   promptText += "Keep the same body shape, pose, and background as image 0, unchanged. "
@@ -91,7 +151,7 @@ async function tryCloudflareFlux(
     promptText += "The only change: replace their clothing with the garments in the reference images."
   }
 
-  // 4. Build multipart/form-data — Flux REQUIRES this format
+  // 4. Build multipart form data
   const formData = new FormData()
   formData.append('prompt', promptText)
   formData.append('input_image_0', new Blob([personBytes], { type: personMime }), `person.${personExt}`)
@@ -100,9 +160,9 @@ async function tryCloudflareFlux(
     formData.append(`input_image_${i + 1}`, garmentBlobs[i].blob, garmentBlobs[i].filename)
   }
 
-  formData.append('width', '1024')    // native res — don't force 1536 out of a 4-step model
+  formData.append('width', '1024')
   formData.append('height', '1024')
-  formData.append('guidance', '2.2')  // down from 3.5 — lower guidance = less "reinterpretation" pressure on the face
+  formData.append('guidance', '2.2')
 
   const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/@cf/black-forest-labs/flux-2-klein-4b`
 
@@ -114,10 +174,7 @@ async function tryCloudflareFlux(
   const startTime = Date.now()
   const response = await fetch(cfEndpoint, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${cfApiToken}`,
-      // Do NOT set Content-Type — fetch sets it automatically with boundary
-    },
+    headers: { 'Authorization': `Bearer ${cfApiToken}` },
     body: formData,
     signal: AbortSignal.timeout(120_000),
   })
@@ -128,7 +185,7 @@ async function tryCloudflareFlux(
     throw new Error(`Cloudflare Flux returned ${response.status}: ${errText.slice(0, 400)}`)
   }
 
-  // 5. Flux wraps the result in JSON: { "result": { "image": "/9j/4AAQ..." } }
+  // 5. Flux wraps result in JSON: { "result": { "image": "/9j/4AAQ..." } }
   const responseText = await response.text()
   let json: any
   try {
@@ -145,7 +202,7 @@ async function tryCloudflareFlux(
     throw new Error(`Cloudflare Flux returned unexpected image type: ${typeof imageData}`)
   }
 
-  // Decode base64 (may have data URI prefix)
+  // Decode base64
   const rawBase64 = imageData.replace(/^data:image\/\w+;base64,/, '')
   const binaryStr = atob(rawBase64)
   const resultBytes = new Uint8Array(binaryStr.length)
@@ -156,37 +213,6 @@ async function tryCloudflareFlux(
   console.log(`[generate-tryon] ✅ Cloudflare Flux responded in ${elapsed}ms (${(resultBytes.length / 1024).toFixed(0)} KB)`)
 
   return resultBytes
-}
-
-// ── Fallback: Modal CatVTON ───────────────────────────────────────
-async function tryModalCatVton(
-  basePhotoUrl: string,
-  garmentUrl: string,
-): Promise<Uint8Array> {
-  console.log('[generate-tryon] 🔄 Falling back to Modal CatVTON...')
-
-  const modalResponse = await fetch(MODAL_TRYON_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      person_image_url: basePhotoUrl,
-      garment_image_urls: [garmentUrl],
-      garment_type: 'upper',
-    }),
-    signal: AbortSignal.timeout(120_000),
-  })
-
-  if (!modalResponse.ok) {
-    const errText = await modalResponse.text().catch(() => '')
-    throw new Error(`CatVTON endpoint returned ${modalResponse.status}: ${errText.slice(0, 400)}`)
-  }
-
-  const finalImageBytes = new Uint8Array(await modalResponse.arrayBuffer())
-  console.log(
-    `[generate-tryon] ✅ Modal result received (${(finalImageBytes.length / 1024).toFixed(0)} KB PNG)`,
-  )
-
-  return finalImageBytes
 }
 
 serve(async (req) => {
@@ -272,28 +298,29 @@ serve(async (req) => {
       categories: validItems.map((i) => i.category),
     })
 
-    // ── Try-on: Cloudflare Flux → fallback Modal ────────────
+    // ── Try-on: Qwen Modal (PRIMARY) → Cloudflare Flux (fallback) ──
     let finalImageBytes: Uint8Array
     let usedEngine: string
 
-    const cfApiToken = Deno.env.get('CLOUDFLARE_WORKERS_AI')
-    const cfAccountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID')
+    try {
+      // Use the first valid garment item for the try-on
+      finalImageBytes = await tryQwenModal(basePhotoUrl, validItems[0].source_image_url)
+      usedEngine = 'qwen-modal'
+    } catch (qwenError: any) {
+      console.warn('[generate-tryon] ⚠️ Qwen Modal failed, trying Cloudflare Flux fallback:', qwenError.message)
 
-    if (cfApiToken && cfAccountId) {
-      try {
-        finalImageBytes = await tryCloudflareFlux(cfApiToken, cfAccountId, basePhotoUrl, validItems)
-        usedEngine = 'cloudflare-flux'
-      } catch (cfError: any) {
-        console.warn('[generate-tryon] ⚠️ Cloudflare Flux failed, falling back to Modal:', cfError.message)
-        const fallbackItem = validItems[0]
-        finalImageBytes = await tryModalCatVton(basePhotoUrl, fallbackItem.source_image_url)
-        usedEngine = 'modal-catvton'
+      if (CF_API_TOKEN && CF_ACCOUNT_ID) {
+        try {
+          finalImageBytes = await tryCloudflareFlux(CF_API_TOKEN, CF_ACCOUNT_ID, basePhotoUrl, validItems)
+          usedEngine = 'cloudflare-flux'
+        } catch (cfError: any) {
+          console.error('[generate-tryon] Both Qwen Modal and Cloudflare Flux failed:', cfError.message)
+          throw new Error(`Try-on failed: Qwen Modal (${qwenError.message}), Flux (${cfError.message})`)
+        }
+      } else {
+        // No Cloudflare credentials — can't fall back
+        throw new Error(`Qwen Modal failed and no Cloudflare fallback configured: ${qwenError.message}`)
       }
-    } else {
-      console.log('[generate-tryon] Cloudflare credentials not set — using Modal directly')
-      const fallbackItem = validItems[0]
-      finalImageBytes = await tryModalCatVton(basePhotoUrl, fallbackItem.source_image_url)
-      usedEngine = 'modal-catvton'
     }
 
     // ── Upload final result to storage ──────────────────────
@@ -313,12 +340,10 @@ serve(async (req) => {
       .from('clipped-closet-items')
       .getPublicUrl(storagePath)
 
-    // Note: status update to 'completed' is handled by the client after
-    // optional face compositing, so there's no race condition with polling.
     console.log(`[generate-tryon] ✅ ${usedEngine} completed:`, pubData.publicUrl)
 
     return new Response(
-      JSON.stringify({ image_url: pubData.publicUrl,    engine: usedEngine }),
+      JSON.stringify({ image_url: pubData.publicUrl, engine: usedEngine }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
 

@@ -1,9 +1,10 @@
 """
-Test the deployed Qwen-Image-Edit GGUF Modal endpoint (synchronous).
+Test the deployed Qwen-Image-Edit-2509 Modal endpoint (synchronous multipart upload).
 
 Pattern:
-  POST /tryon → raw PNG bytes (image/png)
-  GET  /health → {"status": "ok"}
+  POST /tryon    → raw PNG bytes (image/png)  [multipart file upload]
+  GET  /health   → {"status": "ok"}
+  POST /tryon-url → raw PNG bytes             [JSON with image URLs]
 """
 
 import io
@@ -13,8 +14,8 @@ import requests
 from PIL import Image
 
 # Replace with your deployed Modal endpoint URL
-TRYON_URL = "https://ramvelpuri90--trendza-tryon-web.modal.run/tryon"
-HEALTH_URL = "https://ramvelpuri90--trendza-tryon-web.modal.run/health"
+TRYON_URL = "https://ramvelpuri90--trendza-tryon-fastapi-app.modal.run/tryon"
+HEALTH_URL = "https://ramvelpuri90--trendza-tryon-fastapi-app.modal.run/health"
 
 # Sample images
 PERSON_URL = (
@@ -27,9 +28,10 @@ GARMENT_URL = (
 )
 
 print("=" * 60)
-print("Qwen GGUF Modal Endpoint Test (Synchronous)")
+print("Qwen-Image-Edit-2509 Modal Endpoint Test")
 print("=" * 60)
-print(f"Endpoint: {TRYON_URL}")
+print(f"Tryon endpoint: {TRYON_URL}")
+print(f"Health endpoint: {HEALTH_URL}")
 print(f"Person:   {PERSON_URL}")
 print(f"Garment:  {GARMENT_URL}")
 print()
@@ -51,18 +53,38 @@ if health_resp.status_code != 200:
     print("  FAIL: Health check failed - aborting.")
     sys.exit(1)
 
-# ----- Step 2: Submit try-on -----
-print("Step 2: Submitting try-on (synchronous)...")
+# ----- Step 2: Download test images -----
+print("Step 2: Downloading test images...")
+try:
+    person_resp = session.get(PERSON_URL, timeout=60)
+    person_resp.raise_for_status()
+    garment_resp = session.get(GARMENT_URL, timeout=60)
+    garment_resp.raise_for_status()
+    print(f"  Person: {len(person_resp.content)/1024:.0f} KB")
+    print(f"  Garment: {len(garment_resp.content)/1024:.0f} KB")
+except requests.exceptions.RequestException as e:
+    print(f"  FATAL: Failed to download test images: {e}")
+    sys.exit(1)
+print()
+
+# ----- Step 3: Submit try-on (multipart file upload) -----
+print("Step 3: Submitting try-on via multipart file upload...")
 start = time.time()
+
+files = {
+    "person_image": ("person.png", person_resp.content, "image/png"),
+    "garment_image": ("garment.jpg", garment_resp.content, "image/jpeg"),
+}
+data = {
+    "steps": "40",
+    "true_cfg_scale": "5.0",
+}
 
 try:
     resp = session.post(
         TRYON_URL,
-        json={
-            "person_image_url": PERSON_URL,
-            "garment_image_urls": [GARMENT_URL],
-            "is_woman": False,
-        },
+        files=files,
+        data=data,
         timeout=300,  # 5 min timeout for cold start
     )
 except requests.exceptions.RequestException as e:
@@ -78,9 +100,9 @@ if resp.status_code != 200:
     print(f"  Body: {resp.text[:500]}")
     sys.exit(1)
 
-# ----- Step 3: Verify response is a valid PNG -----
+# ----- Step 4: Verify response is a valid image -----
 print()
-print("Step 3: Verifying response...")
+print("Step 4: Verifying response...")
 
 content_type = resp.headers.get("content-type", "")
 print(f"  Content-Type: {content_type}")
@@ -104,7 +126,6 @@ try:
     print(f"  Dimensions: {img.size[0]}x{img.size[1]} pixels")
     print(f"  Mode: {img.mode}")
 
-    # Check for color variation (not all one color)
     extrema = img.getextrema()
     has_variation = any(mn != mx for mn, mx in extrema)
     if has_variation:
