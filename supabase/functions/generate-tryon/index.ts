@@ -7,12 +7,13 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// ── Gemini 3.1 Flash Lite Image (PRIMARY) ───────────────────────────
-// NOTE: Set GEMINI_API_KEY in Supabase Edge Function secrets.
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
-const GEMINI_MODEL = 'gemini-3.1-flash-lite-image'
-const GEMINI_ENDPOINT =
-  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
+// ── Qwen Image 2.0 (PRIMARY) ───────────────────────────────────────
+// NOTE: Set DASHSCOPE_API_KEY in Supabase Edge Function secrets.
+const DASHSCOPE_API_KEY = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
+const DASHSCOPE_WORKSPACE_ID = 'ws-0vz766zknc3p2yr2'
+const DASHSCOPE_ENDPOINT =
+  `https://${DASHSCOPE_WORKSPACE_ID}.ap-southeast-1.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation`
+const QWEN_MODEL = 'qwen-image-2.0'
 
 // ── Cloudflare Flux fallback ────────────────────────────────────────
 const CF_API_TOKEN = Deno.env.get('CLOUDFLARE_WORKERS_AI')
@@ -48,75 +49,84 @@ function guessMimeType(bytes: Uint8Array): string {
   return 'image/jpeg'
 }
 
-// ── Convert Uint8Array to base64 ───────────────────────────────────
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  // Deno / Edge runtime: use btoa on a binary string
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return btoa(binary)
-}
-
-// ── PRIMARY: Gemini 3.1 Flash Lite Image ───────────────────────────
+// ── PRIMARY: Qwen Image 2.0 (DashScope) ───────────────────────────
 //
-// Sends person + garment images as inline_data to Gemini's generateContent
-// endpoint with a virtual try-on prompt. Returns raw PNG bytes on success.
-async function tryGemini(
+// Sends person + up to 2 garment image URLs to Qwen Image 2.0 via DashScope.
+// Supports single garment (Image 1 = person, Image 2 = garment) or
+// full outfit (Image 1 = person, Image 2 = top, Image 3 = bottoms).
+// Downloads the first result and returns raw PNG bytes.
+async function tryQwenImageEdit(
   basePhotoUrl: string,
-  garmentUrl: string,
+  garmentItems: Array<{ title: string; category: string; source_image_url: string }>,
 ): Promise<Uint8Array> {
-  console.log('[generate-tryon] 🚀 Starting Gemini 3.1 Flash Lite Image...')
+  console.log('[generate-tryon] 🚀 Starting Qwen Image 2.0 (DashScope)...')
 
-  // 1. Download both images from Supabase Storage
-  const personBytes = await downloadImageBytes(basePhotoUrl)
-  const garmentBytes = await downloadImageBytes(garmentUrl)
+  // Sort: tops first, bottoms second, then limit to 2 garments (Qwen max = 3 images total)
+  const sorted = [...garmentItems]
+    .sort((a, b) => {
+      const aIsTop = /top|shirt|jacket|coat|hoodie|sweater|blouse|dress|jumpsuit/i.test(a.category)
+      const bIsTop = /top|shirt|jacket|coat|hoodie|sweater|blouse|dress|jumpsuit/i.test(b.category)
+      return aIsTop === bIsTop ? 0 : aIsTop ? -1 : 1
+    })
+    .slice(0, 2)
 
-  const personMime = guessMimeType(personBytes)
-  const garmentMime = guessMimeType(garmentBytes)
+  // Build content array: person first, then each garment
+  const content: Array<any> = [
+    { image: basePhotoUrl },
+    ...sorted.map((item) => ({ image: item.source_image_url })),
+  ]
 
-  const personBase64 = uint8ArrayToBase64(personBytes)
-  const garmentBase64 = uint8ArrayToBase64(garmentBytes)
+  // Build strict prompt — explicitly tell Qwen what NOT to touch
+  let promptText: string
+  if (sorted.length >= 2) {
+    promptText =
+      "Make the person from Image 1 wear the top from Image 2 and the bottoms from Image 3. " +
+      "STRICT RULES — DO NOT VIOLATE: " +
+      "(1) DO NOT change the person's face, facial features, skin tone, expression, or hairstyle from Image 1. " +
+      "(2) DO NOT change the background, environment, lighting, or shadows from Image 1. " +
+      "(3) DO NOT change the person's body shape, pose, or position from Image 1. " +
+      "(4) ONLY replace their current clothing with the top from Image 2 and the bottoms from Image 3. " +
+      "(5) Preserve the exact color, pattern, texture, shape, and details of both garments. " +
+      "Return the exact same photo from Image 1 with ONLY the clothing replaced."
+  } else {
+    promptText =
+      "Make the person from Image 1 wear the clothing item from Image 2. " +
+      "STRICT RULES — DO NOT VIOLATE: " +
+      "(1) DO NOT change the person's face, facial features, skin tone, expression, or hairstyle from Image 1. " +
+      "(2) DO NOT change the background, environment, lighting, or shadows from Image 1. " +
+      "(3) DO NOT change the person's body shape, pose, or position from Image 1. " +
+      "(4) ONLY replace their current clothing with the garment from Image 2. " +
+      "(5) Preserve the exact color, pattern, texture, shape, and details of the garment. " +
+      "Return the exact same photo from Image 1 with ONLY the clothing replaced."
+  }
 
-  // 2. Build Gemini payload — prompt + inline_data for both images
-  const promptText =
-    "You are an expert fashion photo editor. Your task is a high-fidelity " +
-    "virtual try-on. Modify the first image (the person) so they are wearing " +
-    "the exact garment from the second image, replacing their original clothing.\n\n" +
-    "RULES:\n" +
-    "1. IDENTITY LOCK: Face, hair, skin must remain pixel-for-pixel identical.\n" +
-    "2. BACKGROUND LOCK: Background and environment must remain 100% intact.\n" +
-    "3. ENVIRONMENT BLENDING: Match lighting, shadows, and reflections onto the new garment.\n" +
-    "4. GARMENT FIDELITY: Preserve the exact color, pattern, texture, and shape of the garment.\n" +
-    "5. OUTPUT: Return the edited image only."
+  content.push({ text: promptText })
 
   const payload = {
-    contents: [
-      {
-        parts: [
-          { text: promptText },
-          { inline_data: { mime_type: personMime, data: personBase64 } },
-          { inline_data: { mime_type: garmentMime, data: garmentBase64 } },
-        ],
-      },
-    ],
-    generation_config: {
-      temperature: 0.4,
-      responseModalities: ["TEXT", "IMAGE"],
+    model: QWEN_MODEL,
+    input: {
+      messages: [
+        {
+          role: 'user',
+          content,
+        },
+      ],
+    },
+    parameters: {
+      n: 2,  // Generate 2 variants, we'll use the first
+      size: '1536*2048',  // High-res portrait — keeps phone camera quality
+      watermark: false,
     },
   }
 
-  // 3. Send to Gemini API
-  console.log('[generate-tryon] 📦 Sending to Gemini:', {
-    personSizeKB: (personBytes.length / 1024).toFixed(0),
-    garmentSizeKB: (garmentBytes.length / 1024).toFixed(0),
-  })
+  // 2. Send to DashScope API
+  console.log(`[generate-tryon] 📦 Sending to Qwen Image 2.0 (${sorted.length} garment(s))...`)
 
   const startTime = Date.now()
-  const response = await fetch(GEMINI_ENDPOINT, {
+  const response = await fetch(DASHSCOPE_ENDPOINT, {
     method: 'POST',
     headers: {
-      'x-goog-api-key': GEMINI_API_KEY,
+      'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
@@ -126,37 +136,44 @@ async function tryGemini(
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '')
-    throw new Error(`Gemini returned ${response.status}: ${errText.slice(0, 400)}`)
+    throw new Error(`Qwen returned ${response.status}: ${errText.slice(0, 400)}`)
   }
 
-  // 4. Parse response — extract image from candidates[0].content.parts[].inline_data
+  // 3. Parse response — extract first image URL from output.choices[0].message.content[].image
   const resultJson = await response.json()
-  let resultBytes: Uint8Array | null = null
+  let resultImageUrl: string | null = null
 
   try {
-    const parts: Array<any> = resultJson.candidates?.[0]?.content?.parts ?? []
-    for (const part of parts) {
-      if (part.inline_data?.data) {
-        const rawBase64 = part.inline_data.data
-        const binaryStr = atob(rawBase64)
-        resultBytes = new Uint8Array(binaryStr.length)
-        for (let i = 0; i < binaryStr.length; i++) {
-          resultBytes[i] = binaryStr.charCodeAt(i)
+    const choices: Array<any> = resultJson.output?.choices ?? []
+    for (const choice of choices) {
+      const contents: Array<any> = choice.message?.content ?? []
+      for (const part of contents) {
+        if (part.image) {
+          resultImageUrl = part.image
+          break
         }
-        break
       }
+      if (resultImageUrl) break
     }
   } catch (e) {
-    throw new Error(`Failed to parse Gemini response: ${e}`)
+    throw new Error(`Failed to parse Qwen response: ${e}`)
   }
 
-  if (!resultBytes) {
-    const text = resultJson.candidates?.[0]?.content?.parts?.[0]?.text ?? '(no text)'
-    throw new Error(`Gemini returned no image data. Response text: ${text.slice(0, 200)}`)
+  if (!resultImageUrl) {
+    const text = JSON.stringify(resultJson).slice(0, 300)
+    throw new Error(`Qwen returned no image data. Response: ${text}`)
   }
 
   console.log(
-    `[generate-tryon] ✅ Gemini responded in ${elapsed}ms (${(resultBytes.length / 1024).toFixed(0)} KB PNG)`,
+    `[generate-tryon] ✅ Qwen responded in ${elapsed}ms — result URL: ${resultImageUrl.slice(0, 80)}...`,
+  )
+
+  // 4. Download the result image (Qwen URLs expire after 24h)
+  console.log('[generate-tryon] ⬇️ Downloading result image from Qwen...')
+  const resultBytes = await downloadImageBytes(resultImageUrl)
+
+  console.log(
+    `[generate-tryon] ✅ Downloaded result: ${(resultBytes.length / 1024).toFixed(0)} KB`,
   )
 
   return resultBytes
@@ -164,7 +181,7 @@ async function tryGemini(
 
 // ── FALLBACK: Cloudflare Flux 2 Klein 4B (multipart/form-data) ─────
 //
-// Only used if the primary Gemini endpoint fails or is unreachable.
+// Only used if the primary Qwen Image Edit endpoint fails or is unreachable.
 async function tryCloudflareFlux(
   cfApiToken: string,
   cfAccountId: string,
@@ -355,28 +372,28 @@ serve(async (req) => {
       categories: validItems.map((i) => i.category),
     })
 
-    // ── Try-on: Gemini (PRIMARY) → Cloudflare Flux (fallback) ──
+    // ── Try-on: Qwen Image Edit (PRIMARY) → Cloudflare Flux (fallback) ──
     let finalImageBytes: Uint8Array
     let usedEngine: string
 
     try {
-      // Use the first valid garment item for the try-on
-      finalImageBytes = await tryGemini(basePhotoUrl, validItems[0].source_image_url)
-      usedEngine = 'gemini'
-    } catch (geminiError: any) {
-      console.warn('[generate-tryon] ⚠️ Gemini failed, trying Cloudflare Flux fallback:', geminiError.message)
+      // Pass all valid items (up to 2) — Qwen will do multi-garment try-on
+      finalImageBytes = await tryQwenImageEdit(basePhotoUrl, validItems)
+      usedEngine = 'qwen-image-2.0'
+    } catch (qwenError: any) {
+      console.warn('[generate-tryon] ⚠️ Qwen failed, trying Cloudflare Flux fallback:', qwenError.message)
 
       if (CF_API_TOKEN && CF_ACCOUNT_ID) {
         try {
           finalImageBytes = await tryCloudflareFlux(CF_API_TOKEN, CF_ACCOUNT_ID, basePhotoUrl, validItems)
           usedEngine = 'cloudflare-flux'
         } catch (cfError: any) {
-          console.error('[generate-tryon] Both Gemini and Cloudflare Flux failed:', cfError.message)
-          throw new Error(`Try-on failed: Gemini (${geminiError.message}), Flux (${cfError.message})`)
+          console.error('[generate-tryon] Both Qwen and Cloudflare Flux failed:', cfError.message)
+          throw new Error(`Try-on failed: Qwen (${qwenError.message}), Flux (${cfError.message})`)
         }
       } else {
         // No Cloudflare credentials — can't fall back
-        throw new Error(`Gemini failed and no Cloudflare fallback configured: ${geminiError.message}`)
+        throw new Error(`Qwen failed and no Cloudflare fallback configured: ${qwenError.message}`)
       }
     }
 

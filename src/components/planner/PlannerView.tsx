@@ -519,13 +519,14 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       <div className="mx-5 h-px bg-border/60" />
 
       {/* ── Content ────────────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout">
         {viewMode === 'day' ? (
           <motion.div
             key="day-view"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
             className="flex flex-1 flex-col"
           >
             <DayView
@@ -548,9 +549,10 @@ export function PlannerView({ outfits }: PlannerViewProps) {
         ) : (
           <motion.div
             key="month-view"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
             className="flex flex-1 flex-col pt-3"
           >
             {/* Compact MonthView with integrated navigation + expand */}
