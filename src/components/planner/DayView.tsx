@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, CalendarPlus, Loader2, AlertCircle, CheckCircle2, Camera, Pencil, Clock, ImageIcon, ChevronRight, Zap } from 'lucide-react';
+import { haptic } from '@/lib/haptics';
 
 interface DayViewProps {
   date: Date;
@@ -12,6 +13,8 @@ interface DayViewProps {
   generationStatus: 'idle' | 'pending' | 'generating' | 'completed' | 'failed' | null;
   /** The outfit name if one is planned */
   outfitName?: string;
+  /** The outfit's items (thumbnails + titles) to show alongside the try-on */
+  outfitItems?: Array<{ title?: string; source_image_url?: string }>;
   /** Whether the user has any saved outfits to plan */
   hasOutfits: boolean;
   /** Called when the user taps "Plan an outfit" or "+ Plan" */
@@ -24,6 +27,11 @@ interface DayViewProps {
   errorMessage?: string | null;
   /** Whether the user has uploaded a base photo (null = checking) */
   hasBasePhoto?: boolean | null;
+  /** The user's base photo URL — fills the empty day card when present */
+  basePhotoUrl?: string | null;
+  /** True once the user has generated at least one try-on — hides the
+   *  onboarding-style copy on the empty day card (kept for new users). */
+  hasDoneGeneration?: boolean;
   /** Called when the user wants to upload a base photo */
   onUploadPhoto?: () => void;
 }
@@ -50,7 +58,7 @@ const STAGES: Record<GenerationStage, StageInfo> = {
   },
   'ai-working': {
     label: 'AI is creating your look',
-    description: 'This takes about 30 seconds',
+    description: 'This takes about 15 seconds',
     icon: Zap,
     minPercent: 20,
     maxPercent: 85,
@@ -134,34 +142,64 @@ function computeViewState(
  * This is a frontend simulation since we don't get real progress from the backend.
  */
 function computeProgress(elapsed: number): { stage: GenerationStage; percent: number } {
-  if (elapsed < 5) {
-    // 0-5s: preparing
-    const pct = 5 + (elapsed / 5) * 15;
+  if (elapsed < 3) {
+    // 0-3s: preparing
+    const pct = 5 + (elapsed / 3) * 15;
     return { stage: 'preparing', percent: Math.round(pct) };
-  } else if (elapsed < 40) {
-    // 5-40s: AI working (CatVTON avg ~45s)
-    const pct = 20 + ((elapsed - 5) / 35) * 65;
+  } else if (elapsed < 18) {
+    // 3-18s: AI working (tuned for the ~12s Qwen 2.0 path)
+    const pct = 20 + ((elapsed - 3) / 15) * 65;
     return { stage: 'ai-working', percent: Math.round(pct) };
   } else {
-    // 40s+: finalizing
-    const pct = Math.min(95, 85 + ((elapsed - 40) / 10) * 10);
+    // 18s+: finalizing
+    const pct = Math.min(95, 85 + ((elapsed - 18) / 6) * 10);
     return { stage: 'finalizing', percent: Math.round(pct) };
   }
 }
 
 // ── Component ───────────────────────────────────────────────────────
 
+// ── Outfit item strip ───────────────────────────────────────────────
+// Small thumbnails + titles of the garments in the planned outfit.
+function ItemStrip({ items }: { items: DayViewProps['outfitItems'] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar px-4 py-2.5 border-t border-border/40 bg-muted/5">
+      {items.slice(0, 4).map((item, i) => (
+        <div key={`${item.title ?? i}-${i}`} className="flex items-center gap-2 flex-none">
+          {item.source_image_url ? (
+            <img
+              src={item.source_image_url}
+              alt={item.title ?? ''}
+              loading="lazy"
+              decoding="async"
+              className="h-9 w-9 rounded-lg border border-border/40 object-cover"
+            />
+          ) : null}
+          <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+            {item.title ?? 'Item'}
+          </span>
+          {i < items.length - 1 && <span className="text-muted-foreground/40">·</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function DayView({
   date,
   tryOnImageUrl,
   generationStatus,
   outfitName,
+  outfitItems,
   hasOutfits,
   onPlanOutfit,
   onChangeOutfit,
   onRemoveOutfit,
   errorMessage,
   hasBasePhoto,
+  basePhotoUrl,
+  hasDoneGeneration,
   onUploadPhoto,
 }: DayViewProps) {
   const formattedDate = date.toLocaleDateString('en-US', {
@@ -226,14 +264,89 @@ export function DayView({
            EMPTY STATE — no outfit planned yet
            ═══════════════════════════════════════════════════════ */}
         {viewState.kind === 'empty' && (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="flex flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-muted-foreground/20 bg-gradient-to-b from-muted/5 to-muted/20 shadow-sm"
-          >
+          /* When the user has a base photo, the whole rounded card is
+             covered by it — opening a new day shows you. The Plan Outfit
+             CTA sits overlaid on the photo. Falls back to the dashed
+             placeholder when no base photo exists yet. */
+          hasBasePhoto === true && basePhotoUrl ? (
+            <motion.div
+              key="empty-photo"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="relative flex-1 overflow-hidden rounded-3xl border border-border/40 shadow-sm"
+            >
+              <img
+                src={basePhotoUrl}
+                alt="Your base photo"
+                loading="eager"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover object-top"
+              />
+              {/* Legibility gradient over the photo */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/10" />
+
+              <div className="relative flex h-full flex-col items-center justify-end gap-3 px-6 pb-6 pt-10 text-center">
+                {/* Onboarding copy — only for new users who haven't done
+                    their first generation yet. Everyone else just gets the
+                    photo + CTA so the base photo dominates the card. */}
+                {!hasDoneGeneration && (
+                  <>
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.05 }}
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/25 backdrop-blur-sm"
+                    >
+                      <CalendarPlus className="h-6 w-6 text-white" strokeWidth={1.5} />
+                    </motion.div>
+
+                    <h3 className="text-lg font-semibold text-white">
+                      Plan an outfit for this day
+                    </h3>
+
+                    <p className="text-sm text-white/80 max-w-xs leading-relaxed">
+                      {hasOutfits
+                        ? 'Choose one of your saved outfits and see an AI-generated try-on preview.'
+                        : 'Create an outfit first, then plan it for a specific day.'}
+                    </p>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={onPlanOutfit}
+                  className="group relative mt-1 flex items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-6 py-3 text-sm font-semibold text-black shadow-lg transition-all hover:opacity-90 active:scale-[0.97]"
+                >
+                  {hasOutfits ? '+ Plan Outfit' : 'Create Outfit'}
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                {onUploadPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic('light');
+                      onUploadPhoto?.();
+                    }}
+                    className="mt-1 flex items-center gap-1 text-xs text-white/70 hover:text-white transition-colors"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Change base photo
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="flex flex-1 flex-col items-center justify-center rounded-3xl border-2 border-dashed border-muted-foreground/20 bg-gradient-to-b from-muted/5 to-muted/20 shadow-sm"
+            >
             <div className="flex flex-col items-center gap-4 px-8 text-center">
               <motion.div
                 initial={{ scale: 0 }}
@@ -265,7 +378,10 @@ export function DayView({
                 >
                   <button
                     type="button"
-                    onClick={onUploadPhoto}
+                    onClick={() => {
+                      haptic('light');
+                      onUploadPhoto?.();
+                    }}
                     className="group relative w-full overflow-hidden rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-all hover:opacity-90 active:scale-[0.97] flex items-center justify-center gap-2"
                   >
                     <Camera className="h-4 w-4" />
@@ -311,7 +427,10 @@ export function DayView({
               {hasBasePhoto && onUploadPhoto && (
                 <motion.button
                   type="button"
-                  onClick={onUploadPhoto}
+                  onClick={() => {
+                    haptic('light');
+                    onUploadPhoto?.();
+                  }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
@@ -321,8 +440,9 @@ export function DayView({
                   Change base photo
                 </motion.button>
               )}
-            </div>
-          </motion.div>
+              </div>
+            </motion.div>
+          )
         )}
 
         {/* ═══════════════════════════════════════════════════════
@@ -413,6 +533,9 @@ export function DayView({
               </div>
             </div>
 
+            {/* Outfit items being generated */}
+            <ItemStrip items={outfitItems} />
+
             {/* Bottom info bar */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -456,6 +579,7 @@ export function DayView({
                   paint (unlike CachedImage which defers Supabase URLs). The
                   preloading in PlannerView fires new Image() fetches in the
                   background, so the browser HTTP cache serves them instantly. */}
+
               <motion.img
                 src={viewState.imageUrl}
                 alt={`Try-on for ${viewState.outfitName ?? 'outfit'}`}
@@ -486,6 +610,9 @@ export function DayView({
               {/* Dark theme: inner shadow for depth separation */}
               <div className="pointer-events-none absolute inset-0 shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]" />
             </motion.div>
+
+            {/* Outfit items that make up this look */}
+            <ItemStrip items={outfitItems} />
 
             {/* Bottom info bar with actions */}
             <motion.div

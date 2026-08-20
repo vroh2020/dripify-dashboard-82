@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { haptic } from '@/lib/haptics';
+import { StatusDot } from './StatusDot';
 
 const DAY_ABBREVIATIONS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
@@ -20,6 +21,11 @@ interface WeekStripProps {
    * Map of date string -> generation status for showing loading states.
    */
   generationStatuses?: Map<string, 'pending' | 'generating' | 'completed' | 'failed'>;
+  /**
+   * Map of date string -> small try-on thumbnail URL for planned days.
+   * Shown as a mini image instead of a plain dot so the week is scannable.
+   */
+  plannedThumbnails?: Map<string, string>;
 }
 
 /**
@@ -33,6 +39,7 @@ export function WeekStrip({
   onSelectDate,
   plannedDates = new Set(),
   generationStatuses = new Map(),
+  plannedThumbnails = new Map(),
 }: WeekStripProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -77,7 +84,7 @@ export function WeekStrip({
   return (
     <div
       ref={scrollRef}
-      className="flex items-center justify-between px-4 py-3"
+      className="flex items-center justify-between px-4 py-1.5"
     >
       {weekDays.map((date, i) => {
         const dateStr = formatDateStr(date);
@@ -87,12 +94,16 @@ export function WeekStrip({
         const today = isToday(date);
         const hasPlanned = plannedDates.has(dateStr);
         const genStatus = generationStatuses.get(dateStr);
+        const thumbUrl = plannedThumbnails.get(dateStr);
 
         return (
           <button
             key={dateStr}
             type="button"
-            onClick={() => onSelectDate(date)}
+            onClick={() => {
+              haptic('light');
+              onSelectDate(date);
+            }}
             className="flex flex-col items-center gap-1 relative"
             aria-label={`${abbr} ${dayNum}`}
           >
@@ -124,33 +135,21 @@ export function WeekStrip({
               {dayNum}
             </div>
 
-            {/* Planned outfit indicator dot */}
+            {/* Planned day indicator — try-on thumbnail if available, else status dot */}
             {hasPlanned && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{
-                  scale: 1,
-                  y: genStatus === 'generating' ? [0, -2, 0] : 0,
-                }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 400,
-                  damping: 20,
-                  y: genStatus === 'generating'
-                    ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' }
-                    : undefined,
-                }}
-                className={cn(
-                  'absolute -bottom-1 h-1.5 w-1.5 rounded-full',
-                  genStatus === 'pending' || genStatus === 'generating'
-                    ? 'bg-amber-400'
-                    : genStatus === 'completed'
-                      ? 'bg-green-500'
-                      : genStatus === 'failed'
-                        ? 'bg-red-400'
-                        : 'bg-muted-foreground/50',
+              <span className="absolute -bottom-2 flex h-4 w-4 items-center justify-center">
+                {thumbUrl ? (
+                  <img
+                    src={thumbUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="h-4 w-4 rounded-[5px] border border-border/60 object-cover shadow-sm"
+                  />
+                ) : (
+                  <StatusDot status={genStatus} />
                 )}
-              />
+              </span>
             )}
           </button>
         );

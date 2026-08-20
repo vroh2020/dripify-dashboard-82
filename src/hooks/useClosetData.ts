@@ -124,11 +124,10 @@ interface UseClosetDataReturn {
    */
   insertItem: (item: ClosetItem) => void;
   /**
-   * Replace an existing item by id (used after a mutate-then-refetch
-   * patch, e.g. closet item category UPDATE from the manual-override
-   * picker or from the AI classify IIFE in clipper/UploadItemFlow).
-   * Silently no-ops if the id is not present so callers don't need to
-   * check membership first.
+   * Replace an existing uploaded item by id and keep it at the front of
+   * the local wardrobe list. Upload pipelines call this after their AI
+   * classification update so a new clip cannot move down the grid when
+   * its metadata finishes loading.
    */
   updateItem: (item: ClosetItem) => void;
 }
@@ -613,19 +612,16 @@ export function useClosetData(): UseClosetDataReturn {
   }, []);
 
   /**
-   * Replace an existing item by id. No-op if the id is not present.
-   * Used by upload pipelines after they UPDATE a row in Supabase (the
-   * AI-classify IIFE in clipper.tsx / UploadItemFlow.tsx and the
-   * manual category override in ItemDetailModal) to patch local state
-   * without a full refetch.
+   * Replace an existing uploaded item by id and keep it at the front.
+   * Upload pipelines call this after they UPDATE a row in Supabase (the
+   * AI-classify IIFE in clipper.tsx / UploadItemFlow.tsx), so finishing
+   * classification cannot move a newly added item lower in the grid.
    */
   const updateItem = useCallback((item: ClosetItem) => {
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.id === item.id);
       if (idx === -1) return prev;
-      const next = prev.slice();
-      next[idx] = item;
-      return next;
+      return [item, ...prev.filter((i) => i.id !== item.id)];
     });
   }, []);
 

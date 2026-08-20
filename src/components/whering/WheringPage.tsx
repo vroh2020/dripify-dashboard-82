@@ -85,7 +85,14 @@ export default function Page() {
               onSaved={() => navigate("/fits")}
             />
           )}
-          {tab === "clipper" && <Clipper demoItems={demoItems} onItemInserted={handleItemInserted} onItemUpdated={handleItemUpdated} />}
+          {tab === "clipper" && (
+            <Clipper
+              demoItems={demoItems}
+              onItemInserted={handleItemInserted}
+              onItemUpdated={handleItemUpdated}
+              onSaved={() => setTab("wardrobe")}
+            />
+          )}
 
           <BottomSheet
             open={sheetOpen}

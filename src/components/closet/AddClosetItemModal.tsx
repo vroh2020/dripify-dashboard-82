@@ -28,6 +28,7 @@ import {
   Plus
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { downscaleImageFile } from "@/utils/imageResize";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ClosetItem, ClothingCategory, Season, AddItemFormData } from "@/types/closetTypes";
@@ -255,13 +256,17 @@ export const AddClosetItemModal = ({ open, onOpenChange, onItemAdded }: AddClose
   const uploadImage = async (): Promise<string> => {
     if (!selectedFile) throw new Error('No file selected');
 
+    // Downscale before upload — keeps DashScope downloads + encode fast.
+    // PNG stays PNG (garment transparency preserved), JPEG flattened to white.
+    const uploadFile = await downscaleImageFile(selectedFile, 1280);
+
     const timestamp = new Date().getTime();
-    const filePath = `closet_items/${user?.id}/${timestamp}_${selectedFile.name.replace(/\s+/g, '_')}`;
+    const filePath = `closet_items/${user?.id}/${timestamp}_${uploadFile.name.replace(/\s+/g, '_')}`;
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('style_images')
-      .upload(filePath, selectedFile, {
-        cacheControl: '3600',
+      .upload(filePath, uploadFile, {
+        cacheControl: '31536000', // timestamped URL → immutable → browser-cache forever
         upsert: false
       });
       

@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { Buffer } from "node:buffer"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // x-region is sent by supabase-js when invoking with a pinned region
+  // (region: FunctionRegion.ApSoutheast1) — must be allowed or the
+  // browser blocks the request in the CORS preflight.
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-region',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -15,7 +19,7 @@ const DASHSCOPE_ENDPOINT =
   `https://${DASHSCOPE_WORKSPACE_ID}.ap-southeast-1.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation`
 const QWEN_MODEL = 'qwen-image-2.0'
 
-// ── Cloudflare Flux fallback ────────────────────────────────────────
+// ── Cloudflare Flux 2 Klein 4B (fallback) ───────────────────────────
 const CF_API_TOKEN = Deno.env.get('CLOUDFLARE_WORKERS_AI')
 const CF_ACCOUNT_ID = Deno.env.get('CLOUDFLARE_ACCOUNT_ID')
 
@@ -49,12 +53,54 @@ function guessMimeType(bytes: Uint8Array): string {
   return 'image/jpeg'
 }
 
+// ── Stable content hash for caching ─────────────────────────────────
+// Identical person photo + garment URLs → identical hash → the edge
+// function can reuse a previous result instead of calling the API.
+// Pure integer math, identical in browser and Deno runtimes.
+function contentHash(inputs: string[]): string {
+  const s = [...inputs].sort().join('|')
+  let h = 5381
+  for (let i = 0; i < s.length; i++) {
+    h = ((h * 33) ^ s.charCodeAt(i)) >>> 0
+  }
+  return 'h' + h.toString(36)
+}
+
+// ── Compress a PNG to JPEG ──────────────────────────────────────────
+// DashScope returns PNG (~2-4MB). Re-encoding to JPEG (~300-500KB)
+// shrinks the storage upload and the app's download. Pure-JS codecs are
+// loaded lazily so a failure can never break the pipeline — the caller
+// falls back to the original bytes.
+async function compressToJpeg(
+  bytes: Uint8Array,
+): Promise<{ bytes: Uint8Array; ext: string; contentType: string } | null> {
+  // Only PNGs get converted; everything else passes through
+  if (!(bytes[0] === 0x89 && bytes[1] === 0x50)) return null
+  try {
+    const { PNG } = await import('https://esm.sh/pngjs@7.0.0')
+    const jpegMod: any = await import('https://esm.sh/jpeg-js@0.4.4')
+    const jpegEncode = jpegMod.encode ?? jpegMod.default?.encode
+    if (typeof jpegEncode !== 'function') return null
+
+    const png = PNG.sync.read(Buffer.from(bytes))
+    const jpeg = jpegEncode(
+      { data: png.data, width: png.width, height: png.height },
+      88,
+    )
+    return { bytes: new Uint8Array(jpeg.data), ext: 'jpg', contentType: 'image/jpeg' }
+  } catch (e: any) {
+    console.warn('[generate-tryon] PNG→JPEG compression failed, keeping original:', e?.message ?? e)
+    return null
+  }
+}
+
 // ── PRIMARY: Qwen Image 2.0 (DashScope) ───────────────────────────
 //
 // Sends person + up to 2 garment image URLs to Qwen Image 2.0 via DashScope.
 // Supports single garment (Image 1 = person, Image 2 = garment) or
 // full outfit (Image 1 = person, Image 2 = top, Image 3 = bottoms).
 // Downloads the first result and returns raw PNG bytes.
+// Tuned for speed: n:1, 1K-tier resolution (1152*1536), no prompt rewriting.
 async function tryQwenImageEdit(
   basePhotoUrl: string,
   garmentItems: Array<{ title: string; category: string; source_image_url: string }>,
@@ -113,9 +159,10 @@ async function tryQwenImageEdit(
       ],
     },
     parameters: {
-      n: 2,  // Generate 2 variants, we'll use the first
-      size: '1536*2048',  // High-res portrait — keeps phone camera quality
+      n: 1,  // Single variant — was 2, but only the first was ever used (cuts time ~2x)
+      size: '1152*1536',  // 1K billing tier (area < 2.25MP) — was 1536*2048 (3.1MP, 2K tier, ~3-4x slower)
       watermark: false,
+      prompt_extend: false,  // Skip prompt rewriting — faster; try-on prompts are already explicit
     },
   }
 
@@ -170,10 +217,11 @@ async function tryQwenImageEdit(
 
   // 4. Download the result image (Qwen URLs expire after 24h)
   console.log('[generate-tryon] ⬇️ Downloading result image from Qwen...')
+  const dlStart = Date.now()
   const resultBytes = await downloadImageBytes(resultImageUrl)
 
   console.log(
-    `[generate-tryon] ✅ Downloaded result: ${(resultBytes.length / 1024).toFixed(0)} KB`,
+    `[generate-tryon] ✅ Downloaded result in ${Date.now() - dlStart}ms: ${(resultBytes.length / 1024).toFixed(0)} KB`,
   )
 
   return resultBytes
@@ -182,6 +230,7 @@ async function tryQwenImageEdit(
 // ── FALLBACK: Cloudflare Flux 2 Klein 4B (multipart/form-data) ─────
 //
 // Only used if the primary Qwen Image Edit endpoint fails or is unreachable.
+// Quality is weaker than Qwen for try-on (garment fidelity), so it's a last resort.
 async function tryCloudflareFlux(
   cfApiToken: string,
   cfAccountId: string,
@@ -195,22 +244,26 @@ async function tryCloudflareFlux(
   const personMime = guessMimeType(personBytes)
   const personExt = personMime === 'image/png' ? 'png' : 'jpg'
 
-  // 2. Download garment images (up to 3)
-  const garmentBlobs: Array<{ blob: Blob; filename: string }> = []
-  for (let i = 0; i < Math.min(garmentItems.length, 3); i++) {
-    const item = garmentItems[i]
-    try {
-      const gBytes = await downloadImageBytes(item.source_image_url)
-      const mime = guessMimeType(gBytes)
-      const ext = mime === 'image/png' ? 'png' : 'jpg'
-      garmentBlobs.push({
-        blob: new Blob([gBytes], { type: mime }),
-        filename: `garment_${i}.${ext}`,
-      })
-    } catch (e) {
-      console.warn(`[generate-tryon] ⚠️ Failed to download garment ${i} (${item.title}):`, e)
-    }
-  }
+  // 2. Download garment images (up to 3) — in parallel to cut latency
+  const garmentResults = await Promise.all(
+    garmentItems.slice(0, 3).map(async (item, i) => {
+      try {
+        const gBytes = await downloadImageBytes(item.source_image_url)
+        const mime = guessMimeType(gBytes)
+        const ext = mime === 'image/png' ? 'png' : 'jpg'
+        return {
+          blob: new Blob([gBytes], { type: mime }),
+          filename: `garment_${i}.${ext}`,
+        }
+      } catch (e) {
+        console.warn(`[generate-tryon] ⚠️ Failed to download garment ${i} (${item.title}):`, e)
+        return null
+      }
+    }),
+  )
+  const garmentBlobs: Array<{ blob: Blob; filename: string }> = garmentResults.filter(
+    (b): b is { blob: Blob; filename: string } => b !== null,
+  )
 
   // 3. Build prompt with identity-preservation structure
   let promptText = "This is the same person shown in image 0. "
@@ -294,6 +347,8 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const startTime = Date.now()
+
   try {
     const { generation_id }: GenerationRequest = await req.json()
     if (!generation_id) throw new Error('Missing generation_id')
@@ -372,12 +427,38 @@ serve(async (req) => {
       categories: validItems.map((i) => i.category),
     })
 
-    // ── Try-on: Qwen Image Edit (PRIMARY) → Cloudflare Flux (fallback) ──
+    // ── Content-hash cache: identical person + garment set → reuse, zero API calls ──
+    try {
+      const itemUrls = (metadata?.items ?? [])
+        .map((i: any) => i?.source_image_url ?? '')
+      const hash = contentHash([basePhotoUrl, ...itemUrls])
+      const { data: cached } = await supabase
+        .from('planner_generated_images')
+        .select('id, image_url')
+        .eq('user_id', userId)
+        .eq('metadata->>content_hash', hash)
+        .eq('status', 'completed')
+        .neq('id', generation_id)
+        .maybeSingle()
+
+      if (cached?.image_url) {
+        console.log(`[generate-tryon] ✅ Cache hit (${hash}) — reusing ${cached.image_url}`)
+        return new Response(
+          JSON.stringify({ image_url: cached.image_url, engine: 'cache' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+      console.log(`[generate-tryon] Cache miss (${hash}) — generating fresh`)
+    } catch (cacheErr: any) {
+      console.warn('[generate-tryon] Cache check failed (continuing to generate):', cacheErr?.message ?? cacheErr)
+    }
+
+    // ── Try-on: Qwen Image 2.0 (PRIMARY, tuned) → Cloudflare Flux (fallback) ──
     let finalImageBytes: Uint8Array
     let usedEngine: string
 
     try {
-      // Pass all valid items (up to 2) — Qwen will do multi-garment try-on
+      // Qwen 2.0 with tuned params (n:1, 1K-tier res, no prompt rewrite) — the quality path.
       finalImageBytes = await tryQwenImageEdit(basePhotoUrl, validItems)
       usedEngine = 'qwen-image-2.0'
     } catch (qwenError: any) {
@@ -397,16 +478,24 @@ serve(async (req) => {
       }
     }
 
-    // ── Upload final result to storage ──────────────────────
-    const fileName = `tryon_${generation_id}_${Date.now()}.png`
+    // ── Compress result to JPEG, then upload to storage ──────
+    const compressed = await compressToJpeg(finalImageBytes)
+    const outBytes = compressed?.bytes ?? finalImageBytes
+    const ext = compressed ? 'jpg' : 'png'
+    const contentType = compressed ? 'image/jpeg' : 'image/png'
+
+    const fileName = `tryon_${generation_id}_${Date.now()}.${ext}`
     const storagePath = `uploads/${userId}/${fileName}`
 
+    const uploadStart = Date.now()
     const { error: uploadError } = await supabase.storage
       .from('clipped-closet-items')
-      .upload(storagePath, finalImageBytes, {
-        contentType: 'image/png',
+      .upload(storagePath, outBytes, {
+        contentType,
         upsert: true,
+        cacheControl: '31536000', // timestamped URL → immutable → browser-cache forever
       })
+    console.log(`[generate-tryon] ⬆️ Uploaded result in ${Date.now() - uploadStart}ms (${(outBytes.length / 1024).toFixed(0)} KB)`)
 
     if (uploadError) throw uploadError
 
@@ -414,7 +503,7 @@ serve(async (req) => {
       .from('clipped-closet-items')
       .getPublicUrl(storagePath)
 
-    console.log(`[generate-tryon] ✅ ${usedEngine} completed:`, pubData.publicUrl)
+    console.log(`[generate-tryon] ✅ ${usedEngine} completed in ${Date.now() - startTime}ms:`, pubData.publicUrl)
 
     return new Response(
       JSON.stringify({ image_url: pubData.publicUrl, engine: usedEngine }),
@@ -422,7 +511,7 @@ serve(async (req) => {
     )
 
   } catch (error: any) {
-    console.error('[generate-tryon] Error:', error)
+    console.error(`[generate-tryon] ❌ Error after ${Date.now() - startTime}ms:`, error.message ?? error)
 
     return new Response(
       JSON.stringify({ error: error.message || 'Generation failed' }),

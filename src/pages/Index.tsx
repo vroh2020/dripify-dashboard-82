@@ -275,6 +275,14 @@ const Index = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [clipperOpen, setClipperOpen] = useState(false);
 
+  // Bumped every time a clip or upload finishes and redirects to the
+  // wardrobe tab. Used as a `key` on <Wardrobe> so the tab REMOUNTS with
+  // the "All" filter instead of keeping the user's previous filter
+  // (e.g. "Tops") — freshly clipped/uploaded items are inserted as
+  // `category: 'pending'` and only show up under "All" until the AI
+  // classifier categorizes them.
+  const [wardrobeResetKey, setWardrobeResetKey] = useState(0);
+
   // Processing queue state from UploadItemFlow — used to show the pill
   const [processingState, setProcessingState] = useState<{
     isProcessing: boolean;
@@ -372,7 +380,10 @@ const Index = () => {
         case "wardrobe":
           return (
             <div className="whering-theme bg-muted h-full overflow-hidden">
-              <Wardrobe items={items} onRefresh={refresh} />
+              {/* key remounts the tab with the "All" filter when the user
+                  lands here right after clipping/uploading — see
+                  wardrobeResetKey in the clip/upload onSaved handlers. */}
+              <Wardrobe key={wardrobeResetKey} items={items} onRefresh={refresh} />
             </div>
           );
         case "canvas":
@@ -556,6 +567,9 @@ const Index = () => {
           onProcessingChange={handleProcessingChange}
           onComplete={() => {
             console.log('📍 [Index] UploadItemFlow onComplete — navigating to /wardrobe')
+            // Remount the wardrobe tab on "All" so freshly uploaded
+            // (still-pending) items are visible right away.
+            setWardrobeResetKey((k) => k + 1)
             navigate("/wardrobe")
           }}
         />
@@ -589,6 +603,11 @@ const Index = () => {
                 onItemUpdated={handleItemUpdated}
                 onSaved={() => {
                   setClipperOpen(false)
+                  // Remount the wardrobe tab on "All" so the just-clipped
+                  // item (category: 'pending' until AI classifies it) is
+                  // visible immediately instead of being hidden behind the
+                  // user's previous filter (e.g. "Tops").
+                  setWardrobeResetKey((k) => k + 1)
                   navigate("/wardrobe")
                 }}
               />

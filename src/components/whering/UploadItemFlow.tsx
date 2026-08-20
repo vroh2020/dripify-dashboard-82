@@ -350,17 +350,35 @@ export function UploadItemFlow({ open, onClose, onItemInserted, onItemUpdated, o
             return;
           }
         }
-        const photo = await CapacitorCamera.getPhoto({
+        // Native multi-select — the system photo picker opens in
+        // multi-select mode (limit 0 = unlimited) so a whole gallery
+        // haul lands in the review queue at once. Each photo is read
+        // sequentially to keep peak memory flat.
+        const result = await CapacitorCamera.pickImages({
           quality: 90,
-          resultType: CameraResultType.DataUrl,
-          source: CameraSource.Photos,
-          correctOrientation: true,
           width: 1024,
-          height: 1024,
+          correctOrientation: true,
+          presentationStyle: "popover",
+          limit: 0, // unlimited multi-select
         });
-        if (photo.dataUrl) {
-          const blob = await dataUrlToBlob(photo.dataUrl);
-          addImageToSelection(crypto.randomUUID(), photo.dataUrl, blob);
+        const newImages: { id: string; dataUrl: string; file: Blob }[] = [];
+        for (const photo of result.photos ?? []) {
+          try {
+            const res = await fetch(photo.webPath);
+            const blob = await res.blob();
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            newImages.push({ id: crypto.randomUUID(), dataUrl, file: blob });
+          } catch (e) {
+            console.error("Failed to read picked photo:", e);
+          }
+        }
+        if (newImages.length > 0) {
+          setSelectedImages((prev) => [...prev, ...newImages]);
+          setStage("review");
         }
       } else {
         const input = document.createElement("input");

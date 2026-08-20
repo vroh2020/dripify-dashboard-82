@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { WeekStrip } from './WeekStrip';
 import { DayView } from './DayView';
 import { MonthView } from './MonthView';
+import { GenerationOverlay } from './GenerationOverlay';
 import { useSubscription } from '@/components/subscription/SubscriptionProvider';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { PaywallModal } from '@/components/subscription/PaywallModal';
@@ -23,6 +24,7 @@ import {
 } from '@/services/plannerService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { haptic, successTick } from '@/lib/haptics';
 import type { SavedOutfit } from '@/hooks/useClosetData';
 
 type ViewMode = 'day' | 'month';
@@ -51,6 +53,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   const [generationStatuses, setGenerationStatuses] = useState<
     Map<string, 'pending' | 'generating' | 'completed' | 'failed'>
   >(new Map());
+  const [plannedThumbnails, setPlannedThumbnails] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [showOutfitPicker, setShowOutfitPicker] = useState(false);
 
@@ -62,6 +65,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
 
   // ── Base photo state ──────────────────────────────────────────
   const [hasBasePhoto, setHasBasePhoto] = useState<boolean | null>(null);
+  const [basePhotoUrl, setBasePhotoUrl] = useState<string | null>(null);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +77,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   // ── Check for base photo on mount ─────────────────────────────
   useEffect(() => {
     getUserBasePhoto().then((url) => {
+      setBasePhotoUrl(url);
       setHasBasePhoto(url !== null);
     });
   }, []);
@@ -86,6 +91,9 @@ export function PlannerView({ outfits }: PlannerViewProps) {
     try {
       const url = await saveUserBasePhoto(file);
       setHasBasePhoto(true);
+      // Keep the URL state in sync too — otherwise the empty-day card
+      // and generation overlay keep showing the previous photo.
+      setBasePhotoUrl(url);
       setShowPhotoUpload(false);
       toast({
         title: 'Photo saved!',
@@ -162,6 +170,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
 
             if (genImage.status === 'completed' || genImage.status === 'failed') {
               if (!cancelled) {
+                if (genImage.status === 'completed') successTick();
                 setPlannedOutfit((prev) => ({ ...prev, image: genImage }));
                 setGenerationStatuses((prev) => {
                   const next = new Map(prev);
@@ -289,17 +298,20 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       const planned = await getPlannedOutfitsForRange(start, end);
       const dateSet = new Set<string>();
       const statusMap = new Map<string, 'pending' | 'generating' | 'completed' | 'failed'>();
+      const thumbMap = new Map<string, string>();
       planned.forEach((p) => {
         if (p.date) dateSet.add(p.date);
         if (p.status) statusMap.set(p.date, p.status);
-        // Preload image into browser cache so switching dates is instant
+        // Preload the small thumbnail into browser cache so switching dates is instant
         if (p.imageUrl) {
+          thumbMap.set(p.date, p.imageUrl);
           const img = new Image();
           img.src = p.imageUrl;
         }
       });
       setPlannedDates(dateSet);
       setGenerationStatuses(statusMap);
+      setPlannedThumbnails(thumbMap);
     } catch (e) {
       console.error('[PlannerView] Failed to load month data:', e);
     }
@@ -337,6 +349,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   }, [formatDateStr]);
 
   const handlePlanOutfit = useCallback(() => {
+    haptic('medium');
     // Check usage limits for free users
     if (!isPro) {
       const check = canUseFeature('outfit_tryon');
@@ -375,6 +388,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       setIsLoading(true);
       try {
         await planOutfitForDate(outfit, selectedDate);
+        haptic('selection');
         dataCacheRef.current.delete(formatDateStr(selectedDate));
         lastLoadedMonthRef.current = '';
         await loadDateData(selectedDate);
@@ -389,6 +403,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   );
 
   const handleRemoveOutfit = useCallback(async () => {
+    haptic('medium');
     const dateStr = formatDateStr(selectedDate);
     setIsLoading(true);
     try {
@@ -405,6 +420,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
   }, [selectedDate, formatDateStr, loadMonthData]);
 
   const handleToday = useCallback(() => {
+    haptic('light');
     setSelectedDate(new Date());
   }, []);
 
@@ -413,6 +429,18 @@ export function PlannerView({ outfits }: PlannerViewProps) {
     if (!plannedOutfit.image) return null;
     return plannedOutfit.image.status as 'idle' | 'pending' | 'generating' | 'completed' | 'failed';
   }, [plannedOutfit.image]);
+
+  // Full-screen scanning overlay shows while the AI is generating
+  // (pending = queued, generating = in progress).
+  const isGeneratingOverlay =
+    currentGenStatus === 'pending' || currentGenStatus === 'generating';
+
+  // Has the user generated a try-on before? Drives whether the empty day
+  // card shows the onboarding-style "Plan an outfit for this day" copy
+  // (kept only for new users who haven't done their first generation) or
+  // just the base photo + CTA for everyone else.
+  const hasDoneGeneration =
+    plannedDates.size > 0 || generationStatuses.size > 0;
 
   // ── Render ─────────────────────────────────────────────────────
   return (
@@ -423,6 +451,16 @@ export function PlannerView({ outfits }: PlannerViewProps) {
         onClose={() => setShowPaywall(false)}
         feature={paywallFeature}
       />
+
+      {/* ── Full-screen generation overlay ────────────────────────
+         Takes over the whole phone screen while a try-on is being
+         generated: base photo in the background + glowing scanning-
+         line reveal sweeping at torso level. */}
+      <AnimatePresence>
+        {isGeneratingOverlay && (
+          <GenerationOverlay basePhotoUrl={basePhotoUrl} />
+        )}
+      </AnimatePresence>
       {/* Hidden file input for photo upload */}
       <input
         ref={fileInputRef}
@@ -434,11 +472,14 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       />
 
       {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-5 pt-2 pb-1">
+      <header className="flex items-center justify-between px-5 pt-1 pb-0">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              haptic('light');
+              navigate(-1);
+            }}
             aria-label="Back"
             className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors"
           >
@@ -461,11 +502,14 @@ export function PlannerView({ outfits }: PlannerViewProps) {
       </header>
 
       {/* ── Day/Month Tab Switcher ─────────────────────────────── */}
-      <div className="px-5 pb-2">
+      <div className="px-5 pb-1">
         <div className="inline-flex rounded-full bg-muted p-1 shadow-sm">
           <motion.button
             type="button"
-            onClick={() => setViewMode('day')}
+            onClick={() => {
+              haptic('light');
+              setViewMode('day');
+            }}
             layout
             className={cn(
               'relative rounded-full px-6 py-2 text-sm font-medium transition-all active:scale-[0.97]',
@@ -485,7 +529,10 @@ export function PlannerView({ outfits }: PlannerViewProps) {
           </motion.button>
           <motion.button
             type="button"
-            onClick={() => setViewMode('month')}
+            onClick={() => {
+              haptic('light');
+              setViewMode('month');
+            }}
             layout
             className={cn(
               'relative rounded-full px-6 py-2 text-sm font-medium transition-all active:scale-[0.97]',
@@ -513,6 +560,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
           onSelectDate={handleSelectDate}
           plannedDates={plannedDates}
           generationStatuses={generationStatuses}
+          plannedThumbnails={plannedThumbnails}
         />
       )}
 
@@ -534,12 +582,15 @@ export function PlannerView({ outfits }: PlannerViewProps) {
               tryOnImageUrl={plannedOutfit.image?.image_url ?? null}
               generationStatus={currentGenStatus}
               outfitName={plannedOutfit.planner?.outfit_data?.name ?? undefined}
+              outfitItems={plannedOutfit.planner?.outfit_data?.items}
               hasOutfits={outfits.length > 0}
               onPlanOutfit={handlePlanOutfit}
               onChangeOutfit={handlePlanOutfit}
               onRemoveOutfit={handleRemoveOutfit}
               errorMessage={plannedOutfit.image?.error_message}
               hasBasePhoto={hasBasePhoto}
+              basePhotoUrl={basePhotoUrl}
+              hasDoneGeneration={hasDoneGeneration}
               onUploadPhoto={() => {
                 setShowPhotoUpload(true);
                 fileInputRef.current?.click();
@@ -562,6 +613,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
                 selectedDate={selectedDate}
                 plannedDates={plannedDates}
                 generationStatuses={generationStatuses}
+                plannedThumbnails={plannedThumbnails}
                 onSelectDate={handleSelectDate}
                 onMonthChange={(month) => setSelectedDate(month)}
               />
@@ -573,12 +625,15 @@ export function PlannerView({ outfits }: PlannerViewProps) {
               tryOnImageUrl={plannedOutfit.image?.image_url ?? null}
               generationStatus={currentGenStatus}
               outfitName={plannedOutfit.planner?.outfit_data?.name ?? undefined}
+              outfitItems={plannedOutfit.planner?.outfit_data?.items}
               hasOutfits={outfits.length > 0}
               onPlanOutfit={handlePlanOutfit}
               onChangeOutfit={handlePlanOutfit}
               onRemoveOutfit={handleRemoveOutfit}
               errorMessage={plannedOutfit.image?.error_message}
               hasBasePhoto={hasBasePhoto}
+              basePhotoUrl={basePhotoUrl}
+              hasDoneGeneration={hasDoneGeneration}
               onUploadPhoto={() => {
                 setShowPhotoUpload(true);
                 fileInputRef.current?.click();
@@ -616,6 +671,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
                 <button
                   type="button"
                   onClick={() => {
+                    haptic('light');
                     if (fileInputRef.current) {
                       fileInputRef.current.capture = 'environment';
                       fileInputRef.current.click();
@@ -639,6 +695,7 @@ export function PlannerView({ outfits }: PlannerViewProps) {
                 <button
                   type="button"
                   onClick={() => {
+                    haptic('light');
                     if (fileInputRef.current) {
                       fileInputRef.current.removeAttribute('capture');
                       fileInputRef.current.click();
@@ -652,7 +709,10 @@ export function PlannerView({ outfits }: PlannerViewProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowPhotoUpload(false)}
+                  onClick={() => {
+                    haptic('light');
+                    setShowPhotoUpload(false);
+                  }}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors pt-2"
                 >
                   Skip for now

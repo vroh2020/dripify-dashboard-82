@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { useUnifiedBackgroundRemoval } from '@/hooks/useUnifiedBackgroundRemoval';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -224,15 +225,38 @@ export default function ClosetView() {
    * inserts a placeholder row so the user sees the piece immediately
    * (with an "Analyzing" title), then fires off the AI classifier to
    * fill in title / category / color / etc.
+   *
+   * When called with `batch`, progress is mapped into an overall
+   * percentage across the whole set (e.g. item 3 of 12 at 50% local =
+   * ~20% overall) and the overlay stays up until the batch runner
+   * finishes, so a large gallery haul shows one continuous progress bar
+   * instead of a series of flashing dialogs.
    */
-  const processSingleImage = async (dataUrl: string, label: string) => {
+  const processSingleImage = async (
+    dataUrl: string,
+    label: string,
+    batch?: { index: number; total: number }
+  ) => {
     if (cancelUploadRef.current) return;
-    setCurrentFileName(label);
+    // Map a local 0-100 progress step into the batch's overall position
+    // so the bar always reflects the whole selection, not just the
+    // current photo.
+    const progressOf = (local: number) =>
+      batch
+        ? Math.min(
+            Math.round(((batch.index + local / 100) / batch.total) * 100),
+            100
+          )
+        : local;
+    const fileName = batch
+      ? `${label} ${batch.index + 1}/${batch.total}`
+      : label;
+    setCurrentFileName(fileName);
     setIsUploading(true);
-    setUploadProgress(8);
+    setUploadProgress(progressOf(8));
 
     try {
-      setUploadProgress(20);
+      setUploadProgress(progressOf(20));
       const blob = await fetch(dataUrl).then((r) => r.blob());
       // Server-side BiRefNet matting (replaces the in-browser MODNet
       // path). The clean PNG is written to `clipped-closet-items` and
@@ -251,7 +275,7 @@ export default function ClosetView() {
         console.error('[closet-view] bg-removal failed:', e);
         throw new Error(e?.message ?? 'Background removal failed');
       }
-      setUploadProgress(45);
+      setUploadProgress(progressOf(45));
 
       // Compute BlurHash client-side from the BG-removed blob. The hash
       // is written into the `attributes` JSON column at insert time so
@@ -273,7 +297,7 @@ export default function ClosetView() {
 
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) throw new Error('Not signed in');
-      setUploadProgress(70);
+      setUploadProgress(progressOf(70));
 
       const { data: row, error: insertErr } = await supabase
         .from('trendza_closet_items')
@@ -298,7 +322,7 @@ export default function ClosetView() {
       const insertedRowId = row.id;
       // Surface placeholder immediately; AI classify fills it in below.
       insertItem(row as ClosetItem);
-      setUploadProgress(82);
+      setUploadProgress(progressOf(82));
 
       try {
         // Contract: `analyze-closet-item` expects a base64 image string
@@ -351,21 +375,59 @@ export default function ClosetView() {
         // it under the PendingSection until they manually fix it.
       }
 
-      setUploadProgress(100);
+      setUploadProgress(progressOf(100));
+      // In batch mode the runner owns the overlay lifecycle (one
+      // continuous bar for the whole selection), so only the single-shot
+      // path tears it down here. The brief 600ms pause doubles as a beat
+      // between photos so a big haul doesn't feel like a wall of churn.
       setTimeout(() => {
-        setIsUploading(false);
-        setUploadProgress(0);
-        successTick();
+        if (!batch) {
+          setIsUploading(false);
+          setUploadProgress(0);
+          successTick();
+        }
       }, 600);
     } catch (e: any) {
       console.error('Upload failed:', e);
-      setIsUploading(false);
+      // Keep the batch going when one photo fails — the remaining items
+      // still get added and the error is surfaced per-piece via toast.
+      if (!batch) {
+        setIsUploading(false);
+        setUploadProgress(0);
+      }
       toast({
         title: "Couldn't add that piece",
         description: e?.message ?? 'Something went wrong',
         variant: 'destructive',
       });
     }
+  };
+
+  /**
+   * Batch runner for gallery multi-select. Feeds every picked photo
+   * through the single-image pipeline in order, mapping each one's local
+   * progress into the shared overall bar, then tears the overlay down
+   * once (success haptic included) when the whole haul is done.
+   */
+  const processGalleryBatch = async (dataUrls: string[]) => {
+    if (cancelUploadRef.current || dataUrls.length === 0) return;
+    const total = dataUrls.length;
+    for (let i = 0; i < total; i++) {
+      if (cancelUploadRef.current) break;
+      await processSingleImage(dataUrls[i], 'Photo', { index: i, total });
+    }
+    if (!cancelUploadRef.current) {
+      successTick();
+      toast({
+        title: total > 1 ? `${total} pieces added` : 'Piece added',
+        description:
+          total > 1
+            ? 'They\'re being analyzed — check the "Still analyzing" section.'
+            : 'It\'s being analyzed — check the "Still analyzing" section.',
+      });
+    }
+    setIsUploading(false);
+    setUploadProgress(0);
   };
 
   const handleCameraCapture = async () => {
@@ -416,16 +478,66 @@ export default function ClosetView() {
         return;
       }
     }
-    const result = await Camera.getPhoto({
-      resultType: CameraResultType.Base64,
-      source: CameraSource.Photos,
-      quality: 90,
-    });
-    if (cancelUploadRef.current) return;
-    await processSingleImage(
-      `data:image/jpeg;base64,${result.base64String}`,
-      'Gallery'
-    );
+
+    if (Capacitor.isNativePlatform()) {
+      // Native multi-select — `pickImages` opens the system photo
+      // picker in multi-select mode (limit 0 = unlimited) so the user
+      // can grab a whole gallery haul in one go. Every picked photo
+      // flows through the same upload pipeline sequentially to keep
+      // peak memory flat no matter how many are chosen.
+      const result = await Camera.pickImages({
+        quality: 85,
+        width: 1024,
+        correctOrientation: true,
+        presentationStyle: 'popover',
+        limit: 0, // unlimited multi-select
+      });
+      if (cancelUploadRef.current) return;
+      const photos = result.photos ?? [];
+      if (photos.length === 0) return;
+
+      // Materialize each picked photo to a dataURL. Done sequentially so
+      // a large selection never loads every image into memory at once.
+      const dataUrls: string[] = [];
+      for (const p of photos) {
+        try {
+          const res = await fetch(p.webPath);
+          const blob = await res.blob();
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          dataUrls.push(dataUrl);
+        } catch (e) {
+          console.error('[closet-view] failed to read picked photo:', e);
+        }
+      }
+      await processGalleryBatch(dataUrls);
+    } else {
+      // Web fallback — multi-select file input keeps the same "pick a
+      // bunch at once" behaviour in the browser preview.
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.multiple = true;
+      input.onchange = async (e) => {
+        const files = Array.from((e.target as HTMLInputElement).files ?? []);
+        if (files.length === 0 || cancelUploadRef.current) return;
+        const dataUrls: string[] = [];
+        for (const file of files) {
+          dataUrls.push(
+            await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            })
+          );
+        }
+        await processGalleryBatch(dataUrls);
+      };
+      input.click();
+    }
   };
 
   const handleCancel = () => {
@@ -678,9 +790,8 @@ export default function ClosetView() {
                     <ImageIcon className="w-5 h-5" strokeWidth={1.75} />
                   </div>
                   <div className="text-left">
-                    <p className="font-semibold text-gray-900">Choose photo</p>
-                    <p className="text-xs text-gray-500">From your gallery</p>
-     
+                    <p className="font-semibold text-gray-900">Choose photos</p>
+                    <p className="text-xs text-gray-500">Select one or many from your gallery</p>
                   </div>
                 </button>
               </div>

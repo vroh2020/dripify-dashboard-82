@@ -10,8 +10,10 @@
  * 5. The generated image URL is cached per user+outfit combo so it never regenerates
  */
 
+import { FunctionRegion } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { SavedOutfit, ClosetItem } from '@/hooks/useClosetData';
+import { downscaleImageFile, contentHash } from '@/utils/imageResize';
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -173,6 +175,12 @@ export async function planOutfitForDate(
       metadata: {
         ...outfitData,
         base_photo_url: currentBasePhoto,
+        // Content key for server-side dedupe: identical person + garment
+        // set → same hash → edge function reuses the cached result.
+        content_hash: contentHash([
+          currentBasePhoto ?? '',
+          ...outfitData.items.map((i) => i.source_image_url ?? ''),
+        ]),
       },
     })
     .select()
@@ -332,11 +340,13 @@ export async function generateTryOnImage(genId: string): Promise<void> {
       }
     }
 
-    // Call the Edge Function with a 200s timeout — OutfitAnyone
-    // can take 2-3 min to process a job on the free-tier Space.
+    // Call the Edge Function with a 200s timeout. Pinned to Singapore
+    // (ap-southeast-1) to sit next to the DashScope workspace — the default
+    // region (closest to user) adds cross-continent hops on every call.
     const result = await Promise.race([
       supabase.functions.invoke('generate-tryon', {
         body: { generation_id: genId },
+        region: FunctionRegion.ApSoutheast1,
       }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Edge Function timed out after 240s')), 240_000),
@@ -434,13 +444,19 @@ export async function saveUserBasePhoto(file: File): Promise<string> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth?.user) throw new Error('Not authenticated');
 
+  // ── Downscale before upload ─────────────────────────────────
+  // Phone photos are 3000-4000px; DashScope downloads + VAE-encodes the
+  // base photo on every try-on, so keeping it ≤1280px cuts that cost.
+  // Canvas isn't available server-side, so this happens at upload time.
+  const resizedFile = await downscaleImageFile(file, 1280);
+
   // ── Normalize file extension ────────────────────────────────
   // .jfif is valid JPEG data in a JFIF container; rename to .jpg.
   // .jpeg is standard JPEG; normalize to .jpg for consistency.
   // Reject anything other than .jpg/.jpeg/.png/.jfif to prevent
   // format issues downstream (e.g. Leffa's ML pipeline can't
   // decode .webp, .jfif, .bmp etc).
-  const rawExt = (file.name.split('.').pop() ?? '').toLowerCase();
+  const rawExt = (resizedFile.name.split('.').pop() ?? '').toLowerCase();
   const ALLOWED = new Set(['jpg', 'jpeg', 'png', 'jfif']);
 
   if (!ALLOWED.has(rawExt)) {
@@ -460,7 +476,11 @@ export async function saveUserBasePhoto(file: File): Promise<string> {
 
   const { error: uploadError } = await supabase.storage
     .from('clipped-closet-items')
-    .upload(storagePath, file, { contentType: mimeType, upsert: true });
+    .upload(storagePath, resizedFile, {
+      contentType: mimeType,
+      upsert: true,
+      cacheControl: '31536000', // timestamped URL → immutable → browser-cache forever
+    });
 
   if (uploadError) throw uploadError;
 
