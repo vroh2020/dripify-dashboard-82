@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Purchases, PurchasesOffering, PurchasesPackage } from '@revenuecat/purchases-capacitor';
+import { Purchases, PurchasesOffering, PurchasesPackage, CustomerInfo } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -40,8 +41,6 @@ export const useRevenueCatManager = () => {
         const { customerInfo } = await Purchases.getCustomerInfo();
         const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
         
-        console.log('🔄 fetchSubscriptionStatus result:', { isPro, userId: user.id });
-        
         const newStatus = {
           isActive: isPro,
           expirationDate: subscription.expirationDate,
@@ -74,13 +73,11 @@ export const useRevenueCatManager = () => {
             }
             
             if (attempt < 3) {
-              console.log(`Profile query attempt ${attempt} failed, retrying in 500ms...`);
               await new Promise(resolve => setTimeout(resolve, 500));
             }
           } catch (e) {
             error = e;
             if (attempt < 3) {
-              console.log(`Profile query attempt ${attempt} threw error, retrying in 500ms...`);
               await new Promise(resolve => setTimeout(resolve, 500));
             }
           }
@@ -119,7 +116,7 @@ export const useRevenueCatManager = () => {
     await fetchSubscriptionStatus();
   }, [fetchSubscriptionStatus]);
 
-  const purchaseProduct = useCallback(async (product: PurchasesPackage['product']) => {
+  const purchaseProduct = useCallback(async (productOrPackage: PurchasesPackage | PurchasesPackage['product']) => {
     if (!user) return false;
 
     // Prevent rapid purchase attempts
@@ -139,23 +136,18 @@ export const useRevenueCatManager = () => {
       try {
         setIsLoading(true);
         
-        console.log('🔄 Starting web purchase simulation for user:', user?.id);
-        
         // Show payment confirmation dialog
         const confirmed = window.confirm(
           'This is a web demo. In production, this would open a payment flow. Would you like to simulate a successful payment?'
         );
         
         if (!confirmed) {
-          console.log('❌ User cancelled web purchase simulation');
           toast({ 
             title: "Payment Cancelled", 
             description: "You can try again anytime." 
           });
           return false;
         }
-        
-        console.log('✅ User confirmed web purchase simulation');
         
         // Simulate payment processing
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -174,28 +166,17 @@ export const useRevenueCatManager = () => {
           offeringId: 'web-simulation'
         };
         
-        console.log('🔄 Updating Supabase profile for user:', user?.id);
-        console.log('📝 Update data:', {
-          onboarding_completed: true,
-          subscription_status: 'active',
-          subscription_expires_at: expiryDate.toISOString()
-        });
-        
         // Update Supabase profile
-        const { data, error: profileError } = await supabase.from('profiles').update({
+        const { error: profileError } = await supabase.from('profiles').update({
           onboarding_completed: true,
           subscription_status: 'active',
           subscription_expires_at: expiryDate.toISOString()
-        }).eq('id', user.id).select();
-
-        console.log('📊 Supabase update result:', { data, error: profileError });
+        }).eq('id', user.id);
 
         if (profileError) {
-          console.error('❌ Supabase profile update failed:', profileError);
+          console.error('Supabase profile update failed:', profileError);
           throw profileError;
         }
-        
-        console.log('✅ Supabase profile updated successfully');
         
         setSubscription(newSubscription);
         toast({ 
@@ -204,7 +185,7 @@ export const useRevenueCatManager = () => {
         });
         return true;
       } catch (error: any) {
-        console.error('❌ Web purchase simulation failed:', error);
+        console.error('Web purchase simulation failed:', error);
         
         // Handle specific error types
         if (error.message?.includes('network') || error.message?.includes('timeout')) {
@@ -234,7 +215,7 @@ export const useRevenueCatManager = () => {
 
     // Native iOS RevenueCat flow
     if (!hasInitialized.current) {
-      console.error('RevenueCat not initialized');
+      // RevenueCat not initialized
       toast({ 
         variant: "destructive", 
         title: "Payment System Not Ready", 
@@ -245,45 +226,49 @@ export const useRevenueCatManager = () => {
 
     try {
       setIsLoading(true);
-      console.log('🔄 Starting native purchase flow for:', product.identifier);
+
+      // The paywall passes a full `PurchasesPackage` (from getOfferings),
+      // while other callers may pass a bare store product. Route to the
+      // matching RevenueCat API — `purchasePackage` for packages,
+      // `purchaseStoreProduct` for products. Passing the wrong shape to
+      // either call makes the native SDK fail to resolve a purchasable
+      // item, which surfaces as a dead/"slow" payment.
+      const isPackage =
+        !!productOrPackage &&
+        typeof productOrPackage === 'object' &&
+        'product' in productOrPackage &&
+        !!(productOrPackage as PurchasesPackage).product;
+
+      const result = isPackage
+        ? await Purchases.purchasePackage({ aPackage: productOrPackage as PurchasesPackage })
+        : await Purchases.purchaseStoreProduct({ product: productOrPackage as PurchasesPackage['product'] });
+
       
-      // CRITICAL FIX: Always attempt actual purchase, don't assume existing subscription
-      const result = await Purchases.purchaseStoreProduct(product);
-      console.log('✅ Purchase result:', result);
-      
-      // Validate the purchase was actually completed
-      const isPro = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive || false;
-      const hasActiveEntitlement = result.customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER];
-      
-      console.log('🔍 Purchase validation:', { 
-        isPro, 
-        hasActiveEntitlement: !!hasActiveEntitlement,
-        productId: product.identifier,
-        entitlements: Object.keys(result.customerInfo.entitlements.active || {})
-      });
+      // Validate the purchase was actually completed. The entitlement on
+      // the purchase result is *usually* fresh, but the store can lag a
+      // beat behind the SDK's snapshot — so if it doesn't show up yet,
+      // re-check with a fresh `getCustomerInfo()` before ever telling the
+      // user their (successful) payment failed.
+      const isEntitlementActive = (ci: CustomerInfo) =>
+        Boolean(ci.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+
+      let isPro = isEntitlementActive(result.customerInfo);
+      if (!isPro) {
+        try {
+          const { customerInfo } = await Purchases.getCustomerInfo();
+          isPro = isEntitlementActive(customerInfo);
+        } catch {
+          // Post-purchase refresh failed — proceed with what we have
+        }
+      }
       
       if (isPro) {
-        // Update Supabase profile
-        const { error: profileError } = await supabase.from('profiles').update({
-          onboarding_completed: true,
-          subscription_status: 'active',
-          subscription_expires_at: result.customerInfo.latestExpirationDate ? 
-            new Date(result.customerInfo.latestExpirationDate).toISOString() : 
-            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days fallback
-        }).eq('id', user.id);
-
-        if (profileError) {
-          console.error('Failed to update profile after purchase:', profileError);
-        }
-
-        toast({ 
-          title: "Welcome to Pro! 🎉", 
-          description: "Your subscription is now active!" 
-        });
-        await fetchSubscriptionStatus();
+        await finalizeProPurchase(
+          result.customerInfo,
+          (productOrPackage as any)?.identifier ?? null
+        );
         return true;
       } else {
-        console.log('❌ Purchase validation failed - no new subscription detected');
         toast({ 
           variant: "destructive", 
           title: "Purchase Validation Failed", 
@@ -293,7 +278,22 @@ export const useRevenueCatManager = () => {
       }
       
     } catch (error: any) {
-      console.error('Native purchase failed:', error);
+      // Native purchase failed. RevenueCat sometimes rejects AFTER the store has completed the
+      // transaction (e.g. it failed to sync the receipt to its backend,
+      // or the purchase promise rejected on a transient error). Before
+      // showing a failure toast, check whether the user now actually
+      // holds the entitlement — if they do, treat it as a success so we
+      // never report a charged purchase as failed.
+      try {
+        const { customerInfo } = await Purchases.getCustomerInfo();
+        const isEntitlementActive = (ci: CustomerInfo) =>
+          Boolean(ci.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
+        if (isEntitlementActive(customerInfo)) {
+          await finalizeProPurchase(customerInfo, (productOrPackage as any)?.identifier ?? null);
+          return true;
+        }        } catch {
+          // Recovery check failed — fall through to error toasts
+        }
       
       // Handle specific RevenueCat error types
       if (error.message?.includes('cancelled') || error.code === 'PURCHASES_ERROR_PURCHASE_CANCELLED') {
@@ -339,6 +339,44 @@ export const useRevenueCatManager = () => {
     }
   }, [toast, fetchSubscriptionStatus, user]);
 
+  /**
+   * Shared success path for a confirmed Pro purchase: mirror the
+   * entitlement into the Supabase profile, update local subscription
+   * state, and celebrate. Called both from the normal purchase flow and
+   * from the error-recovery path (purchase completed but the SDK threw).
+   */
+  const finalizeProPurchase = async (
+    customerInfo: CustomerInfo,
+    productId: string | null
+  ): Promise<void> => {
+    // Update Supabase profile
+    const { error: profileError } = await supabase.from('profiles').update({
+      onboarding_completed: true,
+      subscription_status: 'active',
+      subscription_expires_at: customerInfo.latestExpirationDate
+        ? new Date(customerInfo.latestExpirationDate).toISOString()
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days fallback
+    }).eq('id', user.id);
+
+    if (profileError) {
+      console.error('Failed to update profile after purchase:', profileError);
+    }
+
+    setSubscription({
+      isActive: true,
+      expirationDate: customerInfo.latestExpirationDate
+        ? new Date(customerInfo.latestExpirationDate)
+        : null,
+      productId,
+      offeringId: null,
+    });
+
+    toast({ 
+      title: "Welcome to Pro! 🎉", 
+      description: "Your subscription is now active!" 
+    });
+  };
+
   const restorePurchases = useCallback(async () => {
     if (!user) return false;
 
@@ -365,7 +403,7 @@ export const useRevenueCatManager = () => {
         });
         return false;
       } catch (error: any) {
-        console.error('Web restore failed:', error);
+  
         
         if (error.message?.includes('network') || error.message?.includes('timeout')) {
           toast({ 
@@ -415,7 +453,6 @@ export const useRevenueCatManager = () => {
         return false;
       }
     } catch (error: any) {
-      console.error('Restore purchases failed:', error);
       
       // Handle specific error types
       if (error.message?.includes('429') || error.message?.includes('rate limit')) {
@@ -480,49 +517,73 @@ export const useRevenueCatManager = () => {
           return;
         }
 
-        const { data, error } = await supabase.functions.invoke('revenuecat-config');
-        if (error || !data?.publicKey) {
-          throw new Error('No API key');
+        // Fetch the SDK public key. It's cached in Preferences after the
+        // first successful fetch so later launches skip the Supabase
+        // edge-function round trip (and its cold-start latency) entirely.
+        // The key is RevenueCat's PUBLIC SDK key, so caching it on device
+        // is safe — it's the same value shipped inside a native app binary.
+        const KEY_CACHE = 'revenuecat_public_key';
+        let publicKey: string | null = null;
+        try {
+          publicKey = (await Preferences.get({ key: KEY_CACHE })).value ?? null;
+        } catch {
+          publicKey = null;
+        }
+        if (!publicKey) {
+          const { data, error } = await supabase.functions.invoke('revenuecat-config');
+          if (error || !data?.publicKey) {
+            throw new Error('No API key');
+          }
+          publicKey = data.publicKey as string;
+          Preferences.set({ key: KEY_CACHE, value: publicKey }).catch(() => {});
         }
 
         // First configure RevenueCat
         await Purchases.configure({
-          apiKey: data.publicKey,
+          apiKey: publicKey,
           appUserID: null // Required by type definition
         });
 
-        // Then explicitly log in the user to switch to their account
-        try {
-          await Purchases.logIn({ appUserID: user.id });
-          console.log('🔄 Logged in RevenueCat user:', user.id);
-          
-          // Now check their subscription status
-          const { customerInfo } = await Purchases.getCustomerInfo();
-          const isPro = Boolean(customerInfo.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive);
-          
-          setSubscription({
-            isActive: isPro,
-            expirationDate: null,
-            productId: null,
-            offeringId: null
-          });
-        } catch (loginError) {
-          console.error('RevenueCat login failed:', loginError);
-          // If login fails, ensure subscription is marked as inactive
-          setSubscription({
-            isActive: false,
-            expirationDate: null,
-            productId: null,
-            offeringId: null
-          });
-        }
+        // Then explicitly log in the user to switch to their account.
+        // `logIn` already returns the user's customerInfo, so the separate
+        // `getCustomerInfo()` round trip is dropped, and offerings are
+        // fetched in PARALLEL with the login — both only depend on
+        // `configure`, so waiting on them sequentially just burns time.
+        // This turns the old 5-hop serial init chain into ~3 hops with the
+        // two slowest calls running at once.
+        const [loginResult, offeringsResult] = await Promise.all([
+          Purchases.logIn({ appUserID: user.id }).then(
+            (r) => r,
+            (err) => {
+              return null; // Login failed — continue without user identity
+            }
+          ),
+          Purchases.getOfferings().then(
+            (r) => r,
+            (err) => {
+              return null; // Offerings fetch failed — continue with empty offerings
+            }
+          ),
+        ]);
+
+        const customerInfo = loginResult?.customerInfo ?? null;
+        const isPro = Boolean(
+          customerInfo?.entitlements.active?.[REVENUECAT_CONFIG.ENTITLEMENT_IDENTIFIER]?.isActive
+        );
+
+        setSubscription({
+          isActive: isPro,
+          expirationDate: null,
+          productId: null,
+          offeringId: null
+        });
 
         hasInitialized.current = true;
 
-        const offeringsData = await Purchases.getOfferings();
-        setOfferings(Object.values(offeringsData.all || {}));
+        if (offeringsResult) {
+          setOfferings(Object.values(offeringsResult.all || {}));
+        }
       } catch (error) {
-        console.error('RevenueCat initialization failed:', error);
         setSubscription({
           isActive: false,
           expirationDate: null,

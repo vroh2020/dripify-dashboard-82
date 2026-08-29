@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { REVENUECAT_CONFIG } from "@/config/revenueCat";
 
 interface ProOfferCardProps {
   onContinue: () => void;
@@ -19,24 +20,41 @@ const getBillingDate = () => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-// Get plan config from RevenueCat offerings
+// Get plan config from RevenueCat offerings.
+// Searches by product identifier first (from config), then falls back to
+// standard RevenueCat package identifiers. This prevents silent failures
+// when the RevenueCat dashboard product IDs don't match hardcoded strings.
 const getPlanConfig = (offerings: any) => {
   const premiumOffering = offerings?.find((o: any) => o.identifier === 'new_paywall');
-  const packages = premiumOffering?.availablePackages || [];
-  
-  const monthlyPkg = packages.find((p: any) => p.identifier === '$rc_monthly');
-  const yearlyPkg = packages.find((p: any) => p.identifier === '$rc_annual');
-  
+  const packages: any[] = premiumOffering?.availablePackages || [];
+
+  // Helper: find a package by product identifier OR package identifier
+  const findPkg = (productIds: string[], pkgIds: string[]) =>
+    packages.find(
+      (p: any) =>
+        productIds.includes(p.product?.identifier) ||
+        pkgIds.includes(p.identifier)
+    );
+
+  const monthlyPkg = findPkg(
+    [REVENUECAT_CONFIG.products.monthly, 'og_999_1m'],
+    ['$rc_monthly', '$rc_weekly']
+  );
+  const yearlyPkg = findPkg(
+    [REVENUECAT_CONFIG.products.yearly, 'og_yearly_2999_1y'],
+    ['$rc_annual', '$rc_lifetime']
+  );
+
   return {
     monthly: {
-      identifier: monthlyPkg?.product?.identifier || "og_999_1m",
+      identifier: monthlyPkg?.product?.identifier || REVENUECAT_CONFIG.products.monthly,
       title: "Monthly",
       price: monthlyPkg?.product?.priceString || "$9.99",
       period: "/mo",
       package: monthlyPkg
     },
     yearly: {
-      identifier: yearlyPkg?.product?.identifier || "og_yearly_2999_1y",
+      identifier: yearlyPkg?.product?.identifier || REVENUECAT_CONFIG.products.yearly,
       title: "Yearly",
       price: yearlyPkg?.product?.priceString || "$2.49",
       period: "/mo",
@@ -224,40 +242,21 @@ const RestorePurchasesButton = ({
   );
 };
 
-// Track paywall interactions
-const trackPaywallEvent = async (userId: string, event: string, data: any = {}) => {
-  try {
-    // Get current step_data
-    const { data: currentData } = await supabase
-      .from('onboarding_v2')
-      .select('step_data')
-      .eq('user_id', userId)
-      .single();
-    
-    const stepData = (currentData?.step_data as any) || {};
-    const paywallTracking = stepData.paywall_tracking || {};
-    
-    // Add new event
-    paywallTracking[event] = {
-      ...data,
+// Track paywall interactions — fire-and-forget insert (no read-modify-write).
+// Using user_analytics avoids the expensive read-modify-write cycle on
+// onboarding_v2 that previously delayed the App Store purchase sheet.
+const trackPaywallEvent = (userId: string, event: string, data: any = {}) => {
+  supabase
+    .from('user_analytics')
+    .insert({
+      user_id: userId,
+      action: event,
+      data,
       timestamp: new Date().toISOString()
-    };
-    
-    // Update with merged data
-    await supabase
-      .from('onboarding_v2')
-      .update({
-        step_data: {
-          ...stepData,
-          paywall_tracking: paywallTracking
-        }
-      })
-      .eq('user_id', userId);
-    
-    console.log('✅ Paywall event tracked:', event, data);
-  } catch (error) {
-    console.error('❌ Failed to track paywall event:', error);
-  }
+    })
+    .then(({ error }) => {
+      if (error) console.warn('Paywall event tracking failed:', error);
+    });
 };
 
 // Main Component
@@ -290,11 +289,7 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
     }
   }, [isPro, shouldContinueAfterRestore, onContinue]);
 
-  useEffect(() => {
-    if (user) {
-      console.log('✅ ProOfferCard: User authenticated:', user.id);
-    }
-  }, [user]);
+
   
   if (authLoading) {
     return (
@@ -326,13 +321,32 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
     return config.package;
   };
 
+  // True once RevenueCat offerings have landed and a real purchasable
+  // package exists for at least one plan. Until then the CTA stays
+  // disabled — tapping it with no product used to fail the purchase.
+  const plansReady = Boolean(getProduct('monthly') || getProduct('yearly'));
+
   const handlePurchase = async () => {
     if (isProcessing) return;
     
     setIsProcessing(true);
     setHasError(false);
     
-    // Track purchase attempt
+    const selectedProduct = getProduct(selectedPlan);
+    if (!selectedProduct) {
+      // Offerings haven't loaded yet — don't attempt a purchase with an
+      // undefined package (that used to throw inside the native SDK and
+      // read as a stuck/failed payment).
+      setIsProcessing(false);
+      toast({
+        title: "Plans still loading",
+        description: "Give it a second, then tap again."
+      });
+      return;
+    }
+    
+    // Track purchase attempt — fire-and-forget. Awaiting a Supabase
+    // read here delayed the App Store sheet from appearing after the tap.
     if (user?.id) {
       trackPaywallEvent(user.id, 'paywall_1_purchase_attempt', {
         plan: selectedPlan,
@@ -341,11 +355,11 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
     }
     
     try {
-      const selectedProduct = getProduct(selectedPlan);
       const success = await purchaseProduct(selectedProduct);
       
       if (success) {
-        // Track successful purchase
+        // Track successful purchase — fire-and-forget so the success
+        // toast + navigation aren't held hostage by Supabase latency.
         if (user?.id) {
           trackPaywallEvent(user.id, 'paywall_1_purchase_success', {
             plan: selectedPlan,
@@ -541,7 +555,7 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
           onClick={handlePurchase}
-          disabled={isProcessing}
+          disabled={isProcessing || !plansReady}
           className="w-full bg-black text-white font-semibold py-4 px-8 rounded-2xl text-lg transition-all duration-200 hover:bg-gray-900 active:scale-98 mb-3 disabled:bg-gray-400 disabled:cursor-not-allowed"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif' }}
         >
@@ -554,6 +568,11 @@ export const ProOfferCard = ({ onContinue, onSkipToFreeTier }: ProOfferCardProps
             <div className="flex items-center justify-center gap-2">
               <RefreshCw className="w-4 h-4" />
               <span>Try Again</span>
+            </div>
+          ) : !plansReady ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              <span>Loading plans...</span>
             </div>
           ) : selectedPlan === 'yearly' ? (
             <span>Start My 3-Day Free Trial</span>

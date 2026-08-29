@@ -240,11 +240,8 @@ export const AuthOnboardingWizard = () => {
   };
 
   const handlePaywallComplete = async (tier: string, paywallSource: 'paywall_1' | 'paywall_2' | 'free' = 'paywall_1') => {
-    console.log('🎯 handlePaywallComplete called with:', { tier, paywallSource });
-    
     try {
       if (userId) {
-        console.log('💾 Saving paywall completion data for user:', userId);
         // Save comprehensive paywall completion data
         saveOnboardingStep('paywall_completed', { 
           subscriptionTier: tier,
@@ -262,18 +259,14 @@ export const AuthOnboardingWizard = () => {
       }
       
       // Mark onboarding as completed
-      console.log('💾 Setting localStorage values...');
       localStorage.setItem('onboarding_completed', 'true');
       // For free tier, still mark as "active" so they can access the app
-      localStorage.setItem('subscription_active', 'true'); // Always true - free users can still use app
+      localStorage.setItem('subscription_active', 'true');
       localStorage.setItem('subscription_tier', tier);
-      console.log('✅ localStorage updated');
         
       // Mark as completed in database with tier tracking
       if (userId) {
           try {
-          console.log('📝 Updating database...');
-          
           // First, try to get current step_data
           const { data: currentData, error: fetchError } = await supabase
             .from('onboarding_v2')
@@ -281,9 +274,7 @@ export const AuthOnboardingWizard = () => {
             .eq('user_id', userId)
             .maybeSingle();
           
-          if (fetchError) {
-            console.warn('⚠️ Could not fetch step_data:', fetchError);
-          }
+          // fetchError is fine — we'll create the row if it doesn't exist
           
           const stepData = (currentData?.step_data as any) || {};
           
@@ -313,11 +304,8 @@ export const AuthOnboardingWizard = () => {
               });
           
           if (error) {
-            console.error('❌ Database error:', error);
             // Don't throw - continue anyway
           } else {
-            console.log('✅ Database updated successfully with tier:', tier);
-
             // Seed 45-50 base wardrobe items per gender (these are the
             // cornerstone items every user gets). The WardrobeSeedStep
             // (Step 7) added extra curated items on top of these.
@@ -325,13 +313,11 @@ export const AuthOnboardingWizard = () => {
               (e) => console.error('[seedDemoWardrobe] Background seed failed:', e)
             );
           }
-        } catch (dbError) {
-          console.error('❌ Failed to save to database:', dbError);
+        } catch {
           // Don't throw - let user continue even if DB save fails
         }
       }
       
-      console.log('📢 Showing toast notification...');
       toast({
         title: tier === 'free' ? "Welcome to trendza!" : "Welcome to Premium!",
         description: tier === 'free' 
@@ -350,14 +336,14 @@ export const AuthOnboardingWizard = () => {
       // route gate re-evaluate against the freshly-set
       // localStorage `onboarding_completed=true` flag without a
       // state regression.
-      console.log('🧭 [handlePaywallComplete] Scheduling navigate to /dress-me in 1s...')
+      // SPA navigation keeps the React tree alive so the route gate in
+      // App.tsx re-evaluates hasCompletedOnboarding without a full page
+      // reload. localStorage is set above, so the gate will see it.
       setTimeout(() => {
-        console.log('🧭 forcing hard redirect to /dress-me')
-        window.location.href = '/dress-me'
+        navigate('/dress-me', { replace: true });
       }, 1000);
 
     } catch (error) {
-      console.error('❌ Error in handlePaywallComplete:', error);
       handleError(error, 'Auth:handlePaywallComplete');
     }
   };
